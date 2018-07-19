@@ -21,52 +21,74 @@ describe('TestTransport', () => {
 
     it('should communicate each other', (done) => {
         const oneTimeDone=oneTime(done);
+        const message={a:1};
         const endpoint1=new TestTrasport({delay: 0.5});
         const endpoint2=new TestTrasport({delay: 1});
-        endpoint1.listen('address');
-        endpoint2.connect('address');
-        const message={a:1};
 
-        endpoint2.on('message', (receivedMsg) =>{
-            assert.deepEqual(message, receivedMsg);
-            oneTimeDone();
+        endpoint1.listen('address');
+        endpoint1.on('connect', async connection1=>{
+
+            // need to wait till connection2 assign listener
+            await sleep(1000);
+            connection1.sendMessage(message);
         });
-        endpoint1.sendMessage(message);
+
+        endpoint2.connect('address').then(connection2 =>{
+            connection2.on('message', (receivedMsg) =>{
+                assert.deepEqual(message, receivedMsg);
+                oneTimeDone();
+            });
+        });
+
     });
 
     it('should not communicate (different addresses)', function(done) {
         const oneTimeDone=oneTime(done);
-
-        this.timeout(15000);
+        const message={a:1};
         const endpoint1=new TestTrasport({delay: 0.5});
         const endpoint2=new TestTrasport({delay: 1});
-        endpoint1.listen('address');
-        endpoint2.connect('address2');
-        const message={a:1};
 
-        endpoint2.on('message', (receivedMsg) =>{
-            assert.deepEqual(message, receivedMsg);
-            const error=new Error('Unexpected success');
-            oneTimeDone(error);
+        endpoint1.listen('address');
+        endpoint1.on('connect', async connection1=>{
+
+            // need to wait till connection2 assign listener
+            await sleep(1000);
+            connection1.sendMessage(message);
         });
-        endpoint1.sendMessage(message);
+
+        endpoint2.connect('address').then(connection2 =>{
+            connection2.on('message', (receivedMsg) =>{
+                assert.deepEqual(message, receivedMsg);
+                oneTimeDone();
+            });
+        });
+
         sleep(3000).then(oneTimeDone);
     });
 
     it('should simulate network latency (3 sec)',  function(done) {
-        const oneTimeDone=oneTime(done);
         this.timeout(15000);
-        const endpoint1=new TestTrasport({delay: 0.5});
-        const endpoint2=new TestTrasport({delay: 3});
-        endpoint1.listen('address');
-        endpoint2.connect('address');
-        const message={a:1};
 
-        endpoint2.on('message', (receivedMsg) =>{
-            assert.deepEqual(message, receivedMsg);
-            oneTimeDone();
+        const oneTimeDone=oneTime(done);
+        const message={a:1};
+        const endpoint1=new TestTrasport({delay: 0.5});
+        const endpoint2=new TestTrasport({delay: 1});
+
+        endpoint1.listen('address');
+        endpoint1.on('connect', async connection1=>{
+
+            // need to wait till connection2 assign listener
+            await sleep(1000);
+            connection1.sendMessage(message);
         });
-        endpoint1.sendMessage(message);
+
+        endpoint2.connect('address').then(connection2 =>{
+            connection2.on('message', (receivedMsg) =>{
+                assert.deepEqual(message, receivedMsg);
+                oneTimeDone();
+            });
+        });
+
         sleep(5000).then(() => oneTimeDone(new Error('Unexpected! timeout reached')));
     });
 });

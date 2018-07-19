@@ -1,65 +1,49 @@
+const EventEmitter = require('events');
+const uuid=require('node-uuid');
 
-
-const EventEmitter=require('events');
-
-const Transport=require('./transport');
-const StringSerializer=require('./stringSerializer');
-
-/**
- *
- * @param {Number} delay - задержка в миллисекундах
- * @return {Promise<any>}
- */
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
+const Transport = require('./transport');
+const TestConnection = require('./testConnection');
 
 /**
- * Это тестовый транспорт на EventEmitter'е.
- * Эмулирует задержку.
+ * Это тестовый транспорт на EventEmitter'е (топик в address)
+ * Может эмулировать задержку через options.delay
  */
 
-const EventBus=new EventEmitter();
+const EventBus = new EventEmitter();
 
-class TestTransport extends Transport{
+class TestTransport extends Transport {
 
     /**
      *
      * @param {Object} options
-     * @param {Number} options.delay - задержка которой мы будем эмулировать network latency в СЕКУНДАХ!
+     * @param {Number} options.delay
      */
-    constructor(options={delay: parseInt(Math.random()*10)}){
-        super(StringSerializer);
-        this._delay=options.delay*1000;
+    constructor(options) {
+        super(options);
     }
 
     /**
-     * @param {String} topic - строка которую будем использовать в отдельного топика в EventEmitter
+     * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
+     * @return {Connection} new connection
      */
-    async connect(topic){
-        this._topic=topic;
-        EventBus.on(topic, this.incomingMessage.bind(this))
-    }
+    async connect(address) {
 
-    listen(topic){
-        this._topic=topic;
-        EventBus.on(topic, this.incomingMessage.bind(this))
+        // pass a connection_id
+        const topic=uuid.v4();
+        EventBus.emit(address, topic);
+        return new TestConnection({delay: this._delay, socket: EventBus, topic});
     }
 
     /**
+     * Emit 'connect' with new Connection
      *
-     * @param {Object} objMessage - message to send to peer
+     * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
      */
-    sendMessage(objMessage){
-        EventBus.emit(this._topic, StringSerializer.serialize(objMessage))
-    }
-
-    async incomingMessage(objMessage){
-        await sleep(this._delay);
-        this.emit('message', StringSerializer.deSerialize(objMessage))
+    listen(address) {
+        EventBus.on(address, topic =>{
+            this.emit('connect', new TestConnection({delay: this._delay, socket: EventBus, topic}));
+        });
     }
 }
 
-module.exports=TestTransport;
+module.exports = TestTransport;

@@ -1,54 +1,30 @@
 const EventEmitter=require('events');
+const Connection=require('./connection');
 
 class Transport extends EventEmitter{
 
     /**
      *
+     * @param {Object} options
      */
-    constructor(serializer){
+    constructor(options){
         super();
-        if(!serializer) throw new Error('Specify serializer!');
-        this._serializer=serializer;
+        this._delay = options.delay || parseInt(Math.random() * 10);
     }
 
-    /**
-     * Here should be some handshake
-     *
-     * @param {String} peerAddr - address of peer to connect
-     */
-    async connect(){
-        this._peerAddr=peerAddr;
+    async connect(address){
         throw new Error('Should implement!');
+//        this._address=address;
+//        return new Connection({delay: this._delay});
     }
 
-    /**
-     * Here should be some handshake
-     *
-     * @param {String} address - address to bind for incoming connection
-     * @param {String} port - port to bind for incoming connection
-     */
-    listen(address=null, port=null){
+    listen(address){
         throw new Error('Should implement!');
+//        this._address=address;
+//        transport.listen(this._address);
+//        tramsport.on('connect', () => this.emit(new Connection()))
     }
 
-    /**
-     *
-     * @param {Object} objMessage - message to send to peer
-     */
-    sendMessage(objMessage){
-        throw new Error('Should implement!');
-        this._serializer.serialize(objMessage);
-
-    }
-
-    /**
-     *
-     * @param {Mixed} message - received from peer
-     */
-    incomingMessage(message){
-        throw new Error('Should implement!');
-        this.emit('message',this._serializer.deSerialize(message));
-    }
 }
 
 module.exports=Transport;
