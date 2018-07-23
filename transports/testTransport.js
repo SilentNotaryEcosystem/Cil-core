@@ -1,8 +1,15 @@
 const EventEmitter = require('events');
 const uuid=require('node-uuid');
+const debug=require('debug')('testTransport');
 
 const Transport = require('./transport');
 const TestConnection = require('./testConnection');
+
+const sleep = (delay) => {
+    return new Promise(resolve => {
+        setTimeout(() => resolve(), delay);
+    });
+};
 
 /**
  * Это тестовый транспорт на EventEmitter'е (топик в address)
@@ -31,6 +38,8 @@ class TestTransport extends Transport {
         // pass a connection_id
         const topic=uuid.v4();
         EventBus.emit(address, topic);
+        debug(`Connect delay ${this._delay}`);
+        if(this._delay) await sleep(this._delay);
         return new TestConnection({delay: this._delay, socket: EventBus, topic});
     }
 
@@ -40,8 +49,24 @@ class TestTransport extends Transport {
      * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
      */
     listen(address) {
-        EventBus.on(address, topic =>{
+        EventBus.on(address, async topic =>{
+            if(this._delay) await sleep(this._delay);
+            debug(`Listen delay ${this._delay}`);
             this.emit('connect', new TestConnection({delay: this._delay, socket: EventBus, topic}));
+        });
+    }
+
+    /**
+     * Emulate Sync version on listen
+     * Useful on tests
+     *
+     * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
+     * @return {Promise<Connection>} new connection
+     */
+    listenSync(address) {
+        return new Promise(resolve =>{
+            this.listen(address);
+            this.on('connect', connection => resolve(connection));
         });
     }
 }

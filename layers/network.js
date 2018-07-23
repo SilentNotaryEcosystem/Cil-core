@@ -1,21 +1,25 @@
 const EventEmitter=require('events');
 
 class Network extends EventEmitter{
-    constructor(arrSeedNodesAddress=[], address){
+    constructor(options){
+        const {address, relay, arrSeedNodes, listen} = options;
+
         super();
-        if(!arrSeedNodesAddress || !arrSeedNodesAddress.length) throw new Error('Specify Seed Nodes!');
-        this._arrSeedNodesAddress=arrSeedNodesAddress;
+        this._arrSeedNodes=arrSeedNodes;
+        this._relay=relay;
         this._address=address;
-    }
-    bootstrap(){
 
-    }
-    connectToPeers(){
-
+//        if(listen){
+//            this.
+//        }
     }
 
     get myAddress(){
         return this._address;
+    }
+
+    bootstrap(){
+        if(!this._arrSeedNodes) throw new Error('Specify Seed Nodes!');
     }
 }
 

@@ -1,5 +1,6 @@
 const Connection=require('./connection');
 const StringSerializer=require('./stringSerializer');
+const debug=require('debug')('testConnection');
 
 const sleep = (delay) => {
     return new Promise(resolve => {
@@ -23,13 +24,28 @@ class TestConnection extends Connection{
      *
      * @param {Object} objMessage - message to send to peer
      */
-    sendMessage(objMessage){
+    async sendMessage(objMessage){
+        if(this._delay) await sleep(this._delay);
+        debug(`sendMessage delay ${this._delay}`);
         this._socket.emit(this._topic, StringSerializer.serialize(objMessage))
     }
 
     async _incomingMessage(objMessage){
         if(this._delay) await sleep(this._delay);
+        debug(`_incomingMessage delay ${this._delay}`);
         this.emit('message', StringSerializer.deSerialize(objMessage))
+    }
+
+    /**
+     *
+     * @return {Promise<Object>} - message
+     */
+    receiveSync(){
+        return new Promise(resolve => {
+            this.on('message', async objMessage => {
+                resolve(objMessage);
+            });
+        });
     }
 }
 

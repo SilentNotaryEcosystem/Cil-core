@@ -9,7 +9,7 @@ class Transport extends EventEmitter{
      */
     constructor(options){
         super();
-        this._delay = options.delay || parseInt(Math.random() * 10);
+        this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
     }
 
     async connect(address){

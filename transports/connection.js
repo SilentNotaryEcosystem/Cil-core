@@ -19,7 +19,7 @@ class Connection extends EventEmitter{
         super();
 
         // optional delay to simulate network latency
-        this._delay=options.delay;
+        this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
         this._socket=options.socket;
         if(!this._socket) throw new Error('No socket!');
     }
