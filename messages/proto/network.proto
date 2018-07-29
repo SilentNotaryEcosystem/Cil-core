@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package network;
+
+// ------------------------------ Common -------------------
+// IPv6 or IPv4Mapped2IPv6
+message Address {
+    uint32 addr0 = 1;
+    uint32 addr1 = 2;
+    uint32 addr2 = 3;
+    uint32 addr3 = 4;
+}
+
+message Message {
+    uint32 network = 1;
+    string message = 3;
+    uint32 checksum = 4;
+
+    // will be filled only for signed connections
+    bytes signature = 5;
+    bytes payload = 6;
+}
+
+// ------------------------------ Version message -------------------
+message PeerInfo {
+    repeated NodeCapabilities capabilities =1;
+    Address address = 2;
+}
+
+enum Services {
+    NODE = 1;
+    WITNESS = 2;
+}
+
+message NodeCapabilities {
+    Services service =1;
+
+    // for witness it will be his publicKey
+    bytes data =2;
+}
+
+message VersionPayload {
+    uint32 protocolVersion = 1;
+    uint32 timeStamp = 2;
+    PeerInfo peerInfo = 3;
+    uint32 nonce = 4;
+    uint64 height = 5;
+}
+
+// --------------------------------
