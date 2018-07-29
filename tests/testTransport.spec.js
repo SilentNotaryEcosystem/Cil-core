@@ -1,13 +1,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const TestTrasport=require('../transports/testTransport');
-
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
+const TestTrasport = require('../network/testTransport');
+const {sleep} = require('../utils');
 
 describe('TestTransport', () => {
     before(async function() {

@@ -1,5 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+
 const Crypto = require('../crypto/crypto');
 
 describe('Crypto library', () => {

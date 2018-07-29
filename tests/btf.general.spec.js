@@ -1,6 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
+global.Factory = require('../factory');
 const BFT=require('../layers/bftConsensus');
 
 const myNetwork={

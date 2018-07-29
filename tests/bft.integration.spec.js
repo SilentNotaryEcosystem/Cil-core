@@ -1,11 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const {sleep} = require('../utils');
 
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
 
 describe('BFT consensus', () => {
     before(async function() {
