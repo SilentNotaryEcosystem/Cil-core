@@ -23,7 +23,7 @@ class CryptoLib{
 
     /**
      *
-     * @param {} msg
+     * @param {Buffer} msg
      * @param {BN|String} key - private key (BN - BigNumber @see https://github.com/indutny/bn.js)
      * @param {String} enc - encoding of private key. possible value = 'hex', else it's trated as Buffer
      * @param {Object} options - for hmac-drbg
@@ -35,9 +35,9 @@ class CryptoLib{
 
     /**
      *
-     * @param {} msg
+     * @param {Buffer} msg
      * @param {Buffer} signature
-     * @param {Point|String} key - private key
+     * @param {Point|String} key - public key
      * @param {String} enc - encoding of private key. possible value = 'hex', else it's trated as Buffer
      * @return {boolean}
      */
