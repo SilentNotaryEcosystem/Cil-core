@@ -9,10 +9,11 @@ const protobuf = require("protobufjs");
 const config = require('../config/prod.conf');
 
 const Crypto = require('../crypto/crypto');
-const Transport = require('../network/testTransport');
+const TransportWrapper = require('../network/testTransport');
 const SerializerWrapper = require('../network/serializer');
 const WalletWrapper = require('../wallet/wallet');
 const MessagesWrapper = require('../messages/index');
+const BftWrapper = require('../node/bftConsensus');
 
 const pack = require('../package');
 
@@ -22,6 +23,7 @@ class Factory {
         this._donePromise = this._asyncLoader();
         this._donePromise.then(() => {
                 this._serializerImplementation = SerializerWrapper(this._messagesImplementation);
+                this._transportImplemetation = TransportWrapper(this._serializerImplementation);
             })
             .catch(err => {
                 console.error(err);
@@ -32,7 +34,7 @@ class Factory {
             ...config.constants
         };
         this._walletImplementation = WalletWrapper(Crypto);
-
+        this._bftImplementation = BftWrapper(Crypto);
     }
 
     asyncLoad() {
@@ -51,7 +53,7 @@ class Factory {
     }
 
     get Transport() {
-        return Transport;
+        return this._transportImplemetation;
     }
 
     get Serializer() {
@@ -76,6 +78,10 @@ class Factory {
 
     get Messages() {
         return this._messagesImplementation;
+    }
+
+    get BFT() {
+        return this._bftImplementation;
     }
 
     async _asyncLoader() {

@@ -1,5 +1,6 @@
 const EventEmitter=require('events');
-const Connection=require('./connection');
+
+//const Connection=require('./connection');
 
 class Transport extends EventEmitter{
 
@@ -25,6 +26,9 @@ class Transport extends EventEmitter{
 //        tramsport.on('connect', () => this.emit(new Connection()))
     }
 
+    isAddressPrivate() {
+        throw new Error('Should implement!');
+    }
 }
 
 module.exports=Transport;

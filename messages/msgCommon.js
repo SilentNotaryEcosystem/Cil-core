@@ -25,7 +25,6 @@ module.exports = (NetworkMagic, MessageProto) =>
         set payload(buffValue) {
             if (!Buffer.isBuffer(buffValue)) throw new Error(`Expected Buffer got ${typeof buffValue}`);
             this._msg.payload = buffValue;
-            this._msg.payloadLength = buffValue.length;
         }
 
         get signature() {

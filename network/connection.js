@@ -1,5 +1,6 @@
 const EventEmitter=require('events');
-const Serializer=require('./serializer');
+
+//const Serializer=require('./serializer');
 
 /**
  *
@@ -37,6 +38,10 @@ class Connection extends EventEmitter{
         throw new Error('Should implement!');
 //        if(this._delay) await sleep(this._delay);
 //        this.emit('message', Serializer.deSerialize(objMessage))
+    }
+
+    get myAddress() {
+        throw new Error('Should implement!');
     }
 
 }
