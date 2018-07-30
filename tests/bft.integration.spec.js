@@ -2,8 +2,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const {sleep} = require('../utils');
 
-
-describe('BFT consensus', () => {
+describe('BFT consensus (DEMO tests)', () => {
     before(async function() {
         this.timeout(15000);
     });

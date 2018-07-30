@@ -14,6 +14,8 @@ const SerializerWrapper = require('../network/serializer');
 const WalletWrapper = require('../wallet/wallet');
 const MessagesWrapper = require('../messages/index');
 const BftWrapper = require('../node/bftConsensus');
+const NetworkWrapper = require('../network/network');
+//const NodeWrapper = require('../node/node');
 
 const pack = require('../package');
 
@@ -24,6 +26,10 @@ class Factory {
         this._donePromise.then(() => {
                 this._serializerImplementation = SerializerWrapper(this._messagesImplementation);
                 this._transportImplemetation = TransportWrapper(this._serializerImplementation);
+                this._networkImplementation = NetworkWrapper(
+                    this._transportImplemetation,
+                    this.Constants
+                );
             })
             .catch(err => {
                 console.error(err);
@@ -62,10 +68,6 @@ class Factory {
 
     get Network() {
         return this._networkImplementation;
-    }
-
-    get Peer() {
-        return this._peerImplementation;
     }
 
     get Wallet() {
