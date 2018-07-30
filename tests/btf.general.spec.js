@@ -1,8 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-global.Factory = require('../factory');
-const BFT=require('../layers/bftConsensus');
+factory = require('./testFactory');
 
 const myNetwork={
     myAddress: 'myIP'
@@ -20,9 +19,13 @@ const myMempool={
     ]
 };
 
+let BFT;
+
 describe('BFT general tests', () => {
     before(async function() {
         this.timeout(15000);
+        await factory.asyncLoad();
+        BFT = factory.BFT;
     });
 
     after(async function() {
