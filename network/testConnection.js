@@ -1,4 +1,5 @@
-const Connection = require('./connection');
+const EventEmitter = require('events');
+
 const debug = require('debug')('testConnection');
 const {sleep} = require('../utils');
 
@@ -8,9 +9,14 @@ const {sleep} = require('../utils');
  */
 
 module.exports = Serializer =>
-    class TestConnection extends Connection {
+    class TestConnection extends EventEmitter {
         constructor(options) {
-            super(options);
+            super();
+
+            this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
+            this._socket = options.socket;
+            if (!this._socket) throw new Error('No socket!');
+
             this._topic = options.topic;
             if (!this._topic) throw new Error('No topic!');
             this._socket.on(this._topic, this._incomingMessage.bind(this));

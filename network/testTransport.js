@@ -3,7 +3,6 @@ const uuid = require('node-uuid');
 const debug = require('debug')('testTransport');
 
 const {sleep} = require('../utils');
-const Transport = require('./transport');
 const TestConnectionWrapper = require('./testConnection');
 
 /**
@@ -16,7 +15,7 @@ const EventBus = new EventEmitter();
 module.exports = SerializerImplementation => {
 
     const TestConnection = TestConnectionWrapper(SerializerImplementation);
-    return class TestTransport extends Transport {
+    return class TestTransport extends EventEmitter {
 
         /**
          *
@@ -24,7 +23,8 @@ module.exports = SerializerImplementation => {
          * @param {Number} options.delay
          */
         constructor(options) {
-            super(options);
+            super();
+            this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
         }
 
         /**
@@ -70,6 +70,10 @@ module.exports = SerializerImplementation => {
 
         isPrivateAddress(address) {
             return false;
+        }
+
+        async resolveName(name) {
+            return name.split(':');
         }
     };
 };
