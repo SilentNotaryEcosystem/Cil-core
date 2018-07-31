@@ -8,11 +8,12 @@ const {sleep} = require('../utils');
  * Может эмулировать задержку через options.delay
  */
 
-module.exports = Serializer =>
+module.exports = (Serializer, Constants) =>
     class TestConnection extends EventEmitter {
         constructor(options) {
             super();
 
+            this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
             this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
             this._socket = options.socket;
             if (!this._socket) throw new Error('No socket!');
@@ -28,36 +29,31 @@ module.exports = Serializer =>
 
         /**
          *
-         * @param {MsgCommon} objMessage - message to send to peer
+         * @param {MsgCommon} message - message to send to peer
          */
-        async sendMessage(objMessage) {
+        async sendMessage(message) {
             if (this._delay) await sleep(this._delay);
             debug(`sendMessage delay ${this._delay}`);
-            this._socket.emit(this._topic, Serializer.serialize(objMessage));
+            this._socket.emit(this._topic, Serializer.serialize(message));
         }
 
         async _incomingMessage(objMessage) {
             if (this._delay) await sleep(this._delay);
-            debug(`_incomingMessage delay ${this._delay}`);
+            debug(`_incomingMessage (topic: ${this._topic}) delay ${this._delay}`);
             this.emit('message', Serializer.deSerialize(objMessage));
         }
 
         /**
          *
-         * @return {Promise<Object>} - message
+         * @return {Promise<MsgCommon | undefined>} - message | undefined if timeout reached
          */
         receiveSync() {
-            return new Promise(resolve => {
-                this.on('message', async objMessage => {
+            const prom = new Promise(resolve => {
+                this.once('message', async objMessage => {
                     resolve(objMessage);
                 });
             });
+            return Promise.race([prom, sleep(this._timeout)]);
         }
 
-        /**
-         * Address of this end of connection
-         */
-        isMyAddressPrivate() {
-            return false;
-        }
     };

@@ -12,9 +12,9 @@ const TestConnectionWrapper = require('./testConnection');
 
 const EventBus = new EventEmitter();
 
-module.exports = SerializerImplementation => {
+module.exports = (SerializerImplementation, Constants) => {
 
-    const TestConnection = TestConnectionWrapper(SerializerImplementation);
+    const TestConnection = TestConnectionWrapper(SerializerImplementation, Constants);
     return class TestTransport extends EventEmitter {
 
         /**
@@ -24,7 +24,38 @@ module.exports = SerializerImplementation => {
          */
         constructor(options) {
             super();
+
             this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
+            this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
+
+            // here should be some public address @see os.networkInterfaces
+            this._address = options.listenAddr || uuid.v4();
+            this._port = options.listenPort || Constants.port;
+        }
+
+        get myAddress() {
+            if (!this._chachedAddr) {
+                this._chachedAddr = this.constructor.addressToBuffer(this._address);
+            }
+            return this._chachedAddr;
+        }
+
+        /**
+         * Return at least 16 bytes (length of ipv6 address) buffer created from address
+         * If needed it will be padded with 0 from start
+         * Will be replaced with real ipv6 buffer
+         *
+         * @param {String} address
+         * @return {Buffer}
+         */
+        static addressToBuffer(address) {
+            const buffer = Buffer.from(address);
+            const bytestoPadd = buffer.length > 16 ? 0 : 16 - buffer.length;
+            return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
+        }
+
+        static isPrivateAddress(address) {
+            return false;
         }
 
         /**
@@ -38,19 +69,22 @@ module.exports = SerializerImplementation => {
             EventBus.emit(address, topic);
             debug(`Connect delay ${this._delay}`);
             if (this._delay) await sleep(this._delay);
-            return new TestConnection({delay: this._delay, socket: EventBus, topic});
+            return new TestConnection({delay: this._delay, socket: EventBus, topic, timeout: this._timeout});
         }
 
         /**
          * Emit 'connect' with new Connection
          *
-         * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
          */
-        listen(address) {
-            EventBus.on(address, async topic => {
+        listen() {
+
+            // TODO: use port
+            EventBus.on(this._address, async topic => {
                 if (this._delay) await sleep(this._delay);
-                debug(`Listen delay ${this._delay}`);
-                this.emit('connect', new TestConnection({delay: this._delay, socket: EventBus, topic}));
+                debug(`Listen (topic: ${topic}) delay ${this._delay}`);
+                this.emit('connect',
+                    new TestConnection({delay: this._delay, socket: EventBus, topic, timeout: this._timeout})
+                );
             });
         }
 
@@ -58,22 +92,28 @@ module.exports = SerializerImplementation => {
          * Emulate Sync version on listen
          * Useful on tests
          *
-         * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
          * @return {Promise<Connection>} new connection
          */
-        listenSync(address) {
-            return new Promise(resolve => {
-                this.listen(address);
-                this.on('connect', connection => resolve(connection));
+        listenSync() {
+            const prom = new Promise(resolve => {
+                this.listen();
+                this.once('connect', connection => resolve(connection));
             });
+            return Promise.race([prom, sleep(this._timeout)]);
         }
 
-        isPrivateAddress(address) {
-            return false;
-        }
-
+        /**
+         * split name by ':'
+         *
+         * @param name
+         * @return {Promise<*|string[]>}
+         */
         async resolveName(name) {
             return name.split(':');
+        }
+
+        cleanUp() {
+            EventBus.removeAllListeners(this._address);
         }
     };
 };

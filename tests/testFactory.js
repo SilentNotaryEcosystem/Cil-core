@@ -6,7 +6,7 @@ const protobuf = require("protobufjs");
  * Class to easy replacement used components
  */
 
-const config = require('../config/prod.conf');
+const config = require('../config/test.conf');
 
 const Crypto = require('../crypto/crypto');
 const TransportWrapper = require('../network/testTransport');
@@ -25,7 +25,7 @@ class Factory {
         this._donePromise = this._asyncLoader();
         this._donePromise.then(() => {
                 this._serializerImplementation = SerializerWrapper(this._messagesImplementation);
-                this._transportImplemetation = TransportWrapper(this._serializerImplementation);
+                this._transportImplemetation = TransportWrapper(this._serializerImplementation, this.Constants);
                 this._networkImplementation = NetworkWrapper(
                     this._transportImplemetation,
                     this.Constants
@@ -88,7 +88,7 @@ class Factory {
 
     async _asyncLoader() {
         const prototypes = await this._loadMessagePrototypes();
-        this._messagesImplementation = MessagesWrapper(config.network, prototypes);
+        this._messagesImplementation = MessagesWrapper(this.Constants.network, prototypes);
         this._constants = {
             ...this._constants,
             ...prototypes.enumServices.values
