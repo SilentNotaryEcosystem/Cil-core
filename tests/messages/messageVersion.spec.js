@@ -1,12 +1,29 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
+
+let msgTemplate;
 
 describe('Version Message', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
+
+        msgTemplate = {
+            peerInfo: {
+                capabilities: [
+                    {service: factory.Constants.NODE},
+                    {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                ],
+                address: {
+                    addr0: 0x2001,
+                    addr1: 0xdb8,
+                    addr2: 0x1234,
+                    addr3: 0x3
+                }
+            }
+        };
     });
 
     after(async function() {
@@ -20,20 +37,7 @@ describe('Version Message', () => {
     });
 
     it('should create MsgVersion from object', async () => {
-        const msgVersion = new factory.Messages.MsgVersion({
-            peerInfo: {
-                capabilities: [
-                    {service: factory.Constants.NODE, data: null},
-                    {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
-                ],
-                address: {
-                    addr0: 0x2001,
-                    addr1: 0xdb8,
-                    addr2: 0x1234,
-                    addr3: 0x3
-                }
-            }
-        });
+        const msgVersion = new factory.Messages.MsgVersion(msgTemplate);
         assert.isOk(msgVersion);
         assert.equal(msgVersion.message, 'version');
         assert.isOk(msgVersion.data);
@@ -43,20 +47,7 @@ describe('Version Message', () => {
     });
 
     it('should pass encoding/decoding MsgVersion', async () => {
-        const msgVersion = new factory.Messages.MsgVersion({
-            peerInfo: {
-                capabilities: [
-                    {service: factory.Constants.NODE},
-                    {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
-                ],
-                address: {
-                    addr0: 0x2001,
-                    addr1: 0xdb8,
-                    addr2: 0x1234,
-                    addr3: 0x3
-                }
-            }
-        });
+        const msgVersion = new factory.Messages.MsgVersion(msgTemplate);
         assert.isOk(msgVersion);
         const buff = msgVersion.encode();
         assert.isOk(buff);

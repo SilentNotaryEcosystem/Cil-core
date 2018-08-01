@@ -1,6 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {sleep} = require('../utils');
+const {sleep} = require('../../utils');
 
 describe('BFT consensus (DEMO tests)', () => {
     before(async function() {

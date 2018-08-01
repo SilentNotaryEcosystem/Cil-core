@@ -1,6 +1,5 @@
 const EventEmitter = require('events');
 const uuid = require('node-uuid');
-const debug = require('debug')('testTransport');
 
 const {sleep} = require('../utils');
 const TestConnectionWrapper = require('./testConnection');
@@ -60,14 +59,14 @@ module.exports = (SerializerImplementation, Constants) => {
 
         /**
          * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
-         * @return {Connection} new connection
+         * @return {TestConnection} new connection
          */
         async connect(address) {
 
             // pass a connection_id
             const topic = uuid.v4();
             EventBus.emit(address, topic);
-            debug(`Connect delay ${this._delay}`);
+            logger.info(`Connect delay ${this._delay}`);
             if (this._delay) await sleep(this._delay);
             return new TestConnection({delay: this._delay, socket: EventBus, topic, timeout: this._timeout});
         }
@@ -81,7 +80,7 @@ module.exports = (SerializerImplementation, Constants) => {
             // TODO: use port
             EventBus.on(this._address, async topic => {
                 if (this._delay) await sleep(this._delay);
-                debug(`Listen (topic: ${topic}) delay ${this._delay}`);
+                logger.info(`Listen (topic: ${topic}) delay ${this._delay}`);
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket: EventBus, topic, timeout: this._timeout})
                 );
@@ -92,7 +91,7 @@ module.exports = (SerializerImplementation, Constants) => {
          * Emulate Sync version on listen
          * Useful on tests
          *
-         * @return {Promise<Connection>} new connection
+         * @return {Promise<TestConnection>} new connection
          */
         listenSync() {
             const prom = new Promise(resolve => {
@@ -108,7 +107,7 @@ module.exports = (SerializerImplementation, Constants) => {
          * @param name
          * @return {Promise<*|string[]>}
          */
-        async resolveName(name) {
+        static async resolveName(name) {
             return name.split(':');
         }
 

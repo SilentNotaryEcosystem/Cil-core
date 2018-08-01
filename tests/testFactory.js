@@ -1,6 +1,16 @@
 const protobuf = require("protobufjs");
+const debug = require('debug');
 
-// TODO: add logger
+// Uncomment in prod!!
+//const error=debug('app:error');
+//const log=debug('app:log');
+//log.log = console.log.bind(console);
+//const info=debug('app:info');
+//info.log = console.info.bind(console);
+
+const error = console.error;
+const log = console.log;
+const info = console.info;
 
 /**
  * Class to easy replacement used components
@@ -14,25 +24,31 @@ const SerializerWrapper = require('../network/serializer');
 const WalletWrapper = require('../wallet/wallet');
 const MessagesWrapper = require('../messages/index');
 const BftWrapper = require('../node/bftConsensus');
-const NetworkWrapper = require('../network/network');
-//const NodeWrapper = require('../node/node');
+const PeerManagerWrapper = require('../network/peerManager');
+const NodeWrapper = require('../node/node');
 
 const pack = require('../package');
 
 class Factory {
     constructor() {
 
+        // simple logger
+        global.logger = {
+            error: msg => error(msg),
+            log: msg => log(msg),
+            info: msg => info(msg)
+        };
+
         this._donePromise = this._asyncLoader();
         this._donePromise.then(() => {
-                this._serializerImplementation = SerializerWrapper(this._messagesImplementation);
-                this._transportImplemetation = TransportWrapper(this._serializerImplementation, this.Constants);
-                this._networkImplementation = NetworkWrapper(
-                    this._transportImplemetation,
-                    this.Constants
-                );
+                this._serializerImplementation = SerializerWrapper(this.Messages);
+                this._transportImplemetation = TransportWrapper(this.Serializer, this.Constants);
+                this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages);
+
+                this._nodeImplementation = NodeWrapper(this.Transport, this.Messages, this.Constants, this.PeerManager);
             })
             .catch(err => {
-                console.error(err);
+                logger.error(err);
                 process.exit(10);
             });
 
@@ -86,9 +102,17 @@ class Factory {
         return this._bftImplementation;
     }
 
+    get PeerManager() {
+        return this._peerManagerImplemetation;
+    }
+
+    get Node() {
+        return this._nodeImplementation;
+    }
+
     async _asyncLoader() {
         const prototypes = await this._loadMessagePrototypes();
-        this._messagesImplementation = MessagesWrapper(this.Constants.network, prototypes);
+        this._messagesImplementation = MessagesWrapper(this.Constants, prototypes);
         this._constants = {
             ...this._constants,
             ...prototypes.enumServices.values
@@ -107,6 +131,7 @@ class Factory {
             messageProto: protoNetwork.lookupType("network.Message"),
             versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
+            addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
             enumServices: protoNetwork.lookup("network.Services")
         };
     }

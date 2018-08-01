@@ -19,7 +19,6 @@ module.exports = MessagesImplementation => {
          * @return {Object}
          */
         static deSerialize(buffer, toCommon = false) {
-
             // was message completly downloaded?
             const buffReader = new BufferReader(buffer);
             const length = buffReader.int32();
@@ -32,10 +31,9 @@ module.exports = MessagesImplementation => {
             if (toCommon) return msg;
 
             // now return properly deserialized message
-            switch (msg.message) {
-                case 'version':
-                    return new MsgVersion(buffer);
-            }
+            if (msg.isVersion) return new MsgVersion(buffer);
+            if (msg.isVerAck) return msg;
+            if (msg.isGetAddr) return msg;
         }
     };
 };

@@ -76,4 +76,34 @@ module.exports = (NetworkMagic, MessageProto) =>
 
             // TODO add checksum verification
         }
+
+        /**
+         * verack just message w/o payload
+         */
+        set verAckMessage(unused) {
+            this.message = 'verack';
+        }
+
+        /**
+         * getaddr just message w/o payload
+         */
+        set getAddrMessage(unused) {
+            this.message = 'getaddr';
+        }
+
+        isVerAck() {
+            return this.message === 'verack';
+        }
+
+        isVersion() {
+            return this.message === 'version';
+        }
+
+        isGetAddr() {
+            return this.message === 'getaddr';
+        }
+
+        isAddr() {
+            return this.message === 'addr';
+        }
     };

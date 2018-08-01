@@ -25,6 +25,7 @@ message Message {
 message PeerInfo {
     repeated NodeCapabilities capabilities =1;
     Address address = 2;
+    uint32 port = 3;
 }
 
 enum Services {
@@ -47,4 +48,9 @@ message VersionPayload {
     uint64 height = 5;
 }
 
-// --------------------------------
+// -------------------------------- Address group -------------------
+// TODO: implement timestamps https://en.bitcoin.it/wiki/Protocol_documentation#addr
+
+message AddrPayload {
+    repeated PeerInfo peers = 1;
+}

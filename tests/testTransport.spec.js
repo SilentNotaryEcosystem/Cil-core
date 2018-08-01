@@ -76,10 +76,12 @@ describe('TestTransport', () => {
     it('should simulate network latency (3 sec)', async function() {
         this.timeout(10000);
         const address = uuid.v4();
+        const tsStarted = Date.now();
 
         const endpoint1 = new factory.Transport({delay: 0, listenAddr: address});
 
-        const endpoint2 = new factory.Transport({delay: 3000});
+        // we expect roundtrip delay 3 sec
+        const endpoint2 = new factory.Transport({delay: 1500});
 
         const [connection1, connection2] = await Promise.all([
             endpoint1.listenSync(),
@@ -92,7 +94,6 @@ describe('TestTransport', () => {
         const msgPromise = connection2.receiveSync();
         connection1.sendMessage(msgVersion);
 
-        const tsStarted = Date.now();
         const result = await msgPromise;
         const tsFinished = Date.now();
 

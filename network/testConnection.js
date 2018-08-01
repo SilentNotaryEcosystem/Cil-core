@@ -1,6 +1,4 @@
 const EventEmitter = require('events');
-
-const debug = require('debug')('testConnection');
 const {sleep} = require('../utils');
 
 /**
@@ -21,9 +19,15 @@ module.exports = (Serializer, Constants) =>
             this._topic = options.topic;
             if (!this._topic) throw new Error('No topic!');
             this._socket.on(this._topic, this._incomingMessage.bind(this));
+
+            this._nonse = parseInt(Math.random() * 10000);
         }
 
         get myAddress() {
+            return this._topic;
+        }
+
+        get remoteAddress() {
             return this._topic;
         }
 
@@ -33,14 +37,18 @@ module.exports = (Serializer, Constants) =>
          */
         async sendMessage(message) {
             if (this._delay) await sleep(this._delay);
-            debug(`sendMessage delay ${this._delay}`);
+            logger.info(`sendMessage delay ${this._delay}`);
             this._socket.emit(this._topic, Serializer.serialize(message));
         }
 
         async _incomingMessage(objMessage) {
+            logger.info(`_incomingMessage (nonce: ${this._nonse}) delay ${this._delay}`);
             if (this._delay) await sleep(this._delay);
-            debug(`_incomingMessage (topic: ${this._topic}) delay ${this._delay}`);
-            this.emit('message', Serializer.deSerialize(objMessage));
+            try {
+                this.emit('message', Serializer.deSerialize(objMessage));
+            } catch (err) {
+                logger.error(err);
+            }
         }
 
         /**

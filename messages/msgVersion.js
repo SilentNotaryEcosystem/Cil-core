@@ -1,10 +1,11 @@
 /**
  *
+ * @param {Object} Constants
  * @param {Object} MessageCommon
  * @param {Object} VersionPayloadProto - protobuf compiled VersionPayload prototype
  * @return {{new(*): MessageVersion}}
  */
-module.exports = (MessageCommon, VersionPayloadProto) =>
+module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
 
     class MessageVersion extends MessageCommon {
 
@@ -24,7 +25,7 @@ module.exports = (MessageCommon, VersionPayloadProto) =>
                 }
 
                 this._data = {...VersionPayloadProto.decode(this.payload)};
-                // TODO: free this.message.payload after decode to reduse memory usage
+                // TODO: free this.message.payload after decode to reduce memory usage
             } else {
                 super();
                 if (typeof data === 'object') {
@@ -35,7 +36,8 @@ module.exports = (MessageCommon, VersionPayloadProto) =>
                     this._data = {
                         ...payload,
                         timeStamp: parseInt(Date.now() / 1000),
-                        nonce: parseInt(Math.random() * 100000)
+                        nonce: parseInt(Math.random() * 100000),
+                        protocolVersion: Constants.protocolVersion
                     };
                 }
                 this.message = 'version';
@@ -44,6 +46,10 @@ module.exports = (MessageCommon, VersionPayloadProto) =>
 
         get data() {
             return this._data;
+        }
+
+        get protocolVersion() {
+            return this._data.protocolVersion;
         }
 
         /**
