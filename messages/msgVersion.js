@@ -29,6 +29,8 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
             } else {
                 super();
                 if (typeof data === 'object') {
+                    if (!data.nonce) throw new Error('You should specify nonce!');
+
                     const errMsg = VersionPayloadProto.verify(data);
                     if (errMsg) throw new Error(errMsg);
 
@@ -36,7 +38,6 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
                     this._data = {
                         ...payload,
                         timeStamp: parseInt(Date.now() / 1000),
-                        nonce: parseInt(Math.random() * 100000),
                         protocolVersion: Constants.protocolVersion
                     };
                 }

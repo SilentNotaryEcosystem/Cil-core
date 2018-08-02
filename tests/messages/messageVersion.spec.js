@@ -11,6 +11,7 @@ describe('Version Message', () => {
         await factory.asyncLoad();
 
         msgTemplate = {
+            nonce: 12,
             peerInfo: {
                 capabilities: [
                     {service: factory.Constants.NODE},

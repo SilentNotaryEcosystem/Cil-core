@@ -7,6 +7,9 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
         constructor(options) {
             const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout} = options;
 
+            // nonce for MsgVersion to detect connection to self
+            this._nonce = parseInt(Math.random() * 100000);
+
             this._arrSeedAddresses = arrSeedAddresses;
             this._arrDnsSeeds = arrDnsSeeds;
 
@@ -22,13 +25,40 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             this._myPeerInfo.address = this._transport.myAddress;
             this._peerManager = new PeerManager();
             this._peerManager.on('message', this._incomingMessage.bind(this));
+
+            this._transport.listen();
+            this._transport.on('connect', this._incomingConnection.bind(this));
         }
 
         async bootstrap() {
             await this._mergeSeedPeers();
-            this._peerManager.batchDiscoveredPeers(await this._querySeedNodes());
+            this._peerManager.batchDiscoveredPeers(await this._querySeedNodes(this._arrSeedAddresses));
             const arrPeers = this._findBestPeers();
-            this._peerManager.connect(arrPeers);
+            let count = 0;
+            for (const peerInfo of arrPeers) {
+
+                // TODO: for WitnessNode use _nMaxPeers as size of group
+                if (count++ < this._nMaxPeers) break;
+                this._transport.connect(peerInfo.address, peerInfo.port)
+                    .then(() => this._requestPeersFromNode(connection))
+                    .then((arrPeerInfo) => this._peerManager.batchDiscoveredPeers(arrPeerInfo))
+
+                    // TODO: blocks download here!
+                    .then(() => this._getBlocks(connection))
+                    .catch(err => console.error(err));
+            }
+
+            // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections ...)
+        }
+
+        /**
+         * Redefine it for WitnessNode, to select only own group
+         *
+         * @return {Array} of peerInfo we decided to be best peers to connect
+         * @private
+         */
+        _findBestPeers() {
+            return this._peerManager.filterPeers({service: Constants.WITNESS});
         }
 
         /**
@@ -38,8 +68,10 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
          * @private
          */
         async _mergeSeedPeers() {
-            const arrDnsPeers = await this._queryDnsRecords(this._arrDnsSeeds);
-            this._arrSeedAddresses = this._arrSeedAddresses.concat(arrDnsPeers);
+            if (this._arrDnsSeeds) {
+                const arrDnsPeers = await this._queryDnsRecords(this._arrDnsSeeds);
+                this._arrSeedAddresses = this._arrSeedAddresses.concat(arrDnsPeers);
+            }
         }
 
         /**
@@ -79,11 +111,13 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             // TODO: implement not such greedy query (see commented below)
             const arrPromises = [];
             for (const addr of arrSeedAddresses) {
-                const prom = this._requestPeersFromNode(addr)
+                const connection = await this._transport.connect(addr, Constants.port);
+                const prom = this._requestPeersFromNode(connection)
                     .then(arrPeerInfo => {
                         arrResult = arrResult.concat(arrPeerInfo);
                     })
-                    .catch(err => logger.error(err));
+                    .catch(err => logger.error(err))
+                    .then(() => connection.close());
                 arrPromises.push(prom);
             }
             await Promise.all(arrPromises);
@@ -105,19 +139,18 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
         }
 
         /**
-         * We'll query a seed nodes, so we expect listen on default port @see Constants.port
          *
          * @param {String} address
          * @return {Promise<Array>} of peers @see msgAddr.peers (deserialized content)
          * @private
          */
-        async _requestPeersFromNode(address) {
+        async _requestPeersFromNode(connection) {
             // TODO: proper timeouts handling for receiveSync!
 
             const timeOutPromise = sleep(this._queryTimeout);
-            const connection = await this._transport.connect(address, Constants.port);
             const msgVersion = new MsgVersion({
-                peerInfo: this._myPeerInfo.toObject(),
+                nonce: this._nonce,
+                peerInfo: this._myPeerInfo.data,
                 height: this._height
             });
 
@@ -148,8 +181,12 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
 
             }
             await timeOutPromise;
-            this.connection.close();
+            connection.close();
             return arrPeers;
+        }
+
+        _incomingConnection(connection) {
+            this._peerManager.addConnection(connection);
         }
 
         _incomingMessage(connection, message) {
@@ -157,8 +194,18 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             try {
                 if (message.isVersion()) {
                     resultMsg = this._handleVersionMessage(message);
+
+                    // we'r connected to self
+                    if (!resultMsg) {
+                        logger.log('Closing connection to self');
+                        connection.close();
+                    }
+                } else if (message.isGetAddr()) {
+                    resultMsg = this._handlePeerRequest();
                 } else if (message.isAddr()) {
-                    resultMsg = this._handleAddrMessage();
+                    resultMsg = this._handlePeerList(message);
+                } else {
+                    throw new Error(`Unhandled message type ${message.message}`);
                 }
 
                 connection.sendMessage(resultMsg).catch(err => logger.error(err));
@@ -169,6 +216,9 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
 
         _handleVersionMessage(message) {
             let msg;
+
+            // we connected to self
+            if (message.nonce === this._nonce) return null;
 
             // TODO: review version compatibility
             if (message.protocolVersion >= Constants.protocolVersion) {
@@ -183,7 +233,12 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             return msg;
         }
 
-        _handleAddrMessage() {
+        _handlePeerList(message) {
+            logger.log(`Peer list:`);
+            logger.dir(message, {colors: true, depth: null});
+        }
+
+        _handlePeerRequest() {
             let msg;
             const arrPeers = this._peerManager.filterPeers();
 

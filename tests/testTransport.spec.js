@@ -13,6 +13,7 @@ describe('TestTransport', () => {
         await factory.asyncLoad();
 
         msgVersion = new factory.Messages.MsgVersion({
+            nonce: 12,
             peerInfo: {
                 capabilities: [],
                 address: {
@@ -29,13 +30,22 @@ describe('TestTransport', () => {
         this.timeout(15000);
     });
 
-    it('should get address buffer', async function() {
+    it('should get address FROM buffer', async function() {
+        this.timeout(10000);
+        const buffAddress = Buffer.from([0, 0, 0, 0, 0, 0, 0, 0, 0, 97, 100, 100, 114, 101, 115, 115]);
+        const strAddress = factory.Transport.addressFromBuffer(buffAddress);
+        assert.isOk(typeof strAddress === 'string');
+        assert.equal(strAddress, 'address');
+    });
+
+    it('should get address AS buffer', async function() {
         this.timeout(10000);
         const endpoint1 = new factory.Transport({delay: 0, listenAddr: 'address'});
         const myAddr = endpoint1.myAddress;
         assert.isOk(Buffer.isBuffer(myAddr));
         assert.isOk(myAddr.equals(Buffer.from([0, 0, 0, 0, 0, 0, 0, 0, 0, 97, 100, 100, 114, 101, 115, 115])));
     });
+
 
     it('should communicate each other', async () => {
         const address = uuid.v4();
@@ -51,13 +61,13 @@ describe('TestTransport', () => {
         assert.isOk(connection2);
 
         const msgPromise = connection2.receiveSync();
-        connection1.sendMessage(msgVersion);
+        await connection1.sendMessage(msgVersion);
 
         const result = await msgPromise;
         assert.equal(result.message, 'version');
     });
 
-    it('should timeout 3 sec (different addresses)', async function() {
+    it('should FAIL or timeout 3 sec (different addresses)', async function() {
         this.timeout(10000);
         const address1 = uuid.v4();
         const address2 = uuid.v4();
@@ -65,11 +75,16 @@ describe('TestTransport', () => {
         const endpoint1 = new factory.Transport({delay: 200, listenAddr: address1, timeout: 3000});
         const endpoint2 = new factory.Transport({delay: 200, timeout: 3000});
 
-        const [connection1, connection2] = await Promise.all([
-            endpoint1.listenSync(),
-            endpoint2.connect(address2)
-        ]);
-
+        let connection1, connection2;
+        try {
+            ([connection1, connection2] = await Promise.all([
+                endpoint1.listenSync(),
+                endpoint2.connect(address2)
+            ]));
+            assert.isOk(false, 'Unexpected success');
+        } catch (err) {
+            console.error(err);
+        }
         assert.isNotOk(connection1);
     });
 

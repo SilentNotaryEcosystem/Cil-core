@@ -10,8 +10,8 @@ module.exports = {
         MAX_PEERS: 10,
 
         // milliseconds
-        PEER_QUERY_TIMEOUT: 100000,
-        CONNECTION_TIMEOUT: 60000,
+        PEER_QUERY_TIMEOUT: 3000,
+        CONNECTION_TIMEOUT: 1000,
 
         // 3 hours
         PEER_DEAD_TIME: 3 * 3600 * 1000

@@ -15,6 +15,7 @@ describe('Serializer', () => {
 
     it('should serialize message', async () => {
         const msgVersion = new factory.Messages.MsgVersion({
+            nonce: 12,
             peerInfo: {
                 capabilities: [
                     {service: factory.Constants.NODE, data: null},

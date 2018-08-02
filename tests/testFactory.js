@@ -7,10 +7,16 @@ const debug = require('debug');
 //log.log = console.log.bind(console);
 //const info=debug('app:info');
 //info.log = console.info.bind(console);
+// simple logger
+//global.logger = {
+//    error: msg => error(msg),
+//    log: msg => log(msg),
+//    info: msg => info(msg)
+//};
 
-const error = console.error;
-const log = console.log;
-const info = console.info;
+// Remove in prod
+global.logger = console;
+
 
 /**
  * Class to easy replacement used components
@@ -31,13 +37,6 @@ const pack = require('../package');
 
 class Factory {
     constructor() {
-
-        // simple logger
-        global.logger = {
-            error: msg => error(msg),
-            log: msg => log(msg),
-            info: msg => info(msg)
-        };
 
         this._donePromise = this._asyncLoader();
         this._donePromise.then(() => {

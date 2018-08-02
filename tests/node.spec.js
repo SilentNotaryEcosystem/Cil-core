@@ -35,6 +35,7 @@ describe('Node tests', () => {
     it('should prepare verAckMessage', async () => {
         const node = new factory.Node({});
         const inMsg = new factory.Messages.MsgVersion({
+            nonce: 12,
             peerInfo: {
                 capabilities: [
                     {service: factory.Constants.NODE, data: null},

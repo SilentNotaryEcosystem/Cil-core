@@ -1,13 +1,16 @@
 const EventEmitter = require('events');
 const uuid = require('node-uuid');
+const net = require('net');
+const path = require('path');
 
 const {sleep} = require('../utils');
 const TestConnectionWrapper = require('./testConnection');
 
 /**
- * Это тестовый транспорт на EventEmitter'е (топик в address)
+ * Это тестовый транспорт
  * Может эмулировать задержку через options.delay
  */
+
 
 const EventBus = new EventEmitter();
 
@@ -33,10 +36,10 @@ module.exports = (SerializerImplementation, Constants) => {
         }
 
         get myAddress() {
-            if (!this._chachedAddr) {
-                this._chachedAddr = this.constructor.addressToBuffer(this._address);
+            if (!this._cachedAddr) {
+                this._cachedAddr = this.constructor.addressToBuffer(this._address);
             }
-            return this._chachedAddr;
+            return this._cachedAddr;
         }
 
         /**
@@ -53,22 +56,47 @@ module.exports = (SerializerImplementation, Constants) => {
             return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
         }
 
+        static addressFromBuffer(buffer) {
+            let i = 0;
+
+            // skip leading 0
+            for (; i < buffer.length && !buffer[i]; i++) {}
+            return buffer.toString('utf8', i);
+        }
+
         static isPrivateAddress(address) {
             return false;
         }
 
         /**
-         * @param {String} address - строка которую будем использовать в отдельного топика в EventEmitter
-         * @return {TestConnection} new connection
+         * split name by ':'
+         *
+         * @param name
+         * @return {Promise<*|string[]>}
          */
-        async connect(address) {
+        static async resolveName(name) {
+            return name.split(':');
+        }
 
-            // pass a connection_id
-            const topic = uuid.v4();
-            EventBus.emit(address, topic);
-            logger.info(`Connect delay ${this._delay}`);
-            if (this._delay) await sleep(this._delay);
-            return new TestConnection({delay: this._delay, socket: EventBus, topic, timeout: this._timeout});
+        /**
+         * @param {String | Buffer} address - строка которую будем использовать в отдельного топика в EventEmitter
+         * @return {Promise<TestConnection>} new connection
+         */
+        connect(address) {
+            if (Buffer.isBuffer(address)) address = this.constructor.addressFromBuffer(address);
+
+            return new Promise((resolve, reject) => {
+                const socket = net.createConnection(path.join('\\\\?\\pipe', process.cwd(), address),
+                    async (err) => {
+                        if (err) return reject(err);
+
+                        logger.info(`Connect delay ${this._delay}`);
+                        if (this._delay) await sleep(this._delay);
+                        resolve(new TestConnection({delay: this._delay, socket, timeout: this._timeout}));
+                    }
+                );
+                socket.on('error', err => reject(err));
+            });
         }
 
         /**
@@ -78,13 +106,13 @@ module.exports = (SerializerImplementation, Constants) => {
         listen() {
 
             // TODO: use port
-            EventBus.on(this._address, async topic => {
+            net.createServer(async (socket) => {
                 if (this._delay) await sleep(this._delay);
-                logger.info(`Listen (topic: ${topic}) delay ${this._delay}`);
+                logger.info(`Listen delay ${this._delay}`);
                 this.emit('connect',
-                    new TestConnection({delay: this._delay, socket: EventBus, topic, timeout: this._timeout})
+                    new TestConnection({delay: this._delay, socket, timeout: this._timeout})
                 );
-            });
+            }).listen(path.join('\\\\?\\pipe', process.cwd(), this._address));
         }
 
         /**
@@ -99,16 +127,6 @@ module.exports = (SerializerImplementation, Constants) => {
                 this.once('connect', connection => resolve(connection));
             });
             return Promise.race([prom, sleep(this._timeout)]);
-        }
-
-        /**
-         * split name by ':'
-         *
-         * @param name
-         * @return {Promise<*|string[]>}
-         */
-        static async resolveName(name) {
-            return name.split(':');
         }
 
         cleanUp() {

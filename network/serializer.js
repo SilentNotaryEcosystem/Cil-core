@@ -1,7 +1,7 @@
 const {BufferReader} = require("protobufjs");
 
 module.exports = MessagesImplementation => {
-    const {MsgCommon, MsgVersion} = MessagesImplementation;
+    const {MsgCommon, MsgVersion, MsgAddr} = MessagesImplementation;
     return class Serializer {
         /**
          *
@@ -31,9 +31,10 @@ module.exports = MessagesImplementation => {
             if (toCommon) return msg;
 
             // now return properly deserialized message
-            if (msg.isVersion) return new MsgVersion(buffer);
-            if (msg.isVerAck) return msg;
-            if (msg.isGetAddr) return msg;
+            if (msg.isVersion()) return new MsgVersion(buffer);
+            if (msg.isVerAck()) return msg;
+            if (msg.isGetAddr()) return msg;
+            if (msg.isAddr()) return new MsgAddr(buffer);
         }
     };
 };
