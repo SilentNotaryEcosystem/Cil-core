@@ -64,4 +64,9 @@ module.exports = (Serializer, Constants) =>
             return Promise.race([prom, sleep(this._timeout)]);
         }
 
+        close() {
+            this._socket.removeListener(this._topic, this._incomingMessage.bind(this));
+            this.removeAllListeners('message');
+        }
+
     };

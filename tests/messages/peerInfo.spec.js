@@ -61,4 +61,16 @@ describe('PeerInfo Message', () => {
         assert.deepEqual(peerInfo.data.address, templatePeer.address);
     });
 
+    it('should transform addreess to buffer and back', async () => {
+        const addr = {
+            addr0: 0x2001,
+            addr1: 0xdb8,
+            addr2: 0x1234,
+            addr3: 0x3
+        };
+        const buff = factory.Messages.PeerInfo.addressToBuffer(addr);
+        assert.isOk(buff && Buffer.isBuffer(buff));
+        const objRevertedAddr = factory.Messages.PeerInfo.addressFromBuffer(buff);
+        assert.deepEqual(addr, objRevertedAddr);
+    });
 });

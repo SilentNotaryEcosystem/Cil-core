@@ -52,6 +52,10 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
             return this._data.protocolVersion;
         }
 
+        get peerInfo() {
+            return this._data.peerInfo;
+        }
+
         /**
          * ATTENTION! for payload we'll use encode NOT encodeDelimited as for entire Message
          *

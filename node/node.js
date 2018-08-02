@@ -27,6 +27,8 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
         async bootstrap() {
             await this._mergeSeedPeers();
             this._peerManager.batchDiscoveredPeers(await this._querySeedNodes());
+            const arrPeers = this._findBestPeers();
+            this._peerManager.connect(arrPeers);
         }
 
         /**
@@ -106,11 +108,11 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
          * We'll query a seed nodes, so we expect listen on default port @see Constants.port
          *
          * @param {String} address
-         * @return {Promise<Array>} of peers @see msgAddr.peers
+         * @return {Promise<Array>} of peers @see msgAddr.peers (deserialized content)
          * @private
          */
         async _requestPeersFromNode(address) {
-            // TODO: proper timeouts handling!
+            // TODO: proper timeouts handling for receiveSync!
 
             const timeOutPromise = sleep(this._queryTimeout);
             const connection = await this._transport.connect(address, Constants.port);
@@ -123,9 +125,9 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             const msgVerAck = await connection.receiveSync();
 
             // incompatible peer
-            if (!msgVerAck.isVerAck()) return [];
+            if (!msgVerAck || !msgVerAck.isVerAck()) return [];
 
-            // send getadd message
+            // send getaddr message
             const msgGetAddr = new MsgCommon();
             msgGetAddr.getAddrMessage = true;
             await connection.sendMessage(msgGetAddr);
@@ -146,6 +148,7 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
 
             }
             await timeOutPromise;
+            this.connection.close();
             return arrPeers;
         }
 
@@ -167,10 +170,13 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
         _handleVersionMessage(message) {
             let msg;
 
-            // TODO: review behavior
+            // TODO: review version compatibility
             if (message.protocolVersion >= Constants.protocolVersion) {
                 msg = new MsgCommon();
                 msg.verAckMessage = true;
+
+                // peer is compatible, let's add it to our address book
+                this._peerManager.discoveredPeer(message.peerInfo);
             } else {
                 throw new Error(`Has incompatible protocol version ${message.protocolVersion}`);
             }

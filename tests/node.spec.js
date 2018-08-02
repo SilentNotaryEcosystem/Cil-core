@@ -34,7 +34,15 @@ describe('Node tests', () => {
 
     it('should prepare verAckMessage', async () => {
         const node = new factory.Node({});
-        const inMsg = new factory.Messages.MsgVersion({});
+        const inMsg = new factory.Messages.MsgVersion({
+            peerInfo: {
+                capabilities: [
+                    {service: factory.Constants.NODE, data: null},
+                    {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                ],
+                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            }
+        });
         const msg = node._handleVersionMessage(inMsg);
         assert.isOk(msg && msg.isVerAck());
     });
@@ -52,27 +60,30 @@ describe('Node tests', () => {
             capabilities: [
                 {service: factory.Constants.NODE, data: null}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
         });
         const peerInfo3 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
         });
         const peerInfo4 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
         });
         node._peerManager.batchDiscoveredPeers(
-            [peerInfo1.encode(), peerInfo2.encode(), peerInfo3.encode(), peerInfo4.encode()]);
+            [peerInfo1, peerInfo2, peerInfo3, peerInfo4]);
 
         const msg = node._handleAddrMessage();
         assert.isOk(msg && msg.isAddr());
         assert.isOk(msg.peers);
         assert.equal(msg.peers.length, 4);
+        msg.peers.forEach(peerInfo => {
+            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
+        });
     });
 
 });

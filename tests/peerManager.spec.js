@@ -21,24 +21,42 @@ describe('Peer manager', () => {
     it('should add peer to PeerManager', async () => {
         const pm = new factory.PeerManager();
         assert.isOk(pm);
-        const peer = Buffer.from('asdasd');
+        const peer = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE, data: null},
+                {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+            ],
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+        });
         pm.discoveredPeer(peer);
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 1);
-        assert.isOk(peer.equals(arrPeers[0]));
+        assert.isOk(peer.address.equals(Buffer.from(arrPeers[0], 'hex')));
     });
 
     it('should batchAdd peers to PeerManager', async () => {
         const pm = new factory.PeerManager();
         assert.isOk(pm);
-        const peer = Buffer.from('asdasd');
-        const peer2 = Buffer.from('22222');
+        const peerInfo1 = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE, data: null},
+                {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+            ],
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+        });
+        const peerInfo2 = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE, data: null}
+            ],
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
+        });
 
-        pm.batchDiscoveredPeers([peer, peer, peer, peer2]);
+        pm.batchDiscoveredPeers([peerInfo1, peerInfo1, peerInfo1, peerInfo2]);
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 2);
-        assert.isOk(peer.equals(arrPeers[0]));
-        assert.isOk(peer2.equals(arrPeers[1]));
+
+        assert.isOk(peerInfo1.address.equals(Buffer.from(arrPeers[0], 'hex')));
+        assert.isOk(peerInfo2.address.equals(Buffer.from(arrPeers[1], 'hex')));
     });
 
     it('should filter peers by capability', async () => {
@@ -54,21 +72,21 @@ describe('Peer manager', () => {
             capabilities: [
                 {service: factory.Constants.NODE, data: null}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
         });
         const peerInfo3 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
         });
         const peerInfo4 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
         });
-        pm.batchDiscoveredPeers([peerInfo1.encode(), peerInfo2.encode(), peerInfo3.encode(), peerInfo4.encode()]);
+        pm.batchDiscoveredPeers([peerInfo1, peerInfo2, peerInfo3, peerInfo4]);
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 4);
 
