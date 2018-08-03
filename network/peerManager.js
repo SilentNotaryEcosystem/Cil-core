@@ -2,8 +2,11 @@ const EventEmitter = require('events');
 
 module.exports = (Storage, Constants, {PeerInfo}) =>
     class PeerManager extends EventEmitter {
-        constructor() {
+        constructor(options = {}) {
             super();
+
+            const {nMaxPeers} = options;
+            this._nMaxPeers = nMaxPeers;
 
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
@@ -33,28 +36,41 @@ module.exports = (Storage, Constants, {PeerInfo}) =>
             this._allPeers.set(buffAddress.toString('hex'), {timestamp: Date.now(), peerInfo});
         }
 
+        /**
+         *
+         * @param {Number} service - @see Constants
+         * @return {Array} of peerInfo OBJECTS!
+         */
         filterPeers({service} = {}) {
             const arrResult = [];
             const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
 
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
-            this._allPeers.forEach(({timestamp, peerInfo}, peerAddr) => {
+            for (let [peerAddr, {timestamp, peerInfo}] of this._allPeers.entries()) {
                 if (!service ||
                     ~peerInfo.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
                     if (timestamp > tsAlive) {
                         arrResult.push(peerInfo);
                     }
                 }
-            });
+                if (arrResult.length >= this._nMaxPeers) break;
+            }
 
             return arrResult;
         }
 
         addConnection(connection) {
+            // TODO: replace this._connectedPeers with Map to connect only once to peer
+//            const buffAddress = PeerInfo.addressToBuffer(connection.address);
+
             this._connectedPeers.push(connection);
             connection.on('message', (message) => {
                 this.emit('message', connection, message);
             });
+
+        }
+
+        broadcastToConnected() {
 
         }
     };

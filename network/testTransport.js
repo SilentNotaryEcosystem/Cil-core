@@ -2,6 +2,7 @@ const EventEmitter = require('events');
 const uuid = require('node-uuid');
 const net = require('net');
 const path = require('path');
+const debug = require('debug')('transport:');
 
 const {sleep} = require('../utils');
 const TestConnectionWrapper = require('./testConnection');
@@ -40,6 +41,10 @@ module.exports = (SerializerImplementation, Constants) => {
                 this._cachedAddr = this.constructor.addressToBuffer(this._address);
             }
             return this._cachedAddr;
+        }
+
+        get strAddress() {
+            return this._address;
         }
 
         /**
@@ -89,8 +94,6 @@ module.exports = (SerializerImplementation, Constants) => {
                 const socket = net.createConnection(path.join('\\\\?\\pipe', process.cwd(), address),
                     async (err) => {
                         if (err) return reject(err);
-
-                        logger.info(`Connect delay ${this._delay}`);
                         if (this._delay) await sleep(this._delay);
                         resolve(new TestConnection({delay: this._delay, socket, timeout: this._timeout}));
                     }
@@ -108,7 +111,6 @@ module.exports = (SerializerImplementation, Constants) => {
             // TODO: use port
             net.createServer(async (socket) => {
                 if (this._delay) await sleep(this._delay);
-                logger.info(`Listen delay ${this._delay}`);
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout})
                 );

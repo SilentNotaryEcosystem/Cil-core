@@ -19,10 +19,10 @@ module.exports = MessagesImplementation => {
          * @return {Object}
          */
         static deSerialize(buffer, toCommon = false) {
+
             // was message completly downloaded?
-            const buffReader = new BufferReader(buffer);
-            const length = buffReader.int32();
-            if (buffer.length - buffReader.pos !== length) {
+            const {length, dataOffset} = Serializer.readMsgLength(buffer);
+            if (buffer.length - dataOffset !== length) {
                 throw new Error(`Buffer length ${buffer.length} not equal to expected ${length}`);
             }
 
@@ -35,6 +35,16 @@ module.exports = MessagesImplementation => {
             if (msg.isVerAck()) return msg;
             if (msg.isGetAddr()) return msg;
             if (msg.isAddr()) return new MsgAddr(buffer);
+        }
+
+        /**
+         *
+         * @param {Buffer} firstChunk - first chunk (or whole) of serialized data
+         * @return {{length: number, dataOffset: number}} length - data length, dataOffset - position of payload in chunk
+         */
+        static readMsgLength(firstChunk) {
+            const buffReader = new BufferReader(firstChunk);
+            return {length: buffReader.int32(), dataOffset: buffReader.pos};
         }
     };
 };

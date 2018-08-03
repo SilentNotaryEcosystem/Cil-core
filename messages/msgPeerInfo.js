@@ -14,7 +14,7 @@ module.exports = (Constants, MessageProto) =>
 
                 // transform address to internal representation
                 if (Buffer.isBuffer(data.address)) {
-                    data.address = this._addressDataFromBuffer(data.address);
+                    data.address = this.constructor.addressFromBuffer(data.address);
                 }
                 if (!data.port) data.port = Constants.port;
                 const errMsg = MessageProto.verify(data);

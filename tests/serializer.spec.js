@@ -1,5 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const {inspect} = require('util');
+const debug = require('debug')('serializer');
 
 const factory = require('./testFactory');
 
@@ -35,7 +37,7 @@ describe('Serializer', () => {
         assert.isOk(Buffer.isBuffer(buff));
         assert.isOk(buff.equals(buff2));
         assert.isOk(buff.length);
-        console.dir(buff, {colors: true, depth: null, breakLength: Infinity, compact: false});
+        debug(inspect(buff, {colors: true, depth: null, breakLength: Infinity, compact: false}));
     });
 
     it('should deserialize message', async () => {
@@ -46,7 +48,7 @@ describe('Serializer', () => {
         const msg = factory.Serializer.deSerialize(Buffer.from(serializedMessage));
         assert.isOk(msg);
         assert.isOk(msg instanceof factory.Messages.MsgVersion);
-        console.log(msg);
+        debug(msg);
     });
 
     it('should FAIL to deserialize PARTIAL message', async () => {
@@ -59,7 +61,7 @@ describe('Serializer', () => {
             assert.isOk(false, 'Unexpected success');
         } catch (err) {
             assert.isNotOk(msg);
-            console.error(err);
+            debug(err);
         }
     });
 });

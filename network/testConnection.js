@@ -1,5 +1,5 @@
 const EventEmitter = require('events');
-const {BufferReader} = require("protobufjs");
+const debug = require('debug')('transport:connection');
 
 const {sleep} = require('../utils');
 
@@ -11,7 +11,7 @@ const {sleep} = require('../utils');
 
 
 module.exports = (Serializer, Constants) =>
-    class TestConnection extends EventEmitter {
+    class Connection extends EventEmitter {
         constructor(options) {
             super();
 
@@ -20,16 +20,17 @@ module.exports = (Serializer, Constants) =>
             this._socket = options.socket;
             if (!this._socket) throw new Error('No socket!');
 
+            this._nonce = parseInt(Math.random() * 10000);
             this._messageBuffer = undefined;
             this._socket.on('data', this._incomingMessage.bind(this));
         }
 
         get myAddress() {
-            return this._topic;
+            return this._socket.localAddress;
         }
 
         get remoteAddress() {
-            return this._topic;
+            return this._socket.remoteAddress;
         }
 
         /**
@@ -38,7 +39,7 @@ module.exports = (Serializer, Constants) =>
          */
         async sendMessage(message) {
             if (this._delay) await sleep(this._delay);
-            logger.info(`sendMessage delay ${this._delay}`);
+            debug(`(Nonce: ${this._nonce}, delay ${this._delay}) sendMessage "${message.message}"`);
             this._socket.write(Serializer.serialize(message));
         }
 
@@ -47,10 +48,11 @@ module.exports = (Serializer, Constants) =>
             if (!this._messageBuffer) {
 
                 // new message, let's assemby it
-                const buffReader = new BufferReader(data);
-                this._msgLength = buffReader.int32();
-                logger.info(`New message. Total length: ${this._msgLength}`);
-                this._messageBuffer = Buffer.alloc(this._msgLength + buffReader.pos);
+                const {length, dataOffset} = Serializer.readMsgLength(data);
+                this._msgLength = length;
+                debug(
+                    `(Nonce: ${this._nonce}, delay ${this._delay}) incomingMessage. Total length: ${this._msgLength}`);
+                this._messageBuffer = Buffer.alloc(this._msgLength + dataOffset);
                 data.copy(this._messageBuffer);
                 this._offset = data.length;
             } else {
@@ -59,14 +61,16 @@ module.exports = (Serializer, Constants) =>
                 data.copy(this._messageBuffer, this._offset);
                 this._offset += data.length;
             }
-            logger.info(`_incomingData chunkLength: ${data.length} delay ${this._delay}`);
+            debug(`(Nonce: ${this._nonce}, delay ${this._delay}) --- chunkLength: ${data.length}`);
             if (this._msgLength <= this._offset) {
-                logger.info(`Done with message`);
+                debug(`(Nonce: ${this._nonce}, delay ${this._delay}) incomingMessage. Done`);
 
                 // whole message buffered, we'r done
                 if (this._delay) await sleep(this._delay);
                 try {
-                    this.emit('message', Serializer.deSerialize(this._messageBuffer));
+                    const msg = Serializer.deSerialize(this._messageBuffer);
+                    this.emit('message', msg);
+                    this.emit('messageSync', msg);
                 } catch (err) {
                     logger.error(err);
                 }
@@ -82,7 +86,7 @@ module.exports = (Serializer, Constants) =>
          */
         receiveSync() {
             const prom = new Promise(resolve => {
-                this.once('message', async objMessage => {
+                this.once('messageSync', async objMessage => {
                     resolve(objMessage);
                 });
             });

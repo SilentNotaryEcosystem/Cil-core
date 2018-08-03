@@ -52,5 +52,6 @@ message VersionPayload {
 // TODO: implement timestamps https://en.bitcoin.it/wiki/Protocol_documentation#addr
 
 message AddrPayload {
-    repeated PeerInfo peers = 1;
+    uint32 count = 1;
+    repeated PeerInfo peers = 2;
 }

@@ -1,21 +1,25 @@
 const protobuf = require("protobufjs");
-const debug = require('debug');
+const debugLib = require('debug');
 
 // Uncomment in prod!!
-//const error=debug('app:error');
-//const log=debug('app:log');
+//const error=debugLib('app:error');
+//const log=debugLib('app:log');
 //log.log = console.log.bind(console);
-//const info=debug('app:info');
+//const info=debugLib('app:info');
 //info.log = console.info.bind(console);
+//const debug=debugLib('app:debug');
+//debug.log = console.log.bind(console);
 // simple logger
 //global.logger = {
 //    error: msg => error(msg),
 //    log: msg => log(msg),
 //    info: msg => info(msg)
+//    debug: msg => debug(msg)
 //};
 
 // Remove in prod
 global.logger = console;
+global.logger.debug = console.log;
 
 
 /**

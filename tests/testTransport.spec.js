@@ -67,6 +67,32 @@ describe('TestTransport', () => {
         assert.equal(result.message, 'version');
     });
 
+    it('should receive only ONE message (timeout with second one)', async () => {
+        const address = uuid.v4();
+        const endpoint1 = new factory.Transport({delay: 0, listenAddr: address});
+        const endpoint2 = new factory.Transport({delay: 0});
+
+        const [connection1, connection2] = await Promise.all([
+            endpoint1.listenSync(),
+            endpoint2.connect(address)
+        ]);
+
+        assert.isOk(connection1);
+        assert.isOk(connection2);
+
+        const msgPromise = connection2.receiveSync();
+        await connection1.sendMessage(msgVersion);
+
+        const result = await msgPromise;
+        assert.equal(result.message, 'version');
+
+        // try to receive second message
+        const result2 = await Promise.race([connection2.receiveSync(), sleep(1000)]);
+
+        // timeout reached
+        assert.isNotOk(result2);
+    });
+
     it('should FAIL or timeout 3 sec (different addresses)', async function() {
         this.timeout(10000);
         const address1 = uuid.v4();

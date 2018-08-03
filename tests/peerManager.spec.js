@@ -92,7 +92,13 @@ describe('Peer manager', () => {
 
         const arrWitnessNodes = pm.filterPeers({service: factory.Constants.WITNESS});
         assert.isOk(arrWitnessNodes.length === 3);
+        arrWitnessNodes.forEach(peerInfo => {
+            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
+        });
         const arrNodes = pm.filterPeers({service: factory.Constants.NODE});
         assert.isOk(arrNodes.length === 2);
+        arrWitnessNodes.forEach(peerInfo => {
+            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
+        });
     });
 });
