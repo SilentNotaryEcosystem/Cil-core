@@ -1,6 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const uuid = require('node-uuid');
+const debug = require('debug')('transport:');
 
 const factory = require('./testFactory');
 const {sleep} = require('../utils');
@@ -109,7 +110,7 @@ describe('TestTransport', () => {
             ]));
             assert.isOk(false, 'Unexpected success');
         } catch (err) {
-            console.error(err);
+            debug(err);
         }
         assert.isNotOk(connection1);
     });

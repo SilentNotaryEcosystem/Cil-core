@@ -1,5 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const debug = require('debug')('peerInfo:');
+
 
 const factory = require('../testFactory');
 
@@ -35,7 +37,7 @@ describe('PeerInfo Message', () => {
             peerInfo = new factory.Messages.PeerInfo();
             assert.isOk(false, 'Unexpected success!');
         } catch (err) {
-            console.error(err);
+            debug(err);
         }
     });
 

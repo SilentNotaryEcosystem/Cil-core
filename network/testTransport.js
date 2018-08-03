@@ -3,6 +3,9 @@ const uuid = require('node-uuid');
 const net = require('net');
 const path = require('path');
 const debug = require('debug')('transport:');
+const os = require('os');
+
+const pathPrefix = os.platform() === 'win32' ? '\\\\?\\pipe' : '';
 
 const {sleep} = require('../utils');
 const TestConnectionWrapper = require('./testConnection');
@@ -91,7 +94,7 @@ module.exports = (SerializerImplementation, Constants) => {
             if (Buffer.isBuffer(address)) address = this.constructor.addressFromBuffer(address);
 
             return new Promise((resolve, reject) => {
-                const socket = net.createConnection(path.join('\\\\?\\pipe', process.cwd(), address),
+                const socket = net.createConnection(path.join(`${pathPrefix}`, os.tmpdir(), address),
                     async (err) => {
                         if (err) return reject(err);
                         if (this._delay) await sleep(this._delay);
@@ -114,7 +117,7 @@ module.exports = (SerializerImplementation, Constants) => {
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout})
                 );
-            }).listen(path.join('\\\\?\\pipe', process.cwd(), this._address));
+            }).listen(path.join(`${pathPrefix}`, os.tmpdir(), this._address));
         }
 
         /**

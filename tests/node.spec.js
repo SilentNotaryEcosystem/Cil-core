@@ -1,7 +1,10 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const uuid = require('node-uuid');
 
 factory = require('./testFactory');
+
+const seedAddress = uuid.v4().substr(0, 16);
 
 let seedNode;
 describe('Node tests', () => {
@@ -9,7 +12,7 @@ describe('Node tests', () => {
         this.timeout(15000);
         await factory.asyncLoad();
 
-        seedNode = new factory.Node({listenAddr: 'seed', delay: 0});
+        seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
@@ -91,7 +94,7 @@ describe('Node tests', () => {
 
     it('should get peers from seedNode', async function() {
         this.timeout(10000);
-        const newNode = new factory.Node({delay: 0, queryTimeout: 5000, arrSeedAddresses: ['seed']});
+        const newNode = new factory.Node({delay: 0, queryTimeout: 5000, arrSeedAddresses: [seedAddress]});
         await newNode.bootstrap();
 
         const peers = newNode._peerManager.filterPeers();
