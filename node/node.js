@@ -24,7 +24,8 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             this._myPeerInfo = new PeerInfo({
                 capabilities: [
                     {service: Constants.NODE}
-                ]
+                ],
+                port: this._transport.port
             });
             this._myPeerInfo.address = this._transport.myAddress;
 
@@ -64,7 +65,7 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
                 await this._getBlocks(connection);
             }
 
-            // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections ...)
+            // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections, query new peers ...)
         }
 
         _getBlocks() {

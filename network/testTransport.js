@@ -31,7 +31,7 @@ module.exports = (SerializerImplementation, Constants) => {
         constructor(options) {
             super();
 
-            this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 1 * 1000);
+            this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 1000);
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
 
             // here should be some public address @see os.networkInterfaces
@@ -48,6 +48,10 @@ module.exports = (SerializerImplementation, Constants) => {
 
         get strAddress() {
             return this._address;
+        }
+
+        get port() {
+            return this._port;
         }
 
         /**
