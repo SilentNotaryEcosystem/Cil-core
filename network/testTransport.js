@@ -31,7 +31,7 @@ module.exports = (SerializerImplementation, Constants) => {
         constructor(options) {
             super();
 
-            this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
+            this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 1 * 1000);
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
 
             // here should be some public address @see os.networkInterfaces
@@ -112,12 +112,13 @@ module.exports = (SerializerImplementation, Constants) => {
         listen() {
 
             // TODO: use port
-            net.createServer(async (socket) => {
+            const server = net.createServer(async (socket) => {
                 if (this._delay) await sleep(this._delay);
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout})
                 );
             }).listen(path.join(`${pathPrefix}`, os.tmpdir(), this._address));
+            server.maxConnections = 100;
         }
 
         /**
