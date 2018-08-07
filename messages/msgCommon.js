@@ -7,9 +7,11 @@
 module.exports = (NetworkMagic, MessageProto) =>
     class MessageCommon {
 
-        constructor(buffer) {
-            if (buffer) {
-                this._msg = {...MessageProto.decodeDelimited(buffer)};
+        constructor(data) {
+            if (data instanceof MessageCommon) {
+                this._msg = data._msg;
+            } else if (Buffer.isBuffer(data)) {
+                this._msg = {...MessageProto.decodeDelimited(data)};
                 this._validate();
             } else {
                 this._msg = {

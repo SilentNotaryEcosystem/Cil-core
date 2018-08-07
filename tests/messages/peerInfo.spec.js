@@ -5,7 +5,7 @@ const debug = require('debug')('peerInfo:');
 
 const factory = require('../testFactory');
 
-let templateMsg;
+let templatePeer;
 
 describe('PeerInfo Message', () => {
     before(async function() {
@@ -32,9 +32,8 @@ describe('PeerInfo Message', () => {
     });
 
     it('should NOT create empty PeerInfo', async () => {
-        let peerInfo;
         try {
-            peerInfo = new factory.Messages.PeerInfo();
+            new factory.Messages.PeerInfo();
             assert.isOk(false, 'Unexpected success!');
         } catch (err) {
             debug(err);
@@ -70,9 +69,9 @@ describe('PeerInfo Message', () => {
             addr2: 0x1234,
             addr3: 0x3
         };
-        const buff = factory.Messages.PeerInfo.addressToBuffer(addr);
+        const buff = factory.Messages.PeerInfo.toAddress(addr);
         assert.isOk(buff && Buffer.isBuffer(buff));
-        const objRevertedAddr = factory.Messages.PeerInfo.addressFromBuffer(buff);
+        const objRevertedAddr = factory.Messages.PeerInfo.fromAddress(buff);
         assert.deepEqual(addr, objRevertedAddr);
     });
 });

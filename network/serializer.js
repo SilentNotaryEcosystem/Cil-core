@@ -15,10 +15,9 @@ module.exports = MessagesImplementation => {
         /**
          *
          * @param {Buffer} buffer - to decode
-         * @param {Boolean} toCommon - when MessageCommon will be enough
-         * @return {Object}
+         * @return {MessageCommon}
          */
-        static deSerialize(buffer, toCommon = false) {
+        static deSerialize(buffer) {
 
             // was message completly downloaded?
             const {length, dataOffset} = Serializer.readMsgLength(buffer);
@@ -26,15 +25,7 @@ module.exports = MessagesImplementation => {
                 throw new Error(`Buffer length ${buffer.length} not equal to expected ${length}`);
             }
 
-            // first we should decide type of message
-            const msg = new MsgCommon(buffer);
-            if (toCommon) return msg;
-
-            // now return properly deserialized message
-            if (msg.isVersion()) return new MsgVersion(buffer);
-            if (msg.isVerAck()) return msg;
-            if (msg.isGetAddr()) return msg;
-            if (msg.isAddr()) return new MsgAddr(buffer);
+            return new MsgCommon(buffer);
         }
 
         /**

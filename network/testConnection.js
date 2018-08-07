@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const util = require('util');
 const debug = require('debug')('transport:connection');
 
 const {sleep} = require('../utils');
@@ -19,6 +20,7 @@ module.exports = (Serializer, Constants) =>
             this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
             this._socket = options.socket;
             if (!this._socket) throw new Error('No socket!');
+            this._socket.write = util.promisify(this._socket.write);
 
             this._nonce = parseInt(Math.random() * 10000);
             this._messageBuffer = undefined;
@@ -40,7 +42,7 @@ module.exports = (Serializer, Constants) =>
         async sendMessage(message) {
             if (this._delay) await sleep(this._delay);
             debug(`(Nonce: ${this._nonce}, delay ${this._delay}) sendMessage "${message.message}"`);
-            this._socket.write(Serializer.serialize(message));
+            return await this._socket.write(Serializer.serialize(message));
         }
 
         async _incomingMessage(data) {

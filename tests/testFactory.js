@@ -21,7 +21,6 @@ const debugLib = require('debug');
 global.logger = console;
 global.logger.debug = console.log;
 
-
 /**
  * Class to easy replacement used components
  */
@@ -34,6 +33,7 @@ const SerializerWrapper = require('../network/serializer');
 const WalletWrapper = require('../wallet/wallet');
 const MessagesWrapper = require('../messages/index');
 const BftWrapper = require('../node/bftConsensus');
+const PeerWrapper = require('../network/peer');
 const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
 
@@ -46,9 +46,11 @@ class Factory {
         this._donePromise.then(() => {
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._transportImplemetation = TransportWrapper(this.Serializer, this.Constants);
-                this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages);
-
-                this._nodeImplementation = NodeWrapper(this.Transport, this.Messages, this.Constants, this.PeerManager);
+                this._peerImplementation = PeerWrapper(this.Messages, this.Constants);
+                this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
+                this._nodeImplementation =
+                    NodeWrapper(this.Transport, this.Messages, this.Constants, this.Peer, this.PeerManager
+                    );
             })
             .catch(err => {
                 logger.error(err);
@@ -60,10 +62,6 @@ class Factory {
         };
         this._walletImplementation = WalletWrapper(Crypto);
         this._bftImplementation = BftWrapper(Crypto);
-    }
-
-    asyncLoad() {
-        return this._donePromise;
     }
 
     get version() {
@@ -111,6 +109,14 @@ class Factory {
 
     get Node() {
         return this._nodeImplementation;
+    }
+
+    get Peer() {
+        return this._peerImplementation;
+    }
+
+    asyncLoad() {
+        return this._donePromise;
     }
 
     async _asyncLoader() {

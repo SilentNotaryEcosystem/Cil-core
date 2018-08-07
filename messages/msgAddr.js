@@ -15,7 +15,7 @@ module.exports = (MessageCommon, AddrPayloadProto) =>
          */
         constructor(data) {
 
-            if (Buffer.isBuffer(data)) {
+            if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
                 if (this.message !== 'addr') {
                     throw new Error(`Wrong message type. Expected 'addr' got '${this.message}'`);

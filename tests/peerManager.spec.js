@@ -28,35 +28,10 @@ describe('Peer manager', () => {
             ],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
         });
-        pm.discoveredPeer(peer);
+        pm.addPeer(peer);
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 1);
         assert.isOk(peer.address.equals(Buffer.from(arrPeers[0], 'hex')));
-    });
-
-    it('should batchAdd peers to PeerManager', async () => {
-        const pm = new factory.PeerManager();
-        assert.isOk(pm);
-        const peerInfo1 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null},
-                {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
-            ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
-        });
-        const peerInfo2 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null}
-            ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
-        });
-
-        pm.batchDiscoveredPeers([peerInfo1, peerInfo1, peerInfo1, peerInfo2]);
-        const arrPeers = Array.from(pm._allPeers.keys());
-        assert.isOk(arrPeers.length === 2);
-
-        assert.isOk(peerInfo1.address.equals(Buffer.from(arrPeers[0], 'hex')));
-        assert.isOk(peerInfo2.address.equals(Buffer.from(arrPeers[1], 'hex')));
     });
 
     it('should filter peers by capability', async () => {
@@ -86,14 +61,14 @@ describe('Peer manager', () => {
             ],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
         });
-        pm.batchDiscoveredPeers([peerInfo1, peerInfo2, peerInfo3, peerInfo4]);
+        [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => pm.addPeer(peerInfo));
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 4);
 
         const arrWitnessNodes = pm.filterPeers({service: factory.Constants.WITNESS});
         assert.isOk(arrWitnessNodes.length === 3);
-        arrWitnessNodes.forEach(peerInfo => {
-            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
+        arrWitnessNodes.forEach(peer => {
+            assert.isOk(peer && peer.capabilities && peer.address && peer.port);
         });
         const arrNodes = pm.filterPeers({service: factory.Constants.NODE});
         assert.isOk(arrNodes.length === 2);

@@ -11,14 +11,13 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
 
         /**
          *
-         * @param {Object|Buffer} data
+         * @param {Object|Buffer|MessageCommon} data
          * @param {Number} data.protocolVersion - current protocol version
          * @param {Object} data.peerInfo - @see network.proto.PeerInfo
          * @param {Number} data.height - curent DB height (length of MainChain)
          */
         constructor(data) {
-
-            if (Buffer.isBuffer(data)) {
+            if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
                 if (this.message !== 'version') {
                     throw new Error(`Wrong message type. Expected 'version' got '${this.message}'`);

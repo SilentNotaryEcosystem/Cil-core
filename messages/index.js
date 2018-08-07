@@ -1,5 +1,5 @@
 const MsgAddrWrapper = require('./msgAddr');
-const PeerInfoWrapper = require('./msgPeerInfo');
+const PeerInfoWrapper = require('./peerInfo');
 const MsgVersionWrapper = require('./msgVersion');
 const MsgCommonWrapper = require('./msgCommon');
 

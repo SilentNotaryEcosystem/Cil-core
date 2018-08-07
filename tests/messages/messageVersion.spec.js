@@ -34,17 +34,35 @@ describe('Version Message', () => {
     it('should create empty MsgVersion', async () => {
         const msgVersion = new factory.Messages.MsgVersion();
         assert.isOk(msgVersion);
-        assert.equal(msgVersion.message, 'version');
+        assert.isOk(msgVersion.isVersion());
     });
 
     it('should create MsgVersion from object', async () => {
         const msgVersion = new factory.Messages.MsgVersion(msgTemplate);
         assert.isOk(msgVersion);
-        assert.equal(msgVersion.message, 'version');
+        assert.isOk(msgVersion.isVersion());
+        assert.isOk(msgVersion.protocolVersion && msgVersion.protocolVersion === factory.Constants.protocolVersion);
         assert.isOk(msgVersion.data);
         assert.isOk(msgVersion.data.peerInfo);
         assert.isOk(msgVersion.data.timeStamp);
         assert.isOk(msgVersion.data.nonce);
+    });
+
+    it('should create MsgVersion from MsgCommon', async () => {
+        const msgVersion = new factory.Messages.MsgVersion(msgTemplate);
+        const buff = msgVersion.encode();
+        const msgCommon = new factory.Messages.MsgCommon(buff);
+        assert.isOk(msgCommon);
+        const reconstructedVersion = new factory.Messages.MsgVersion(msgCommon);
+
+        assert.isOk(reconstructedVersion);
+        assert.isOk(msgVersion.isVersion());
+        assert.isOk(msgVersion.protocolVersion && msgVersion.protocolVersion === factory.Constants.protocolVersion);
+        assert.isOk(reconstructedVersion.data);
+        assert.isOk(reconstructedVersion.data.peerInfo);
+        assert.isOk(reconstructedVersion.data.timeStamp);
+        assert.isOk(reconstructedVersion.data.nonce);
+
     });
 
     it('should pass encoding/decoding MsgVersion', async () => {

@@ -1,6 +1,16 @@
 const EventEmitter = require('events');
 
-module.exports = (Storage, Constants, {PeerInfo}) =>
+/**
+ *
+ * @param Storage
+ * @param Constants
+ * @param PeerInfo
+ * @param Peer
+ * @return {{new(*=): PeerManager}}
+ *
+ * @emits 'message' {peer, message}
+ */
+module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
     class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
@@ -11,66 +21,56 @@ module.exports = (Storage, Constants, {PeerInfo}) =>
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
             this._allPeers = new Map();
-
-            // TODO: add load banned peers from persistent store
-            this._badPeers = new Map();
-            this._connectedPeers = [];
-        }
-
-        batchDiscoveredPeers(arrPeerInfo) {
-
-            // TODO: add save peers to persistent store
-            arrPeerInfo.forEach(peer => this.discoveredPeer(peer));
         }
 
         /**
          *
          * @param {Object | PeerInfo} peerInfo - @see network.proto PeerInfo
          */
-        discoveredPeer(peerInfo) {
-            if (peerInfo instanceof PeerInfo) peerInfo = peerInfo.data;
+        addPeer(peerInfo) {
+            if (!(peerInfo instanceof PeerInfo)) peerInfo = new PeerInfo(peerInfo);
+            const newPeer = new Peer({peerInfo});
 
-            // TODO: implement timestamps of active peers @see network.proto Address group
-            const buffAddress = PeerInfo.addressToBuffer(peerInfo.address);
-            // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
-            this._allPeers.set(buffAddress.toString('hex'), {timestamp: Date.now(), peerInfo});
+            // just bubble message to Node
+            newPeer.on('message', (peer, msg) => this.emit('message', peer, msg));
+            this._allPeers.set(this._createKey(peerInfo.address), newPeer);
         }
 
         /**
          *
          * @param {Number} service - @see Constants
-         * @return {Array} of peerInfo OBJECTS!
+         * @return {Array} of Peers
          */
         filterPeers({service} = {}) {
             const arrResult = [];
             const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
 
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
-            for (let [peerAddr, {timestamp, peerInfo}] of this._allPeers.entries()) {
+            for (let [, peer] of this._allPeers.entries()) {
                 if (!service ||
-                    ~peerInfo.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
-                    if (timestamp > tsAlive) {
-                        arrResult.push(peerInfo);
+                    ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
+                    if (peer.lastActionTimestamp > tsAlive) {
+                        arrResult.push(peer);
                     }
                 }
-                if (arrResult.length >= this._nMaxPeers) break;
             }
 
             return arrResult;
         }
 
-        addConnection(connection) {
-            // TODO: replace this._connectedPeers with Map to connect only once to peer
-//            const buffAddress = PeerInfo.addressToBuffer(connection.address);
-
-            this._connectedPeers.push(connection);
-            connection.on('message', (message) => {
-                this.emit('message', connection, message);
-            });
+        broadcastToConnected() {
 
         }
 
-        broadcastToConnected() {
+        /**
+         *
+         * @param {Buffer} address
+         * @return {string}
+         * @private
+         */
+        _createKey(address) {
 
+            // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
+            return address.toString('hex');
         }
     };

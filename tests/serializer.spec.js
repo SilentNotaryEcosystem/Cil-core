@@ -47,7 +47,7 @@ describe('Serializer', () => {
             184, 27, 24, 180, 36, 32, 3, 32, 133, 228, 3];
         const msg = factory.Serializer.deSerialize(Buffer.from(serializedMessage));
         assert.isOk(msg);
-        assert.isOk(msg instanceof factory.Messages.MsgVersion);
+        assert.isOk(msg.isVersion());
         debug(msg);
     });
 

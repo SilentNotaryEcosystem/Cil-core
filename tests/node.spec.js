@@ -38,8 +38,7 @@ describe('Node tests', () => {
             ],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
         });
-        seedNode._peerManager.batchDiscoveredPeers(
-            [peerInfo1, peerInfo2, peerInfo3, peerInfo4]);
+        [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
 
     });
 
@@ -78,8 +77,20 @@ describe('Node tests', () => {
                 address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
             }
         });
-        const msg = node._handleVersionMessage(inMsg);
-        assert.isOk(msg && msg.isVerAck());
+        const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
+        let nMsgSend = 0;
+        const newPeer = new factory.Peer({
+            transport: new factory.Transport({delay: 0}),
+            connection: {
+                remoteAddress: 'testAddress',
+                on: () => {},
+                sendMessage: async () => {
+                    nMsgSend++;
+                }
+            }
+        });
+        await node._handleVersionMessage(newPeer, msgCommon);
+        assert.equal(nMsgSend, 2);
     });
 
     it('should prepare MsgAddr', async () => {

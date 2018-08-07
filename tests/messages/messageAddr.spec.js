@@ -36,13 +36,24 @@ describe('Addr Message', () => {
     it('should create empty MsgAddr', async () => {
         const msgAddr = new factory.Messages.MsgAddr();
         assert.isOk(msgAddr);
-        assert.equal(msgAddr.message, 'addr');
+        assert.isOk(msgAddr.isAddr());
     });
 
     it('should create MsgAddr from object', async () => {
         const msgAddr = new factory.Messages.MsgAddr(templateMsg);
         assert.isOk(msgAddr);
-        assert.equal(msgAddr.message, 'addr');
+        assert.isOk(msgAddr.isAddr());
+    });
+
+    it('should create MsgAddr from MsgCommon', async () => {
+        const msgAddr = new factory.Messages.MsgAddr(templateMsg);
+        assert.isOk(msgAddr);
+        const buff = msgAddr.encode();
+        const msgCommon = new factory.Messages.MsgCommon(buff);
+        assert.isOk(msgCommon);
+        const reconstructedAddr = new factory.Messages.MsgAddr(msgCommon);
+
+        assert.isOk(reconstructedAddr.isAddr());
     });
 
     it('tests getters/setters', async () => {
@@ -56,12 +67,10 @@ describe('Addr Message', () => {
         assert.isOk(result);
         assert.isOk(Buffer.isBuffer(result));
         assert.isOk(result.length);
-//        console.dir(result, {colors: true, depth: null});
 
         const decodedMessage = new factory.Messages.MsgAddr(result);
 
         const reEncoded = decodedMessage.encode();
         assert.isOk(result.equals(reEncoded));
-
     });
 });

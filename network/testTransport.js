@@ -41,13 +41,9 @@ module.exports = (SerializerImplementation, Constants) => {
 
         get myAddress() {
             if (!this._cachedAddr) {
-                this._cachedAddr = this.constructor.addressToBuffer(this._address);
+                this._cachedAddr = this.constructor.strToAddress(this._address);
             }
             return this._cachedAddr;
-        }
-
-        get strAddress() {
-            return this._address;
         }
 
         get port() {
@@ -62,18 +58,22 @@ module.exports = (SerializerImplementation, Constants) => {
          * @param {String} address
          * @return {Buffer}
          */
-        static addressToBuffer(address) {
+        static strToAddress(address) {
             const buffer = Buffer.from(address);
             const bytestoPadd = buffer.length > 16 ? 0 : 16 - buffer.length;
             return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
         }
 
-        static addressFromBuffer(buffer) {
+        static addressToString(buffer) {
             let i = 0;
 
             // skip leading 0
             for (; i < buffer.length && !buffer[i]; i++) {}
             return buffer.toString('utf8', i);
+        }
+
+        static generateAddress() {
+            return uuid.v4().substr(0, 16);
         }
 
         static isPrivateAddress(address) {
@@ -95,7 +95,7 @@ module.exports = (SerializerImplementation, Constants) => {
          * @return {Promise<TestConnection>} new connection
          */
         connect(address) {
-            if (Buffer.isBuffer(address)) address = this.constructor.addressFromBuffer(address);
+            if (Buffer.isBuffer(address)) address = this.constructor.addressToString(address);
 
             return new Promise((resolve, reject) => {
                 const socket = net.createConnection(path.join(`${pathPrefix}`, os.tmpdir(), address),
@@ -116,13 +116,12 @@ module.exports = (SerializerImplementation, Constants) => {
         listen() {
 
             // TODO: use port
-            const server = net.createServer(async (socket) => {
+            net.createServer(async (socket) => {
                 if (this._delay) await sleep(this._delay);
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout})
                 );
             }).listen(path.join(`${pathPrefix}`, os.tmpdir(), this._address));
-            server.maxConnections = 100;
         }
 
         /**

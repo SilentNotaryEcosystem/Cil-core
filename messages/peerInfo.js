@@ -14,7 +14,7 @@ module.exports = (Constants, MessageProto) =>
 
                 // transform address to internal representation
                 if (Buffer.isBuffer(data.address)) {
-                    data.address = this.constructor.addressFromBuffer(data.address);
+                    data.address = this.constructor.fromAddress(data.address);
                 }
                 if (!data.port) data.port = Constants.port;
                 const errMsg = MessageProto.verify(data);
@@ -38,7 +38,7 @@ module.exports = (Constants, MessageProto) =>
 
             // TODO add cache for address?
             if (!this._data || !this._data.address) throw new Error('PeerInfo not initialized!');
-            return this.constructor.addressToBuffer(this._data.address);
+            return this.constructor.toAddress(this._data.address);
         }
 
         /**
@@ -47,7 +47,7 @@ module.exports = (Constants, MessageProto) =>
          */
         set address(buff) {
             if (!this._data) throw new Error('PeerInfo not initialized!');
-            this._data.address = this.constructor.addressFromBuffer(buff);
+            this._data.address = this.constructor.fromAddress(buff);
         }
 
         get port() {
@@ -64,7 +64,7 @@ module.exports = (Constants, MessageProto) =>
          * @param {Object} objAddress - {addr0, addr1, addr2, addr3}
          * @return {Buffer}
          */
-        static addressToBuffer(objAddress) {
+        static toAddress(objAddress) {
             const buffer = Buffer.alloc(16);
             buffer.writeUInt32BE(objAddress.addr0, 0);
             buffer.writeUInt32BE(objAddress.addr1, 4);
@@ -78,7 +78,7 @@ module.exports = (Constants, MessageProto) =>
          * @param {Buffer} buff
          * @return {Object} {addr0, addr1, addr2, addr3}
          */
-        static addressFromBuffer(buff) {
+        static fromAddress(buff) {
             const objAddress = {};
             objAddress.addr0 = buff.readInt32BE(0);
             objAddress.addr1 = buff.readInt32BE(4);

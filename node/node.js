@@ -4,7 +4,7 @@ const {sleep} = require('../utils');
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
-module.exports = (Transport, Messages, Constants, PeerManager) => {
+module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr} = Messages;
 
     return class Node {
@@ -21,18 +21,21 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
             this._transport = new Transport(options);
 
+            // TODO: requires storage init
+            this._mainChain = 0;
+
             this._myPeerInfo = new PeerInfo({
                 capabilities: [
                     {service: Constants.NODE}
                 ],
+                address: this._transport.myAddress,
                 port: this._transport.port
             });
-            this._myPeerInfo.address = this._transport.myAddress;
 
-            // used only for debugging purpose
-            this._debugAddress = this._transport.strAddress;
+            // used only for debugging purpose. Feel free to remove
+            this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
 
-            this._peerManager = new PeerManager({nMaxPeers});
+            this._peerManager = new PeerManager({nMaxPeers, transport: this._transport});
             this._peerManager.on('message', this._incomingMessage.bind(this));
 
             debugNode(`(address: "${this._debugAddress}") start listening`);
@@ -42,8 +45,8 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
 
         async bootstrap() {
             await this._mergeSeedPeers();
-            const arrPeerInfo = this._arrSeedAddresses.map(addr => new PeerInfo({
-                address: this._transport.constructor.addressToBuffer(addr),
+            const arrPeerInfo = this._arrSeedAddresses.map(strAddr => new PeerInfo({
+                address: this._transport.constructor.strToAddress(strAddr),
                 capabilities: [{service: factory.Constants.NODE}]
             }));
             this._peerManager.batchDiscoveredPeers(arrPeerInfo);
@@ -78,7 +81,7 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
          * @private
          */
         async _connectToPeer(peerInfo) {
-            const address = PeerInfo.addressToBuffer(peerInfo.address);
+            const address = PeerInfo.toAddress(peerInfo.address);
             debugNode(`(address: "${this._debugAddress}") connecting to ${address}`);
             return await this._transport.connect(address, peerInfo.port);
         }
@@ -148,7 +151,7 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
             const msgVersion = new MsgVersion({
                 nonce: this._nonce,
                 peerInfo: this._myPeerInfo.data,
-                height: this._height
+                height: this._mainChain
             });
 
             await connection.sendMessage(msgVersion);
@@ -178,66 +181,96 @@ module.exports = (Transport, Messages, Constants, PeerManager) => {
 
         _incomingConnection(connection) {
             debugNode(`(address: "${this._debugAddress}") incoming connection`);
-            this._peerManager.addConnection(connection);
+            this._peerManager.addPeer(new Peer({connection}));
         }
 
-        _incomingMessage(connection, message) {
-            let resultMsg;
+        /**
+         *
+         * @param {Peer} peer
+         * @param {MessageCommon} message
+         * @private
+         */
+        async _incomingMessage(peer, message) {
             try {
 
                 debugMsg(`(address: "${this._debugAddress}") received message "${message.message}"`);
                 if (message.isVersion()) {
-                    resultMsg = this._handleVersionMessage(message);
+                    await this._handleVersionMessage(peer, message);
+                } else if (message.isVerAck()) {
+                    await this._handleVerackMessage(peer);
                 } else if (message.isGetAddr()) {
-                    resultMsg = this._handlePeerRequest();
+                    await this._handlePeerRequest(peer);
                 } else if (message.isAddr()) {
-                    resultMsg = this._handlePeerList(message);
+                    await this._handlePeerList(peer, message);
                 } else {
                     throw new Error(`Unhandled message type "${message.message}"`);
                 }
-
-                debugMsg(`(address: "${this._debugAddress}") send reply "${resultMsg.message}"`);
-                connection.sendMessage(resultMsg).catch(err => logger.error(err));
             } catch (err) {
-                logger.error(`Peer ${connection.remoteAddress}. Error ${err.message}`);
-                connection.close();
-
-                //TODO: add peer to banned
+                logger.error(`Peer ${peer.remoteAddress}. Error ${err.message}`);
+                peer.misbehave(1);
             }
         }
 
-        _handleVersionMessage(message) {
-            let msg;
+        /**
+         *
+         * @param {Peer} peer that send message
+         * @param {MessageCommon} message
+         * @private
+         */
+        async _handleVersionMessage(peer, message) {
+            message = new MsgVersion(message);
 
             // we connected to self
-            if (message.nonce === this._nonce) throw new Error('Self connection detected');
+            if (message.nonce === this._nonce) {
+                debugNode('Connection to self detected. Disconnecting');
+                peer.misbehave(Constants.BAN_PEER_SCORE);
+                peer.disconnect();
+                return;
+            }
 
             // TODO: review version compatibility
             if (message.protocolVersion >= Constants.protocolVersion) {
-                msg = new MsgCommon();
-                msg.verAckMessage = true;
+                peer.version = message.protocolVersion;
 
-                // peer is compatible, let's add it to our address book
-                this._peerManager.discoveredPeer(message.peerInfo);
+                // send own version
+                debugMsg(`(address: "${this._debugAddress}") send own "version"`);
+                await peer.pushMessage(this._createMsgVersion());
+                const msgVerack = new MsgCommon();
+                msgVerack.verAckMessage = true;
+                debugMsg(`(address: "${this._debugAddress}") send "verack"`);
+                await peer.pushMessage(msgVerack);
             } else {
-                throw new Error(`Has incompatible protocol version ${message.protocolVersion}`);
+                debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
+                peer.disconnect();
             }
-            return msg;
         }
 
-        _handlePeerList(message) {
-            debugMsg(`Peer list:`);
-            logger.dir(message, {colors: true, depth: null});
+        async _handleVerackMessage(peer) {
+            peer.fullyConnected = true;
         }
 
-        _handlePeerRequest() {
+        async _handlePeerRequest(peer) {
 
             // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
             const arrPeers = this._peerManager.filterPeers();
             if (arrPeers.length > Constants.ADDR_MAX_LENGTH) {
                 logger.error('Its time to implement multiple addr messages');
             }
-            return new MsgAddr({count: arrPeers.length, peers: arrPeers});
+            debugMsg(`(address: "${this._debugAddress}") send "addr" of ${arrPeers.length} items`);
+            await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
+        }
+
+        async _handlePeerList(peer, message) {
+            debugMsg(`Peer list:`);
+            logger.dir(message, {colors: true, depth: null});
+        }
+
+        _createMsgVersion() {
+            return new MsgVersion({
+                nonce: this._nonce,
+                peerInfo: this._myPeerInfo.data,
+                height: this._mainChain
+            });
         }
     };
 };
