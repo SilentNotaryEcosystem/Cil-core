@@ -45,51 +45,42 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
 
         async bootstrap() {
             await this._mergeSeedPeers();
-            const arrPeerInfo = this._arrSeedAddresses.map(strAddr => new PeerInfo({
-                address: this._transport.constructor.strToAddress(strAddr),
-                capabilities: [{service: factory.Constants.NODE}]
-            }));
-            this._peerManager.batchDiscoveredPeers(arrPeerInfo);
+
+            // add seed peers to peerManager
+            for (let strAddr of this._arrSeedAddresses) {
+                const peer = new PeerInfo({
+                    address: Transport.strToAddress(strAddr),
+                    capabilities: [{service: Constants.NODE}]
+                });
+                this._peerManager.addPeer(peer);
+            }
 
             const arrBestPeers = this._findBestPeers();
             for (let peer of arrBestPeers) {
-                const connection = await this._connectToPeer(peer);
-
-                const arrPeerInfo = await Promise.race([
-                    this._requestPeersFromNode(connection),
-                    sleep(this._queryTimeout)
-                ]);
-
-                // timeout hit - next peer
-                if (!arrPeerInfo) continue;
-                await this._peerManager.batchDiscoveredPeers(arrPeerInfo);
-
-                // TODO: blocks download here!
-                await this._getBlocks(connection);
+                await this._connectToPeer(peer);
+                await peer.pushMessage(this._createMsgVersion());
+                await peer.loaded();
             }
 
             // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections, query new peers ...)
         }
 
-        _getBlocks() {
-        }
-
         /**
          *
-         * @param {Object} peerInfo!
+         * @param {Peer} peer!
          * @return {Promise<*>}
          * @private
          */
-        async _connectToPeer(peerInfo) {
-            const address = PeerInfo.toAddress(peerInfo.address);
+        async _connectToPeer(peer) {
+            const address = Transport.addressToString(peer.address);
             debugNode(`(address: "${this._debugAddress}") connecting to ${address}`);
-            return await this._transport.connect(address, peerInfo.port);
+            return await peer.connect();
         }
 
         /**
          * Redefine it for WitnessNode, to select only own group
          *
-         * @return {Array} of peerInfo we decided to be best peers to connect
+         * @return {Array} of Peers we decided to be best peers to connect
          * @private
          */
         _findBestPeers() {
@@ -99,8 +90,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
             if (arrWitnessNodes.length) return arrWitnessNodes;
 
             // but if there is no such - use any nodes
-            const arrNodes = this._peerManager.filterPeers({service: Constants.NODE});
-            return arrNodes;
+            return this._peerManager.filterPeers({service: Constants.NODE});
         }
 
         /**
@@ -139,49 +129,13 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
             return arrResult;
         }
 
-        /**
-         *
-         * @param {Connection} connection
-         * @return {Promise<Array>} of peers @see msgAddr.peers (deserialized content)
-         * @private
-         */
-        async _requestPeersFromNode(connection) {
-
-            // TODO: proper timeouts handling for receiveSync!
-            const msgVersion = new MsgVersion({
-                nonce: this._nonce,
-                peerInfo: this._myPeerInfo.data,
-                height: this._mainChain
-            });
-
-            await connection.sendMessage(msgVersion);
-            const msgVerAck = await connection.receiveSync();
-            debugMsg(`(address: "${this._debugAddress}") got reply "${msgVerAck.message}"`);
-
-            // incompatible peer
-            if (!msgVerAck || !msgVerAck.isVerAck()) return [];
-
-            // send getaddr message
-            const msgGetAddr = new MsgCommon();
-            msgGetAddr.getAddrMessage = true;
-            await connection.sendMessage(msgGetAddr);
-
-            let msgAddr;
-
-            // there could be non Addr message - ignore it. 10 attempts will be enough i suppose
-            for (let i = 0; i < 10; i++) {
-                msgAddr = await connection.receiveSync();
-                debugMsg(`(address: "${this._debugAddress}") got reply "${msgAddr.message}"`);
-
-                if (msgAddr.isAddr) break;
-            }
-
-            return msgAddr.peers;
-        }
-
         _incomingConnection(connection) {
-            debugNode(`(address: "${this._debugAddress}") incoming connection`);
-            this._peerManager.addPeer(new Peer({connection}));
+            try {
+                debugNode(`(address: "${this._debugAddress}") incoming connection`);
+                this._peerManager.addPeer(new Peer({connection}));
+            } catch (err) {
+                logger.error(err);
+            }
         }
 
         /**
@@ -195,18 +149,28 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
 
                 debugMsg(`(address: "${this._debugAddress}") received message "${message.message}"`);
                 if (message.isVersion()) {
-                    await this._handleVersionMessage(peer, message);
+                    return await this._handleVersionMessage(peer, message);
                 } else if (message.isVerAck()) {
-                    await this._handleVerackMessage(peer);
-                } else if (message.isGetAddr()) {
-                    await this._handlePeerRequest(peer);
-                } else if (message.isAddr()) {
-                    await this._handlePeerList(peer, message);
-                } else {
-                    throw new Error(`Unhandled message type "${message.message}"`);
+                    return await this._handleVerackMessage(peer);
                 }
+
+                if (!peer.fullyConnected) {
+                    logger.error(`Peer ${peer.remoteAddress} missed version handshake stage`);
+                    peer.misbehave(1);
+                    return;
+                }
+
+                if (message.isGetAddr()) {
+                    return await this._handlePeerRequest(peer);
+                }
+
+                if (message.isAddr()) {
+                    return await this._handlePeerList(peer, message);
+                }
+
+                throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
-                logger.error(`Peer ${peer.remoteAddress}. Error ${err.message}`);
+                logger.error(`${err.message} Peer ${peer.remoteAddress}.`);
                 peer.misbehave(1);
             }
         }
@@ -230,14 +194,30 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
 
             // TODO: review version compatibility
             if (message.protocolVersion >= Constants.protocolVersion) {
-                peer.version = message.protocolVersion;
 
-                // send own version
-                debugMsg(`(address: "${this._debugAddress}") send own "version"`);
-                await peer.pushMessage(this._createMsgVersion());
+                if (!peer.version) {
+                    peer.version = message.protocolVersion;
+                } else {
+
+                    // we are already have it's version
+                    peer.misbehave(1);
+                    return;
+                }
+
+                // very beginning of inbound connection
+                if (peer.inbound) {
+
+                    // we don't have peerInfo for incoming connections
+                    if (!peer.peerInfo) peer.peerInfo = message.peerInfo;
+
+                    // send own version
+                    debugMsg(`(address: "${this._debugAddress}") sending own "version"`);
+                    await peer.pushMessage(this._createMsgVersion());
+                }
+
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
-                debugMsg(`(address: "${this._debugAddress}") send "verack"`);
+                debugMsg(`(address: "${this._debugAddress}") sending "verack"`);
                 await peer.pushMessage(msgVerack);
             } else {
                 debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
@@ -246,23 +226,44 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
         }
 
         async _handleVerackMessage(peer) {
-            peer.fullyConnected = true;
+            if (peer.version) {
+                peer.fullyConnected = true;
+
+                // if we initiated connection to peer, so let's ask for known peers
+                if (!peer.inbound) {
+                    const msgGetAddr = new MsgCommon();
+                    msgGetAddr.getAddrMessage = true;
+                    debugMsg(`(address: "${this._debugAddress}") sending "getaddr"`);
+                    await peer.pushMessage(msgGetAddr);
+                } else {
+                    debugNode(`(address: "${this._debugAddress}") adding peer ${peer.address} to peerManager`);
+                    this._peerManager.addPeer(peer);
+                }
+            }
         }
 
         async _handlePeerRequest(peer) {
 
             // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
-            const arrPeers = this._peerManager.filterPeers();
+            const arrPeers = this._peerManager.filterPeers().map(peer => peer.peerInfo.data);
             if (arrPeers.length > Constants.ADDR_MAX_LENGTH) {
                 logger.error('Its time to implement multiple addr messages');
             }
-            debugMsg(`(address: "${this._debugAddress}") send "addr" of ${arrPeers.length} items`);
+            debugMsg(`(address: "${this._debugAddress}") sending "addr" of ${arrPeers.length} items`);
             await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
         }
 
         async _handlePeerList(peer, message) {
-            debugMsg(`Peer list:`);
-            logger.dir(message, {colors: true, depth: null});
+            message = new MsgAddr(message);
+            for (let peerInfo of message.peers) {
+                const newPeer = this._peerManager.addPeer(peerInfo);
+                debugNode(`(address: "${this._debugAddress}") added peer ${newPeer.address} to peerManager`);
+
+            }
+
+            // TODO: request block here
+            // TODO: move loadDone after we got all we need from peer
+            peer.loadDone = true;
         }
 
         _createMsgVersion() {

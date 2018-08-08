@@ -27,7 +27,7 @@ module.exports = (MessageCommon, AddrPayloadProto) =>
                 super();
                 if (typeof data === 'object') {
                     const errMsg = AddrPayloadProto.verify(data);
-                    if (errMsg) throw new Error(errMsg);
+                    if (errMsg) throw new Error(`MessageAddr: ${errMsg}`);
 
                     this._data = AddrPayloadProto.create(data);
                 }

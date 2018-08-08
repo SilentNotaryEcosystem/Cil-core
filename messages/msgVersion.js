@@ -31,7 +31,7 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
                     if (!data.nonce) throw new Error('You should specify nonce!');
 
                     const errMsg = VersionPayloadProto.verify(data);
-                    if (errMsg) throw new Error(errMsg);
+                    if (errMsg) throw new Error(`MessageVersion: ${errMsg}`);
 
                     const payload = VersionPayloadProto.create(data);
                     this._data = {

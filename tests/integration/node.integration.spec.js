@@ -42,7 +42,7 @@ describe('Node integration tests', () => {
         }
 
         const seedPeers = seedNode._peerManager.filterPeers();
-        assert.equal(seedPeers.length, maxConnections);
+        assert.isAtLeast(seedPeers.length, maxConnections);
         seedPeers.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
 

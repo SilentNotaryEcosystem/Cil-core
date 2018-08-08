@@ -1,10 +1,10 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const uuid = require('node-uuid');
+const {sleep} = require('../utils');
 
 factory = require('./testFactory');
 
-const seedAddress = uuid.v4().substr(0, 16);
+let seedAddress;
 
 let seedNode;
 describe('Node tests', () => {
@@ -12,7 +12,8 @@ describe('Node tests', () => {
         this.timeout(15000);
         await factory.asyncLoad();
 
-        seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+        seedAddress = factory.Transport.generateAddress();
+        seedNode = new factory.Node({listenAddr: seedAddress, delay: 10});
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
@@ -78,23 +79,33 @@ describe('Node tests', () => {
             }
         });
         const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
-        let nMsgSend = 0;
+        let nMsgSent = 0;
         const newPeer = new factory.Peer({
             transport: new factory.Transport({delay: 0}),
             connection: {
                 remoteAddress: 'testAddress',
                 on: () => {},
                 sendMessage: async () => {
-                    nMsgSend++;
+                    nMsgSent++;
                 }
             }
         });
         await node._handleVersionMessage(newPeer, msgCommon);
-        assert.equal(nMsgSend, 2);
+        assert.equal(nMsgSent, 2);
     });
 
     it('should prepare MsgAddr', async () => {
-        const msg = seedNode._handlePeerRequest();
+        let msg;
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: 'testAddress',
+                on: () => {},
+                sendMessage: async (msgAddr) => {
+                    msg = msgAddr;
+                }
+            }
+        });
+        seedNode._handlePeerRequest(newPeer);
         assert.isOk(msg && msg.isAddr());
         assert.isOk(msg.peers);
         assert.equal(msg.peers.length, 4);
@@ -104,7 +115,7 @@ describe('Node tests', () => {
     });
 
     it('should get peers from seedNode', async function() {
-        this.timeout(10000);
+        this.timeout(20000);
         const newNode = new factory.Node({delay: 0, queryTimeout: 5000, arrSeedAddresses: [seedAddress]});
         await newNode.bootstrap();
 

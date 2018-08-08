@@ -11,7 +11,7 @@ const {sleep} = require('../utils');
  */
 
 
-module.exports = (Serializer, Constants) =>
+module.exports = (Serializer, MessageAssembler, Constants) =>
     class Connection extends EventEmitter {
         constructor(options) {
             super();
@@ -20,11 +20,12 @@ module.exports = (Serializer, Constants) =>
             this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
             this._socket = options.socket;
             if (!this._socket) throw new Error('No socket!');
-            this._socket.write = util.promisify(this._socket.write);
+//            this._socket.write = util.promisify(this._socket.write);
 
             this._nonce = parseInt(Math.random() * 10000);
-            this._messageBuffer = undefined;
             this._socket.on('data', this._incomingMessage.bind(this));
+
+            this._messageAssembler = new MessageAssembler;
         }
 
         get myAddress() {
@@ -32,7 +33,7 @@ module.exports = (Serializer, Constants) =>
         }
 
         get remoteAddress() {
-            return this._socket.remoteAddress;
+            return this._socket.remoteAddress ? this._socket.remoteAddress : 'undefinedRemote';
         }
 
         /**
@@ -42,43 +43,29 @@ module.exports = (Serializer, Constants) =>
         async sendMessage(message) {
             if (this._delay) await sleep(this._delay);
             debug(`(Nonce: ${this._nonce}, delay ${this._delay}) sendMessage "${message.message}"`);
-            return await this._socket.write(Serializer.serialize(message));
+            const result = this._socket.write(Serializer.serialize(message));
+            return result;
         }
 
         async _incomingMessage(data) {
+            const arrMessages = this._messageAssembler.extractMessages(data);
 
-            if (!this._messageBuffer) {
+            // incomplete message
+            if (!arrMessages) return;
 
-                // new message, let's assemby it
-                const {length, dataOffset} = Serializer.readMsgLength(data);
-                this._msgLength = length;
-                debug(
-                    `(Nonce: ${this._nonce}, delay ${this._delay}) incomingMessage. Total length: ${this._msgLength}`);
-                this._messageBuffer = Buffer.alloc(this._msgLength + dataOffset);
-                data.copy(this._messageBuffer);
-                this._offset = data.length;
-            } else {
-
-                // next chunks for current message
-                data.copy(this._messageBuffer, this._offset);
-                this._offset += data.length;
-            }
-            debug(`(Nonce: ${this._nonce}, delay ${this._delay}) --- chunkLength: ${data.length}`);
-            if (this._msgLength <= this._offset) {
-                debug(`(Nonce: ${this._nonce}, delay ${this._delay}) incomingMessage. Done`);
-
-                // whole message buffered, we'r done
-                if (this._delay) await sleep(this._delay);
+            let msgBuffer;
+            while ((msgBuffer = arrMessages.shift())) {
                 try {
-                    const msg = Serializer.deSerialize(this._messageBuffer);
+                    const msg = Serializer.deSerialize(msgBuffer);
+                    debug(`(Nonce: ${this._nonce}, delay ${this._delay}) incomingMessage: "${msg.message}". Done`);
+                    if (this._delay) await sleep(this._delay);
                     this.emit('message', msg);
+
+                    // for receiveSync only.
                     this.emit('messageSync', msg);
                 } catch (err) {
                     logger.error(err);
                 }
-
-                // clear state
-                this._messageBuffer = undefined;
             }
         }
 

@@ -30,6 +30,7 @@ const config = require('../config/test.conf');
 const Crypto = require('../crypto/crypto');
 const TransportWrapper = require('../network/testTransport');
 const SerializerWrapper = require('../network/serializer');
+const MessageAssemblerWrapper = require('../network/messageAssembler');
 const WalletWrapper = require('../wallet/wallet');
 const MessagesWrapper = require('../messages/index');
 const BftWrapper = require('../node/bftConsensus');
@@ -45,8 +46,9 @@ class Factory {
         this._donePromise = this._asyncLoader();
         this._donePromise.then(() => {
                 this._serializerImplementation = SerializerWrapper(this.Messages);
-                this._transportImplemetation = TransportWrapper(this.Serializer, this.Constants);
-                this._peerImplementation = PeerWrapper(this.Messages, this.Constants);
+                this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
+                this._transportImplemetation = TransportWrapper(this.Serializer, this.MessageAssembler, this.Constants);
+                this._peerImplementation = PeerWrapper(this.Messages, this.Transport, this.Constants);
                 this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
                 this._nodeImplementation =
                     NodeWrapper(this.Transport, this.Messages, this.Constants, this.Peer, this.PeerManager
@@ -113,6 +115,10 @@ class Factory {
 
     get Peer() {
         return this._peerImplementation;
+    }
+
+    get MessageAssembler() {
+        return this._messageAssemblerImplementation;
     }
 
     asyncLoad() {

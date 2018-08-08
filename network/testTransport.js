@@ -18,9 +18,9 @@ const TestConnectionWrapper = require('./testConnection');
 
 const EventBus = new EventEmitter();
 
-module.exports = (SerializerImplementation, Constants) => {
+module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
 
-    const TestConnection = TestConnectionWrapper(SerializerImplementation, Constants);
+    const TestConnection = TestConnectionWrapper(SerializerImplementation, MessageAssembler, Constants);
     return class TestTransport extends EventEmitter {
 
         /**
@@ -35,7 +35,7 @@ module.exports = (SerializerImplementation, Constants) => {
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
 
             // here should be some public address @see os.networkInterfaces
-            this._address = options.listenAddr || uuid.v4();
+            this._address = options.listenAddr || this.constructor.generateAddress();
             this._port = options.listenPort || Constants.port;
         }
 

@@ -18,7 +18,7 @@ module.exports = (Constants, MessageProto) =>
                 }
                 if (!data.port) data.port = Constants.port;
                 const errMsg = MessageProto.verify(data);
-                if (errMsg) throw new Error(errMsg);
+                if (errMsg) throw new Error(`PeerInfo: ${errMsg}`);
 
                 this._data = MessageProto.create(data);
             } else {

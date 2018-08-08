@@ -25,15 +25,15 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
 
         /**
          *
-         * @param {Object | PeerInfo} peerInfo - @see network.proto PeerInfo
+         * @param {Object | PeerInfo | Peer} peer
          */
-        addPeer(peerInfo) {
-            if (!(peerInfo instanceof PeerInfo)) peerInfo = new PeerInfo(peerInfo);
-            const newPeer = new Peer({peerInfo});
+        addPeer(peer) {
+            if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer});
 
             // just bubble message to Node
-            newPeer.on('message', (peer, msg) => this.emit('message', peer, msg));
-            this._allPeers.set(this._createKey(peerInfo.address), newPeer);
+            peer.on('message', (thisPeer, msg) => this.emit('message', thisPeer, msg));
+            this._allPeers.set(this._createKey(peer.address), peer);
+            return peer;
         }
 
         /**
