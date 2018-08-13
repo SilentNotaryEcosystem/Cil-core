@@ -4,14 +4,16 @@ const {sleep} = require('../utils');
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
-module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
+module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) => {
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr} = Messages;
 
     return class Node {
         constructor(options) {
             const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout} = options;
 
-            // nonce for MsgVersion to detect connection to self
+            this._storage = new Storage(options);
+
+            // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
 
             this._arrSeedAddresses = arrSeedAddresses;
@@ -72,7 +74,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
          * @private
          */
         async _connectToPeer(peer) {
-            const address = Transport.addressToString(peer.address);
+            const address = this._transport.constructor.addressToString(peer.address);
             debugNode(`(address: "${this._debugAddress}") connecting to ${address}`);
             return await peer.connect();
         }

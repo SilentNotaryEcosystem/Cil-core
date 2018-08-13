@@ -66,7 +66,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
                    this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
-        get pubKey() {
+        get publicKey() {
             if (!this.isWitness) throw new Error('This peer has no witness capability');
             const witnessCap = this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
             return witnessCap.data;

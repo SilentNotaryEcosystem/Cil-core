@@ -106,4 +106,18 @@ describe('Peer tests', () => {
         newPeer.misbehave(factory.Constants.BAN_PEER_SCORE);
         assert.isOk(newPeer.banned);
     });
+
+    it('should get peer public key', async () => {
+        const newPeer = new factory.Peer({
+            peerInfo: {
+                capabilities: [
+                    {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
+                ],
+                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
+            }
+        });
+        assert.isOk(newPeer);
+        assert.isOk(newPeer.publicKey);
+        assert.equal(newPeer.publicKey, '1111');
+    });
 });
