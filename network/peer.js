@@ -13,7 +13,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
     class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {connection, peerInfo, transport, lastActionTimestamp} = options;
+            const {connection, peerInfo, lastActionTimestamp} = options;
 
             this._transport = new Transport(options);
             this._handshakeDone = false;
@@ -27,6 +27,9 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
                 this._connection = connection;
                 this._bInbound = true;
                 this._setMessageHandler();
+                this._peerInfo = new PeerInfo({
+                    address: connection.remoteAddress
+                });
             } else if (peerInfo) {
                 this.peerInfo = peerInfo;
             } else {
@@ -47,10 +50,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
         }
 
         get address() {
-//            if (this.disconnected) return this._peerInfo.address;
-//            return this._connection.remoteAddress ? this._connection.remoteAddress : this._peerInfo.address;
-            if (this.disconnected || this.fullyConnected) return this._peerInfo.address;
-            return this._connection.remoteAddress;
+            return this._peerInfo.address;
         }
 
         get port() {
@@ -59,6 +59,17 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
 
         get capabilities() {
             return this._peerInfo.capabilities;
+        }
+
+        get isWitness() {
+            return Array.isArray(this._peerInfo.capabilities) &&
+                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+        }
+
+        get pubKey() {
+            if (!this.isWitness) throw new Error('This peer has no witness capability');
+            const witnessCap = this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+            return witnessCap.data;
         }
 
         get lastActionTimestamp() {

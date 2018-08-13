@@ -15,12 +15,13 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
         constructor(options = {}) {
             super();
 
-            const {nMaxPeers} = options;
-            this._nMaxPeers = nMaxPeers;
-
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
             this._allPeers = new Map();
+        }
+
+        get connectedCount() {
+            return this._allPeers.reduce((total, peer) => total + peer.disconnected ? 0 : 1, 0);
         }
 
         /**
@@ -30,10 +31,31 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
         addPeer(peer) {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer});
 
-            // just bubble message to Node
-            peer.on('message', (thisPeer, msg) => this.emit('message', thisPeer, msg));
+            peer.on('message', this._incomingMessage.bind(this));
             this._allPeers.set(this._createKey(peer.address), peer);
             return peer;
+        }
+
+        /**
+         *
+         * @param {Peer} thisPeer
+         * @param {MessageCommon} msg
+         * @private
+         */
+        _incomingMessage(thisPeer, msg) {
+            if (msg.signature) {
+
+                // if message signed: check signature
+                if (thisPeer.pubKey && msg.verifySignature(thisPeer.pubKey)) {
+                    this.emit('witnessMessage', thisPeer, msg);
+                } else {
+                    this.emit('witnessMessage', thisPeer, undefined);
+                }
+            } else {
+
+                // just bubble message to Node
+                this.emit('message', thisPeer, msg);
+            }
         }
 
         /**

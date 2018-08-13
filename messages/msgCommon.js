@@ -1,10 +1,11 @@
 /**
  *
+ * @param {CryptoLib} Crypto
  * @param {Number} NetworkMagic - Network magic number (mainnet or testnet)
  * @param {Object} MessageProto - protobuf compiled Message prototype
  * @return {{new(*): MessageCommon}}
  */
-module.exports = (NetworkMagic, MessageProto) =>
+module.exports = (Crypto, NetworkMagic, MessageProto) =>
     class MessageCommon {
 
         constructor(data) {
@@ -77,6 +78,14 @@ module.exports = (NetworkMagic, MessageProto) =>
             }
 
             // TODO add checksum verification
+        }
+
+        sign(privateKey) {
+            this.signature = Crypto.sign(this._msg.payload, privateKey);
+        }
+
+        verifySignature(publicKey) {
+            return Crypto.verify(this._msg.payload, this._msg.signature, publicKey);
         }
 
         /**

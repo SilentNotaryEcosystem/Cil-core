@@ -11,7 +11,7 @@ const {sleep} = require('../utils');
  */
 
 
-module.exports = (Serializer, MessageAssembler, Constants) =>
+module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
     class Connection extends EventEmitter {
         constructor(options) {
             super();
@@ -32,8 +32,15 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
             return this._socket.localAddress;
         }
 
+        /**
+         *
+         * @return {Buffer} !!
+         */
         get remoteAddress() {
-            return this._socket.remoteAddress ? this._socket.remoteAddress : 'undefinedRemote';
+            // Prod implementation
+//            return this._socket.remoteAddress;
+            // implementation for testConnection with UNIX sockets
+            return this._socket.remoteAddress ? this._socket.remoteAddress : Connection.strToAddress('undefinedRemote');
         }
 
         /**
@@ -85,6 +92,22 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
         close() {
             this._socket.end();
             this.emit('close');
+        }
+
+        /**
+         * DON'T implement in prod connection
+         *
+         * Return at least 16 bytes (length of ipv6 address) buffer created from address
+         * If needed it will be padded with 0 from start
+         * Will be replaced with real ipv6 buffer
+         *
+         * @param {String} address
+         * @return {Buffer}
+         */
+        static strToAddress(address) {
+            const buffer = Buffer.from(address);
+            const bytestoPadd = buffer.length > 16 ? 0 : 16 - buffer.length;
+            return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
         }
 
     };

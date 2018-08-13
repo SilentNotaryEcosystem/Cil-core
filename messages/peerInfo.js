@@ -17,6 +17,8 @@ module.exports = (Constants, MessageProto) =>
                     data.address = this.constructor.fromAddress(data.address);
                 }
                 if (!data.port) data.port = Constants.port;
+                if (!data.capabilities) data.capabilities = [{service: Constants.NODE}];
+
                 const errMsg = MessageProto.verify(data);
                 if (errMsg) throw new Error(`PeerInfo: ${errMsg}`);
 

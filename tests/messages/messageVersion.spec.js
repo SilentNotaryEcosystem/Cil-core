@@ -32,7 +32,7 @@ describe('Version Message', () => {
     });
 
     it('should create empty MsgVersion', async () => {
-        const msgVersion = new factory.Messages.MsgVersion();
+        const msgVersion = new factory.Messages.MsgVersion({nonce: 1});
         assert.isOk(msgVersion);
         assert.isOk(msgVersion.isVersion());
     });
@@ -77,5 +77,14 @@ describe('Version Message', () => {
 
         const reEncoded = decodedMessage.encode();
         assert.isOk(buff.equals(reEncoded));
+    });
+
+    it('should sign/verify payload', async () => {
+        const keyPair = factory.Crypto.createKeyPair();
+        const message = new factory.Messages.MsgVersion(msgTemplate);
+        message.encode();
+        message.sign(keyPair.getPrivate());
+        assert.isOk(message.signature);
+        assert.isOk(message.verifySignature(keyPair.getPublic(false, false)));
     });
 });

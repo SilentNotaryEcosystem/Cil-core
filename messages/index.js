@@ -3,10 +3,10 @@ const PeerInfoWrapper = require('./peerInfo');
 const MsgVersionWrapper = require('./msgVersion');
 const MsgCommonWrapper = require('./msgCommon');
 
-module.exports = (Constants, objPrototypes) => {
+module.exports = (Constants, Crypto, objPrototypes) => {
 
     const {messageProto, versionPayloadProto, peerInfoProto, addrPayloadProto} = objPrototypes;
-    const MsgCommon = MsgCommonWrapper(Constants.network, messageProto);
+    const MsgCommon = MsgCommonWrapper(Crypto, Constants.network, messageProto);
 
     return {
         MsgCommon,

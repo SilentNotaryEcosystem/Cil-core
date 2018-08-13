@@ -31,12 +31,13 @@ const Crypto = require('../crypto/crypto');
 const TransportWrapper = require('../network/testTransport');
 const SerializerWrapper = require('../network/serializer');
 const MessageAssemblerWrapper = require('../network/messageAssembler');
-const WalletWrapper = require('../wallet/wallet');
+const WalletWrapper = require('../node/wallet');
 const MessagesWrapper = require('../messages/index');
 const BftWrapper = require('../node/bftConsensus');
 const PeerWrapper = require('../network/peer');
 const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
+const WitnessWrapper = require('../node/witness');
 
 const pack = require('../package');
 
@@ -53,6 +54,7 @@ class Factory {
                 this._nodeImplementation =
                     NodeWrapper(this.Transport, this.Messages, this.Constants, this.Peer, this.PeerManager
                     );
+                this._witnessImplementation = WitnessWrapper(this.Messages, this.Constants, this.PeerManager);
             })
             .catch(err => {
                 logger.error(err);
@@ -113,6 +115,10 @@ class Factory {
         return this._nodeImplementation;
     }
 
+    get Witness() {
+        return this._witnessImplementation;
+    }
+
     get Peer() {
         return this._peerImplementation;
     }
@@ -127,7 +133,7 @@ class Factory {
 
     async _asyncLoader() {
         const prototypes = await this._loadMessagePrototypes();
-        this._messagesImplementation = MessagesWrapper(this.Constants, prototypes);
+        this._messagesImplementation = MessagesWrapper(this.Constants, this.Crypto, prototypes);
         this._constants = {
             ...this._constants,
             ...prototypes.enumServices.values
@@ -141,12 +147,16 @@ class Factory {
      */
     async _loadMessagePrototypes() {
         const protoNetwork = await protobuf.load('./messages/proto/network.proto');
+        const protoWitness = await protobuf.load('./messages/proto/witness.proto');
 
         return {
             messageProto: protoNetwork.lookupType("network.Message"),
             versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
+
+            witnessXXX: protoWitness.lookup("witness.XXX"),
+
             enumServices: protoNetwork.lookup("network.Services")
         };
     }

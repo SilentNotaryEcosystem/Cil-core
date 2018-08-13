@@ -72,7 +72,7 @@ describe('Peer tests', () => {
         const delay = 200;
         const newPeer = new factory.Peer({
             connection: {
-                remoteAddress: 'testAddress',
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
                 on: () => {},
                 sendMessage: async () => {
 

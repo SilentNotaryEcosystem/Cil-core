@@ -35,7 +35,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
             // used only for debugging purpose. Feel free to remove
             this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
 
-            this._peerManager = new PeerManager({nMaxPeers, transport: this._transport});
+            this._peerManager = new PeerManager();
             this._peerManager.on('message', this._incomingMessage.bind(this));
 
             debugNode(`(address: "${this._debugAddress}") start listening`);
@@ -129,6 +129,10 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
             return arrResult;
         }
 
+        get nonce() {
+            return this._nonce;
+        }
+
         _incomingConnection(connection) {
             try {
                 debugNode(`(address: "${this._debugAddress}") incoming connection`);
@@ -206,9 +210,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager) => {
 
                 // very beginning of inbound connection
                 if (peer.inbound) {
-
-                    // we don't have peerInfo for incoming connections
-                    if (!peer.peerInfo) peer.peerInfo = message.peerInfo;
+                    peer.peerInfo = message.peerInfo;
 
                     // send own version
                     debugMsg(`(address: "${this._debugAddress}") sending own "version"`);

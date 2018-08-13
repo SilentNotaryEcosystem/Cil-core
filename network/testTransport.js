@@ -72,6 +72,11 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
             return buffer.toString('utf8', i);
         }
 
+        /**
+         * Only for tests
+         *
+         * @return {string}
+         */
         static generateAddress() {
             return uuid.v4().substr(0, 16);
         }

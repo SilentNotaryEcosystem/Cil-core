@@ -81,9 +81,8 @@ describe('Node tests', () => {
         const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
         let nMsgSent = 0;
         const newPeer = new factory.Peer({
-            transport: new factory.Transport({delay: 0}),
             connection: {
-                remoteAddress: 'testAddress',
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
                 on: () => {},
                 sendMessage: async () => {
                     nMsgSent++;
@@ -98,7 +97,7 @@ describe('Node tests', () => {
         let msg;
         const newPeer = new factory.Peer({
             connection: {
-                remoteAddress: 'testAddress',
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
                 on: () => {},
                 sendMessage: async (msgAddr) => {
                     msg = msgAddr;
@@ -114,18 +113,5 @@ describe('Node tests', () => {
         });
     });
 
-    it('should get peers from seedNode', async function() {
-        this.timeout(20000);
-        const newNode = new factory.Node({delay: 0, queryTimeout: 5000, arrSeedAddresses: [seedAddress]});
-        await newNode.bootstrap();
-
-        const peers = newNode._peerManager.filterPeers();
-        assert.isOk(peers && peers.length);
-
-        // 4 from constructed object + seed + self
-        assert.equal(peers.length, 6);
-        peers.forEach(peerInfo => {
-            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
-        });
-    });
+    // TODO: add message handlers test
 });

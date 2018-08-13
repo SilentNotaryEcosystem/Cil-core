@@ -4,24 +4,21 @@ module.exports = Crypto =>
     class BftConsensus {
         /**
          *
-         * @param {Network} network
-         * @param {String} group
-         * @param {Array} arrPublicKeys
-         * @param {Wallet} wallet
-         * @param {Storage} storage
-         * @param {Mempool} mempool
-         * @param {Object} options for group network
+         * @param {String} options.group
+         * @param {Array} options.arrPublicKeys
+         * @param {Wallet} options.wallet
          */
-        constructor({network, group, arrPublicKeys, wallet, storage, mempool, options}) {
-            this._network = network;
+        constructor(options) {
+            const {group, arrPublicKeys, wallet} = options;
             this._group = group;
             this._wallet = wallet;
-            this._mempool = mempool;
-            this._storage = storage;
 
-            this._groupMembers = {};
             this._arrPublicKeys = arrPublicKeys.sort();
             this._quorum = parseInt(arrPublicKeys.length / 2) + 1;
+        }
+
+        get quorum() {
+            return this._quorum;
         }
 
         /**

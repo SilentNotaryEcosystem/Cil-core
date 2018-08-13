@@ -17,6 +17,7 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
          * @param {Number} data.height - curent DB height (length of MainChain)
          */
         constructor(data) {
+            if (!data) throw new Error('You should pass data to constructor');
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
                 if (this.message !== 'version') {
