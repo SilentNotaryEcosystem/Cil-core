@@ -57,6 +57,10 @@ module.exports = (Constants, MessageProto) =>
             return this._data.port;
         }
 
+        addCapability(objCapability) {
+            return this._data.capabilities.push(objCapability);
+        }
+
         get capabilities() {
             return this._data.capabilities;
         }

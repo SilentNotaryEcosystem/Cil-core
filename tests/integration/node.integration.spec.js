@@ -21,39 +21,52 @@ describe('Node integration tests', () => {
         this.timeout(15000);
     });
 
+    it('should disconnect from self', async () => {
+        const addr = factory.Transport.strToAddress('Loop node');
+        const newNode = new factory.Node({
+            listenAddr: addr,
+            delay: 0, queryTimeout: 5000,
+            arrSeedAddresses: [addr]
+        });
+        await newNode.bootstrap();
+    });
+
     it('should get peers from seedNode', async function() {
         this.timeout(20000);
 
-        const seedAddress = factory.Transport.generateAddress();
+        const seedAddress = factory.Transport.strToAddress('Seed node');
         const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: factory.Transport.strToAddress('Known node 1')
         });
         const peerInfo2 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
+            address: factory.Transport.strToAddress('Known node 2')
         });
         const peerInfo3 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
+            address: factory.Transport.strToAddress('Known node 3')
         });
         const peerInfo4 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
+            address: factory.Transport.strToAddress('Known node 4')
         });
         [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
 
-        const newNode = new factory.Node({delay: 0, queryTimeout: 5000, arrSeedAddresses: [seedAddress]});
+        const newNode = new factory.Node({
+            listenAddr: factory.Transport.strToAddress('Test node'),
+            delay: 0, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
+        });
         await newNode.bootstrap();
 
         const peers = newNode._peerManager.filterPeers();

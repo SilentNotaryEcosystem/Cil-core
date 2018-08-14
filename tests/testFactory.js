@@ -147,7 +147,8 @@ class Factory {
         this._messagesImplementation = MessagesWrapper(this.Constants, this.Crypto, prototypes);
         this._constants = {
             ...this._constants,
-            ...prototypes.enumServices.values
+            ...prototypes.enumServices.values,
+            ...prototypes.enumRejectCodes.values
         };
     }
 
@@ -165,10 +166,12 @@ class Factory {
             versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
+            rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
 
             witnessXXX: protoWitness.lookup("witness.XXX"),
 
-            enumServices: protoNetwork.lookup("network.Services")
+            enumServices: protoNetwork.lookup("network.Services"),
+            enumRejectCodes: protoNetwork.lookup("network.RejectCodes")
         };
     }
 }

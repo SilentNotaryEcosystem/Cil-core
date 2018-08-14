@@ -14,6 +14,9 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
     class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
+            const {transport} = options;
+
+            this._transport = transport;
 
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
@@ -27,12 +30,25 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
         /**
          *
          * @param {Object | PeerInfo | Peer} peer
+         * @return {Peer}
          */
         addPeer(peer) {
-            if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer});
+            if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
+            const key = this._createKey(peer.address);
+
+//            if (this._allPeers.has(key)) {
+//                const existingPeer=this._allPeers.get(key);
+//                if(existingPeer.disconnected){
+//                    existingPeer.connection=peer.connection;
+//                }
+//                return existingPeer;
+//            }
 
             peer.on('message', this._incomingMessage.bind(this));
-            this._allPeers.set(this._createKey(peer.address), peer);
+            if (peer.isWitness) {
+                peer.on('witnessMessage', this._incomingMessage.bind(this));
+            }
+            this._allPeers.set(key, peer);
             return peer;
         }
 
@@ -46,7 +62,7 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
             if (msg.signature) {
 
                 // if message signed: check signature
-                if (thisPeer.pubKey && msg.verifySignature(thisPeer.pubKey)) {
+                if (thisPeer.isWitness && msg.verifySignature(thisPeer.publicKey)) {
                     this.emit('witnessMessage', thisPeer, msg);
                 } else {
                     this.emit('witnessMessage', thisPeer, undefined);

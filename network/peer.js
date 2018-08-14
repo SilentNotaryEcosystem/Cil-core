@@ -13,14 +13,16 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
     class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {connection, peerInfo, lastActionTimestamp} = options;
+            const {connection, peerInfo, lastActionTimestamp, transport} = options;
 
-            this._transport = new Transport(options);
+            this._transport = transport ? transport : new Transport(options);
             this._handshakeDone = false;
             this._version = undefined;
             this._missbehaveScore = 0;
             this._missbehaveTime = Date.now();
             this._lastActionTimestamp = lastActionTimestamp ? lastActionTimestamp : Date.now();
+
+            this._tags = [];
 
             // this means that we have incoming connection
             if (connection) {
@@ -36,6 +38,16 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
                 throw new Error('Pass connection or peerInfo to create peer');
             }
         }
+
+//        get connection(){
+//            return this._connection;
+//        }
+//
+//        set connection(newConnection){
+//            this._connection = newConnection;
+//            this._bInbound = true;
+//            this._setMessageHandler();
+//        }
 
         get peerInfo() {
             return this._peerInfo;
@@ -64,12 +76,6 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
         get isWitness() {
             return Array.isArray(this._peerInfo.capabilities) &&
                    this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
-        }
-
-        get publicKey() {
-            if (!this.isWitness) throw new Error('This peer has no witness capability');
-            const witnessCap = this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
-            return witnessCap.data;
         }
 
         get lastActionTimestamp() {
@@ -112,10 +118,35 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
             this._loadDone = true;
         }
 
+        get publicKey() {
+            if (!this.isWitness) throw new Error('This peer has no witness capability');
+            const witnessCap = this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+            return witnessCap.data;
+        }
+
+        get witnessLoadDone() {
+            return this._witnessLoadDone;
+        }
+
+        set witnessLoadDone(trueVal) {
+            this._witnessLoadDone = true;
+        }
+
+        addTag(tag) {
+            this._tags.push(tag);
+        }
+
         async loaded() {
             for (let i = 0; i < Constants.PEER_QUERY_TIMEOUT / 100; i++) {
                 await sleep(100);
                 if (this.loadDone) break;
+            }
+        }
+
+        async witnessLoaded() {
+            for (let i = 0; i < Constants.PEER_QUERY_TIMEOUT / 100; i++) {
+                await sleep(100);
+                if (this.witnessLoadDone) break;
             }
         }
 
@@ -134,6 +165,13 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
                 // TODO: update counters/timers here
                 this._lastActionTimestamp = Date.now();
                 this.emit('message', this, msg);
+                if (msg.signature) this.emit('witnessMessage', this, msg);
+            });
+            this._connection.on('close', () => {
+                debug(`Connection to "${this._connection.remoteAddress}" closed`);
+                this._bInbound = false;
+                this.loadDone = true;
+                this._connection = undefined;
             });
         }
 
@@ -147,7 +185,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
                 this._queue = [msg];
                 let nextMsg;
                 while ((nextMsg = this._queue.shift())) {
-                    debug(`Sending message "${nextMsg.message}" to ${Transport.addressToString(this.address)}`);
+                    debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
                     await this._connection.sendMessage(nextMsg);
                 }
                 this._queue = undefined;
@@ -170,8 +208,8 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
         }
 
         disconnect() {
+            debug(`Closing connection to "${this._connection.remoteAddress}"`);
             this._connection.close();
-            this._connection = undefined;
         }
 
     };

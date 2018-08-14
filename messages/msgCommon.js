@@ -81,6 +81,7 @@ module.exports = (Crypto, NetworkMagic, MessageProto) =>
         }
 
         sign(privateKey) {
+            this.encode();
             this.signature = Crypto.sign(this._msg.payload, privateKey);
         }
 

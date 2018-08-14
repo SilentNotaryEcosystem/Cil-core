@@ -35,6 +35,7 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
 
             // here should be some public address @see os.networkInterfaces
+            // this._address is a Buffer
             this._address = options.listenAddr || this.constructor.generateAddress();
             this._port = options.listenPort || Constants.port;
         }
@@ -75,10 +76,10 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
         /**
          * Only for tests
          *
-         * @return {string}
+         * @return {Buffer}
          */
         static generateAddress() {
-            return uuid.v4().substr(0, 16);
+            return this.strToAddress(uuid.v4().substring(0, 8));
         }
 
         static isPrivateAddress(address) {
@@ -106,8 +107,10 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
                 const socket = net.createConnection(path.join(`${pathPrefix}`, os.tmpdir(), address),
                     async (err) => {
                         if (err) return reject(err);
+                        const remoteAddress = await this._exchangeAddresses(socket);
                         if (this._delay) await sleep(this._delay);
-                        resolve(new TestConnection({delay: this._delay, socket, timeout: this._timeout}));
+                        resolve(
+                            new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress}));
                     }
                 );
                 socket.on('error', err => reject(err));
@@ -120,13 +123,17 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
          */
         listen() {
 
+            // for test only
+            const strAddress = this.constructor.addressToString(this._address);
+
             // TODO: use port
             net.createServer(async (socket) => {
+                const remoteAddress = await this._exchangeAddresses(socket);
                 if (this._delay) await sleep(this._delay);
                 this.emit('connect',
-                    new TestConnection({delay: this._delay, socket, timeout: this._timeout})
+                    new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress})
                 );
-            }).listen(path.join(`${pathPrefix}`, os.tmpdir(), this._address));
+            }).listen(path.join(`${pathPrefix}`, os.tmpdir(), strAddress));
         }
 
         /**
@@ -145,6 +152,24 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
 
         cleanUp() {
             EventBus.removeAllListeners(this._address);
+        }
+
+        /**
+         *
+         * @param {Socket} socket
+         * @return {Promise<Buffer>} remoteAddress
+         * @private
+         */
+        _exchangeAddresses(socket) {
+            socket.write(this._address);
+
+            return new Promise((resolve, reject) => {
+                socket.on('data', (addressBuff) => {
+                    resolve(addressBuff);
+                });
+                socket.on('error', () => reject('Socket error'));
+                socket.on('close', () => reject('Socket closed'));
+            });
         }
     };
 };

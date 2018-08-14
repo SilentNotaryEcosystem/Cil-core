@@ -21,18 +21,17 @@ describe('TestTransport', () => {
     });
 
     it('should convert STRING address to BUFFER address', async function() {
-        const strAddr = factory.Transport.generateAddress();
+        const strAddr = 'address';
         assert.isOk(typeof strAddr === 'string');
         const result = factory.Transport.strToAddress(strAddr);
         assert.isOk(Buffer.isBuffer(result));
     });
 
     it('should convert BUFFER address to STRING address', async function() {
-        const strAddress = factory.Transport.generateAddress();
-        const buffAddress = factory.Transport.strToAddress(strAddress);
+        const buffAddress = factory.Transport.generateAddress();
         const result = factory.Transport.addressToString(buffAddress);
         assert.isOk(typeof result === 'string');
-        assert.equal(result, strAddress);
+        assert.isOk(buffAddress.equals(factory.Transport.strToAddress(result)));
     });
 
     it('should get address AS buffer', async function() {
@@ -45,7 +44,7 @@ describe('TestTransport', () => {
 
 
     it('should communicate each other', async () => {
-        const address = factory.Transport.generateAddress();
+        const address = factory.Transport.addressToString('rendezvous');
         const endpoint1 = new factory.Transport({delay: 200, listenAddr: address});
         const endpoint2 = new factory.Transport({delay: 200});
 
@@ -62,6 +61,7 @@ describe('TestTransport', () => {
 
         const result = await msgPromise;
         assert.isOk(result.message);
+        assert.equal("" + connection2.remoteAddress, "" + address);
     });
 
     it('should receive only ONE message (timeout with second one)', async () => {

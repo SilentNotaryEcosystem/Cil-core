@@ -45,8 +45,8 @@ describe('Witness tests', () => {
     it('should get peers for my group', async () => {
         const groupName = 'test';
         const arrTestDefinition = [
-            [groupName, [wallet.publicKey, 'pubkey1', 'pubkey2']],
-            ['anotherGroup', ['pubkey3', 'pubkey4']]
+            [groupName, [wallet.publicKey, Buffer.from('pubkey1'), Buffer.from('pubkey2')]],
+            ['anotherGroup', [Buffer.from('pubkey3'), Buffer.from('pubkey4')]]
         ];
         const witness = new factory.Witness({wallet, arrTestDefinition});
 
