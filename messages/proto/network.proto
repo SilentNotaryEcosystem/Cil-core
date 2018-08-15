@@ -55,3 +55,14 @@ message AddrPayload {
     uint32 count = 1;
     repeated PeerInfo peers = 2;
 }
+
+// --------------------------------  -------------------
+
+enum RejectCodes {
+    REJECT_DUPLICATE = 1;
+}
+
+message RejectPayload {
+    RejectCodes code = 1;
+    string reason = 2;
+}

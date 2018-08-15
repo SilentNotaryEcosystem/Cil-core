@@ -2,7 +2,6 @@
   "name": "CiL",
   "version": "0.0.1",
   "dependencies": {
-    "argon2": "^0.19.3",
     "elliptic": "^6.4.0",
     "ipaddr.js": "^1.8.0",
     "protobufjs": "^6.8.8",
@@ -16,6 +15,8 @@
     "one-time": "0.0.4"
   },
   "scripts": {
-    "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
+    "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "testDebugWin": "set DEBUG=*,-mocha:* && mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
   }
 }

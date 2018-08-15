@@ -43,6 +43,22 @@ describe('PeerInfo Message', () => {
     it('should create PeerInfo', async () => {
         const peerInfo = new factory.Messages.PeerInfo(templatePeer);
         assert.isOk(peerInfo);
+        assert.equal(peerInfo.port, templatePeer.port);
+        assert.isOk(Array.isArray(peerInfo.capabilities));
+        assert.equal(peerInfo.capabilities.length, templatePeer.capabilities.length);
+        assert.isOk(Buffer.isBuffer(peerInfo.address));
+    });
+
+    it('should create with address from Buffer with default port', function() {
+        const peerInfo = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE}
+            ],
+            address: factory.Transport.generateAddress()
+        });
+        assert.equal(peerInfo.port, factory.Constants.port);
+        assert.isOk(Array.isArray(peerInfo.capabilities));
+        assert.isOk(Buffer.isBuffer(peerInfo.address));
     });
 
     it('tests getters/setters', async () => {
@@ -73,5 +89,12 @@ describe('PeerInfo Message', () => {
         assert.isOk(buff && Buffer.isBuffer(buff));
         const objRevertedAddr = factory.Messages.PeerInfo.fromAddress(buff);
         assert.deepEqual(addr, objRevertedAddr);
+    });
+
+    it('should add capability', async () => {
+        const peerInfo = new factory.Messages.PeerInfo(templatePeer);
+        peerInfo.addCapability({service: factory.Constants.WITNESS, data: Buffer.from('123')});
+        assert.isOk(Array.isArray(peerInfo.capabilities));
+        assert.equal(peerInfo.capabilities.length, 3);
     });
 });

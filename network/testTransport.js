@@ -4,6 +4,7 @@ const net = require('net');
 const path = require('path');
 const debug = require('debug')('transport:');
 const os = require('os');
+const fs = require('fs');
 
 const pathPrefix = os.platform() === 'win32' ? '\\\\?\\pipe' : '';
 
@@ -35,6 +36,7 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
 
             // here should be some public address @see os.networkInterfaces
+            // this._address is a Buffer
             this._address = options.listenAddr || this.constructor.generateAddress();
             this._port = options.listenPort || Constants.port;
         }
@@ -64,21 +66,21 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
             return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
         }
 
-        static addressToString(buffer) {
+        static addressToString(buffer, encoding = 'utf8') {
             let i = 0;
 
             // skip leading 0
             for (; i < buffer.length && !buffer[i]; i++) {}
-            return buffer.toString('utf8', i);
+            return buffer.toString(encoding, i);
         }
 
         /**
          * Only for tests
          *
-         * @return {string}
+         * @return {Buffer}
          */
         static generateAddress() {
-            return uuid.v4().substr(0, 16);
+            return this.strToAddress(uuid.v4().substring(0, 8));
         }
 
         static isPrivateAddress(address) {
@@ -100,14 +102,17 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
          * @return {Promise<TestConnection>} new connection
          */
         connect(address) {
-            if (Buffer.isBuffer(address)) address = this.constructor.addressToString(address);
+            if (Buffer.isBuffer(address)) address = this.constructor.addressToString(address, 'hex');
+            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), address);
 
             return new Promise((resolve, reject) => {
-                const socket = net.createConnection(path.join(`${pathPrefix}`, os.tmpdir(), address),
+                const socket = net.createConnection(netAddr,
                     async (err) => {
                         if (err) return reject(err);
+                        const remoteAddress = await this._exchangeAddresses(socket);
                         if (this._delay) await sleep(this._delay);
-                        resolve(new TestConnection({delay: this._delay, socket, timeout: this._timeout}));
+                        resolve(
+                            new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress}));
                     }
                 );
                 socket.on('error', err => reject(err));
@@ -120,13 +125,24 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
          */
         listen() {
 
+            // for test only
+            const strAddress = this.constructor.addressToString(this._address, 'hex');
+            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), strAddress);
+
+            // Unix sockets are persistent, let's erase it first
+            try {
+                fs.statSync(netAddr);
+                fs.unlinkSync(netAddr);
+            } catch (err) {}
+
             // TODO: use port
             net.createServer(async (socket) => {
+                const remoteAddress = await this._exchangeAddresses(socket);
                 if (this._delay) await sleep(this._delay);
                 this.emit('connect',
-                    new TestConnection({delay: this._delay, socket, timeout: this._timeout})
+                    new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress})
                 );
-            }).listen(path.join(`${pathPrefix}`, os.tmpdir(), this._address));
+            }).listen(netAddr);
         }
 
         /**
@@ -145,6 +161,24 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
 
         cleanUp() {
             EventBus.removeAllListeners(this._address);
+        }
+
+        /**
+         *
+         * @param {Socket} socket
+         * @return {Promise<Buffer>} remoteAddress
+         * @private
+         */
+        _exchangeAddresses(socket) {
+            debug(`sending my address: ${this._address}`);
+            socket.write(this._address);
+
+            return new Promise((resolve, reject) => {
+                socket.once('data', (addressBuff) => {
+                    debug(`got remote address: ${addressBuff}`);
+                    resolve(addressBuff);
+                });
+            });
         }
     };
 };

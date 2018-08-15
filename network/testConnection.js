@@ -19,11 +19,18 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
             this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
             this._socket = options.socket;
+
+            if (!options.remoteAddress) throw new Error('Remote address unknown!');
+            this._remoteAddress = options.remoteAddress;
+
             if (!this._socket) throw new Error('No socket!');
 //            this._socket.write = util.promisify(this._socket.write);
 
             this._nonce = parseInt(Math.random() * 10000);
             this._socket.on('data', this._incomingMessage.bind(this));
+            this._socket.on('end', this.close.bind(this));
+            this._socket.on('error', this.close.bind(this));
+
 
             this._messageAssembler = new MessageAssembler;
         }
@@ -40,7 +47,7 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
             // Prod implementation
 //            return this._socket.remoteAddress;
             // implementation for testConnection with UNIX sockets
-            return this._socket.remoteAddress ? this._socket.remoteAddress : Connection.strToAddress('undefinedRemote');
+            return this._remoteAddress;
         }
 
         /**
@@ -90,7 +97,7 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
         }
 
         close() {
-            this._socket.end();
+            this._socket.destroy();
             this.emit('close');
         }
 

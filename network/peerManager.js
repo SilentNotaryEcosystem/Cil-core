@@ -14,6 +14,9 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
     class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
+            const {transport} = options;
+
+            this._transport = transport;
 
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
@@ -27,13 +30,31 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
         /**
          *
          * @param {Object | PeerInfo | Peer} peer
+         * @return {Peer | undefined} undefined if peer already connected
          */
         addPeer(peer) {
-            if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer});
 
-            peer.on('message', this._incomingMessage.bind(this));
-            this._allPeers.set(this._createKey(peer.address), peer);
+            // TODO: do we need mutex support here?
+
+            if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
+            const key = this._createKey(peer.address);
+            const existingPeer = this._allPeers.get(key);
+
+            if (!peer.disconnected && existingPeer && !existingPeer.disconnected) {
+                logger.error('Duplicate connection detected');
+                return undefined;
+            }
+
+            this.updateHandlers(peer);
+            this._allPeers.set(key, peer);
             return peer;
+        }
+
+        updateHandlers(peer) {
+            if (!peer.listenerCount('message')) peer.on('message', this._incomingMessage.bind(this));
+            if (peer.isWitness && !peer.listenerCount('witnessMessage')) {
+                peer.on('witnessMessage', this._incomingMessage.bind(this));
+            }
         }
 
         /**
@@ -46,7 +67,7 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
             if (msg.signature) {
 
                 // if message signed: check signature
-                if (thisPeer.pubKey && msg.verifySignature(thisPeer.pubKey)) {
+                if (thisPeer.isWitness && msg.verifySignature(thisPeer.publicKey)) {
                     this.emit('witnessMessage', thisPeer, msg);
                 } else {
                     this.emit('witnessMessage', thisPeer, undefined);
@@ -69,9 +90,8 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
 
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
             for (let [, peer] of this._allPeers.entries()) {
-                if (!service ||
-                    ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
-                    if (peer.lastActionTimestamp > tsAlive) {
+                if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
+                    if (!peer.banned && peer.lastActionTimestamp > tsAlive) {
                         arrResult.push(peer);
                     }
                 }
@@ -80,7 +100,7 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
             return arrResult;
         }
 
-        broadcastToConnected() {
+        broadcastToConnected(tag) {
 
         }
 

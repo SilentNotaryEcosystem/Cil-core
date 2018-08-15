@@ -38,6 +38,7 @@ const PeerWrapper = require('../network/peer');
 const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
 const WitnessWrapper = require('../node/witness');
+const StorageWrapper = require('../storage/testStorage');
 
 const pack = require('../package');
 
@@ -51,10 +52,16 @@ class Factory {
                 this._transportImplemetation = TransportWrapper(this.Serializer, this.MessageAssembler, this.Constants);
                 this._peerImplementation = PeerWrapper(this.Messages, this.Transport, this.Constants);
                 this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
-                this._nodeImplementation =
-                    NodeWrapper(this.Transport, this.Messages, this.Constants, this.Peer, this.PeerManager
-                    );
-                this._witnessImplementation = WitnessWrapper(this.Messages, this.Constants, this.PeerManager);
+                this._storageImplementation = StorageWrapper(this.Constants);
+                this._nodeImplementation = NodeWrapper(
+                    this.Transport,
+                    this.Messages,
+                    this.Constants,
+                    this.Peer,
+                    this.PeerManager,
+                    this.Storage
+                );
+                this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants);
             })
             .catch(err => {
                 logger.error(err);
@@ -123,6 +130,10 @@ class Factory {
         return this._peerImplementation;
     }
 
+    get Storage() {
+        return this._storageImplementation;
+    }
+
     get MessageAssembler() {
         return this._messageAssemblerImplementation;
     }
@@ -136,7 +147,8 @@ class Factory {
         this._messagesImplementation = MessagesWrapper(this.Constants, this.Crypto, prototypes);
         this._constants = {
             ...this._constants,
-            ...prototypes.enumServices.values
+            ...prototypes.enumServices.values,
+            ...prototypes.enumRejectCodes.values
         };
     }
 
@@ -154,10 +166,12 @@ class Factory {
             versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
+            rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
 
             witnessXXX: protoWitness.lookup("witness.XXX"),
 
-            enumServices: protoNetwork.lookup("network.Services")
+            enumServices: protoNetwork.lookup("network.Services"),
+            enumRejectCodes: protoNetwork.lookup("network.RejectCodes")
         };
     }
 }

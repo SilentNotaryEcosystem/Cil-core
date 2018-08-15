@@ -18,7 +18,7 @@ describe('Peer manager', () => {
         assert.isOk(pm);
     });
 
-    it('should add peer to PeerManager', async () => {
+    it('should add peer to PeerManager from PeerInfo', async () => {
         const pm = new factory.PeerManager();
         assert.isOk(pm);
         const peer = new factory.Messages.PeerInfo({
@@ -26,7 +26,26 @@ describe('Peer manager', () => {
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
             ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            address: factory.Transport.generateAddress()
+        });
+        pm.addPeer(peer);
+        const arrPeers = Array.from(pm._allPeers.keys());
+        assert.isOk(arrPeers.length === 1);
+        assert.isOk(peer.address.equals(Buffer.from(arrPeers[0], 'hex')));
+    });
+
+    it('should add peer to PeerManager from Connection', async () => {
+        const pm = new factory.PeerManager();
+        assert.isOk(pm);
+        const peer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {},
+                sendMessage: async (msgAddr) => {
+                    msg = msgAddr;
+                }
+            }
         });
         pm.addPeer(peer);
         const arrPeers = Array.from(pm._allPeers.keys());
@@ -117,7 +136,6 @@ describe('Peer manager', () => {
         });
         pm.addPeer(peer);
         const message = new factory.Messages.MsgVersion({nonce: 12});
-        message.encode();
         message.sign(keyPair.getPrivate());
         assert.isOk(message.signature);
 
@@ -129,5 +147,22 @@ describe('Peer manager', () => {
         pm._incomingMessage(peer, message);
         assert.isOk(msgEmitted);
         assert.equal(msgEmitted, message);
+    });
+
+    it('should keep only one peer in array', function() {
+        const pm = new factory.PeerManager();
+        assert.isOk(pm);
+        const peer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
+        pm.addPeer(peer);
+        pm.addPeer(peer);
+        const arrPeers = Array.from(pm._allPeers.keys());
+        assert.isOk(Array.isArray(arrPeers));
+        assert.equal(arrPeers.length, 1);
     });
 });

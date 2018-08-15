@@ -45,6 +45,10 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
             }
         }
 
+        get nonce() {
+            return this._data.nonce;
+        }
+
         get data() {
             return this._data;
         }
