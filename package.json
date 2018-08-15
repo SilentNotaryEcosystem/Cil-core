@@ -16,6 +16,6 @@
     "one-time": "0.0.4"
   },
   "scripts": {
-    "test": "mocha --exit ./tests/transaction.js"
+    "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
   }
 }
