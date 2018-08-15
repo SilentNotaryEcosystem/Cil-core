@@ -4,6 +4,7 @@ const net = require('net');
 const path = require('path');
 const debug = require('debug')('transport:');
 const os = require('os');
+const fs = require('fs');
 
 const pathPrefix = os.platform() === 'win32' ? '\\\\?\\pipe' : '';
 
@@ -65,12 +66,12 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
             return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
         }
 
-        static addressToString(buffer) {
+        static addressToString(buffer, encoding = 'utf8') {
             let i = 0;
 
             // skip leading 0
             for (; i < buffer.length && !buffer[i]; i++) {}
-            return buffer.toString('utf8', i);
+            return buffer.toString(encoding, i);
         }
 
         /**
@@ -101,10 +102,11 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
          * @return {Promise<TestConnection>} new connection
          */
         connect(address) {
-            if (Buffer.isBuffer(address)) address = this.constructor.addressToString(address);
+            if (Buffer.isBuffer(address)) address = this.constructor.addressToString(address, 'hex');
+            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), address);
 
             return new Promise((resolve, reject) => {
-                const socket = net.createConnection(path.join(`${pathPrefix}`, os.tmpdir(), address),
+                const socket = net.createConnection(netAddr,
                     async (err) => {
                         if (err) return reject(err);
                         const remoteAddress = await this._exchangeAddresses(socket);
@@ -124,7 +126,14 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
         listen() {
 
             // for test only
-            const strAddress = this.constructor.addressToString(this._address);
+            const strAddress = this.constructor.addressToString(this._address, 'hex');
+            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), strAddress);
+
+            // Unix sockets are persistent, let's erase it first
+            try {
+                fs.statSync(netAddr);
+                fs.unlinkSync(netAddr);
+            } catch (err) {}
 
             // TODO: use port
             net.createServer(async (socket) => {
@@ -133,7 +142,7 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress})
                 );
-            }).listen(path.join(`${pathPrefix}`, os.tmpdir(), strAddress));
+            }).listen(netAddr);
         }
 
         /**
@@ -161,14 +170,14 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
          * @private
          */
         _exchangeAddresses(socket) {
+            debug(`sending my address: ${this._address}`);
             socket.write(this._address);
 
             return new Promise((resolve, reject) => {
-                socket.on('data', (addressBuff) => {
+                socket.once('data', (addressBuff) => {
+                    debug(`got remote address: ${addressBuff}`);
                     resolve(addressBuff);
                 });
-                socket.on('error', () => reject('Socket error'));
-                socket.on('close', () => reject('Socket closed'));
             });
         }
     };

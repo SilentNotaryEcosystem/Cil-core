@@ -149,7 +149,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                     reason: 'Duplicate connection detected'
                 });
                 debugMsg(
-                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${connection.remoteAddress}"`);
+                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${newPeer.address}"`);
                 await newPeer.pushMessage(message);
                 newPeer.disconnect();
 

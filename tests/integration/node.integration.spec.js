@@ -65,7 +65,7 @@ describe('Node integration tests', () => {
 
         const testNode = new factory.Node({
             listenAddr: factory.Transport.strToAddress('Test node'),
-            delay: 0, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
+            delay: 10, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
         });
         await testNode.bootstrap();
 

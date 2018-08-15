@@ -29,6 +29,8 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
             this._nonce = parseInt(Math.random() * 10000);
             this._socket.on('data', this._incomingMessage.bind(this));
             this._socket.on('end', this.close.bind(this));
+            this._socket.on('error', this.close.bind(this));
+
 
             this._messageAssembler = new MessageAssembler;
         }

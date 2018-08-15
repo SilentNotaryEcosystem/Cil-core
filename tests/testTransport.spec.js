@@ -42,9 +42,29 @@ describe('TestTransport', () => {
         assert.isOk(Buffer.isBuffer(myAddr));
     });
 
+    it('should communicate each other (NO delay)', async () => {
+        const address = factory.Transport.addressToString('rendezvous1');
+        const endpoint1 = new factory.Transport({delay: 0, listenAddr: address});
+        const endpoint2 = new factory.Transport({delay: 0});
+
+        const [connection1, connection2] = await Promise.all([
+            endpoint1.listenSync(),
+            endpoint2.connect(address)
+        ]);
+
+        assert.isOk(connection1);
+        assert.isOk(connection2);
+
+        const msgPromise = connection2.receiveSync();
+        await connection1.sendMessage(msgCommon);
+
+        const result = await msgPromise;
+        assert.isOk(result.message);
+        assert.equal("" + connection2.remoteAddress, "" + address);
+    });
 
     it('should communicate each other', async () => {
-        const address = factory.Transport.addressToString('rendezvous');
+        const address = factory.Transport.addressToString('rendezvous2');
         const endpoint1 = new factory.Transport({delay: 200, listenAddr: address});
         const endpoint2 = new factory.Transport({delay: 200});
 
