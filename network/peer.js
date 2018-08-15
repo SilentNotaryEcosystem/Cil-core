@@ -15,6 +15,8 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
             super();
             const {connection, peerInfo, lastActionTimestamp, transport} = options;
 
+            this._nonce = parseInt(Math.random() * 100000);
+
             this._transport = transport ? transport : new Transport(options);
             this._handshakeDone = false;
             this._version = undefined;
@@ -28,7 +30,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
             if (connection) {
                 this._connection = connection;
                 this._bInbound = true;
-                this._setMessageHandler();
+                this._setConnectionHandlers();
                 this._peerInfo = new PeerInfo({
                     address: connection.remoteAddress
                 });
@@ -46,7 +48,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
 //        set connection(newConnection){
 //            this._connection = newConnection;
 //            this._bInbound = true;
-//            this._setMessageHandler();
+//            this._setConnectionHandlers();
 //        }
 
         get peerInfo() {
@@ -151,28 +153,38 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
         }
 
         async connect() {
+            if (this.banned) {
+                logger.error('Trying to connect to banned peer!');
+                return;
+            }
             if (!this.disconnected) {
                 debug(`Peer ${this.address} already connected`);
                 return;
             }
             this._connection = await this._transport.connect(this.address, this.port);
-            this._setMessageHandler();
+            this._setConnectionHandlers();
         }
 
-        _setMessageHandler() {
-            this._connection.on('message', msg => {
+        _setConnectionHandlers() {
+            if (!this._connection.listenerCount('message')) {
+                this._connection.on('message', msg => {
 
-                // TODO: update counters/timers here
-                this._lastActionTimestamp = Date.now();
-                this.emit('message', this, msg);
-                if (msg.signature) this.emit('witnessMessage', this, msg);
-            });
-            this._connection.on('close', () => {
-                debug(`Connection to "${this._connection.remoteAddress}" closed`);
-                this._bInbound = false;
-                this.loadDone = true;
-                this._connection = undefined;
-            });
+                    // TODO: update counters/timers here
+                    this._lastActionTimestamp = Date.now();
+                    if (msg.signature) {
+                        this.emit('witnessMessage', this, msg);
+                    } else {
+                        this.emit('message', this, msg);
+                    }
+                });
+
+                this._connection.on('close', () => {
+                    debug(`Connection to "${this._connection.remoteAddress}" closed`);
+                    this._bInbound = false;
+                    this.loadDone = true;
+                    this._connection = undefined;
+                });
+            }
         }
 
         async pushMessage(msg) {
@@ -192,9 +204,12 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
             }
         }
 
-        banPeer() {
+        ban() {
             this._bannedTill = new Date(Date.now() + Constants.BAN_PEER_TIME);
             this._bBanned = true;
+            debug(`Peer "${this._connection.remoteAddress}" banned till ${new Date(this._bannedTill)}`);
+
+            if (!this.disconnected) this.disconnect();
         }
 
         misbehave(score) {
@@ -204,7 +219,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
 
             this._missbehaveScore += score;
             this._missbehaveTime = Date.now();
-            if (this._missbehaveScore >= Constants.BAN_PEER_SCORE) this.banPeer();
+            if (this._missbehaveScore >= Constants.BAN_PEER_SCORE) this.ban();
         }
 
         disconnect() {

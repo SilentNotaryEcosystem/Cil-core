@@ -63,13 +63,13 @@ describe('Node integration tests', () => {
         });
         [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
 
-        const newNode = new factory.Node({
+        const testNode = new factory.Node({
             listenAddr: factory.Transport.strToAddress('Test node'),
             delay: 0, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
         });
-        await newNode.bootstrap();
+        await testNode.bootstrap();
 
-        const peers = newNode._peerManager.filterPeers();
+        const peers = testNode._peerManager.filterPeers();
         assert.isOk(peers && peers.length);
 
         // 4 from constructed object + seed + self

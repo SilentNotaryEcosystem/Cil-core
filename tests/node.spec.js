@@ -82,7 +82,8 @@ describe('Node tests', () => {
         let nMsgSent = 0;
         const newPeer = new factory.Peer({
             connection: {
-                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                listenerCount: () => 0,
+                remoteAddress: factory.Transport.generateAddress(),
                 on: () => {},
                 sendMessage: async () => {
                     nMsgSent++;
@@ -97,7 +98,8 @@ describe('Node tests', () => {
         let msg;
         const newPeer = new factory.Peer({
             connection: {
-                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
                 on: () => {},
                 sendMessage: async (msgAddr) => {
                     msg = msgAddr;
@@ -111,6 +113,26 @@ describe('Node tests', () => {
         msg.peers.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
         });
+    });
+
+    it('should send "getaddr" message', async () => {
+        let msg;
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {},
+                sendMessage: async (msgGetAddr) => {
+                    msg = msgGetAddr;
+                }
+            }
+        });
+
+        // we need outgoing connection and version set
+        newPeer.version = 123;
+        newPeer._bInbound = false;
+        await seedNode._handleVerackMessage(newPeer);
+        assert.isOk(msg && msg.isGetAddr());
     });
 
     // TODO: add message handlers test

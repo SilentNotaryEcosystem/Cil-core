@@ -118,4 +118,8 @@ module.exports = (Crypto, NetworkMagic, MessageProto) =>
         isAddr() {
             return this.message === 'addr';
         }
+
+        isReject() {
+            return this.message === 'reject';
+        }
     };

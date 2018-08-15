@@ -61,7 +61,7 @@ class Factory {
                     this.PeerManager,
                     this.Storage
                 );
-                this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants, this.PeerManager);
+                this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants);
             })
             .catch(err => {
                 logger.error(err);

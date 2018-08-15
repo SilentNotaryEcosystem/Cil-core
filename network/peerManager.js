@@ -30,26 +30,31 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
         /**
          *
          * @param {Object | PeerInfo | Peer} peer
-         * @return {Peer}
+         * @return {Peer | undefined} undefined if peer already connected
          */
         addPeer(peer) {
+
+            // TODO: do we need mutex support here?
+
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
             const key = this._createKey(peer.address);
+            const existingPeer = this._allPeers.get(key);
 
-//            if (this._allPeers.has(key)) {
-//                const existingPeer=this._allPeers.get(key);
-//                if(existingPeer.disconnected){
-//                    existingPeer.connection=peer.connection;
-//                }
-//                return existingPeer;
-//            }
-
-            peer.on('message', this._incomingMessage.bind(this));
-            if (peer.isWitness) {
-                peer.on('witnessMessage', this._incomingMessage.bind(this));
+            if (!peer.disconnected && existingPeer && !existingPeer.disconnected) {
+                logger.error('Duplicate connection detected');
+                return undefined;
             }
+
+            this.updateHandlers(peer);
             this._allPeers.set(key, peer);
             return peer;
+        }
+
+        updateHandlers(peer) {
+            if (!peer.listenerCount('message')) peer.on('message', this._incomingMessage.bind(this));
+            if (peer.isWitness && !peer.listenerCount('witnessMessage')) {
+                peer.on('witnessMessage', this._incomingMessage.bind(this));
+            }
         }
 
         /**
@@ -85,9 +90,8 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
 
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
             for (let [, peer] of this._allPeers.entries()) {
-                if (!service ||
-                    ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
-                    if (peer.lastActionTimestamp > tsAlive) {
+                if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
+                    if (!peer.banned && peer.lastActionTimestamp > tsAlive) {
                         arrResult.push(peer);
                     }
                 }
@@ -96,7 +100,7 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
             return arrResult;
         }
 
-        broadcastToConnected() {
+        broadcastToConnected(tag) {
 
         }
 

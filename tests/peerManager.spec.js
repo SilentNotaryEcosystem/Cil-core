@@ -40,6 +40,7 @@ describe('Peer manager', () => {
         const peer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
                 on: () => {},
                 sendMessage: async (msgAddr) => {
                     msg = msgAddr;
@@ -135,7 +136,6 @@ describe('Peer manager', () => {
         });
         pm.addPeer(peer);
         const message = new factory.Messages.MsgVersion({nonce: 12});
-        message.encode();
         message.sign(keyPair.getPrivate());
         assert.isOk(message.signature);
 
@@ -155,6 +155,7 @@ describe('Peer manager', () => {
         const peer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
                 on: () => {}
             }
         });

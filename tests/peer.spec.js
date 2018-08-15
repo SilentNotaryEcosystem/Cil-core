@@ -42,7 +42,12 @@ describe('Peer tests', () => {
     });
 
     it('should create from connection', async () => {
-        const newPeer = new factory.Peer({connection: {on: () => {}}});
+        const newPeer = new factory.Peer({
+            connection: {
+                on: () => {},
+                listenerCount: () => 0
+            }
+        });
         assert.isOk(newPeer);
         assert.isNotOk(newPeer.disconnected);
     });
@@ -73,6 +78,7 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                listenerCount: () => 0,
                 on: () => {},
                 sendMessage: async () => {
 
@@ -90,7 +96,12 @@ describe('Peer tests', () => {
     });
 
     it('should NOT ban peer', async () => {
-        const newPeer = new factory.Peer({connection: {on: () => {}}});
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
         assert.isOk(newPeer);
         newPeer.misbehave(1);
         assert.isNotOk(newPeer.banned);
@@ -99,7 +110,12 @@ describe('Peer tests', () => {
     });
 
     it('should ban peer', async () => {
-        const newPeer = new factory.Peer({connection: {on: () => {}}});
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: () => 0,
+                on: () => {}, close: () => {}
+            }
+        });
         assert.isOk(newPeer);
         newPeer.misbehave(1);
         assert.isNotOk(newPeer.banned);

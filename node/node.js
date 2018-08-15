@@ -61,9 +61,10 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                 this._peerManager.addPeer(peer);
             }
 
+            // start connecting to peers
             const arrBestPeers = this._findBestPeers();
             for (let peer of arrBestPeers) {
-                await this._connectToPeer(peer);
+                if (peer.disconnected) await this._connectToPeer(peer);
                 await peer.pushMessage(this._createMsgVersion());
                 await peer.loaded();
             }
@@ -135,10 +136,23 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
             return arrResult;
         }
 
-        _incomingConnection(connection) {
+        async _incomingConnection(connection) {
             try {
                 debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
-                this._peerManager.addPeer(new Peer({connection, transport: this._transport}));
+                const newPeer = new Peer({connection, transport: this._transport});
+                const result = this._peerManager.addPeer(newPeer);
+                if (result !== undefined) return;
+
+                // peer already connected
+                const message = new MsgReject({
+                    code: Constants.REJECT_DUPLICATE,
+                    reason: 'Duplicate connection detected'
+                });
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${connection.remoteAddress}"`);
+                await newPeer.pushMessage(message);
+                newPeer.disconnect();
+
             } catch (err) {
                 logger.error(err);
             }
@@ -155,14 +169,22 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
 
                 debugMsg(
                     `(address: "${this._debugAddress}") received message "${message.message}" from "${peer.address}"`);
-                if (message.isVersion()) {
+                if (message.isReject()) {
+
+                    // connection will be closed by other end
+                    logger.log(`Peer: "${peer.remoteAddress}" rejection reason: "${message.reason}"`);
+
+                    // if it's just collision - 1 point not too much, but if peer is broken - it will raise to ban
+                    peer.misbehave(1);
+                    peer.loadDone = true;
+                } else if (message.isVersion()) {
                     return await this._handleVersionMessage(peer, message);
                 } else if (message.isVerAck()) {
                     return await this._handleVerackMessage(peer);
                 }
 
                 if (!peer.fullyConnected) {
-                    logger.error(`Peer ${peer.remoteAddress} missed version handshake stage`);
+                    logger.error(`Peer "${peer.remoteAddress}" missed version handshake stage`);
                     peer.misbehave(1);
                     return;
                 }
@@ -195,8 +217,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
             // we connected to self
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
-                peer.misbehave(Constants.BAN_PEER_SCORE);
-                peer.disconnect();
+                peer.ban();
                 return;
             }
 
@@ -215,6 +236,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                 // very beginning of inbound connection
                 if (peer.inbound) {
                     peer.peerInfo = message.peerInfo;
+                    this._peerManager.updateHandlers(peer);
 
                     // send own version
                     debugMsg(`(address: "${this._debugAddress}") sending own "version" to "${peer.address}"`);
@@ -248,10 +270,6 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                     msgGetAddr.getAddrMessage = true;
                     debugMsg(`(address: "${this._debugAddress}") sending "getaddr"`);
                     await peer.pushMessage(msgGetAddr);
-                } else {
-                    debugNode(`(address: "${this._debugAddress}") adding peer "${Transport.addressToString(
-                        peer.address)}" to peerManager`);
-                    this._peerManager.addPeer(peer);
                 }
             }
         }
