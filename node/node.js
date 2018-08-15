@@ -85,7 +85,6 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
         }
 
         /**
-         * Redefine it for WitnessNode, to select only own group
          *
          * @return {Array} of Peers we decided to be best peers to connect
          * @private
