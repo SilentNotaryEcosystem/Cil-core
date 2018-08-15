@@ -57,7 +57,7 @@ class CryptoLib {
      * @return {KeyPair}
      */
     static keyPairFromPrivate(privateKey, enc = 'hex') {
-        return new KeyPair(ec.keyPair({priv: privateKey, privEnc: enc}));
+        return new KeyPair(ec.keyPair({ priv: privateKey, privEnc: enc }));
     }
 
     /**
@@ -78,6 +78,34 @@ class CryptoLib {
      */
     static sign(msg, key, enc, options) {
         return Buffer.from(ec.sign(msg, key, enc, options).toDER());
+    }
+
+    /**
+     * Sign transaction with r, s, v
+     * @param {Buffer} msg
+     * @param {BN|String} key - private key (BN - BigNumber @see https://github.com/indutny/bn.js)
+     * @param {String} enc - encoding of private key. possible value = 'hex', else it's trated as Buffer
+     * @param {Object} options - for hmac-drbg
+     * @return {Object}
+     */
+    static signTransaction(msg, key, enc, options) {
+        let sign = ec.sign(msg, key, enc, options);
+        let ret = {};
+        ret.r = sign.r;
+        ret.s = sign.s;
+        ret.v = sign.recoveryParam + 27;
+        return ret;
+    }
+
+    /**
+     *  Get public key fromm signature
+     * @param {Buffer} msg 
+     * @param {Object} signature 
+     * @param {Number} j 
+     * @param {Object} enc 
+     */
+    static getPublicKey(msg, signature, j, enc) {
+        return ec.recoverPubKey(msg, signature, j, enc);
     }
 
     /**
@@ -130,7 +158,7 @@ class CryptoLib {
      */
     static async decrypt(password, buffer) {
         const key = Buffer.from(this.sha256(password), 'hex');
-//        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
+        //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
         const ivEnc = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer, 'base64');
         const iv = ivEnc.slice(0, LENGTH);
         const enc = ivEnc.slice(LENGTH);
@@ -151,7 +179,7 @@ class CryptoLib {
      */
     static async encrypt(password, buffer) {
         const key = Buffer.from(this.sha256(password), 'hex');
-//        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
+        //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
         const iv = this.randomBytes(LENGTH);
         const cipher = crypto.createCipheriv(ALGO, key, iv);
         const enc = Buffer.concat([cipher.update(buffer), cipher.final()]);

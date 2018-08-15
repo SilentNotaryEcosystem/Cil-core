@@ -5,7 +5,8 @@
     "argon2": "^0.19.3",
     "elliptic": "^6.4.0",
     "ipaddr.js": "^1.8.0",
-    "protobufjs": "^6.8.8"
+    "protobufjs": "^6.8.8",
+    "rlp": "^2.1.0"
   },
   "devDependencies": {
     "chai": "^4.1.2",
@@ -15,6 +16,6 @@
     "one-time": "0.0.4"
   },
   "scripts": {
-    "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
+    "test": "mocha --exit ./tests/transaction.js"
   }
 }
