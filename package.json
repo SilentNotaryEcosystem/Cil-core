@@ -15,7 +15,7 @@
   },
   "scripts": {
     "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
-    "testDebugWin": "set DEBUG='*,-mocha:*' && mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
-    "testDebugNix": "DEBUG='*,-mocha:*' mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
+    "testDebugWin": "set DEBUG=*,-mocha:* && mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
   }
 }
