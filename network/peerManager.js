@@ -23,8 +23,18 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
             this._allPeers = new Map();
         }
 
-        get connectedCount() {
-            return this._allPeers.reduce((total, peer) => total + peer.disconnected ? 0 : 1, 0);
+        /**
+         * if tag === undefined - return ALL connected peers
+         *
+         * @param {String | undefined} tag - count only tagged connected peers.
+         * @return {Array} of connected peers with specified tag.
+         */
+        connectedPeers(tag) {
+            return Array.from(this._allPeers.values())
+                .reduce((arrPeers, peer) => {
+                    if (!peer.disconnected && peer.hasTag(tag)) arrPeers.push(peer);
+                    return arrPeers;
+                }, []);
         }
 
         /**
@@ -44,6 +54,9 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
                 logger.error('Duplicate connection detected');
                 return undefined;
             }
+
+            // we connected to that peer so we believe that this info more correct
+            if (existingPeer && (existingPeer.version || !existingPeer.disconnected)) return existingPeer;
 
             this.updateHandlers(peer);
             this._allPeers.set(key, peer);

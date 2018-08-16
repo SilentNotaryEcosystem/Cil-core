@@ -40,6 +40,9 @@ module.exports = (Node, Messages, Constants) => {
                     await peer.pushMessage(this._createHandshakeMessage());
                     await peer.witnessLoaded();
                     peer.addTag(this._groups[0]);
+
+                    // overwrite this peer definition with freshest data
+                    this._peerManager.addPeer(peer);
                 }
                 debugWitness(`--------- "${this._debugAddress}" WITNESS handshake with "${peer.address}" DONE -----`);
             }
@@ -57,6 +60,8 @@ module.exports = (Node, Messages, Constants) => {
             const mapDefinitions = await this._storage.getGroupDefinitions();
             const arrGroups = [];
             for (let [groupName, arrKeys] of mapDefinitions) {
+
+                // == because it will be casted to String
                 if (~arrKeys.findIndex(key => key == myPubKey)) arrGroups.push(groupName);
             }
 

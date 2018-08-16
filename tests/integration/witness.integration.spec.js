@@ -23,13 +23,8 @@ describe('Witness integration tests', () => {
     it('should ACT same as regular node (get peers from seedNode)', async function() {
         this.timeout(20000);
 
-        const kpWallet = factory.Crypto.createKeyPair();
-        const kpWitness1 = factory.Crypto.createKeyPair();
-        const kpWitness2 = factory.Crypto.createKeyPair();
-
         const groupName = 'test';
         const arrTestDefinition = [
-            [groupName, [kpWallet.getPublic(), kpWitness1.getPublic(), kpWitness2.getPublic()]],
             ['anotherGroup', ['pubkey3', 'pubkey4']]
         ];
 
@@ -51,79 +46,90 @@ describe('Witness integration tests', () => {
         });
         [peerInfo1, peerInfo2].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
 
-        // start 2 witnesses
-        const witnessWallet1 = new factory.Wallet(kpWitness1.getPrivate());
-        const witnessNode1 = new factory.Witness({
-            wallet: witnessWallet1, arrTestDefinition,
-            listenAddr: factory.Transport.strToAddress('witness 1'), delay: 10,
-            arrSeedAddresses: [seedAddress]
-        });
+        // create wallets
+        const kpWallet = factory.Crypto.createKeyPair();
+        const arrWallets = [];
+        for (let i = 0; i < maxConnections; i++) {
+            arrWallets.push(factory.Crypto.createKeyPair());
+        }
 
-//        const witnessWallet2=new factory.Wallet(kpWitness2.getPrivate());
-//        const witnessNode2=new factory.Witness({
-//            wallet: witnessWallet2, arrTestDefinition,
-//            listenAddr: factory.Transport.strToAddress('witness 2'), delay: 0,
-//            arrSeedAddresses: [seedAddress]
-//        });
-//
-//        await Promise.all([witnessNode1.bootstrap(), witnessNode2.bootstrap()]);
-//        await Promise.all([witnessNode1.start(), witnessNode2.start()]);
+        // update group definition
+        arrTestDefinition.push(
+            [groupName, [kpWallet.getPublic(), ...arrWallets.map(keyPair => keyPair.getPublic())]]);
 
-        await witnessNode1.bootstrap();
-        await witnessNode1.start();
+        // create 'maxConnections' witnesses
+        const arrWitnesses = [];
+        for (let i = 0; i < maxConnections; i++) {
+            const witnessWallet = new factory.Wallet(arrWallets[i].getPrivate());
+            arrWitnesses.push(new factory.Witness({
+                wallet: witnessWallet, arrTestDefinition,
+                listenAddr: factory.Transport.strToAddress(`witness ${i + 1}`), delay: 10,
+                arrSeedAddresses: [seedAddress]
+            }));
+        }
+
+        await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
+        await Promise.all(arrWitnesses.map(witness => witness.start()));
 
         // start our witness
         const wallet = new factory.Wallet(kpWallet.getPrivate());
-        const witnessNode = new factory.Witness(
+        const testWitness = new factory.Witness(
             {
                 wallet, arrTestDefinition,
                 listenAddr: factory.Transport.strToAddress('Test witness'),
                 delay: 10, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
             });
-        await witnessNode.bootstrap();
-        await witnessNode.start();
+        await testWitness.bootstrap();
+        await testWitness.start();
 
-        const peers = witnessNode._peerManager.filterPeers();
+        const peers = testWitness._peerManager.filterPeers();
         assert.isOk(peers && peers.length);
 
-        // 2 from constructed object + seed + witness (self is banned, so it's not counted)
-        assert.equal(peers.length, 4);
+        // 2 from constructed object + seed + maxConnections witness (self is banned, so it's not counted)
+        assert.equal(peers.length, 2 + 1 + maxConnections);
         peers.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
         });
+
+        // maxConnections + 1 seed
+        assert.equal(testWitness._peerManager.connectedPeers().length, maxConnections + 1);
+
+        // maxConnections witnesses
+        assert.equal(testWitness._peerManager.connectedPeers(groupName).length, maxConnections);
     });
 
-//    it(`should ACT same as regular node (create ${maxConnections} nodes and get all of them connected and advertised to seed)`,
-//        async function() {
-//            this.timeout(60000);
-//            const seedAddress = factory.Transport.generateAddress();
-//            const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
-//
-//            const arrNodes = [];
-//            const arrPromises = [];
-//            for (let i = 0; i < maxConnections; i++) {
-//                const wallet = new factory.Wallet(`0x${i}`);
-//                const witnessNode = new factory.Witness(
-//                    {wallet, arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
-//                arrPromises.push(witnessNode.bootstrap());
-//                arrNodes.push(witnessNode);
-//            }
-//
-//            await Promise.all(arrPromises);
-//            for (let witnessNode of arrNodes) {
-//                const peers = witnessNode._peerManager.filterPeers();
-//                assert.isOk(peers && peers.length);
-//            }
-//
-//            const seedPeers = seedNode._peerManager.filterPeers();
-//            assert.isAtLeast(seedPeers.length, maxConnections);
-//            seedPeers.forEach(peerInfo => {
-//                assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
-//
-//                // we define custom ports 8000+i
-//                assert.isOk(peerInfo.port >= 8000 && peerInfo.port <= 8000 + maxConnections);
-//            });
-//        }
-//    );
+    it('should DISCONNECT from FAKE Witness', async () => {
+        assert.isOk(false, 'FIX it!!');
 
+//        const kpTest = factory.Crypto.createKeyPair();
+//        const kpGood = factory.Crypto.createKeyPair();
+//        const kpWalletFake = factory.Crypto.createKeyPair();
+//
+//        const groupName = 'test';
+//        const arrTestDefinition = [
+//            [groupName, [kpTest.getPublic(), kpGood.getPublic()]],
+//            ['anotherGroup', ['pubkey3', 'pubkey4']]
+//        ];
+//
+//        // create fake
+//        const fakeAddress=factory.Transport.strToAddress(`fake witness`);
+//        const fakeWitnessWallet = new factory.Wallet(kpWalletFake.getPrivate());
+//        const fakeWitness=new factory.Witness({
+//            wallet: fakeWitnessWallet, arrTestDefinition,
+//            listenAddr: fakeAddress, delay: 10,
+//            arrSeedAddresses: []
+//        });
+//
+//        // start our witness
+//        const wallet = new factory.Wallet(kpTest.getPrivate());
+//        const testWitness = new factory.Witness(
+//            {
+//                wallet, arrTestDefinition,
+//                listenAddr: factory.Transport.strToAddress('Test witness 2'),
+//                delay: 10, queryTimeout: 5000, arrSeedAddresses: [fakeAddress]
+//            });
+//        await testWitness.bootstrap();
+//        await testWitness.start();
+
+    });
 });

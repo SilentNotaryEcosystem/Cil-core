@@ -138,6 +138,12 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
             this._tags.push(tag);
         }
 
+        hasTag(tag) {
+
+            // if tag === undefined - return true!
+            return !tag || this._tags.includes(tag);
+        }
+
         async loaded() {
             for (let i = 0; i < Constants.PEER_QUERY_TIMEOUT / 100; i++) {
                 await sleep(100);
@@ -179,7 +185,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
                 });
 
                 this._connection.on('close', () => {
-                    debug(`Connection to "${this._connection.remoteAddress}" closed`);
+                    debug(`Connection to "${this.address}" closed`);
                     this._bInbound = false;
                     this.loadDone = true;
                     this._connection = undefined;

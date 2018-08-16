@@ -165,4 +165,106 @@ describe('Peer manager', () => {
         assert.isOk(Array.isArray(arrPeers));
         assert.equal(arrPeers.length, 1);
     });
+
+    it('should get connected peers', async () => {
+        const pm = new factory.PeerManager();
+        for (let i = 0; i < 10; i++) {
+            const peer = new factory.Peer({
+                connection: {
+                    remoteAddress: factory.Transport.generateAddress(),
+                    listenerCount: () => 0,
+                    on: () => {}
+                }
+            });
+            pm.addPeer(peer);
+        }
+        const result = pm.connectedPeers();
+        assert.isOk(Array.isArray(result));
+        assert.equal(pm.connectedPeers().length, 10);
+    });
+
+    it('should get only TAGGED connected peers', async () => {
+        const pm = new factory.PeerManager();
+        for (let i = 0; i < 10; i++) {
+            const peer = new factory.Peer({
+                connection: {
+                    remoteAddress: factory.Transport.generateAddress(),
+                    listenerCount: () => 0,
+                    on: () => {}
+                }
+            });
+            if (i < 5) {
+                peer.addTag('testTag');
+            } else {
+                peer.addTag('anotherTag');
+            }
+            pm.addPeer(peer);
+        }
+
+        assert.equal(pm.connectedPeers('testTag').length, 5);
+        assert.equal(pm.connectedPeers('anotherTag').length, 5);
+    });
+
+    it('should REPLACE disconnected peers', async () => {
+        const pm = new factory.PeerManager();
+
+        const address = factory.Transport.generateAddress();
+        const peerDisconnected = new factory.Peer({
+            peerInfo: new factory.Messages.PeerInfo({
+                capabilities: [
+                    {service: factory.Constants.WITNESS, data: Buffer.from('pubKey')}
+                ],
+                address
+            })
+        });
+        pm.addPeer(peerDisconnected);
+
+        const peerToReplace = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE},
+                {service: factory.Constants.WITNESS, data: Buffer.from('1234')}
+            ],
+            address
+        });
+        pm.addPeer(peerToReplace);
+
+        // we replaced! not added peer
+        assert.equal(pm.filterPeers().length, 1);
+        const [peer] = pm.filterPeers();
+        assert.equal(peer.capabilities.length, 2);
+        assert.isOk(peer.isWitness);
+        assert.isOk(Buffer.from('1234').equals(peer.publicKey));
+    });
+
+    it('should KEEP connected peers', async () => {
+        const pm = new factory.PeerManager();
+        const address = factory.Transport.generateAddress();
+
+        const peerConnected = new factory.Peer({
+            connection: {
+                remoteAddress: address,
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
+        peerConnected.version = 123;
+        pm.addPeer(peerConnected);
+
+        const peerToReplace = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE},
+                {service: factory.Constants.WITNESS, data: Buffer.from('1234')}
+            ],
+            address
+        });
+        pm.addPeer(peerToReplace);
+
+        // we aren't added new peer
+        assert.equal(pm.filterPeers().length, 1);
+        const [peer] = pm.filterPeers();
+
+        // peers created from connection only NODE
+        assert.equal(peer.capabilities.length, 1);
+        assert.isNotOk(peer.isWitness);
+    });
 });
