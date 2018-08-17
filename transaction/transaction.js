@@ -1,96 +1,68 @@
-const Payload = require('./payload');
 const { toBuffer } = require('./utills');
 const BN = require('bn.js');
-const Crypto = require('../crypto/crypto');
-const rlp = require('rlp');
 
-module.exports = class Transaction {
-    constructor(payload) {
-        this._payload = payload;
-    }
+module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
+    class Transaction {
+        constructor(data) {
+            if (Buffer.isBuffer(data)) {
+                this._data = { ...TransactionProto.decode(data) };
+            } else if (typeof data === 'object') {
+                const errMsg = TransactionProto.verify(data);
+                if (errMsg) throw new Error(`Transaction: ${errMsg}`);
 
-    get payload() {
-        return this._payload;
-    }
-
-    get signature() {
-        return this._signature;
-    }
-
-    set signature(value) {
-        this._signature = value;
-    }
-
-    get publicKey(){
-        if (!this.signature)
-            return null;
-        try {
-            let key = Crypto.getPublicKey(this.hash(false), this.signature, this.signature.v - 27);
-            return key.encode('hex', true);
-        }
-        catch (err) {
-            return null;
-        }
-    }
-
-    hash(includeSignature) {
-        let ret = [];
-        ret.push(toBuffer(this.payload.nonce));
-        ret.push(toBuffer(this.payload.gasLimit));
-        ret.push(toBuffer(this.payload.gasPrice));
-        ret.push(toBuffer(this.payload.to));
-        ret.push(toBuffer(this.payload.value));
-        ret.push(toBuffer(this.payload.extField));
-        if (includeSignature && this._signature) {
-            ret.push(toBuffer(this._signature.v));
-            ret.push(toBuffer(this._signature.r));
-            ret.push(toBuffer(this._signature.s));
+                this._data = TransactionProto.create(data);
+            } else {
+                throw new Error('Use buffer or object to initialize Transaction');
+            }
         }
 
-        return ret;
-    }
+        encode(forSign = false) {
+            return forSign ? TransactionPayloadProto.encode(this._data.payload).finish() : TransactionProto.encode(this._data).finish();
+        }
 
-    serialize() {
-        return rlp.encode(this.hash(true));
-    }
+        get payload() {
+            return this._data.payload;
+        }
 
-    static deserialize(data) {
-        if (typeof data === 'string')
-            data = Buffer.from(data, "hex")
-        let tr = rlp.decode(data);
+        get signature() {
+            return {
+                r: new BN(this._data.signature.r),
+                s: new BN(this._data.signature.s), 
+                recoveryParam: this._data.signature.recoveryParam
+            };
+        }
 
-        let payload = new Payload(new BN(tr[0]).toNumber(),
-            new BN(tr[1]).toNumber(),
-            new BN(tr[2]).toNumber(),
-            tr[3].toString('utf8'),
-            new BN(tr[4]).toNumber(),
-            tr[5].toString('utf8')
-        );
+        set signature(value) {
+            this._data.signature = { r: toBuffer(value.r), s: toBuffer(value.s), recoveryParam: value.recoveryParam };
+        }
 
-        let signature = {};
-        signature.v = new BN(tr[6]).toNumber();
-        signature.r = new BN(tr[7]);
-        signature.s = new BN(tr[8]);
+        get publicKey() {
+            if (!this.signature)
+                return null;
+            try {
+                return Crypto.recoverPubKey(this.encode(true), this.signature, this.signature.recoveryParam);
+            }
+            catch (err) {
+                return null;
+            }
+        }
 
-        let transact = new Transaction(payload);
-        transact.signature = signature;
+        serialize() {
+            return this.encode();
+        }
 
-        return transact;
-    }
+        sign(privateKey) {
+            this.signature = Crypto.sign(this.encode(true), privateKey, undefined, undefined, false);
+        };
 
-    sign(privateKey) {
-        this._signature = Crypto.signTransaction(this.hash(false), privateKey);
+        verifySignature() {
+            if (!this.signature)
+                return false;
+            try {
+                return Crypto.verify(this.encode(true), this.signature, this.publicKey);
+            }
+            catch (err) {
+                return false;
+            }
+        };
     };
-
-    validate() {
-        if (!this.signature)
-            return false;
-        try {
-            let publicKey = Crypto.getPublicKey(this.hash(false), this.signature, this.signature.v - 27);
-            return Crypto.verify(this.hash(false), this.signature, publicKey);
-        }
-        catch (err) {
-            return false;
-        }
-    };
-};

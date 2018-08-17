@@ -4,6 +4,7 @@
 const crypto = require('crypto');
 const createHash = crypto.createHash;
 const EC = require('elliptic').ec;
+var elliptic = require('elliptic');
 
 const ec = new EC('secp256k1');
 
@@ -74,37 +75,21 @@ class CryptoLib {
      * @param {BN|String} key - private key (BN - BigNumber @see https://github.com/indutny/bn.js)
      * @param {String} enc - encoding of private key. possible value = 'hex', else it's trated as Buffer
      * @param {Object} options - for hmac-drbg
-     * @return {Buffer}
+     * @param {boolean} toDER - encoding signature to DER
+     * @return {Buffer|Object}
      */
-    static sign(msg, key, enc, options) {
-        return Buffer.from(ec.sign(msg, key, enc, options).toDER());
+    static sign(msg, key, enc, options, toDER = true) {
+        return toDER ? Buffer.from(ec.sign(msg, key, enc, options).toDER()) : ec.sign(msg, key, enc, options);
     }
 
     /**
-     * Sign transaction with r, s, v
-     * @param {Buffer} msg
-     * @param {BN|String} key - private key (BN - BigNumber @see https://github.com/indutny/bn.js)
-     * @param {String} enc - encoding of private key. possible value = 'hex', else it's trated as Buffer
-     * @param {Object} options - for hmac-drbg
-     * @return {Object}
-     */
-    static signTransaction(msg, key, enc, options) {
-        let sign = ec.sign(msg, key, enc, options);
-        let ret = {};
-        ret.r = sign.r;
-        ret.s = sign.s;
-        ret.v = sign.recoveryParam + 27;
-        return ret;
-    }
-
-    /**
-     *  Get public key fromm signature
+     *  Get public key from signature
      * @param {Buffer} msg 
      * @param {Object} signature 
      * @param {Number} j 
      * @param {Object} enc 
      */
-    static getPublicKey(msg, signature, j, enc) {
+    static recoverPubKey(msg, signature, j, enc) {
         return ec.recoverPubKey(msg, signature, j, enc);
     }
 

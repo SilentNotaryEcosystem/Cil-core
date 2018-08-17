@@ -39,6 +39,7 @@ const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
 const WitnessWrapper = require('../node/witness');
 const StorageWrapper = require('../storage/testStorage');
+const TransactionWrapper = require('../transaction/transaction');
 
 const pack = require('../package');
 
@@ -47,22 +48,22 @@ class Factory {
 
         this._donePromise = this._asyncLoader();
         this._donePromise.then(() => {
-                this._serializerImplementation = SerializerWrapper(this.Messages);
-                this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
-                this._transportImplemetation = TransportWrapper(this.Serializer, this.MessageAssembler, this.Constants);
-                this._peerImplementation = PeerWrapper(this.Messages, this.Transport, this.Constants);
-                this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
-                this._storageImplementation = StorageWrapper(this.Constants);
-                this._nodeImplementation = NodeWrapper(
-                    this.Transport,
-                    this.Messages,
-                    this.Constants,
-                    this.Peer,
-                    this.PeerManager,
-                    this.Storage
-                );
-                this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants);
-            })
+            this._serializerImplementation = SerializerWrapper(this.Messages);
+            this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
+            this._transportImplemetation = TransportWrapper(this.Serializer, this.MessageAssembler, this.Constants);
+            this._peerImplementation = PeerWrapper(this.Messages, this.Transport, this.Constants);
+            this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
+            this._storageImplementation = StorageWrapper(this.Constants);
+            this._nodeImplementation = NodeWrapper(
+                this.Transport,
+                this.Messages,
+                this.Constants,
+                this.Peer,
+                this.PeerManager,
+                this.Storage
+            );
+            this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants);
+        })
             .catch(err => {
                 logger.error(err);
                 process.exit(10);
@@ -78,8 +79,8 @@ class Factory {
     get version() {
         const arrSubversions = pack.version.split('.');
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
-               parseInt(arrSubversions[1]) * Math.pow(2, 10) +
-               parseInt(arrSubversions[2]);
+            parseInt(arrSubversions[1]) * Math.pow(2, 10) +
+            parseInt(arrSubversions[2]);
     }
 
     get Crypto() {
@@ -138,6 +139,10 @@ class Factory {
         return this._messageAssemblerImplementation;
     }
 
+    get Transaction() {
+        return this._transactionImplementation;
+    }
+
     asyncLoad() {
         return this._donePromise;
     }
@@ -145,6 +150,7 @@ class Factory {
     async _asyncLoader() {
         const prototypes = await this._loadMessagePrototypes();
         this._messagesImplementation = MessagesWrapper(this.Constants, this.Crypto, prototypes);
+        this._transactionImplementation = TransactionWrapper(this.Crypto, prototypes.transactionProto, prototypes.transactionPayloadProto);
         this._constants = {
             ...this._constants,
             ...prototypes.enumServices.values,
@@ -160,6 +166,7 @@ class Factory {
     async _loadMessagePrototypes() {
         const protoNetwork = await protobuf.load('./messages/proto/network.proto');
         const protoWitness = await protobuf.load('./messages/proto/witness.proto');
+        const protoTransaction = await protobuf.load('./transaction/proto/transaction.proto');
 
         return {
             messageProto: protoNetwork.lookupType("network.Message"),
@@ -171,7 +178,10 @@ class Factory {
             witnessXXX: protoWitness.lookup("witness.XXX"),
 
             enumServices: protoNetwork.lookup("network.Services"),
-            enumRejectCodes: protoNetwork.lookup("network.RejectCodes")
+            enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
+
+            transactionProto: protoTransaction.lookupType("transaction.Transaction"),
+            transactionPayloadProto: protoTransaction.lookupType("transaction.Payload")
         };
     }
 }
