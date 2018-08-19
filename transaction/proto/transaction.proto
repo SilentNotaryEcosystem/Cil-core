@@ -4,7 +4,8 @@ package transaction;
 
 message Transaction {
     Payload payload = 1;
-    Signature signature = 2;
+    bytes signature = 2;
+    uint32 recoveryParam = 3;
 }
 
 message Payload {
@@ -14,10 +15,4 @@ message Payload {
     string to = 4;
     uint32 value = 5;
     string extField = 6;
-}
-
-message Signature {
-    uint32 recoveryParam = 1;
-    bytes r = 2;
-    bytes s = 3;
 }

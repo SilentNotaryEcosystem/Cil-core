@@ -6,6 +6,8 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         constructor(data) {
             if (Buffer.isBuffer(data)) {
                 this._data = { ...TransactionProto.decode(data) };
+                this._setPublicKey();
+                this._encodedPayload = null;
             } else if (typeof data === 'object') {
                 const errMsg = TransactionProto.verify(data);
                 if (errMsg) throw new Error(`Transaction: ${errMsg}`);
@@ -16,8 +18,14 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             }
         }
 
-        encode(forSign = false) {
-            return forSign ? TransactionPayloadProto.encode(this._data.payload).finish() : TransactionProto.encode(this._data).finish();
+        encodePayload() {
+            this._encodedPayload = TransactionPayloadProto.encode(this.payload).finish();
+        }
+
+        hash() {
+            if (!this._encodedPayload)
+                this.encodePayload();
+            return Crypto.getHash(this._encodedPayload);
         }
 
         get payload() {
@@ -25,22 +33,25 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         }
 
         get signature() {
-            return {
-                r: new BN(this._data.signature.r),
-                s: new BN(this._data.signature.s), 
-                recoveryParam: this._data.signature.recoveryParam
-            };
+            return this._data.signature;
         }
 
-        set signature(value) {
-            this._data.signature = { r: toBuffer(value.r), s: toBuffer(value.s), recoveryParam: value.recoveryParam };
+        get recoveryParam() {
+            return this._data.recoveryParam;
+        }
+
+        _setPublicKey() {
+            this._publicKey = Crypto.recoverPubKey(this.hash(), this.signature, this.recoveryParam);
         }
 
         get publicKey() {
             if (!this.signature)
                 return null;
             try {
-                return Crypto.recoverPubKey(this.encode(true), this.signature, this.signature.recoveryParam);
+                if (!this._publicKey) {
+                    this._setPublicKey();
+                }
+                return this._publicKey;
             }
             catch (err) {
                 return null;
@@ -48,18 +59,20 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         }
 
         serialize() {
-            return this.encode();
+            return TransactionProto.encode(this._data).finish();
         }
 
         sign(privateKey) {
-            this.signature = Crypto.sign(this.encode(true), privateKey, undefined, undefined, false);
+            const { signature, recoveryParam } = Crypto.sign(this.hash(), privateKey, undefined, undefined, true);
+            this._data.signature = signature;
+            this._data.recoveryParam = recoveryParam;
         };
 
         verifySignature() {
             if (!this.signature)
                 return false;
             try {
-                return Crypto.verify(this.encode(true), this.signature, this.publicKey);
+                return Crypto.verify(this.hash(), this.signature, this.publicKey);
             }
             catch (err) {
                 return false;
