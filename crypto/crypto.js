@@ -3,9 +3,10 @@
 //const {argon2d} = argon2
 const crypto = require('crypto');
 const createHash = crypto.createHash;
-const EC = require('elliptic').ec;
-var elliptic = require('elliptic');
+const elliptic = require('elliptic');
+const EC = elliptic.ec;
 const sha3 = require('js-sha3');
+const BN = require('bn.js');
 
 const ec = new EC('secp256k1');
 
@@ -46,10 +47,6 @@ const LENGTH = 16;
 
 class CryptoLib {
 
-    static createHash(data) {
-        return this.sha256(data);
-    }
-
     /**
      *
      * @return {KeyPair}
@@ -63,7 +60,7 @@ class CryptoLib {
      * @return {KeyPair}
      */
     static keyPairFromPrivate(privateKey, enc = 'hex') {
-        return new KeyPair(ec.keyPair({ priv: privateKey, privEnc: enc }));
+        return new KeyPair(ec.keyPair({priv: privateKey, privEnc: enc}));
     }
 
     /**
@@ -85,14 +82,45 @@ class CryptoLib {
      */
     static sign(msg, key, enc, options, wRecoveryParam = false) {
         const sig = ec.sign(msg, key, enc, options);
-        return wRecoveryParam
-            ? { signature: Buffer.from(sig.toDER()), recoveryParam: sig.recoveryParam }
-            : Buffer.from(sig.toDER());
+        return this.signatureToBuffer(sig);
     }
 
     /**
-     *  
-     * @param {Buffer} msg 
+     *
+     * @param {Object} signature
+     * @param {BN} signature.r
+     * @param {BN} signature.s
+     * @param {Number} signature.recoveryParam
+     * @return {Buffer}
+     * @private
+     */
+    static signatureToBuffer(signature) {
+        const buffR = Buffer.from(signature.r.toArray());
+        const buffS = Buffer.from(signature.s.toArray());
+        return Buffer.concat([buffR, buffS, Buffer.from([signature.recoveryParam])]);
+    }
+
+    /**
+     *
+     * @param {Buffer} buff
+     * @return {Object} {r,s, recoveryParam}
+     * @private
+     */
+    static signatureFromBuffer(buff) {
+        if (buff.length !== 65) throw new Error(`Wrong signature length: ${buff.length}`);
+        const buffR = buff.slice(0, 32);
+        const buffS = buff.slice(32, 64);
+        const buffRecovery = buff.slice(64, 65);
+        return {
+            r: new BN(buffR.toString('hex'), 16, 'be'),
+            s: new BN(buffS.toString('hex'), 16, 'be'),
+            recoveryParam: buffRecovery[0]
+        };
+    }
+
+    /**
+     *
+     * @param {Buffer} msg
      * @return {Buffer}
      */
     static createHash(msg) {
@@ -101,10 +129,10 @@ class CryptoLib {
 
     /**
      *  Get public key from signature
-     * @param {Buffer} msg 
-     * @param {Object} signature 
+     * @param {Buffer} msg
+     * @param {Object} signature
      * @param {Number} j - recoveryParam from signature
-     * @param {Object} enc 
+     * @param {Object} enc
      */
     static recoverPubKey(msg, signature, j, enc) {
         let hexToDecimal = (x) => ec.keyFromPrivate(x, 'hex').getPrivate().toString(10);
@@ -120,7 +148,7 @@ class CryptoLib {
      * @return {boolean}
      */
     static verify(msg, signature, key, enc) {
-        return ec.verify(msg, signature, key, enc);
+        return ec.verify(msg, this.signatureFromBuffer(signature), key, enc);
     }
 
     /**
@@ -153,8 +181,8 @@ class CryptoLib {
     }
 
     /**
-     * 
-     * @param {Buffer} buffer 
+     *
+     * @param {Buffer} buffer
      * @param {Number} length acceptably 224 | 256 | 384 | 512
      */
     static sha3(buffer, length = 256) {

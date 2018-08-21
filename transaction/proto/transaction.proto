@@ -5,7 +5,6 @@ package transaction;
 message Transaction {
     Payload payload = 1;
     bytes signature = 2;
-    uint32 signatureRecoveryParam = 3;
 }
 
 message Payload {

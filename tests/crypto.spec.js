@@ -23,12 +23,13 @@ describe('Crypto library', () => {
         assert.equal(strPublicKey, keyPair.getPublic());
     });
 
-    it('create same signature with key as hex and BN', async () => {
-        const keyPair = Crypto.createKeyPair();
+    it('should create signature', async () => {
+        const strPrivKey = 'b7760a01705490e5e153a6ef7732369a72dbf9aaafb5c482cdfd960546909ec1';
+        const keyPair = Crypto.keyPairFromPrivate(strPrivKey, 'hex');
 
         const buffSignature1 = Crypto.sign('string', keyPair.getPrivate(), 'hex');
-        const buffSignature2 = Crypto.sign('string', keyPair.getPrivate(), 'hex');
-        assert.isOk(buffSignature1.equals(buffSignature2));
+        assert.isOk(Buffer.isBuffer(buffSignature1));
+        assert.equal(buffSignature1.length, 65);
     });
 
     it('sign & verify string', async () => {

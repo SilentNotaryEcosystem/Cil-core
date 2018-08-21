@@ -39,6 +39,7 @@ const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
 const WitnessWrapper = require('../node/witness');
 const StorageWrapper = require('../storage/testStorage');
+const TransactionWrapper = require('../transaction/transaction');
 
 const pack = require('../package');
 
@@ -149,7 +150,8 @@ class Factory {
     async _asyncLoader() {
         const prototypes = await this._loadMessagePrototypes();
         this._messagesImplementation = MessagesWrapper(this.Constants, this.Crypto, prototypes);
-        this._transactionImplementation = TransactionWrapper(this.Crypto, prototypes.transactionProto, prototypes.transactionPayloadProto);
+        this._transactionImplementation =
+            TransactionWrapper(this.Crypto, prototypes.transactionProto, prototypes.transactionPayloadProto);
         this._constants = {
             ...this._constants,
             ...prototypes.enumServices.values,

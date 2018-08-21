@@ -1,5 +1,5 @@
-const { describe, it } = require('mocha');
-const { assert } = require('chai');
+const {describe, it} = require('mocha');
+const {assert} = require('chai');
 const debug = require('debug')('transaction:');
 
 const txPayload = {
@@ -18,7 +18,7 @@ let publicKey;
 factory = require('./testFactory');
 
 describe('Transaction tests', () => {
-    before(async function () {
+    before(async function() {
         await factory.asyncLoad();
         keyPair = factory.Crypto.createKeyPair();
         privateKey = keyPair.getPrivate();
@@ -50,51 +50,51 @@ describe('Transaction tests', () => {
     // });
 
     it('should create transaction', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+        const tr = new factory.Transaction({payload: txPayload});
         assert.exists(tr);
         assert.isOk(tr);
     });
     it('should exist transactions signature', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+        const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         assert.exists(tr.signature);
         assert.isOk(tr.signature);
     });
     it('should create transactions hash', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+        const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         const transactionHash = tr.encode();
         assert.isOk(tr);
         assert.isOk(transactionHash);
     });
-    it('should exist recovered public key from signature', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+    it('should recover public key from signature', async () => {
+        const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         assert.isOk(tr);
         assert.isOk(tr.publicKey);
     });
     it('should be equality recovered public key generated public key', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+        const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         assert.isOk(tr);
         assert.isOk(tr.publicKey);
         assert.equal(tr.publicKey.encode('hex', true), publicKey);
     });
     it('should deserialize transaction', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+        const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
-        const transactionHash = tr.encode();
-        const deserializedTr = new factory.Transaction(transactionHash);
+        const transactionBuffer = tr.encode();
+        const deserializedTr = new factory.Transaction(transactionBuffer);
         assert.isOk(deserializedTr);
     });
     it('should PASS verification', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+        const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         const deserializedTr = new factory.Transaction(tr.encode());
         assert.equal(deserializedTr.verifySignature(), true);
     });
     it('should FAIL verification', async () => {
-        const tr = new factory.Transaction({ payload: txPayload });
+        const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         let deserializedTr = new factory.Transaction(tr.encode());
         deserializedTr.payload.nonce = 22;

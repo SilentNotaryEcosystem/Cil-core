@@ -2,7 +2,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
     class Transaction {
         constructor(data) {
             if (Buffer.isBuffer(data)) {
-                this._data = { ...TransactionProto.decode(data) };
+                this._data = {...TransactionProto.decode(data)};
                 this._setPublicKey();
                 this._encodedPayload = null;
             } else if (typeof data === 'object') {
@@ -20,8 +20,9 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         }
 
         get hash() {
-            if (!this._encodedPayload)
+            if (!this._encodedPayload) {
                 this.encodePayload();
+            }
             return Crypto.createHash(this._encodedPayload);
         }
 
@@ -30,16 +31,18 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         }
 
         get signature() {
-            return this._data.signature;
+            return Crypto.signatureFromBuffer(this._data.signature);
         }
 
         _setPublicKey() {
-            this._publicKey = Crypto.recoverPubKey(this.hash, this.signature, this._data.signatureRecoveryParam);
+            const signature = this.signature;
+            this._publicKey = Crypto.recoverPubKey(this.hash, signature, signature.recoveryParam);
         }
 
         get publicKey() {
-            if (!this.signature)
+            if (!this.signature) {
                 return null;
+            }
             try {
                 if (!this._publicKey) {
                     this._setPublicKey();
@@ -47,6 +50,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
                 return this._publicKey;
             }
             catch (err) {
+                logger.error(err);
                 return null;
             }
         }
@@ -56,18 +60,18 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         }
 
         sign(privateKey) {
-            const { signature, recoveryParam } = Crypto.sign(this.hash, privateKey, undefined, undefined, true);
-            this._data.signature = signature;
-            this._data.signatureRecoveryParam = recoveryParam;
+            this._data.signature = Crypto.sign(this.hash, privateKey);
         };
 
         verifySignature() {
-            if (!this.signature)
+            if (!this.signature) {
                 return false;
+            }
             try {
-                return Crypto.verify(this.hash, this.signature, this.publicKey);
+                return Crypto.verify(this.hash, this._data.signature, this.publicKey);
             }
             catch (err) {
+                logger.error(err);
                 return false;
             }
         };

@@ -2,7 +2,6 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const os = require('os');
 const debugLib = require('debug');
-const util = require('util');
 
 factory = require('../testFactory');
 
@@ -11,8 +10,8 @@ const debugWitness = debugLib('witness:app');
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
 
 // set to undefined to use random delays
-const delay = undefined;
-//const delay=10;
+//const delay = undefined;
+const delay = 10;
 
 describe('Witness integration tests', () => {
     before(async function() {
