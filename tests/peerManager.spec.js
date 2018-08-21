@@ -96,33 +96,6 @@ describe('Peer manager', () => {
         });
     });
 
-    it('should emit EMPTY message (WRONG public key)', async () => {
-        const pm = new factory.PeerManager();
-        const pubKey = '03ee7b7818bdc27be0030c2edf44ec1cce20c1f7561fc8412e467320b77e20f716';
-        const peer = new factory.Peer({
-            peerInfo: new factory.Messages.PeerInfo({
-                capabilities: [
-                    {service: factory.Constants.WITNESS, data: Buffer.from(pubKey, 'hex')}
-                ],
-                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
-            })
-        });
-        pm.addPeer(peer);
-        const keyPair = factory.Crypto.createKeyPair();
-        const message = new factory.Messages.MsgVersion({nonce: 12});
-        message.encode();
-        message.sign(keyPair.getPrivate());
-        assert.isOk(message.signature);
-
-        // should be replaced with undefined
-        let msgEmitted = 'dummy';
-        pm.on('witnessMessage', (thisPeer, msg) => {
-            msgEmitted = msg;
-        });
-        pm._incomingMessage(peer, message);
-        assert.isNotOk(msgEmitted);
-    });
-
     it('should emit GOOD message (GOOD signature)', async () => {
         const keyPair = factory.Crypto.createKeyPair();
         const pm = new factory.PeerManager();

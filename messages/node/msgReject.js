@@ -1,12 +1,14 @@
 /**
  *
+ * @param {Object} Constants
  * @param {Object} MessageCommon
  * @param {Object} RejectProto - protobuf compiled AddrPayload prototype
  * @return {{new(*): MessageReject}}
  */
-module.exports = (MessageCommon, RejectProto) =>
+module.exports = (Constants, MessageCommon, RejectProto) => {
+    const {MSG_REJECT} = Constants.messageTypes;
 
-    class MessageReject extends MessageCommon {
+    return class MessageReject extends MessageCommon {
 
         /**
          *
@@ -17,8 +19,8 @@ module.exports = (MessageCommon, RejectProto) =>
 
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
-                if (this.message !== 'reject') {
-                    throw new Error(`Wrong message type. Expected 'reject' got '${this.message}'`);
+                if (!this.isReject()) {
+                    throw new Error(`Wrong message type. Expected "${MSG_REJECT}" got "${this.message}"`);
                 }
 
                 this._data = {...RejectProto.decode(this.payload)};
@@ -31,8 +33,12 @@ module.exports = (MessageCommon, RejectProto) =>
 
                     this._data = RejectProto.create(data);
                 }
-                this.message = 'reject';
+                this.message = MSG_REJECT;
             }
+        }
+
+        get reason() {
+            return this._data.reason;
         }
 
         /**
@@ -45,3 +51,4 @@ module.exports = (MessageCommon, RejectProto) =>
             return super.encode();
         }
     };
+};

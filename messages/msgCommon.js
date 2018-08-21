@@ -1,12 +1,13 @@
 /**
  *
  * @param {CryptoLib} Crypto
- * @param {Number} NetworkMagic - Network magic number (mainnet or testnet)
+ * @param {Object} Constants
  * @param {Object} MessageProto - protobuf compiled Message prototype
  * @return {{new(*): MessageCommon}}
  */
-module.exports = (Crypto, NetworkMagic, MessageProto) =>
-    class MessageCommon {
+module.exports = (Constants, Crypto, MessageProto) => {
+    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
+    return class MessageCommon {
 
         constructor(data) {
             if (data instanceof MessageCommon) {
@@ -16,7 +17,7 @@ module.exports = (Crypto, NetworkMagic, MessageProto) =>
                 this._validate();
             } else {
                 this._msg = {
-                    network: NetworkMagic
+                    network: Constants.network
                 };
             }
         }
@@ -64,6 +65,20 @@ module.exports = (Crypto, NetworkMagic, MessageProto) =>
         }
 
         /**
+         * MSG_VERACK just message w/o payload
+         */
+        set verAckMessage(unused) {
+            this.message = MSG_VERACK;
+        }
+
+        /**
+         * MSG_GET_ADDR just message w/o payload
+         */
+        set getAddrMessage(unused) {
+            this.message = MSG_GET_ADDR;
+        }
+
+        /**
          * ATTENTION! encodeDelimited will prefix buffer with length!
          *
          * @return {Uint8Array}
@@ -73,7 +88,7 @@ module.exports = (Crypto, NetworkMagic, MessageProto) =>
         }
 
         _validate() {
-            if (this._msg.network !== NetworkMagic) {
+            if (!this._msg.network || this._msg.network !== Constants.network) {
                 throw new Error(`Wrong network! Expected: ${NetworkMagic} got ${this._msg.network}`);
             }
 
@@ -82,44 +97,39 @@ module.exports = (Crypto, NetworkMagic, MessageProto) =>
 
         sign(privateKey) {
             this.encode();
-            this.signature = Crypto.sign(this._msg.payload, privateKey);
+
+            // payload will be empty for MSG_VERSION && MSG_VERACK ... so, we couldn't hash undefined
+            // but we could sign it
+            const payloadHash = this.payload ? Buffer.from(Crypto.createHash(this.payload), 'hex') : undefined;
+            this.signature = Crypto.sign(payloadHash, privateKey);
         }
 
         verifySignature(publicKey) {
-            return Crypto.verify(this._msg.payload, this._msg.signature, publicKey);
-        }
 
-        /**
-         * verack just message w/o payload
-         */
-        set verAckMessage(unused) {
-            this.message = 'verack';
-        }
-
-        /**
-         * getaddr just message w/o payload
-         */
-        set getAddrMessage(unused) {
-            this.message = 'getaddr';
+            // payload will be empty for MSG_VERSION && MSG_VERACK ... so, we couldn't hash undefined
+            // but we could sign it
+            const payloadHash = this.payload ? Buffer.from(Crypto.createHash(this.payload), 'hex') : undefined;
+            return Crypto.verify(payloadHash, this.signature, publicKey);
         }
 
         isVerAck() {
-            return this.message === 'verack';
+            return this.message === MSG_VERACK;
         }
 
         isVersion() {
-            return this.message === 'version';
+            return this.message === MSG_VERSION;
         }
 
         isGetAddr() {
-            return this.message === 'getaddr';
+            return this.message === MSG_GET_ADDR;
         }
 
         isAddr() {
-            return this.message === 'addr';
+            return this.message === MSG_ADDR;
         }
 
         isReject() {
-            return this.message === 'reject';
+            return this.message === MSG_REJECT;
         }
     };
+};

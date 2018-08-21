@@ -178,7 +178,13 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
                     // TODO: update counters/timers here
                     this._lastActionTimestamp = Date.now();
                     if (msg.signature) {
-                        this.emit('witnessMessage', this, msg);
+
+                        // if message signed: check signature
+                        if (this.isWitness && msg.verifySignature(this.publicKey)) {
+                            this.emit('witnessMessage', this, msg);
+                        } else {
+                            this.emit('witnessMessage', this, undefined);
+                        }
                     } else {
                         this.emit('message', this, msg);
                     }
@@ -196,7 +202,7 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
         async pushMessage(msg) {
             // we have pending messages
             if (Array.isArray(this._queue)) {
-                debug('Queue message');
+                debug(`Queue message "${msg.message}" to "${Transport.addressToString(this.address)}"`);
                 this._queue.push(msg);
                 return;
             } else {

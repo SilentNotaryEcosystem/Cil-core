@@ -19,10 +19,8 @@ describe('Witness tests', () => {
     });
 
     it('should NOT create witness', async () => {
-        try {
-            new factory.Witness();
-            assert.isOk(false, 'Unexpected success');
-        } catch (err) {}
+        const wrapper = () => new factory.Witness();
+        assert.throws(wrapper);
     });
 
     it('should create witness', function() {
@@ -31,6 +29,8 @@ describe('Witness tests', () => {
 
     it('should get my group from pubKey', async () => {
         const groupName = 'test';
+
+        // this is parameter for testStorage only!
         const arrTestDefinition = [
             [groupName, [wallet.publicKey, 'pubkey1', 'pubkey2']],
             ['anotherGroup', ['pubkey3', 'pubkey4']]
@@ -80,5 +80,34 @@ describe('Witness tests', () => {
         const result = await witness._getGroupPeers(groupName);
         assert.isOk(Array.isArray(result));
         assert.equal(result.length, 2);
+    });
+
+    it('should reject message with wrong signature prom peer', async () => {
+
+        // mock peer with public key from group
+        const peer = new factory.Peer({
+            peerInfo: {
+                capabilities: [
+                    {service: factory.Constants.NODE, data: null},
+                    {service: factory.Constants.WITNESS, data: Buffer.from('pubkey1')}
+                ],
+                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            }
+        });
+
+        // create message and sign it with key that doesn't belong to our group
+        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        msg.handshakeMessage = true;
+        msg.sign(wallet.privateKey);
+
+        const arrTestDefinition = [
+            ['test', ['pubkey1', 'pubkey2']]
+        ];
+
+        // create witness
+        const witness = new factory.Witness({wallet, arrTestDefinition});
+
+        const result = await witness._checkPeerAndMessage(peer, msg);
+        assert.isNotOk(result);
     });
 });

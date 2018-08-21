@@ -73,21 +73,15 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
         /**
          *
          * @param {Peer} thisPeer
-         * @param {MessageCommon} msg
+         * @param {MessageCommon | undefined} msg - undefined means - wrong signature check
          * @private
          */
         _incomingMessage(thisPeer, msg) {
-            if (msg.signature) {
 
-                // if message signed: check signature
-                if (thisPeer.isWitness && msg.verifySignature(thisPeer.publicKey)) {
-                    this.emit('witnessMessage', thisPeer, msg);
-                } else {
-                    this.emit('witnessMessage', thisPeer, undefined);
-                }
+            // just bubble message to Node
+            if (!msg || msg.signature) {
+                this.emit('witnessMessage', thisPeer, msg);
             } else {
-
-                // just bubble message to Node
                 this.emit('message', thisPeer, msg);
             }
         }
@@ -113,8 +107,11 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
             return arrResult;
         }
 
-        broadcastToConnected(tag) {
-
+        broadcastToConnected(tag, message) {
+            const arrPeers = this.connectedPeers(tag);
+            for (let peer of arrPeers) {
+                peer.pushMessage(message).catch(err => logger.error(err));
+            }
         }
 
         /**
@@ -126,6 +123,7 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
         _createKey(address) {
 
             // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
+            // it could be ripemd160
             return address.toString('hex');
         }
     };

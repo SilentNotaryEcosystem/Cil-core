@@ -1,3 +1,17 @@
 syntax = "proto3";
 
 package witness;
+
+message WitnessMessage {
+    string groupName=1;
+    bytes content=2;
+}
+
+// -------------- NEXT_ROUND -----
+message NextRound {
+    uint32 roundNo =1;
+}
+
+// -------------- BLOCK -----
+message Block {
+}

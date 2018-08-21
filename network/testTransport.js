@@ -138,7 +138,6 @@ module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
             // TODO: use port
             net.createServer(async (socket) => {
                 const remoteAddress = await this._exchangeAddresses(socket);
-                if (this._delay) await sleep(this._delay);
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress})
                 );

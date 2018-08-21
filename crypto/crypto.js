@@ -44,6 +44,10 @@ const LENGTH = 16;
 
 class CryptoLib {
 
+    static createHash(data) {
+        return this.sha256(data);
+    }
+
     /**
      *
      * @return {KeyPair}
@@ -155,8 +159,7 @@ class CryptoLib {
         const iv = this.randomBytes(LENGTH);
         const cipher = crypto.createCipheriv(ALGO, key, iv);
         const enc = Buffer.concat([cipher.update(buffer), cipher.final()]);
-        const ivEnc = Buffer.concat([iv, enc], iv.length + enc.length);
-        return ivEnc;
+        return Buffer.concat([iv, enc], iv.length + enc.length);
     }
 
     static randomBytes(length) {

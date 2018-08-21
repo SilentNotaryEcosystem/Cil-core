@@ -1,12 +1,14 @@
 /**
  *
+ * @param {Object} Constants
  * @param {Object} MessageCommon
  * @param {Object} AddrPayloadProto - protobuf compiled AddrPayload prototype
  * @return {{new(*): MessageAddr}}
  */
-module.exports = (MessageCommon, AddrPayloadProto) =>
+module.exports = (Constants, MessageCommon, AddrPayloadProto) => {
+    const {MSG_ADDR} = Constants.messageTypes;
 
-    class MessageAddr extends MessageCommon {
+    return class MessageAddr extends MessageCommon {
 
         /**
          *
@@ -17,8 +19,8 @@ module.exports = (MessageCommon, AddrPayloadProto) =>
 
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
-                if (this.message !== 'addr') {
-                    throw new Error(`Wrong message type. Expected 'addr' got '${this.message}'`);
+                if (!this.isAddr()) {
+                    throw new Error(`Wrong message type. Expected "${MSG_ADDR}" got "${this.message}"`);
                 }
 
                 this._data = {...AddrPayloadProto.decode(this.payload)};
@@ -31,7 +33,7 @@ module.exports = (MessageCommon, AddrPayloadProto) =>
 
                     this._data = AddrPayloadProto.create(data);
                 }
-                this.message = 'addr';
+                this.message = MSG_ADDR;
             }
         }
 
@@ -53,3 +55,4 @@ module.exports = (MessageCommon, AddrPayloadProto) =>
             return super.encode();
         }
     };
+};

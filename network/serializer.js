@@ -1,7 +1,7 @@
 const {BufferReader} = require("protobufjs");
 
 module.exports = MessagesImplementation => {
-    const {MsgCommon, MsgVersion, MsgAddr} = MessagesImplementation;
+    const {MsgCommon} = MessagesImplementation;
     return class Serializer {
         /**
          *

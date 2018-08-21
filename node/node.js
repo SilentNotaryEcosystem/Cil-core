@@ -6,6 +6,8 @@ const debugMsg = debugLib('node:messages');
 
 module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) => {
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject} = Messages;
+    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
+
 
     return class Node {
         constructor(options) {
@@ -169,13 +171,15 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                 debugMsg(
                     `(address: "${this._debugAddress}") received message "${message.message}" from "${peer.address}"`);
                 if (message.isReject()) {
+                    const rejectMsg = new MsgReject(message);
 
                     // connection will be closed by other end
-                    logger.log(`Peer: "${peer.remoteAddress}" rejection reason: "${message.reason}"`);
+                    logger.log(`Peer: "${peer.address}" rejection reason: "${rejectMsg.reason}"`);
 
-                    // if it's just collision - 1 point not too much, but if peer is broken - it will raise to ban
+                    // if it's just collision - 1 point not too much, but if peer is malicious - it will raise to ban
                     peer.misbehave(1);
                     peer.loadDone = true;
+                    return;
                 } else if (message.isVersion()) {
                     return await this._handleVersionMessage(peer, message);
                 } else if (message.isVerAck()) {
@@ -204,7 +208,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
         }
 
         /**
-         * Handler for 'version' message
+         * Handler for MSG_VERSION message
          *
          * @param {Peer} peer that send message
          * @param {MessageCommon} message
@@ -238,13 +242,13 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                     this._peerManager.updateHandlers(peer);
 
                     // send own version
-                    debugMsg(`(address: "${this._debugAddress}") sending own "version" to "${peer.address}"`);
+                    debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
                     await peer.pushMessage(this._createMsgVersion());
                 }
 
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
-                debugMsg(`(address: "${this._debugAddress}") sending "verack" to "${peer.address}"`);
+                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
                 await peer.pushMessage(msgVerack);
             } else {
                 debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
@@ -253,7 +257,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
         }
 
         /**
-         * Handler for 'verack' message
+         * Handler for MSG_VERACK message
          *
          * @param {Peer} peer - peer that send message
          * @return {Promise<void>}
@@ -267,7 +271,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                 if (!peer.inbound) {
                     const msgGetAddr = new MsgCommon();
                     msgGetAddr.getAddrMessage = true;
-                    debugMsg(`(address: "${this._debugAddress}") sending "getaddr"`);
+                    debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}"`);
                     await peer.pushMessage(msgGetAddr);
                 }
             }
@@ -287,7 +291,7 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
             if (arrPeers.length > Constants.ADDR_MAX_LENGTH) {
                 logger.error('Its time to implement multiple addr messages');
             }
-            debugMsg(`(address: "${this._debugAddress}") sending "addr" of ${arrPeers.length} items`);
+            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeers.length} items`);
             await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
         }
 

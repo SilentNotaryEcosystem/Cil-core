@@ -13,7 +13,7 @@ module.exports = {
         MAX_PEERS: 10,
 
         // milliseconds
-        PEER_QUERY_TIMEOUT: 100000,
+        PEER_QUERY_TIMEOUT: 30000,
         CONNECTION_TIMEOUT: 60000,
 
         // 3 hours
@@ -21,6 +21,19 @@ module.exports = {
 
         // 1 day
         BAN_PEER_SCORE: 100,
-        BAN_PEER_TIME: 24 * 60 * 60 * 1000
+        BAN_PEER_TIME: 24 * 60 * 60 * 1000,
+
+        messageTypes: {
+            MSG_VERSION: 'version',
+            MSG_VERACK: 'verack',
+            MSG_GET_ADDR: 'getaddr',
+            MSG_ADDR: 'addr',
+            MSG_REJECT: 'reject',
+
+            MSG_WITNESS_HANDSHAKE: 'w_handshake',
+            MSG_WITNESS_NEXT_ROUND: 'w_nextround',
+            MSG_WITNESS_EXPOSE: 'w_expose',
+            MSG_WITNESS_BLOCK: 'w_block'
+        }
     }
 };

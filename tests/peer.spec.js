@@ -1,5 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const sinon = require('sinon');
 const debug = require('debug')('peer:');
 
 const {sleep} = require('../utils');
@@ -16,13 +17,18 @@ describe('Peer tests', () => {
         this.timeout(15000);
         await factory.asyncLoad();
         address = factory.Transport.generateAddress();
+
+        const keyPair = factory.Crypto.createKeyPair();
+
         peerInfo = new factory.Messages.PeerInfo({
             capabilities: [
-                {service: factory.Constants.NODE, data: null}
+                {service: factory.Constants.NODE, data: null},
+                {service: factory.Constants.WITNESS, data: Buffer.from(keyPair.getPublic(false), 'hex')}
             ],
             address: factory.Transport.strToAddress(address),
             port: 12345
         });
+
         fakeNode = new factory.Transport({delay: 0, listenAddr: address});
         fakeNode.listen();
     });
@@ -32,13 +38,8 @@ describe('Peer tests', () => {
     });
 
     it('should NOT create peer without connection or PeerInfo', async () => {
-        let peer;
-        try {
-            peer = new factory.Peer();
-            assert.isOk(false, 'Unexpected success!');
-        } catch (err) {
-            debug(err);
-        }
+        const wrapper = () => new factory.Peer();
+        assert.throws(wrapper);
     });
 
     it('should create from connection', async () => {
@@ -67,8 +68,13 @@ describe('Peer tests', () => {
     });
 
     it('should emit message upon incoming connection', (done) => {
-        newPeer.on('message', (peer, msg) => msg === 'test' ? done() : done('Message corrupted'));
-        newPeer._connection.emit('message', 'test');
+        newPeer = new factory.Peer({peerInfo});
+        assert.isOk(newPeer);
+
+        newPeer.connect().then(() => {
+            newPeer.on('message', (peer, msg) => msg === 'test' ? done() : done('Message corrupted'));
+            newPeer._connection.emit('message', 'test');
+        });
     });
 
     it('should queue and send messages', async function() {
@@ -135,5 +141,25 @@ describe('Peer tests', () => {
         assert.isOk(newPeer);
         assert.isOk(newPeer.publicKey);
         assert.equal(newPeer.publicKey, '1111');
+    });
+
+    it('should emit empty "witnessMessage" (wrong signature)', async () => {
+        const keyPair = factory.Crypto.createKeyPair();
+
+        // create message and sign it with key that doesn't belong to our group
+        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        msg.handshakeMessage = true;
+        msg.sign(keyPair.getPrivate());
+
+        const witnessMessageSpy = sinon.fake();
+        const messageSpy = sinon.fake();
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect();
+        newPeer.on('witnessMessage', witnessMessageSpy);
+        newPeer.on('message', messageSpy);
+        newPeer._connection.emit('message', msg);
+
+        assert.isOk(witnessMessageSpy.calledOnce);
+        assert.isNotOk(messageSpy.called);
     });
 });

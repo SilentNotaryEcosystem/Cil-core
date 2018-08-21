@@ -5,9 +5,10 @@
  * @param {Object} VersionPayloadProto - protobuf compiled VersionPayload prototype
  * @return {{new(*): MessageVersion}}
  */
-module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
+module.exports = (Constants, MessageCommon, VersionPayloadProto) => {
+    const {MSG_VERSION} = Constants.messageTypes;
 
-    class MessageVersion extends MessageCommon {
+    return class MessageVersion extends MessageCommon {
 
         /**
          *
@@ -20,8 +21,8 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
             if (!data) throw new Error('You should pass data to constructor');
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
-                if (this.message !== 'version') {
-                    throw new Error(`Wrong message type. Expected 'version' got '${this.message}'`);
+                if (!this.isVersion()) {
+                    throw new Error(`Wrong message type. Expected "${MSG_VERSION}" got "${this.message}"`);
                 }
 
                 this._data = {...VersionPayloadProto.decode(this.payload)};
@@ -41,7 +42,7 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
                         protocolVersion: Constants.protocolVersion
                     };
                 }
-                this.message = 'version';
+                this.message = MSG_VERSION;
             }
         }
 
@@ -71,3 +72,4 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) =>
             return super.encode();
         }
     };
+};

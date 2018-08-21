@@ -53,6 +53,7 @@ class Factory {
                 this._peerImplementation = PeerWrapper(this.Messages, this.Transport, this.Constants);
                 this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
                 this._storageImplementation = StorageWrapper(this.Constants);
+                this._bftImplementation = BftWrapper(this.Crypto, this.Messages);
                 this._nodeImplementation = NodeWrapper(
                     this.Transport,
                     this.Messages,
@@ -61,7 +62,7 @@ class Factory {
                     this.PeerManager,
                     this.Storage
                 );
-                this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants);
+                this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants, this.BFT);
             })
             .catch(err => {
                 logger.error(err);
@@ -72,7 +73,6 @@ class Factory {
             ...config.constants
         };
         this._walletImplementation = WalletWrapper(Crypto);
-        this._bftImplementation = BftWrapper(Crypto);
     }
 
     get version() {
@@ -168,7 +168,8 @@ class Factory {
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
             rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
 
-            witnessXXX: protoWitness.lookup("witness.XXX"),
+            witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
+            witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
 
             enumServices: protoNetwork.lookup("network.Services"),
             enumRejectCodes: protoNetwork.lookup("network.RejectCodes")

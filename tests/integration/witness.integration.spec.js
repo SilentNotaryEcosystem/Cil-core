@@ -10,6 +10,10 @@ const debugWitness = debugLib('witness:app');
 
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
 
+// set to undefined to use random delays
+const delay = undefined;
+//const delay=10;
+
 describe('Witness integration tests', () => {
     before(async function() {
         this.timeout(15000);
@@ -21,7 +25,7 @@ describe('Witness integration tests', () => {
     });
 
     it('should ACT same as regular node (get peers from seedNode)', async function() {
-        this.timeout(20000);
+        this.timeout(maxConnections * 60000);
 
         const groupName = 'test';
         const arrTestDefinition = [
@@ -29,7 +33,7 @@ describe('Witness integration tests', () => {
         ];
 
         const seedAddress = factory.Transport.strToAddress('w seed node');
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
 
         // Peers already known by seedNode
         const peerInfo1 = new factory.Messages.PeerInfo({
@@ -63,7 +67,7 @@ describe('Witness integration tests', () => {
             const witnessWallet = new factory.Wallet(arrWallets[i].getPrivate());
             arrWitnesses.push(new factory.Witness({
                 wallet: witnessWallet, arrTestDefinition,
-                listenAddr: factory.Transport.strToAddress(`witness ${i + 1}`), delay: 10,
+                listenAddr: factory.Transport.strToAddress(`witness ${i + 1}`), delay,
                 arrSeedAddresses: [seedAddress]
             }));
         }
@@ -76,8 +80,8 @@ describe('Witness integration tests', () => {
         const testWitness = new factory.Witness(
             {
                 wallet, arrTestDefinition,
-                listenAddr: factory.Transport.strToAddress('Test witness'),
-                delay: 10, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
+                listenAddr: factory.Transport.strToAddress('Test witness'), delay,
+                queryTimeout: 5000, arrSeedAddresses: [seedAddress]
             });
         await testWitness.bootstrap();
         await testWitness.start();

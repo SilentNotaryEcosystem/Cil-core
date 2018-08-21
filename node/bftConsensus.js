@@ -1,7 +1,9 @@
 'use strict';
 
-module.exports = Crypto =>
-    class BftConsensus {
+module.exports = (Crypto, Messages) => {
+    const {MsgWitnessNextRound} = Messages;
+
+    return class BftConsensus {
         /**
          *
          * @param {String} options.group
@@ -19,6 +21,25 @@ module.exports = Crypto =>
 
         get quorum() {
             return this._quorum;
+        }
+
+        /**
+         * Check whether this public key belongs to our group
+         *
+         * @param {Buffer | String} pubKey
+         * @return {boolean}
+         */
+        checkPublicKey(pubKey) {
+            if (Buffer.isBuffer(pubKey)) pubKey = pubKey.toString('hex');
+            return this._arrPublicKeys.includes(pubKey);
+        }
+
+        processMessage(witnessMsg) {
+            if (witnessMsg.isExpose()) {
+                witnessMsg = Messages.MsgWitnessWitnessExpose.extract(witnessMsg);
+            }
+            if (witnessMsg.isNextRound()) {
+            }
         }
 
         /**
@@ -118,4 +139,6 @@ module.exports = Crypto =>
             // we agreed to commit block, so we'll reset round counter
             this._round = 0;
         }
+
     };
+};

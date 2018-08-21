@@ -1,5 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const sinon = require('sinon').createSandbox();
 const {sleep} = require('../utils');
 
 factory = require('./testFactory');
@@ -47,6 +48,10 @@ describe('Node tests', () => {
         this.timeout(15000);
     });
 
+    afterEach(function() {
+        sinon.restore();
+    });
+
     it('should create a Node', async () => {
         const node = new factory.Node({});
         assert.isOk(node);
@@ -79,34 +84,32 @@ describe('Node tests', () => {
             }
         });
         const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
-        let nMsgSent = 0;
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
         const newPeer = new factory.Peer({
             connection: {
-                listenerCount: () => 0,
+                listenerCount: sinon.fake(),
                 remoteAddress: factory.Transport.generateAddress(),
-                on: () => {},
-                sendMessage: async () => {
-                    nMsgSent++;
-                }
+                on: sinon.fake(),
+                sendMessage
             }
         });
         await node._handleVersionMessage(newPeer, msgCommon);
-        assert.equal(nMsgSent, 2);
+        assert.equal(sendMessage.callCount, 2);
     });
 
     it('should prepare MsgAddr', async () => {
-        let msg;
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
         const newPeer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.generateAddress(),
-                listenerCount: () => 0,
-                on: () => {},
-                sendMessage: async (msgAddr) => {
-                    msg = msgAddr;
-                }
+                listenerCount: sinon.fake(),
+                on: sinon.fake(),
+                sendMessage
             }
         });
         seedNode._handlePeerRequest(newPeer);
+        assert.isOk(sendMessage.calledOnce);
+        const [msg] = sendMessage.args[0];
         assert.isOk(msg && msg.isAddr());
         assert.isOk(msg.peers);
         assert.equal(msg.peers.length, 4);
@@ -116,15 +119,13 @@ describe('Node tests', () => {
     });
 
     it('should send "getaddr" message', async () => {
-        let msg;
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
         const newPeer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.generateAddress(),
-                listenerCount: () => 0,
-                on: () => {},
-                sendMessage: async (msgGetAddr) => {
-                    msg = msgGetAddr;
-                }
+                listenerCount: sinon.fake(),
+                on: sinon.fake(),
+                sendMessage
             }
         });
 
@@ -132,6 +133,8 @@ describe('Node tests', () => {
         newPeer.version = 123;
         newPeer._bInbound = false;
         await seedNode._handleVerackMessage(newPeer);
+        assert.isOk(sendMessage.calledOnce);
+        const [msg] = sendMessage.args[0];
         assert.isOk(msg && msg.isGetAddr());
     });
 
