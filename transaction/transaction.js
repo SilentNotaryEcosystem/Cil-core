@@ -19,7 +19,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             this._encodedPayload = TransactionPayloadProto.encode(this.payload).finish();
         }
 
-        hash() {
+        get hash() {
             if (!this._encodedPayload)
                 this.encodePayload();
             return Crypto.createHash(this._encodedPayload);
@@ -33,12 +33,8 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             return this._data.signature;
         }
 
-        get _signatureRecoveryParam() {
-            return this._data.signatureRecoveryParam;
-        }
-
         _setPublicKey() {
-            this._publicKey = Crypto.recoverPubKey(this.hash(), this.signature, this._signatureRecoveryParam);
+            this._publicKey = Crypto.recoverPubKey(this.hash, this.signature, this._data.signatureRecoveryParam);
         }
 
         get publicKey() {
@@ -60,7 +56,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         }
 
         sign(privateKey) {
-            const { signature, recoveryParam } = Crypto.sign(this.hash(), privateKey, undefined, undefined, true);
+            const { signature, recoveryParam } = Crypto.sign(this.hash, privateKey, undefined, undefined, true);
             this._data.signature = signature;
             this._data.signatureRecoveryParam = recoveryParam;
         };
@@ -69,7 +65,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             if (!this.signature)
                 return false;
             try {
-                return Crypto.verify(this.hash(), this.signature, this.publicKey);
+                return Crypto.verify(this.hash, this.signature, this.publicKey);
             }
             catch (err) {
                 return false;

@@ -100,29 +100,4 @@ describe('Transaction tests', () => {
         deserializedTr.payload.nonce = 22;
         assert.equal(deserializedTr.verifySignature(), false);
     });
-
-
-    it('temporary experiment', async () => {
-        const buff1 = factory.Crypto.randomBytes(64);
-        const buff2 = factory.Crypto.randomBytes(64);
-        const buffHash1 = factory.Crypto.createHash(buff1);
-        const buffHash2 = factory.Crypto.createHash(buff2);
-        console.log('buffHash1:', buffHash1.toString('hex'));
-        console.log('buffHash2:', buffHash2.toString('hex'));
-
-        const sig1 = factory.Crypto.sign(buffHash1, privateKey, undefined, undefined, true);
-        const sig2 = factory.Crypto.sign(buffHash2, privateKey, undefined, undefined, true);
-
-        console.log('signature1:', sig1.signature.toString('hex'), 'recoveryParam1:', sig1.recoveryParam);
-        console.log('signature2:', sig2.signature.toString('hex'), 'recoveryParam2:', sig2.recoveryParam);
-
-        const recoveredKey1 = factory.Crypto.recoverPubKey(buffHash1, sig1.signature, sig1.recoveryParam);
-        const recoveredKey2 = factory.Crypto.recoverPubKey(buffHash2, sig1.signature, sig1.recoveryParam);
-
-        console.log('recoveredKey1:', recoveredKey1.encode('hex', true));
-        console.log('recoveredKey2:', recoveredKey2.encode('hex', true));
-
-        console.log('verifySignature1:', factory.Crypto.verify(buffHash1, sig1.signature, recoveredKey1));
-        console.log('verifySignature2:', factory.Crypto.verify(buffHash2, sig1.signature, recoveredKey2));
-    });
 });
