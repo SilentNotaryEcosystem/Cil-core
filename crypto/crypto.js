@@ -4,6 +4,8 @@
 const crypto = require('crypto');
 const createHash = crypto.createHash;
 const EC = require('elliptic').ec;
+var elliptic = require('elliptic');
+const sha3 = require('js-sha3');
 
 const ec = new EC('secp256k1');
 
@@ -61,7 +63,7 @@ class CryptoLib {
      * @return {KeyPair}
      */
     static keyPairFromPrivate(privateKey, enc = 'hex') {
-        return new KeyPair(ec.keyPair({priv: privateKey, privEnc: enc}));
+        return new KeyPair(ec.keyPair({ priv: privateKey, privEnc: enc }));
     }
 
     /**
@@ -78,10 +80,35 @@ class CryptoLib {
      * @param {BN|String} key - private key (BN - BigNumber @see https://github.com/indutny/bn.js)
      * @param {String} enc - encoding of private key. possible value = 'hex', else it's trated as Buffer
      * @param {Object} options - for hmac-drbg
+     * @param {boolean} wRecoveryParam - return signature with recoveryParam
+     * @return {Buffer|Object}
+     */
+    static sign(msg, key, enc, options, wRecoveryParam = false) {
+        const sig = ec.sign(msg, key, enc, options);
+        return wRecoveryParam
+            ? { signature: Buffer.from(sig.toDER()), recoveryParam: sig.recoveryParam }
+            : Buffer.from(sig.toDER());
+    }
+
+    /**
+     *  
+     * @param {Buffer} msg 
      * @return {Buffer}
      */
-    static sign(msg, key, enc, options) {
-        return Buffer.from(ec.sign(msg, key, enc, options).toDER());
+    static createHash(msg) {
+        return this.sha3(msg);
+    }
+
+    /**
+     *  Get public key from signature
+     * @param {Buffer} msg 
+     * @param {Object} signature 
+     * @param {Number} j - recoveryParam from signature
+     * @param {Object} enc 
+     */
+    static recoverPubKey(msg, signature, j, enc) {
+        let hexToDecimal = (x) => ec.keyFromPrivate(x, 'hex').getPrivate().toString(10);
+        return ec.recoverPubKey(hexToDecimal(msg), signature, j, enc);
     }
 
     /**
@@ -126,6 +153,26 @@ class CryptoLib {
     }
 
     /**
+     * 
+     * @param {Buffer} buffer 
+     * @param {Number} length acceptably 224 | 256 | 384 | 512
+     */
+    static sha3(buffer, length = 256) {
+        switch (length) {
+            case 224:
+                return sha3.sha3_224(buffer);
+            case 256:
+                return sha3.sha3_256(buffer);
+            case 384:
+                return sha3.sha3_384(buffer);
+            case 512:
+                return sha3.sha3_512(buffer);
+            default:
+                return sha3.sha3_256(buffer);
+        }
+    }
+
+    /**
      * Used to stored privateKey
      *
      * @param {String} password - plain text (utf8) secret
@@ -134,7 +181,7 @@ class CryptoLib {
      */
     static async decrypt(password, buffer) {
         const key = Buffer.from(this.sha256(password), 'hex');
-//        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
+        //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
         const ivEnc = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer, 'base64');
         const iv = ivEnc.slice(0, LENGTH);
         const enc = ivEnc.slice(LENGTH);
@@ -155,7 +202,7 @@ class CryptoLib {
      */
     static async encrypt(password, buffer) {
         const key = Buffer.from(this.sha256(password), 'hex');
-//        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
+        //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
         const iv = this.randomBytes(LENGTH);
         const cipher = crypto.createCipheriv(ALGO, key, iv);
         const enc = Buffer.concat([cipher.update(buffer), cipher.final()]);

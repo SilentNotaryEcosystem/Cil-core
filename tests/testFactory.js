@@ -138,6 +138,10 @@ class Factory {
         return this._messageAssemblerImplementation;
     }
 
+    get Transaction() {
+        return this._transactionImplementation;
+    }
+
     asyncLoad() {
         return this._donePromise;
     }
@@ -145,6 +149,7 @@ class Factory {
     async _asyncLoader() {
         const prototypes = await this._loadMessagePrototypes();
         this._messagesImplementation = MessagesWrapper(this.Constants, this.Crypto, prototypes);
+        this._transactionImplementation = TransactionWrapper(this.Crypto, prototypes.transactionProto, prototypes.transactionPayloadProto);
         this._constants = {
             ...this._constants,
             ...prototypes.enumServices.values,
@@ -160,6 +165,7 @@ class Factory {
     async _loadMessagePrototypes() {
         const protoNetwork = await protobuf.load('./messages/proto/network.proto');
         const protoWitness = await protobuf.load('./messages/proto/witness.proto');
+        const protoTransaction = await protobuf.load('./transaction/proto/transaction.proto');
 
         return {
             messageProto: protoNetwork.lookupType("network.Message"),
@@ -172,7 +178,10 @@ class Factory {
             witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
 
             enumServices: protoNetwork.lookup("network.Services"),
-            enumRejectCodes: protoNetwork.lookup("network.RejectCodes")
+            enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
+
+            transactionProto: protoTransaction.lookupType("transaction.Transaction"),
+            transactionPayloadProto: protoTransaction.lookupType("transaction.Payload")
         };
     }
 }
