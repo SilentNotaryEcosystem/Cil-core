@@ -87,12 +87,12 @@ class CryptoLib {
     }
 
     /**
-     *  Get keccak hash
+     *  
      * @param {Buffer} msg 
      * @return {Buffer}
      */
-    static getHash(msg) {
-        return sha3.keccak256(msg);
+    static createHash(msg) {
+        return this.sha3(msg);
     }
 
     /**
@@ -103,7 +103,7 @@ class CryptoLib {
      * @param {Object} enc 
      */
     static recoverPubKey(msg, signature, j, enc) {
-        let hexToDecimal = (x) => ec.keyFromPrivate(x, "hex").getPrivate().toString(10);
+        let hexToDecimal = (x) => ec.keyFromPrivate(x, 'hex').getPrivate().toString(10);
         return ec.recoverPubKey(hexToDecimal(msg), signature, j, enc);
     }
 
@@ -146,6 +146,26 @@ class CryptoLib {
 
     static hash256(buffer) {
         return this.sha256(this.sha256(buffer));
+    }
+
+    /**
+     * 
+     * @param {Buffer} buffer 
+     * @param {Number} length acceptably 224 | 256 | 384 | 512
+     */
+    static sha3(buffer, length = 256) {
+        switch (length) {
+            case 224:
+                return sha3.sha3_224(buffer);
+            case 256:
+                return sha3.sha3_256(buffer);
+            case 384:
+                return sha3.sha3_384(buffer);
+            case 512:
+                return sha3.sha3_512(buffer);
+            default:
+                return sha3.sha3_256(buffer);
+        }
     }
 
     /**

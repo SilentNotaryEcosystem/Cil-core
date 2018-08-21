@@ -1,6 +1,3 @@
-const { toBuffer } = require('./utills');
-const BN = require('bn.js');
-
 module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
     class Transaction {
         constructor(data) {
@@ -25,7 +22,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         hash() {
             if (!this._encodedPayload)
                 this.encodePayload();
-            return Crypto.getHash(this._encodedPayload);
+            return Crypto.createHash(this._encodedPayload);
         }
 
         get payload() {
@@ -36,12 +33,12 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             return this._data.signature;
         }
 
-        get recoveryParam() {
-            return this._data.recoveryParam;
+        get _signatureRecoveryParam() {
+            return this._data.signatureRecoveryParam;
         }
 
         _setPublicKey() {
-            this._publicKey = Crypto.recoverPubKey(this.hash(), this.signature, this.recoveryParam);
+            this._publicKey = Crypto.recoverPubKey(this.hash(), this.signature, this._signatureRecoveryParam);
         }
 
         get publicKey() {
@@ -58,14 +55,14 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             }
         }
 
-        serialize() {
+        encode() {
             return TransactionProto.encode(this._data).finish();
         }
 
         sign(privateKey) {
             const { signature, recoveryParam } = Crypto.sign(this.hash(), privateKey, undefined, undefined, true);
             this._data.signature = signature;
-            this._data.recoveryParam = recoveryParam;
+            this._data.signatureRecoveryParam = recoveryParam;
         };
 
         verifySignature() {
