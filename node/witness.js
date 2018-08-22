@@ -5,7 +5,7 @@ const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
 module.exports = (Node, Messages, Constants, BFT) => {
-    const {MsgVersion, MsgCommon, MsgReject} = Messages;
+    const {MsgVersion, MsgCommon, MsgReject, MsgBlock} = Messages;
     const {MsgWitnessCommon, MsgWitnessNextRound, MsgWitnessWitnessExpose} = Messages;
 
     const {MSG_VERSION, MSG_VERACK} = Constants.messageTypes;
@@ -37,10 +37,11 @@ module.exports = (Node, Messages, Constants, BFT) => {
 
             for (let group of this._groups) {
                 const consensus = new BFT({
-                    group,
+                    groupName: group,
                     wallet: this._wallet,
                     arrPublicKeys: mapDefinitions.get(group)
                 });
+                this._setConsensusHandlers(consensus);
                 this._consensuses.set(group, consensus);
                 await this.startWitnessGroup(group);
             }
@@ -141,39 +142,53 @@ module.exports = (Node, Messages, Constants, BFT) => {
         }
 
         async _incomingWitnessMessage(peer, message) {
-            const messageWitness = await this._checkPeerAndMessage(peer, message);
-            if (!messageWitness) return;
+            try {
+                const messageWitness = await this._checkPeerAndMessage(peer, message);
+                if (!messageWitness) return;
 
-            if (messageWitness.isHandshake()) {
-                if (peer.inbound) {
+                const consensus = this._consensuses.get(messageWitness.groupName);
+                if (messageWitness.isHandshake()) {
 
-                    // we don't check version & self connection because it's done on previous step (node connection)
-                    const response = this._createHandshakeMessage(messageWitness.groupName);
-                    debugWitnessMsg(
-                        `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
-                    await peer.pushMessage(response);
-                    return;
-                } else {
-                    peer.witnessLoadDone = true;
+                    // check whether this witness belong to our group
+                    if (messageWitness.groupName !== messageWitness.content.toString() ||
+                        !consensus.checkPublicKey(peer.publicKey)) {
+                        logger.error(`Witness: "${this._debugAddress}" this guy UNKNOWN!`);
+                        peer.ban();
+                        return;
+                    }
+
+                    if (peer.inbound) {
+
+                        // we don't check version & self connection because it's done on previous step (node connection)
+                        const response = this._createHandshakeMessage(messageWitness.groupName);
+                        debugWitnessMsg(
+                            `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
+                        await peer.pushMessage(response);
+                        peer.addTag(messageWitness.groupName);
+                    } else {
+                        peer.witnessLoadDone = true;
+                    }
                     return;
                 }
+
+                if (messageWitness.isBlock() &&
+                    consensus.shouldPublish(messageWitness.publicKey) &&
+                    this._verifyBlock(messageWitness.payload)) {
+                    consensus.processValidBlock(messageWitness.payload);
+                }
+
+                // send a copy of received messages to other witnesses to maintain BFT
+                if (!messageWitness.isBlock() && !messageWitness.isExpose()) {
+                    const msg = this._exposeMessageToWitnessGroup(messageWitness.groupName, messageWitness);
+                    consensus.processMessage(msg);
+                }
+                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content}`);
+                consensus.processMessage(messageWitness);
+            } catch (e) {
+                logger.error(e);
             }
-
-            // send a copy of received messages to other witnesses to maintain BFT
-            if (!messageWitness.isBlock() && !messageWitness.isExpose()) {
-                this._exposeMessageToWitnessGroup(messageWitness.groupName, messageWitness);
-            }
-
-            const consensus = this._consensuses.get(messageWitness.groupName);
-            await this._processConsensusResult(consensus.processMessage(messageWitness));
-
-            throw new Error(`Unhandled message type "${message.message}"`);
         }
 
-        _processConsensusResult(result) {
-            console.dir(result, {colors: true, depth: null});
-            throw new Error('Should implement');
-        }
 
         /**
          *
@@ -208,13 +223,6 @@ module.exports = (Node, Messages, Constants, BFT) => {
                     return undefined;
                 }
 
-                // check whether this witness belong to our group
-                if (messageWitness.groupName !== messageWitness.content.toString() ||
-                    !consensus.checkPublicKey(peer.publicKey)) {
-                    logger.error(`Witness: "${this._debugAddress}" CHECK FAILED!`);
-                    peer.ban();
-                    return undefined;
-                }
             } catch (err) {
                 logger.error(`${err.message} Witness ${peer.remoteAddress}.`);
                 peer.misbehave(1);
@@ -223,10 +231,30 @@ module.exports = (Node, Messages, Constants, BFT) => {
             return messageWitness;
         }
 
+        _setConsensusHandlers(consensus) {
+            consensus.on('message', message => {
+                debugWitness(`Witness: "${this._debugAddress}" message "${message.message}" from CONSENSUS engine`);
+                this._peerManager.broadcastToConnected(consensus.groupName, message);
+            });
+            consensus.on('createBlock', () => {
+                this._createAndBroadcastBlock(consensus.groupName);
+            });
+        }
+
+        /**
+         * Wrap, sign, broadcast received message - expose that message to other
+         *
+         * @param {String}groupName
+         * @param {WitnessMessageCommon} message
+         * @return {WitnessExpose}
+         * @private
+         */
         _exposeMessageToWitnessGroup(groupName, message) {
             const msgExpose = new MsgWitnessWitnessExpose(message);
-            msgExpose.sign();
+            debugWitness(`Witness: "${this._debugAddress}" EXPOSING message "${message.message}" to neighbors`);
+            msgExpose.sign(this._wallet.privateKey);
             this._peerManager.broadcastToConnected(groupName, msgExpose);
+            return msgExpose;
         }
 
         /**
@@ -241,5 +269,17 @@ module.exports = (Node, Messages, Constants, BFT) => {
             return msg;
         }
 
+        _verifyBlock(blockContent) {
+
+            // TODO: implement
+            return true;
+        }
+
+        _createAndBroadcastBlock() {
+
+            // TODO: implement
+            const msgBlock = new MsgBlock({hash: BUffer.from('123')});
+
+        }
     };
 };

@@ -23,21 +23,24 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
     return class WitnessMessageCommon extends MessageCommon {
 
         constructor(data) {
-            super(data);
-
             if (data instanceof WitnessMessageCommon) {
+                super(data);
 
                 // invoked from descendant classes via super()
-                this._msgData = data._msgData;
+                // lets copy content
+                this._msgData = Object.assign({}, data._msgData);
             } else if (Buffer.isBuffer(data)) {
+                super(data);
 
                 // this.payload filled with super(date)
                 this._msgData = {...WitnessMessageProto.decode(this.payload)};
             } else if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
+                super(data);
 
                 // we received it from wire
                 this._msgData = {...WitnessMessageProto.decode(data.payload)};
             } else {
+                super();
 
                 // constructing it manually
                 if (!data.groupName) {
@@ -67,6 +70,10 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
             return this._msgData.content = value;
         }
 
+        parseContent(value) {
+            throw new Error('You should implement this method!');
+        }
+
         set handshakeMessage(unused) {
             this.message = MSG_WITNESS_HANDSHAKE;
             this.content = Buffer.from(this.groupName);
@@ -87,10 +94,6 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
 
         isExpose() {
             return this.message === MSG_WITNESS_EXPOSE;
-        }
-
-        isBlock() {
-            return this.message === MSG_WITNESS_BLOCK;
         }
 
     };

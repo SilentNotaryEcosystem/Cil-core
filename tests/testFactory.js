@@ -39,7 +39,8 @@ const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
 const WitnessWrapper = require('../node/witness');
 const StorageWrapper = require('../storage/testStorage');
-const TransactionWrapper = require('../transaction/transaction');
+const TransactionWrapper = require('../structures/transaction');
+const BlockWrapper = require('../structures/block');
 
 const pack = require('../package');
 
@@ -54,7 +55,7 @@ class Factory {
                 this._peerImplementation = PeerWrapper(this.Messages, this.Transport, this.Constants);
                 this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
                 this._storageImplementation = StorageWrapper(this.Constants);
-                this._bftImplementation = BftWrapper(this.Crypto, this.Messages);
+                this._bftImplementation = BftWrapper(this.Constants, this.Crypto, this.Messages);
                 this._nodeImplementation = NodeWrapper(
                     this.Transport,
                     this.Messages,
@@ -143,19 +144,30 @@ class Factory {
         return this._transactionImplementation;
     }
 
+    get Block() {
+        return this._blockImplementation;
+    }
+
     asyncLoad() {
         return this._donePromise;
     }
 
     async _asyncLoader() {
         const prototypes = await this._loadMessagePrototypes();
-        this._messagesImplementation = MessagesWrapper(this.Constants, this.Crypto, prototypes);
-        this._transactionImplementation =
-            TransactionWrapper(this.Crypto, prototypes.transactionProto, prototypes.transactionPayloadProto);
+        const {
+            blockProto, blockPayloadProto, transactionProto, transactionPayloadProto, enumServices, enumRejectCodes
+        } = prototypes;
+
+        this._transactionImplementation = TransactionWrapper(this.Crypto, transactionProto, transactionPayloadProto);
+        this._blockImplementation = BlockWrapper(this.Crypto, blockProto, blockPayloadProto);
+
+        this._messagesImplementation =
+            MessagesWrapper(this.Constants, this.Crypto, this.Block, this.Transaction, prototypes);
+
         this._constants = {
             ...this._constants,
-            ...prototypes.enumServices.values,
-            ...prototypes.enumRejectCodes.values
+            ...enumServices.values,
+            ...enumRejectCodes.values
         };
     }
 
@@ -165,9 +177,9 @@ class Factory {
      * @private
      */
     async _loadMessagePrototypes() {
-        const protoNetwork = await protobuf.load('./messages/proto/network.proto');
-        const protoWitness = await protobuf.load('./messages/proto/witness.proto');
-        const protoTransaction = await protobuf.load('./transaction/proto/transaction.proto');
+        const protoNetwork = await protobuf.load('./proto/network.proto');
+        const protoWitness = await protobuf.load('./proto/witness.proto');
+        const protoStructures = await protobuf.load('./proto/structures.proto');
 
         return {
             messageProto: protoNetwork.lookupType("network.Message"),
@@ -175,6 +187,7 @@ class Factory {
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
             rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
+//            blockPayloadProto: protoNetwork.lookupType("network.BlockPayload"),
 
             witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
             witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
@@ -182,8 +195,11 @@ class Factory {
             enumServices: protoNetwork.lookup("network.Services"),
             enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
 
-            transactionProto: protoTransaction.lookupType("transaction.Transaction"),
-            transactionPayloadProto: protoTransaction.lookupType("transaction.Payload")
+            transactionProto: protoStructures.lookupType("structures.Transaction"),
+            transactionPayloadProto: protoStructures.lookupType("structures.TransactionPayload"),
+
+            blockProto: protoStructures.lookupType("structures.Block"),
+            blockPayloadProto: protoStructures.lookupType("structures.BlockPayload")
         };
     }
 }

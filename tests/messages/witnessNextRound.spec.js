@@ -39,4 +39,16 @@ describe('Witness NextRound message', () => {
         assert.isOk(msgNextRound.roundNo && msgNextRound.roundNo === 1);
         assert.isOk(msgNextRound.groupName && msgNextRound.groupName === 'test');
     });
+
+    it('should set content', async () => {
+        const sampleMsg = new factory.Messages.MsgWitnessNextRound({roundNo: 13, groupName: 'test'});
+
+        // this will fill "content"
+        sampleMsg.encode();
+
+        const targetMsg = new factory.Messages.MsgWitnessNextRound({roundNo: 1, groupName: 'another'});
+        targetMsg.parseContent(sampleMsg.content);
+
+        assert.isOk(targetMsg.roundNo && targetMsg.roundNo === 13);
+    });
 });

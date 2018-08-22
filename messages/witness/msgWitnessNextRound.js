@@ -38,12 +38,16 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessNextRoundProto
             this.message = MSG_WITNESS_NEXT_ROUND;
         }
 
+        parseContent(value) {
+            this._data = {...WitnessNextRoundProto.decode(value)};
+        }
+
         get roundNo() {
             return this._data.roundNo;
         }
 
         encode() {
-            this.content = WitnessNextRoundProto.encode(this._data).finish();
+            super.content = WitnessNextRoundProto.encode(this._data).finish();
             return super.encode();
         }
     };

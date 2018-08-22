@@ -19,6 +19,14 @@ class KeyPair {
         this._pair = keyPair;
     }
 
+    get privateKey() {
+        return this.getPrivate();
+    }
+
+    get publicKey() {
+        return this.getPublic();
+    }
+
     /**
      * if you need point - pass false to encoding
      *
@@ -27,10 +35,6 @@ class KeyPair {
      */
     getPrivate(encoding = 'hex') {
         return this._pair.getPrivate(encoding);
-    }
-
-    get privateKey() {
-        return this.getPrivate();
     }
 
     /**
@@ -42,10 +46,6 @@ class KeyPair {
      */
     getPublic(compact = true, encoding = 'hex') {
         return this._pair.getPublic(compact, encoding);
-    }
-
-    get publicKey() {
-        return this.getPublic();
     }
 
 }
@@ -89,7 +89,8 @@ class CryptoLib {
      * @param {boolean} wRecoveryParam - return signature with recoveryParam
      * @return {Buffer|Object}
      */
-    static sign(msg, key, enc, options, wRecoveryParam = false) {
+    static sign(msg, key, enc = 'hex', options) {
+        if (!key) throw new Error('Bad private key!');
         const sig = ec.sign(msg, key, enc, options);
         return this.signatureToBuffer(sig);
     }
@@ -103,8 +104,11 @@ class CryptoLib {
      * @return {Buffer}
      */
     static signatureToBuffer(signature) {
-        const buffR = Buffer.from(signature.r.toArray());
-        const buffS = Buffer.from(signature.s.toArray());
+        if (!signature || !signature.r || !signature.s || signature.recoveryParam === undefined) {
+            throw new Error('Bad signature!');
+        }
+        const buffR = Buffer.from(signature.r.toArray('bn', 32));
+        const buffS = Buffer.from(signature.s.toArray('bn', 32));
         return Buffer.concat([buffR, buffS, Buffer.from([signature.recoveryParam])]);
     }
 

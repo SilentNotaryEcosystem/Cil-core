@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package witness;
 
+//TODO: replace  bytes content to oneof
 message WitnessMessage {
     string groupName=1;
     bytes content=2;
@@ -10,8 +11,4 @@ message WitnessMessage {
 // -------------- NEXT_ROUND -----
 message NextRound {
     uint32 roundNo =1;
-}
-
-// -------------- BLOCK -----
-message Block {
 }

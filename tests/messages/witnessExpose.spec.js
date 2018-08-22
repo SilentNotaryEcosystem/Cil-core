@@ -14,19 +14,18 @@ describe('Witness expose message', () => {
     });
 
     it('should FAIL to create empty', async () => {
-        try {
-            new factory.Messages.MsgWitnessWitnessExpose();
-            assert.isOk(false, 'Unexpected success');
-        } catch (e) {
-
-        }
+        const wrapper = () => new factory.Messages.MsgWitnessWitnessExpose();
+        assert.throws(wrapper);
     });
 
     it('should create from MsgNextRound', async () => {
+        const strPrivKey = 'b7760a01705490e5e153a6ef7732369a72dbf9aaafb5c482cdfd960546909ec1';
 
         // create message we plan to expose
         const msgToExpose = new factory.Messages.MsgWitnessNextRound({roundNo: 1, groupName: 'test'});
+        msgToExpose.sign(strPrivKey);
         const msg = new factory.Messages.MsgWitnessWitnessExpose(msgToExpose);
+        msg.sign(strPrivKey);
         assert.isOk(msg);
         assert.isOk(msg.isExpose());
         assert.isOk(Buffer.isBuffer(msg.content));

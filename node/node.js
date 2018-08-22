@@ -153,7 +153,6 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${newPeer.address}"`);
                 await newPeer.pushMessage(message);
                 newPeer.disconnect();
-
             } catch (err) {
                 logger.error(err);
             }
@@ -220,6 +219,8 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
             // we connected to self
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
+
+                // TODO: should be reviewed, since ban self not only prevent connection to self, but exclude self from advertising it
                 peer.ban();
                 return;
             }

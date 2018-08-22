@@ -29,11 +29,33 @@ module.exports = {
             MSG_GET_ADDR: 'getaddr',
             MSG_ADDR: 'addr',
             MSG_REJECT: 'reject',
+            MSG_BLOCK: 'block',
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',
-            MSG_WITNESS_EXPOSE: 'w_expose',
-            MSG_WITNESS_BLOCK: 'w_block'
-        }
+            MSG_WITNESS_EXPOSE: 'w_expose'
+
+        },
+
+        consensusStates: {
+            INIT: 'INIT',
+            ROUND_CHANGE: 'ROUND_CHANGE',
+            BLOCK: 'BLOCK',
+            PRE_VOTE_BLOCK: 'PRE_VOTE_BLOCK',
+            PRE_COMMIT: 'PRE_COMMIT',
+            COMMIT: 'COMMIT'
+        },
+
+        consensusTimeouts: {
+            INIT: 3000,
+            ROUND_CHANGE: 1000,
+            BLOCK: 400,
+            PRE_VOTE_BLOCK: 400,
+            PRE_COMMIT: 400,
+            COMMIT: 400
+        },
+
+        // maximum time offset for nodes we tolerate
+        networkTimeDiff: 60 * 60 * 1000
     }
 };

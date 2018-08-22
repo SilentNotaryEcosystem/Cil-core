@@ -30,6 +30,10 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             return this._data.payload;
         }
 
+        get rawData() {
+            return this._data;
+        }
+
         get signature() {
             return Crypto.signatureFromBuffer(this._data.signature);
         }

@@ -6,12 +6,13 @@
  * @return {{new(*): MessageCommon}}
  */
 module.exports = (Constants, Crypto, MessageProto) => {
-    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
+    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT, MSG_BLOCK} = Constants.messageTypes;
+
     return class MessageCommon {
 
         constructor(data) {
             if (data instanceof MessageCommon) {
-                this._msg = data._msg;
+                this._msg = Object.assign({}, data._msg);
             } else if (Buffer.isBuffer(data)) {
                 this._msg = {...MessageProto.decodeDelimited(data)};
                 this._validate();
@@ -135,5 +136,10 @@ module.exports = (Constants, Crypto, MessageProto) => {
         isReject() {
             return this.message === MSG_REJECT;
         }
+
+        isBlock() {
+            return this.message === MSG_BLOCK;
+        }
+
     };
 };
