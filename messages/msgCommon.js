@@ -95,21 +95,25 @@ module.exports = (Constants, Crypto, MessageProto) => {
             // TODO add checksum verification
         }
 
-        sign(privateKey) {
-            this.encode();
+        get payloadHash() {
 
             // payload will be empty for MSG_VERSION && MSG_VERACK ... so, we couldn't hash undefined
             // but we could sign it
-            const payloadHash = this.payload ? Buffer.from(Crypto.createHash(this.payload), 'hex') : undefined;
-            this.signature = Crypto.sign(payloadHash, privateKey);
+            return this.payload ? Buffer.from(Crypto.createHash(this.payload), 'hex') : undefined;
+        }
+
+        sign(privateKey) {
+            this.encode();
+            this.signature = Crypto.sign(this.payloadHash, privateKey);
         }
 
         verifySignature(publicKey) {
+            return Crypto.verify(this.payloadHash, this.signature, publicKey);
+        }
 
-            // payload will be empty for MSG_VERSION && MSG_VERACK ... so, we couldn't hash undefined
-            // but we could sign it
-            const payloadHash = this.payload ? Buffer.from(Crypto.createHash(this.payload), 'hex') : undefined;
-            return Crypto.verify(payloadHash, this.signature, publicKey);
+        get publicKey() {
+            if (!this.signature) throw new Error('Message has no signature');
+            return Crypto.recoverPubKey(this.payloadHash, this.signature);
         }
 
         isVerAck() {

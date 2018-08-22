@@ -29,6 +29,10 @@ class KeyPair {
         return this._pair.getPrivate(encoding);
     }
 
+    get privateKey() {
+        return this.getPrivate();
+    }
+
     /**
      * if you need point - pass false to encoding
      *
@@ -39,6 +43,11 @@ class KeyPair {
     getPublic(compact = true, encoding = 'hex') {
         return this._pair.getPublic(compact, encoding);
     }
+
+    get publicKey() {
+        return this.getPublic();
+    }
+
 }
 
 // algorithm used to symmtrical encryption/decryption (for storing privateKeys)
@@ -154,7 +163,7 @@ class CryptoLib {
      * @param {String} enc - encoding of private key. possible value = 'hex', else it's treated as Buffer
      * @return {boolean}
      */
-    static verify(msg, signature, key, enc) {
+    static verify(msg, signature, key, enc = 'hex') {
         return ec.verify(msg, this.signatureFromBuffer(signature), key, enc);
     }
 
