@@ -92,7 +92,6 @@ class CryptoLib {
      * @param {BN} signature.s
      * @param {Number} signature.recoveryParam
      * @return {Buffer}
-     * @private
      */
     static signatureToBuffer(signature) {
         const buffR = Buffer.from(signature.r.toArray());
@@ -104,7 +103,6 @@ class CryptoLib {
      *
      * @param {Buffer} buff
      * @return {Object} {r,s, recoveryParam}
-     * @private
      */
     static signatureFromBuffer(buff) {
         if (buff.length !== 65) throw new Error(`Wrong signature length: ${buff.length}`);
@@ -128,15 +126,24 @@ class CryptoLib {
     }
 
     /**
-     *  Get public key from signature
+     * Get public key from signature
+     * ATTENTION! due "new BN(msg)" (@see below) msg.length should be less than 256bit!!
+     * So it's advisable to sign hashes!
+     *
      * @param {Buffer} msg
-     * @param {Object} signature
-     * @param {Number} j - recoveryParam from signature
-     * @param {Object} enc
+     * @param {Object | Buffer} signature @see elliptic/ec/signature
+     * @return {String} compact public key
      */
-    static recoverPubKey(msg, signature, j, enc) {
-        let hexToDecimal = (x) => ec.keyFromPrivate(x, 'hex').getPrivate().toString(10);
-        return ec.recoverPubKey(hexToDecimal(msg), signature, j, enc);
+    static recoverPubKey(msg, signature) {
+        const sig = Buffer.isBuffer(signature) ? this.signatureFromBuffer(signature) : signature;
+
+        // @see node_modules/elliptic/lib/elliptic/ec/index.js:198
+        // "new BN(msg);" - no base used, so we convert it to dec
+        const hexToDecimal = (x) => ec.keyFromPrivate(x, 'hex').getPrivate().toString(10);
+
+        // ec.recoverPubKey returns Point. encode('hex', true) will convert it to hex string compact key
+        // @see node_modules/elliptic/lib/elliptic/curve/base.js:302 BasePoint.prototype.encode
+        return ec.recoverPubKey(hexToDecimal(msg), sig, sig.recoveryParam).encode('hex', true);
     }
 
     /**

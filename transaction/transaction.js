@@ -35,8 +35,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         }
 
         _setPublicKey() {
-            const signature = this.signature;
-            this._publicKey = Crypto.recoverPubKey(this.hash, signature, signature.recoveryParam);
+            this._publicKey = Crypto.recoverPubKey(this.hash, this.signature);
         }
 
         get publicKey() {
@@ -68,7 +67,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
                 return false;
             }
             try {
-                return Crypto.verify(this.hash, this._data.signature, this.publicKey);
+                return Crypto.verify(this.hash, this._data.signature, this.publicKey, 'hex');
             }
             catch (err) {
                 logger.error(err);

@@ -78,7 +78,7 @@ describe('Transaction tests', () => {
         tr.sign(privateKey);
         assert.isOk(tr);
         assert.isOk(tr.publicKey);
-        assert.equal(tr.publicKey.encode('hex', true), publicKey);
+        assert.equal(tr.publicKey, publicKey);
     });
     it('should deserialize transaction', async () => {
         const tr = new factory.Transaction({payload: txPayload});
@@ -91,13 +91,13 @@ describe('Transaction tests', () => {
         const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         const deserializedTr = new factory.Transaction(tr.encode());
-        assert.equal(deserializedTr.verifySignature(), true);
+        assert.isOk(deserializedTr.verifySignature());
     });
     it('should FAIL verification', async () => {
         const tr = new factory.Transaction({payload: txPayload});
         tr.sign(privateKey);
         let deserializedTr = new factory.Transaction(tr.encode());
         deserializedTr.payload.nonce = 22;
-        assert.equal(deserializedTr.verifySignature(), false);
+        assert.isNotOk(deserializedTr.verifySignature());
     });
 });

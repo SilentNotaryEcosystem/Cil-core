@@ -50,4 +50,15 @@ describe('Crypto library', () => {
         const decryptedKey = await Crypto.decrypt('234', encryptedKey);
         assert.equal(strPrivKey, decryptedKey.toString('hex'));
     });
+
+    it('should recover public key from signature buffer', async () => {
+        const keyPair = Crypto.createKeyPair();
+
+        msg = 'string';
+        const buffSignature = Crypto.sign(msg, keyPair.getPrivate(), 'hex');
+        const pubKey = Crypto.recoverPubKey(msg, buffSignature);
+        assert.isOk(pubKey);
+        assert.isOk(typeof pubKey === 'string');
+        assert.equal(keyPair.getPublic(), pubKey);
+    });
 });
