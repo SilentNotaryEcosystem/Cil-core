@@ -33,8 +33,9 @@ module.exports = {
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',
-            MSG_WITNESS_EXPOSE: 'w_expose'
-
+            MSG_WITNESS_EXPOSE: 'w_expose',
+            MSG_WITNESS_BLOCK: 'w_block',
+            MSG_WITNESS_BLOCK_ACK: 'w_block_ack'
         },
 
         consensusStates: {
@@ -49,7 +50,7 @@ module.exports = {
         consensusTimeouts: {
             INIT: 3000,
             ROUND_CHANGE: 1000,
-            BLOCK: 400,
+            BLOCK: 4000,
             PRE_VOTE_BLOCK: 400,
             PRE_COMMIT: 400,
             COMMIT: 400

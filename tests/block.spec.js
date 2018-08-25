@@ -58,9 +58,12 @@ describe('Block tests', () => {
 
         const restoredBlock = new factory.Block(buffBlock);
         assert.equal(block.hash, restoredBlock.hash);
-        assert.isOk(Array.isArray(block.txns));
-        assert.equal(block.txns.length, 1);
-        assert.deepEqual(block.txns[0], tx.rawData);
+        assert.isOk(Array.isArray(restoredBlock.txns));
+        assert.equal(restoredBlock.txns.length, 1);
+
+        // get rid of __proto__ that makes them diffrent
+        assert.deepEqual(Object.assign({}, restoredBlock.txns[0].payload), Object.assign({}, tx.rawData.payload));
+        assert.isOk(restoredBlock.txns[0].signature.equals(tx.rawData.signature));
     });
 
 });

@@ -8,12 +8,12 @@ const {sleep} = require('../../utils');
 
 const debugWitness = debugLib('witness:app');
 
-//const maxConnections = os.platform() === 'win32' ? 4 : 10;
-const maxConnections = 1;
+const maxConnections = os.platform() === 'win32' ? 4 : 10;
+//const maxConnections = 1;
 
 // set to undefined to use random delays
-//const delay = undefined;
-const delay = 10;
+const delay = undefined;
+//const delay = 10;
 
 describe('Witness integration tests', () => {
     before(async function() {
@@ -108,7 +108,7 @@ describe('Witness integration tests', () => {
             assert.isAtLeast(witness._peerManager.connectedPeers(groupName).length, 1);
         }
 
-        await sleep(factory.Constants.consensusTimeouts.INIT * 3);
+        await sleep(factory.Constants.consensusTimeouts.INIT * 6);
     });
 
 //    it('should DISCONNECT from FAKE Witness', async () => {

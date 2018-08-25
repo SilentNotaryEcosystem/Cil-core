@@ -1,10 +1,24 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const sinon = require('sinon');
 const debug = require('debug')('witness:');
 
 factory = require('./testFactory');
 
 let wallet;
+
+const createDummyPeer = (pubkey = 'pubkey1', address = factory.Transport.generateAddress()) =>
+    new factory.Peer({
+        peerInfo: {
+            capabilities: [
+                {service: factory.Constants.NODE, data: null},
+                {service: factory.Constants.WITNESS, data: Buffer.from(pubkey)}
+            ],
+            address
+        }
+    });
+
+const createDummyPeerInfo = (pubkey, address) => createDummyPeer(pubkey, address).peerInfo;
 
 describe('Witness tests', () => {
     before(async function() {
@@ -50,32 +64,11 @@ describe('Witness tests', () => {
         ];
         const witness = new factory.Witness({wallet, arrTestDefinition});
 
-        const peerInfo1 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null},
-                {service: factory.Constants.WITNESS, data: Buffer.from('pubkey1')}
-            ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
-        });
-        const peerInfo2 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null}
-            ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
-        });
-        const peerInfo3 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
-            ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
-        });
-        const peerInfo4 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('pubkey2')}
-            ],
-            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
-        });
-        [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => witness._peerManager.addPeer(peerInfo));
+        const peer1 = createDummyPeer('pubkey1');
+        const peer2 = createDummyPeer('notWitness1');
+        const peer3 = createDummyPeer('1111');
+        const peer4 = createDummyPeer('pubkey2');
+        [peer1, peer2, peer3, peer4].forEach(peer => witness._peerManager.addPeer(peer));
 
         const result = await witness._getGroupPeers(groupName);
         assert.isOk(Array.isArray(result));
@@ -83,22 +76,10 @@ describe('Witness tests', () => {
     });
 
     it('should reject message with wrong signature prom peer', async () => {
+        const groupName = 'test';
 
         // mock peer with public key from group
-        const peer = new factory.Peer({
-            peerInfo: {
-                capabilities: [
-                    {service: factory.Constants.NODE, data: null},
-                    {service: factory.Constants.WITNESS, data: Buffer.from('pubkey1')}
-                ],
-                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
-            }
-        });
-
-        // create message and sign it with key that doesn't belong to our group
-        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
-        msg.handshakeMessage = true;
-        msg.sign(wallet.privateKey);
+        const peer = createDummyPeer();
 
         const arrTestDefinition = [
             ['test', ['pubkey1', 'pubkey2']]
@@ -106,8 +87,26 @@ describe('Witness tests', () => {
 
         // create witness
         const witness = new factory.Witness({wallet, arrTestDefinition});
+        await witness._createConsensusForGroup(groupName);
 
-        const result = await witness._checkPeerAndMessage(peer, msg);
-        assert.isNotOk(result);
+        const wrapper = () => witness._checkPeerAndMessage(peer, undefined);
+        assert.throws(wrapper);
+    });
+
+    it('should create and broadcast block', async () => {
+        const groupName = 'test';
+        const arrTestDefinition = [
+            [groupName, [wallet.publicKey, Buffer.from('pubkey1'), Buffer.from('pubkey2')]],
+            ['anotherGroup', [Buffer.from('pubkey3'), Buffer.from('pubkey4')]]
+        ];
+        const witness = new factory.Witness({wallet, arrTestDefinition});
+        const broadcast = witness._peerManager.broadcastToConnected = sinon.fake();
+
+        witness._createAndBroadcastBlock(groupName);
+
+        assert.isOk(broadcast.calledOnce);
+        const [group, msg] = broadcast.args[0];
+        assert.equal(group, groupName);
+        assert.isOk(msg.isWitnessBlock());
     });
 });

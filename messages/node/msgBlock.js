@@ -22,29 +22,32 @@ module.exports = (Constants, Crypto, MessageCommon, Block) => {
                 if (!this.isBlock()) {
                     throw new Error(`Wrong message type. Expected "${MSG_BLOCK}" got "${this.message}"`);
                 }
-
-                this._block = new Block(this.payload);
             } else {
                 super();
-                if (typeof data === 'object') {
-                    this._block = new Block(this.payload);
-                }
                 this.message = MSG_BLOCK;
             }
         }
 
-        get hash() {
-            return this._block.hash;
+        get block() {
+            let block;
+            try {
+                if (!this.payload) throw TypeError(`Message payload is empty!`);
+                block = new Block(this.payload);
+            } catch (e) {
+                logger.error(`Bad block payload: ${e}`);
+            }
+            return block;
         }
 
         /**
-         * ATTENTION! for payload we'll use encode NOT encodeDelimited as for entire Message
          *
-         * @return {Uint8Array}
+         * @param {Block} cBlock
          */
-        encode() {
-            this.payload = this._block.encode();
-            return super.encode();
+        set block(cBlock) {
+            if (!(cBlock instanceof Block)) {
+                throw TypeError(`Bad block. Expected instance of Block, got ${cBlock}`);
+            }
+            this.payload = cBlock.encode();
         }
     };
 };

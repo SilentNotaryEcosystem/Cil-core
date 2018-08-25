@@ -219,7 +219,8 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
         ban() {
             this._bannedTill = new Date(Date.now() + Constants.BAN_PEER_TIME);
             this._bBanned = true;
-            debug(`Peer "${this._connection.remoteAddress}" banned till ${new Date(this._bannedTill)}`);
+
+            debug(`Peer "${this._address}" banned till ${new Date(this._bannedTill)}`);
 
             if (!this.disconnected) this.disconnect();
         }

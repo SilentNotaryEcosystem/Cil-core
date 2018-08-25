@@ -4,6 +4,15 @@ const sinon = require('sinon');
 
 const factory = require('../testFactory');
 
+const txPayload = {
+    nonce: 20,
+    gasLimit: 102,
+    gasPrice: 21,
+    to: '43543543525454',
+    value: 1200,
+    extField: 'extFieldextFieldextField'
+};
+
 describe('MessageBlock', () => {
     before(async function() {
         this.timeout(15000);
@@ -14,43 +23,60 @@ describe('MessageBlock', () => {
         this.timeout(15000);
     });
 
-    it('should create message', async () => {
+    it('should create empty message', async () => {
         const msg = new factory.Messages.MsgBlock();
         assert.isOk(msg.network);
         assert.equal(msg.network, factory.Constants.network);
+        assert.isOk(msg.isBlock());
     });
 
-    it('should create message', async () => {
-        const msg = new factory.Messages.MsgCommon();
-        assert.isOk(msg.network);
-    });
+    it('should set/get block', async () => {
+        const msg = new factory.Messages.MsgBlock();
 
-    it('should set/get payload', async () => {
-        const msg = new factory.Messages.MsgCommon();
-        msg.payload = Buffer.from('1235');
-        assert.isOk(msg.payload);
-        assert.equal(msg.payload.toString(), '1235');
-    });
-
-    it('should sign/verify payload', async () => {
+        const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
+        const tx = new factory.Transaction({payload: txPayload});
+        tx.sign(keyPair.privateKey);
 
-        const msg = new factory.Messages.MsgCommon();
-        msg.payload = Buffer.from('1235');
-        msg.sign(keyPair.getPrivate());
+        block.addTx(tx);
+        msg.block = block;
 
-        assert.isOk(msg.signature);
-        assert.isOk(msg.verifySignature(keyPair.publicKey));
+        const restoredBlock = msg.block;
+        assert.equal(block.hash, restoredBlock.hash);
+        assert.isOk(Array.isArray(restoredBlock.txns));
+        assert.equal(restoredBlock.txns.length, 1);
+        assert.deepEqual(Object.assign({}, restoredBlock.txns[0].payload), Object.assign({}, tx.rawData.payload));
+
     });
 
-    it('should get pubKey of signed message', async () => {
+    it('should encode/decode message', async () => {
+        const msg = new factory.Messages.MsgBlock();
+
+        const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
+        const tx = new factory.Transaction({payload: txPayload});
+        tx.sign(keyPair.privateKey);
 
-        const msg = new factory.Messages.MsgCommon();
-        msg.payload = Buffer.from('1235');
-        msg.sign(keyPair.getPrivate());
+        block.addTx(tx);
+        msg.block = block;
 
-        assert.isOk(msg.publicKey);
-        assert.equal(msg.publicKey, keyPair.publicKey);
+        const buffMsg = msg.encode();
+        assert.isOk(Buffer.isBuffer(buffMsg));
+        const restoredMsg = new factory.Messages.MsgBlock(buffMsg);
+
+        const restoredBlock = restoredMsg.block;
+        assert.equal(block.hash, restoredBlock.hash);
+        assert.isOk(Array.isArray(restoredBlock.txns));
+        assert.equal(restoredBlock.txns.length, 1);
+        assert.deepEqual(Object.assign({}, restoredBlock.txns[0].payload), Object.assign({}, tx.rawData.payload));
     });
+
+    it('should fail to decode block message', async () => {
+        const msg = new factory.Messages.MsgBlock();
+        msg.payload = Buffer.from('123');
+
+        const restoredBlock = msg.block;
+        assert.isNotOk(restoredBlock);
+    });
+
 });

@@ -64,7 +64,13 @@ class Factory {
                     this.PeerManager,
                     this.Storage
                 );
-                this._witnessImplementation = WitnessWrapper(this.Node, this.Messages, this.Constants, this.BFT);
+                this._witnessImplementation = WitnessWrapper(
+                    this.Node,
+                    this.Messages,
+                    this.Constants,
+                    this.BFT,
+                    this.Block
+                );
             })
             .catch(err => {
                 logger.error(err);
@@ -187,7 +193,6 @@ class Factory {
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
             rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
-//            blockPayloadProto: protoNetwork.lookupType("network.BlockPayload"),
 
             witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
             witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),

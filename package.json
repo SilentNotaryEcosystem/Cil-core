@@ -4,6 +4,7 @@
   "dependencies": {
     "crypto": "^1.0.1",
     "elliptic": "^6.4.0",
+    "extends-classes": "^1.0.5",
     "ipaddr.js": "^1.8.0",
     "js-sha3": "^0.8.0",
     "protobufjs": "^6.8.8",

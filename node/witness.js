@@ -4,9 +4,9 @@ const debugLib = require('debug');
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
-module.exports = (Node, Messages, Constants, BFT) => {
+module.exports = (Node, Messages, Constants, BFT, Block) => {
     const {MsgVersion, MsgCommon, MsgReject, MsgBlock} = Messages;
-    const {MsgWitnessCommon, MsgWitnessNextRound, MsgWitnessWitnessExpose} = Messages;
+    const {MsgWitnessCommon, MsgWitnessNextRound, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     const {MSG_VERSION, MSG_VERACK} = Constants.messageTypes;
     const {MSG_WITNESS_NEXT_ROUND, MSG_WITNESS_EXPOSE} = Constants.messageTypes;
@@ -23,6 +23,8 @@ module.exports = (Node, Messages, Constants, BFT) => {
             if (!this._wallet) throw new Error('Pass wallet into witness');
 
             this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
+
+            this._consensuses = new Map();
         }
 
         /**
@@ -32,17 +34,9 @@ module.exports = (Node, Messages, Constants, BFT) => {
          */
         async start() {
             this._groups = await this._getMyGroups();
-            this._consensuses = new Map();
-            const mapDefinitions = await this._storage.getGroupDefinitions();
 
             for (let group of this._groups) {
-                const consensus = new BFT({
-                    groupName: group,
-                    wallet: this._wallet,
-                    arrPublicKeys: mapDefinitions.get(group)
-                });
-                this._setConsensusHandlers(consensus);
-                this._consensuses.set(group, consensus);
+                await this._createConsensusForGroup(group);
                 await this.startWitnessGroup(group);
             }
 
@@ -95,6 +89,18 @@ module.exports = (Node, Messages, Constants, BFT) => {
             }
         }
 
+        async _createConsensusForGroup(group) {
+            const mapDefinitions = await this._storage.getGroupDefinitions();
+
+            const consensus = new BFT({
+                groupName: group,
+                wallet: this._wallet,
+                arrPublicKeys: mapDefinitions.get(group)
+            });
+            this._setConsensusHandlers(consensus);
+            this._consensuses.set(group, consensus);
+        }
+
         /**
          *
          * @return {Array} of group names this witness participates
@@ -143,42 +149,20 @@ module.exports = (Node, Messages, Constants, BFT) => {
 
         async _incomingWitnessMessage(peer, message) {
             try {
-                const messageWitness = await this._checkPeerAndMessage(peer, message);
-                if (!messageWitness) return;
-
+                const messageWitness = this._checkPeerAndMessage(peer, message);
                 const consensus = this._consensuses.get(messageWitness.groupName);
+
                 if (messageWitness.isHandshake()) {
-
-                    // check whether this witness belong to our group
-                    if (messageWitness.groupName !== messageWitness.content.toString() ||
-                        !consensus.checkPublicKey(peer.publicKey)) {
-                        logger.error(`Witness: "${this._debugAddress}" this guy UNKNOWN!`);
-                        peer.ban();
-                        return;
-                    }
-
-                    if (peer.inbound) {
-
-                        // we don't check version & self connection because it's done on previous step (node connection)
-                        const response = this._createHandshakeMessage(messageWitness.groupName);
-                        debugWitnessMsg(
-                            `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
-                        await peer.pushMessage(response);
-                        peer.addTag(messageWitness.groupName);
-                    } else {
-                        peer.witnessLoadDone = true;
-                    }
+                    await this._processHandshakeMessage(peer, messageWitness, consensus);
+                    return;
+                }
+                if (messageWitness.isWitnessBlock()) {
+                    await this._processBlockMessage(peer, messageWitness, consensus);
                     return;
                 }
 
-                if (messageWitness.isBlock() &&
-                    consensus.shouldPublish(messageWitness.publicKey) &&
-                    this._verifyBlock(messageWitness.payload)) {
-                    consensus.processValidBlock(messageWitness.payload);
-                }
-
                 // send a copy of received messages to other witnesses to maintain BFT
-                if (!messageWitness.isBlock() && !messageWitness.isExpose()) {
+                if (!messageWitness.isExpose()) {
                     const msg = this._exposeMessageToWitnessGroup(messageWitness.groupName, messageWitness);
                     consensus.processMessage(msg);
                 }
@@ -189,6 +173,42 @@ module.exports = (Node, Messages, Constants, BFT) => {
             }
         }
 
+        async _processHandshakeMessage(peer, messageWitness, consensus) {
+
+            // check whether this witness belong to our group
+            if (!consensus.checkPublicKey(peer.publicKey)) {
+                peer.ban();
+                throw(`Witness: "${this._debugAddress}" this guy UNKNOWN!`);
+            }
+
+            if (peer.inbound) {
+
+                // we don't check version & self connection because it's done on previous step (node connection)
+                const response = this._createHandshakeMessage(messageWitness.groupName);
+                debugWitnessMsg(
+                    `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
+                await peer.pushMessage(response);
+                peer.addTag(messageWitness.groupName);
+            } else {
+                peer.witnessLoadDone = true;
+            }
+        }
+
+        async _processBlockMessage(peer, messageWitness, consensus) {
+            if (consensus.shouldPublish(messageWitness.publicKey)) {
+                const msgBlock = new MsgWitnessBlock(messageWitness);
+                const block = msgBlock.block;
+                if (!this._verifyBlock(block)) throw new Error('Failed to verify block');
+                consensus.processValidBlock(block);
+
+                const msgBlockAck = new MsgWitnessCommon({groupName: consensus.groupName});
+                msgBlockAck.blockackMessage = true;
+                msgBlockAck.sign(this._wallet.privateKey);
+
+                // send our ACK block to consensus
+                this._peerManager.broadcastToConnected(consensus.groupName, msgBlockAck);
+            }
+        }
 
         /**
          *
@@ -197,37 +217,23 @@ module.exports = (Node, Messages, Constants, BFT) => {
          * @return {WitnessMessageCommon | undefined}
          * @private
          */
-        async _checkPeerAndMessage(peer, message) {
+        _checkPeerAndMessage(peer, message) {
             let messageWitness;
-            try {
-                if (!message) {
-                    logger.error(`Witness: "${this._debugAddress}" SIGNATURE CHECK FAILED!`);
-                    peer.ban();
-                    return undefined;
-                }
-
-                debugWitnessMsg(
-                    `(address: "${this._debugAddress}") received SIGNED message "${message.message}" from "${peer.address}"`);
-
-                messageWitness = new MsgWitnessCommon(message);
-                const consensus = this._consensuses.get(messageWitness.groupName);
-                if (!consensus) {
-                    const rejectMsg = new MsgReject({
-                        code: Constants.REJECT_BAD_WITNESS,
-                        reason: 'Wrong group message'
-                    });
-                    debugWitnessMsg(
-                        `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
-                    await peer.pushMessage(rejectMsg);
-                    peer.misbehave(5);
-                    return undefined;
-                }
-
-            } catch (err) {
-                logger.error(`${err.message} Witness ${peer.remoteAddress}.`);
-                peer.misbehave(1);
-                return undefined;
+            if (!message) {
+                peer.ban();
+                throw new Error(`Witness: "${this._debugAddress}" SIGNATURE CHECK FAILED!`);
             }
+
+            debugWitnessMsg(
+                `(address: "${this._debugAddress}") received SIGNED message "${message.message}" from "${peer.address}"`);
+
+            messageWitness = new MsgWitnessCommon(message);
+            const consensus = this._consensuses.get(messageWitness.groupName);
+            if (!consensus) {
+                peer.ban();
+                throw new Error(`Witness: "${this._debugAddress}" send us message for UNKNOWN GROUP!`);
+            }
+
             return messageWitness;
         }
 
@@ -237,7 +243,8 @@ module.exports = (Node, Messages, Constants, BFT) => {
                 this._peerManager.broadcastToConnected(consensus.groupName, message);
             });
             consensus.on('createBlock', () => {
-                this._createAndBroadcastBlock(consensus.groupName);
+                const block = this._createAndBroadcastBlock(consensus.groupName);
+                consensus.processValidBlock(block);
             });
         }
 
@@ -275,11 +282,17 @@ module.exports = (Node, Messages, Constants, BFT) => {
             return true;
         }
 
-        _createAndBroadcastBlock() {
+        _createAndBroadcastBlock(groupName) {
 
             // TODO: implement
-            const msgBlock = new MsgBlock({hash: BUffer.from('123')});
+            const msg = new MsgWitnessBlock({groupName});
+            const block = new Block();
+            msg.block = block;
+            msg.sign(this._wallet.privateKey);
 
+            // empty block - is ok, just don't store it on COMMIT stage
+            this._peerManager.broadcastToConnected(groupName, msg);
+            return block;
         }
     };
 };

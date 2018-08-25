@@ -142,6 +142,17 @@ module.exports = (Constants, Crypto, Messages) => {
             return this._majority(arrWitnessValues, weak);
         }
 
+        processValidBlock(block) {
+            if (this._state !== States.BLOCK) {
+                logger.error(`Got block at wrong state: "${this._state}"`);
+                return;
+            }
+            this._block = block;
+
+            // add my own ack to this block
+            this._addViewOfNodeWithPubKey(this._wallet.publicKey, this._wallet.publicKey, Buffer.from(this._groupName));
+        }
+
         /**
          *
          * @param {Array} arrDataWitnessI - array of values to find majority
@@ -186,15 +197,19 @@ module.exports = (Constants, Crypto, Messages) => {
         }
 
         _adjustTimer() {
-            debug(`BFT "${this._nonce}". Timer restated. State ${this._state}`);
-            this._tock.adjust(MAIN_TIMER_NAME, Timeouts[this._state]);
+
+            // if we didn't turn it off
+            if (this._tock.timers) {
+                debug(`BFT "${this._nonce}". Timer restated. State ${this._state}`);
+                this._tock.adjust(MAIN_TIMER_NAME, Timeouts[this._state]);
+            }
         }
 
         /**
          * Called when timer expires or directly called when consensus reached
          *
          * @param {boolean} isConsensus - whether it called manually when consensus reached
-         * @param {Object} consensusValue - whether it called manually when consensus reached
+         * @param {Buffer} consensusValue - whether it called manually when consensus reached
          * @private
          */
         _stateChange(isConsensus = false, consensusValue = undefined) {
@@ -208,12 +223,11 @@ module.exports = (Constants, Crypto, Messages) => {
                     break;
                 case States.BLOCK:
 
-                    // Block handled by Witness. If we'r here - timeout reached
-                    this._state = States.ROUND_CHANGE;
-                    this._nextRound();
+                    // Block handled by Witness.
+                    this._blockStateHandler(isConsensus);
                     break;
                 case States.PRE_VOTE_BLOCK:
-                    this._prevoteBlockHandler(isConsensus, consensusValue);
+                    this._prevoteStateHandler(isConsensus);
                     break;
                 case States.PRE_COMMIT:
                     this._preCommitStateHandler(isConsensus, consensusValue);
@@ -272,27 +286,35 @@ module.exports = (Constants, Crypto, Messages) => {
             } else {
                 this._roundNo = this._roundFromConsensusValue(consensusValue);
                 this._state = States.BLOCK;
+                this._adjustTimer();
+
                 if (this.shouldPublish()) this.emit('createBlock');
             }
         }
 
         /**
+         * If no consensus: we didn't receive enough BlockAck messages, and timeout reached
+         * Has consensus & valid block:
+         * - advance to PRE_VOTE_BLOCK
          *
-         *
+         * @param {boolean} isConsensus -  whether it called after consensus, or by timeout
          * @private
          */
-        _blockStateTimeout() {
-
+        _blockStateHandler(isConsensus) {
+            if (isConsensus && this._block) {
+                this._state = States.PRE_VOTE_BLOCK;
+            } else {
+                this._nextRound();
+            }
         }
 
         /**
          *
-         *
-         * @param {boolean} validationState - whether it called after consensus, or by timeout
+         * @param {boolean} isConsensus -  whether it called after consensus, or by timeout
          * @private
          */
-        _prevoteBlockHandler(validationState) {
-            if (validationState !== undefined) {
+        _prevoteStateHandler(isConsensus) {
+            if (isConsensus) {
                 this._state = States.PRE_COMMIT;
             } else {
                 this._nextRound();
@@ -336,7 +358,10 @@ module.exports = (Constants, Crypto, Messages) => {
          * @private
          */
         _nextRound() {
+            this._block = undefined;
             this._state = States.ROUND_CHANGE;
+            this._resetState();
+
             const msg = new MsgWitnessNextRound({groupName: this.groupName, roundNo: ++this._roundNo});
             msg.sign(this._wallet.privateKey);
 
@@ -365,6 +390,7 @@ module.exports = (Constants, Crypto, Messages) => {
 
                 // neither consensus nor weak consensus. all at their own roundNo
                 this._roundFromNetworkTime();
+                debug(`BFT "${this._nonce}" adjusting round to NETWORK time`);
             }
         }
 

@@ -10,6 +10,17 @@ let myWallet;
 const groupName = 'test';
 let BFT;
 
+const createDummyBFT = () => {
+    const keyPair1 = factory.Crypto.createKeyPair();
+    const keyPair2 = factory.Crypto.createKeyPair();
+    const wallet = new factory.Wallet(keyPair1.privateKey);
+    return new BFT({
+        groupName,
+        arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
+        wallet
+    });
+};
+
 describe('BFT general tests', () => {
     before(async function() {
         this.timeout(15000);
@@ -334,17 +345,15 @@ describe('BFT general tests', () => {
     });
 
     it('should accept "non expose" witness message', async () => {
-
-        // 2 witness in group
         const keyPair1 = factory.Crypto.createKeyPair();
         const keyPair2 = factory.Crypto.createKeyPair();
-
         const wallet = new factory.Wallet(keyPair1.privateKey);
         const newBft = new BFT({
             groupName,
-            arrPublicKeys: [wallet.publicKey, keyPair2.publicKey],
-            wallet: wallet
+            arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
+            wallet
         });
+        newBft._stopTimer();
 
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 12});
         msg.sign(keyPair1.privateKey);
@@ -357,20 +366,18 @@ describe('BFT general tests', () => {
     });
 
     it('should accept "MsgExpose" witness message', async () => {
-
-        // 2 witness in group
         const keyPair1 = factory.Crypto.createKeyPair();
         const keyPair2 = factory.Crypto.createKeyPair();
-
         const wallet = new factory.Wallet(keyPair1.privateKey);
         const newBft = new BFT({
             groupName,
-            arrPublicKeys: [wallet.publicKey, keyPair2.publicKey],
-            wallet: wallet
+            arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
+            wallet
         });
+        newBft._stopTimer();
 
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 12});
-        msg.sign(keyPair1.privateKey);
+        msg.sign(newBft._wallet.privateKey);
         const msgExpose = new factory.Messages.MsgWitnessWitnessExpose(msg);
         msgExpose.sign(keyPair2.privateKey);
 
@@ -382,22 +389,13 @@ describe('BFT general tests', () => {
     });
 
     it('should reject message with bad signature', async function() {
-
-        // 2 witness in group
-        const keyPair1 = factory.Crypto.createKeyPair();
-        const keyPair2 = factory.Crypto.createKeyPair();
         const keyPair3 = factory.Crypto.createKeyPair();
-
-        const wallet = new factory.Wallet(keyPair1.privateKey);
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [wallet.publicKey, keyPair2.publicKey],
-            wallet: wallet
-        });
+        const newBft = createDummyBFT();
+        newBft._stopTimer();
 
         // wrong outer signature
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 12});
-        msg.sign(keyPair1.privateKey);
+        msg.sign(newBft._wallet.privateKey);
         const msgExpose = new factory.Messages.MsgWitnessWitnessExpose(msg);
         msgExpose.sign(keyPair3.privateKey);
 
@@ -407,7 +405,7 @@ describe('BFT general tests', () => {
         // wrong inner signature
         msg.sign(keyPair3.privateKey);
         const msgExpose2 = new factory.Messages.MsgWitnessWitnessExpose(msg);
-        msgExpose2.sign(keyPair2.privateKey);
+        msgExpose2.sign(newBft._wallet.privateKey);
 
         const wrapper2 = () => newBft.processMessage(msgExpose2);
         assert.throws(wrapper2);
@@ -415,18 +413,16 @@ describe('BFT general tests', () => {
     });
 
     it('should reach consensus', async () => {
-        // 2 witness in group
         const keyPair1 = factory.Crypto.createKeyPair();
         const keyPair2 = factory.Crypto.createKeyPair();
-
         const wallet = new factory.Wallet(keyPair1.privateKey);
-        const newBft = new BFT({
+        return new BFT({
             groupName,
             arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
             wallet
         });
+        newBft._stopTimer();
 
-        // not emit anything yet
         const messageHandler = sinon.fake();
         newBft.on('message', messageHandler);
 
@@ -450,11 +446,10 @@ describe('BFT general tests', () => {
         msgPartyExposed.sign(wallet.privateKey);
         newBft.processMessage(msgPartyExposed);
 
-        // not emit anything yet
-//        assert.isOk(messageHandler.calledOnce);
-//        const [msg] = messageHandler.args[0];
-//        assert.isOk(msg.isNextRound());
-//        assert.equal(msg.roundNo, 1);
+        assert.isOk(messageHandler.calledOnce);
+        const [msg] = messageHandler.args[0];
+        assert.isOk(msg.isNextRound());
+        assert.equal(msg.roundNo, 1);
 
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);
 
@@ -489,14 +484,7 @@ describe('BFT general tests', () => {
 //    });
 
     it('should advance round from INIT', async () => {
-        const keyPair1 = factory.Crypto.createKeyPair();
-        const keyPair2 = factory.Crypto.createKeyPair();
-        const wallet = new factory.Wallet(keyPair1.privateKey);
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
-            wallet
-        });
+        const newBft = createDummyBFT();
         newBft._stopTimer();
 
         const msgHandler = sinon.fake();
@@ -515,14 +503,7 @@ describe('BFT general tests', () => {
     });
 
     it('should enter ROUND_CHANGE state from INIT', async () => {
-        const keyPair1 = factory.Crypto.createKeyPair();
-        const keyPair2 = factory.Crypto.createKeyPair();
-        const wallet = new factory.Wallet(keyPair1.privateKey);
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
-            wallet
-        });
+        const newBft = createDummyBFT();
         newBft._stopTimer();
         newBft._nextRound = sinon.fake();
 
@@ -532,14 +513,7 @@ describe('BFT general tests', () => {
     });
 
     it('should enter BLOCK state from INIT', async () => {
-        const keyPair1 = factory.Crypto.createKeyPair();
-        const keyPair2 = factory.Crypto.createKeyPair();
-        const wallet = new factory.Wallet(keyPair1.privateKey);
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
-            wallet
-        });
+        const newBft = createDummyBFT();
         newBft._stopTimer();
         newBft._nextRound = sinon.fake();
 
@@ -554,14 +528,7 @@ describe('BFT general tests', () => {
     });
 
     it('should start next round (remain in ROUND_CHANGE and adjust roundNo)', async () => {
-        const keyPair1 = factory.Crypto.createKeyPair();
-        const keyPair2 = factory.Crypto.createKeyPair();
-        const wallet = new factory.Wallet(keyPair1.privateKey);
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
-            wallet
-        });
+        const newBft = createDummyBFT();
         newBft._stopTimer();
         newBft._state = factory.Constants.consensusStates.ROUND_CHANGE;
         newBft._nextRound = sinon.fake();
@@ -576,24 +543,51 @@ describe('BFT general tests', () => {
     });
 
     it('should enter BLOCK state from ROUND_CHANGE', async () => {
-        const keyPair1 = factory.Crypto.createKeyPair();
-        const keyPair2 = factory.Crypto.createKeyPair();
-        const wallet = new factory.Wallet(keyPair1.privateKey);
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
-            wallet
-        });
+        const newBft = createDummyBFT();
         newBft._stopTimer();
+        const blockCreateHandler = sinon.fake();
+
+        newBft.on('createBlock', blockCreateHandler);
         newBft._state = factory.Constants.consensusStates.ROUND_CHANGE;
-        const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 863});
+        const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 864});
         msg.encode();
 
         newBft._roundChangeHandler(true, msg.content);
 
         assert.isNotOk(newBft._nextRound.calledOnce);
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);
-        assert.equal(newBft._roundNo, 863);
+        assert.equal(newBft._roundNo, 864);
+
+        if (newBft.shouldPublish()) assert.isOk(blockCreateHandler.calledOnce);
     });
 
+    it('should set state ROUND_CHANGE & clear block', async () => {
+        const newBft = createDummyBFT();
+        newBft._stopTimer();
+        newBft._state = factory.Constants.consensusStates.BLOCK;
+        newBft._block = {a: 1212};
+
+        const msgHandler = sinon.fake();
+        newBft.on('message', msgHandler);
+
+        newBft._nextRound();
+
+        assert.isNotOk(newBft._block);
+        assert.equal(newBft._state, factory.Constants.consensusStates.ROUND_CHANGE);
+        assert.isOk(msgHandler.calledOnce);
+    });
+
+    it('should store valid block inside consensus', async () => {
+        const newBft = createDummyBFT();
+        newBft._stopTimer();
+        newBft._state = factory.Constants.consensusStates.BLOCK;
+        newBft._block = undefined;
+
+        newBft.processValidBlock({a: 1212});
+
+        assert.isOk(newBft._block);
+
+        // set ack to this block
+        assert.isOk(newBft._views[newBft._wallet.publicKey][newBft._wallet.publicKey]);
+    });
 });

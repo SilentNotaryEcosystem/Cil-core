@@ -17,7 +17,8 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
         MSG_WITNESS_NEXT_ROUND,
         MSG_WITNESS_EXPOSE,
         MSG_WITNESS_BLOCK,
-        MSG_WITNESS_HANDSHAKE
+        MSG_WITNESS_HANDSHAKE,
+        MSG_WITNESS_BLOCK_ACK
     } = Constants.messageTypes;
 
     return class WitnessMessageCommon extends MessageCommon {
@@ -70,13 +71,18 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
             return this._msgData.content = value;
         }
 
-        parseContent(value) {
-            throw new Error('You should implement this method!');
-        }
-
         set handshakeMessage(unused) {
             this.message = MSG_WITNESS_HANDSHAKE;
             this.content = Buffer.from(this.groupName);
+        }
+
+        set blockackMessage(unused) {
+            this.message = MSG_WITNESS_BLOCK_ACK;
+            this.content = Buffer.from(this.groupName);
+        }
+
+        parseContent(value) {
+            throw new Error('You should implement this method!');
         }
 
         encode() {
@@ -85,6 +91,9 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
         }
 
         isHandshake() {
+            if (this.message === MSG_WITNESS_HANDSHAKE && this.groupName !== '' + this.content) {
+                throw new TypeError(`Malformed "${MSG_WITNESS_HANDSHAKE}"`);
+            }
             return this.message === MSG_WITNESS_HANDSHAKE;
         }
 
@@ -94,6 +103,17 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
 
         isExpose() {
             return this.message === MSG_WITNESS_EXPOSE;
+        }
+
+        isWitnessBlock() {
+            return this.message === MSG_WITNESS_BLOCK;
+        }
+
+        isWitnessBlockAck() {
+            if (this.message === MSG_WITNESS_BLOCK_ACK && this.groupName !== '' + this.content) {
+                throw new TypeError(`Malformed "${MSG_WITNESS_BLOCK_ACK}"`);
+            }
+            return this.message === MSG_WITNESS_BLOCK_ACK;
         }
 
     };
