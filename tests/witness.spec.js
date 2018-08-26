@@ -101,9 +101,15 @@ describe('Witness tests', () => {
         // create witness
         const witness = new factory.Witness({wallet, arrTestDefinition});
         await witness._createConsensusForGroup(groupName);
+        const newBft = witness._consensuses.get(groupName);
+        newBft._stopTimer();
 
-        const wrapper = () => witness._checkPeerAndMessage(peer, undefined);
-        assert.throws(wrapper);
+        try {
+            await witness._checkPeerAndMessage(peer, undefined);
+            assert.isOk(false, 'Unexpected success');
+        } catch (e) {
+            debug(e);
+        }
     });
 
     it('should create and broadcast block', async () => {
