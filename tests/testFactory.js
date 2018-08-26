@@ -69,7 +69,8 @@ class Factory {
                     this.Messages,
                     this.Constants,
                     this.BFT,
-                    this.Block
+                    this.Block,
+                    this.Transaction
                 );
             })
             .catch(err => {

@@ -6,14 +6,16 @@ const debug = require('debug')('block:');
 
 const factory = require('./testFactory');
 
-const txPayload = {
-    nonce: 20,
-    gasLimit: 102,
-    gasPrice: 21,
-    to: '43543543525454',
-    value: 1200,
-    extField: 'extFieldextFieldextField'
-};
+const createDummyTx = () => ({
+    payload: {
+        nonce: parseInt(Math.random() * 1000),
+        gasLimit: parseInt(Math.random() * 1000),
+        gasPrice: parseInt(Math.random() * 100),
+        to: '43543543525454',
+        value: parseInt(Math.random() * 1000),
+        extField: 'extFieldextFieldextField'
+    }
+});
 
 describe('Block tests', () => {
     before(async function() {
@@ -27,7 +29,7 @@ describe('Block tests', () => {
 
     it('should add tx', async () => {
         const block = new factory.Block();
-        const tx = new factory.Transaction({payload: txPayload});
+        const tx = new factory.Transaction(createDummyTx());
 
         block.addTx(tx);
         assert.isOk(Array.isArray(block.txns));
@@ -37,19 +39,26 @@ describe('Block tests', () => {
     it('should calc hash', async () => {
         const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
-        const tx = new factory.Transaction({payload: txPayload});
+        const tx = new factory.Transaction(createDummyTx());
         tx.sign(keyPair.privateKey);
 
         block.addTx(tx);
         debug(block.hash);
         assert.isOk(block.hash);
-        assert.equal(block.txns.length, 1);
+        assert.equal(block.hash, block.hash);
+
+        const anotherBlock = new factory.Block();
+        const anotherTx = new factory.Transaction(createDummyTx());
+        anotherTx.sign(keyPair.privateKey);
+        anotherBlock.addTx(anotherTx);
+        debug(anotherBlock.hash);
+        assert.notEqual(block.hash, anotherBlock.hash);
     });
 
     it('should encode/decode', async () => {
         const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
-        const tx = new factory.Transaction({payload: txPayload});
+        const tx = new factory.Transaction(createDummyTx());
         tx.sign(keyPair.privateKey);
 
         block.addTx(tx);

@@ -20,6 +20,19 @@ const createDummyPeer = (pubkey = 'pubkey1', address = factory.Transport.generat
 
 const createDummyPeerInfo = (pubkey, address) => createDummyPeer(pubkey, address).peerInfo;
 
+const createDummyBFT = (groupName) => {
+    const keyPair1 = factory.Crypto.createKeyPair();
+    const keyPair2 = factory.Crypto.createKeyPair();
+    const newWallet = new factory.Wallet(keyPair1.privateKey);
+    const newBft = new factory.BFT({
+        groupName,
+        arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
+        wallet: newWallet
+    });
+
+    return {keyPair1, keyPair2, newBft, newWallet};
+};
+
 describe('Witness tests', () => {
     before(async function() {
         this.timeout(15000);
@@ -108,5 +121,41 @@ describe('Witness tests', () => {
         const [group, msg] = broadcast.args[0];
         assert.equal(group, groupName);
         assert.isOk(msg.isWitnessBlock());
+    });
+
+    it('should accept received block and send ACK', async () => {
+        const groupName = 'test';
+
+        // mock peer with public key from group
+        const peer = createDummyPeer();
+
+        const {keyPair1, keyPair2, newBft, newWallet} = createDummyBFT(groupName);
+
+        // setup shouldPublish mock
+        newBft.shouldPublish = sinon.fake.returns(true);
+        assert.isOk(newBft.shouldPublish());
+        newBft._state = factory.Constants.consensusStates.BLOCK;
+
+        const arrTestDefinition = [
+            [groupName, [keyPair1.publicKey, keyPair2.publicKey]]
+        ];
+
+        // create witness
+        const witness = new factory.Witness({wallet: newWallet, arrTestDefinition});
+        await witness.start();
+        const broadcast = witness._peerManager.broadcastToConnected = sinon.fake();
+
+        // create MessageBlock
+        const block = new factory.Block();
+        const msg = new factory.Messages.MsgWitnessBlock({groupName});
+        msg.block = block;
+        msg.sign(keyPair2.privateKey);
+
+        await witness._processBlockMessage(peer, msg, newBft);
+
+        assert.isOk(broadcast.calledOnce);
+        const [group, sentMsg] = broadcast.args[0];
+        assert.isOk(sentMsg && sentMsg instanceof factory.Messages.MsgWitnessCommon);
+        assert.isOk(sentMsg.isWitnessBlockAccept());
     });
 });

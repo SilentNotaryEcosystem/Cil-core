@@ -35,25 +35,22 @@ module.exports = {
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',
             MSG_WITNESS_EXPOSE: 'w_expose',
             MSG_WITNESS_BLOCK: 'w_block',
-            MSG_WITNESS_BLOCK_ACK: 'w_block_ack'
+            MSG_WITNESS_BLOCK_ACK: 'w_block_ack',
+            MSG_WITNESS_BLOCK_REJECT: 'w_block_rej'
         },
 
         consensusStates: {
-            INIT: 'INIT',
             ROUND_CHANGE: 'ROUND_CHANGE',
             BLOCK: 'BLOCK',
-            PRE_VOTE_BLOCK: 'PRE_VOTE_BLOCK',
-            PRE_COMMIT: 'PRE_COMMIT',
+            VOTE_BLOCK: 'VOTE_BLOCK',
             COMMIT: 'COMMIT'
         },
 
         consensusTimeouts: {
-            INIT: 3000,
-            ROUND_CHANGE: 1000,
-            BLOCK: 4000,
-            PRE_VOTE_BLOCK: 400,
-            PRE_COMMIT: 400,
-            COMMIT: 400
+            ROUND_CHANGE: 10000,
+            BLOCK: 20000,
+            VOTE_BLOCK: 10000,
+            COMMIT: 20000
         },
 
         // maximum time offset for nodes we tolerate

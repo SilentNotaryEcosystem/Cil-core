@@ -4,7 +4,7 @@ const debugLib = require('debug');
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
-module.exports = (Node, Messages, Constants, BFT, Block) => {
+module.exports = (Node, Messages, Constants, BFT, Block, Transaction) => {
     const {MsgVersion, MsgCommon, MsgReject, MsgBlock} = Messages;
     const {MsgWitnessCommon, MsgWitnessNextRound, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
@@ -163,8 +163,8 @@ module.exports = (Node, Messages, Constants, BFT, Block) => {
 
                 // send a copy of received messages to other witnesses to maintain BFT
                 if (!messageWitness.isExpose()) {
-                    const msg = this._exposeMessageToWitnessGroup(messageWitness.groupName, messageWitness);
-                    consensus.processMessage(msg);
+                    const exposeMsg = this._createExposeMessage(messageWitness);
+                    this._broadcastConsensusInitiatedMessage(exposeMsg);
                 }
                 debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content}`);
                 consensus.processMessage(messageWitness);
@@ -196,18 +196,30 @@ module.exports = (Node, Messages, Constants, BFT, Block) => {
 
         async _processBlockMessage(peer, messageWitness, consensus) {
             if (consensus.shouldPublish(messageWitness.publicKey)) {
+
+                // this will advance us to VOTE_BLOCK state whether block valid or not!
                 const msgBlock = new MsgWitnessBlock(messageWitness);
                 const block = msgBlock.block;
-                if (!this._verifyBlock(block)) throw new Error('Failed to verify block');
-                consensus.processValidBlock(block);
+                let message;
+                if (!this._verifyBlock(block)) {
+                    consensus.invalidBlock();
 
-                const msgBlockAck = new MsgWitnessCommon({groupName: consensus.groupName});
-                msgBlockAck.blockackMessage = true;
-                msgBlockAck.sign(this._wallet.privateKey);
+                    message = this._createBlockRejectMessage(messageWitness.groupName);
+                } else {
+                    consensus.processValidBlock(block);
 
-                // send our ACK block to consensus
-                this._peerManager.broadcastToConnected(consensus.groupName, msgBlockAck);
+                    // send our blockACK to consensus
+                    message = this._createBlockAcceptMessage(messageWitness.groupName, block.hash);
+                }
+
+                // here we are at VOTE_BLOCK state - let's send our vote!
+                this._broadcastConsensusInitiatedMessage(message);
+            } else {
+                debugWitness(
+                    `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not it's turn!`);
             }
+
+            // we still wait for block from designated proposer or timer for BLOCK state will expire
         }
 
         /**
@@ -240,27 +252,36 @@ module.exports = (Node, Messages, Constants, BFT, Block) => {
         _setConsensusHandlers(consensus) {
             consensus.on('message', message => {
                 debugWitness(`Witness: "${this._debugAddress}" message "${message.message}" from CONSENSUS engine`);
-                this._peerManager.broadcastToConnected(consensus.groupName, message);
+                this._broadcastConsensusInitiatedMessage(message);
             });
             consensus.on('createBlock', () => {
                 const block = this._createAndBroadcastBlock(consensus.groupName);
                 consensus.processValidBlock(block);
+
+                // send ACK for own block to consensus
+                const msgBlockAck = this._createBlockAcceptMessage(consensus.groupName, block.hash);
+                this._broadcastConsensusInitiatedMessage(msgBlockAck);
             });
+            consensus.on('commitBlock', (block) => {
+                logger.log(
+                    `Witness: "${this._debugAddress}" block "${block.hash}" Round: ${consensus._roundNo} commited at ${new Date} `);
+
+                //TODO: pass block to App layer
+            });
+
         }
 
         /**
          * Wrap, sign, broadcast received message - expose that message to other
          *
-         * @param {String}groupName
          * @param {WitnessMessageCommon} message
          * @return {WitnessExpose}
          * @private
          */
-        _exposeMessageToWitnessGroup(groupName, message) {
+        _createExposeMessage(message) {
             const msgExpose = new MsgWitnessWitnessExpose(message);
             debugWitness(`Witness: "${this._debugAddress}" EXPOSING message "${message.message}" to neighbors`);
             msgExpose.sign(this._wallet.privateKey);
-            this._peerManager.broadcastToConnected(groupName, msgExpose);
             return msgExpose;
         }
 
@@ -276,23 +297,62 @@ module.exports = (Node, Messages, Constants, BFT, Block) => {
             return msg;
         }
 
-        _verifyBlock(blockContent) {
+        _createBlockAcceptMessage(groupName, blockHash) {
+            const msgBlockAccept = new MsgWitnessCommon({groupName});
+            msgBlockAccept.blockAcceptMessage = blockHash;
+            msgBlockAccept.sign(this._wallet.privateKey);
+            return msgBlockAccept;
+        }
+
+        _createBlockRejectMessage(groupName) {
+            const msgBlockReject = new MsgWitnessCommon({groupName});
+            msgBlockReject.blockRejectMessage = true;
+            msgBlockReject.sign(this._wallet.privateKey);
+            return msgBlockReject;
+        }
+
+        _verifyBlock(block) {
 
             // TODO: implement
+            //TODO: pass block to App layer
             return true;
         }
 
         _createAndBroadcastBlock(groupName) {
 
             // TODO: implement
+
+            const createDummyTx = () => ({
+                payload: {
+                    nonce: parseInt(Math.random() * 1000),
+                    gasLimit: parseInt(Math.random() * 1000),
+                    gasPrice: parseInt(Math.random() * 100),
+                    to: '43543543525454',
+                    value: parseInt(Math.random() * 1000),
+                    extField: 'extFieldextFieldextField'
+                }
+            });
+
             const msg = new MsgWitnessBlock({groupName});
             const block = new Block();
+            const tx = new Transaction(createDummyTx());
+            tx.sign(this._wallet.privateKey);
+            block.addTx(tx);
             msg.block = block;
             msg.sign(this._wallet.privateKey);
 
             // empty block - is ok, just don't store it on COMMIT stage
             this._peerManager.broadcastToConnected(groupName, msg);
             return block;
+        }
+
+        _broadcastConsensusInitiatedMessage(msg) {
+            const groupName = msg.groupName;
+            this._peerManager.broadcastToConnected(groupName, msg);
+            const consensusInstance = this._consensuses.get(groupName);
+
+            // set my own view
+            consensusInstance.processMessage(msg);
         }
     };
 };

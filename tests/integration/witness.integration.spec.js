@@ -108,7 +108,7 @@ describe('Witness integration tests', () => {
             assert.isAtLeast(witness._peerManager.connectedPeers(groupName).length, 1);
         }
 
-        await sleep(factory.Constants.consensusTimeouts.INIT * 6);
+        await sleep(factory.Constants.consensusTimeouts.BLOCK * 8);
     });
 
 //    it('should DISCONNECT from FAKE Witness', async () => {

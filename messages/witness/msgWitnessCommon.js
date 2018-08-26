@@ -18,7 +18,8 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
         MSG_WITNESS_EXPOSE,
         MSG_WITNESS_BLOCK,
         MSG_WITNESS_HANDSHAKE,
-        MSG_WITNESS_BLOCK_ACK
+        MSG_WITNESS_BLOCK_ACK,
+        MSG_WITNESS_BLOCK_REJECT
     } = Constants.messageTypes;
 
     return class WitnessMessageCommon extends MessageCommon {
@@ -76,9 +77,14 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
             this.content = Buffer.from(this.groupName);
         }
 
-        set blockackMessage(unused) {
+        set blockAcceptMessage(hash) {
             this.message = MSG_WITNESS_BLOCK_ACK;
-            this.content = Buffer.from(this.groupName);
+            this.content = Buffer.from(hash);
+        }
+
+        set blockRejectMessage(unused) {
+            this.message = MSG_WITNESS_BLOCK_REJECT;
+            this.content = Buffer.from(Buffer.from(this.groupName));
         }
 
         parseContent(value) {
@@ -109,11 +115,15 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
             return this.message === MSG_WITNESS_BLOCK;
         }
 
-        isWitnessBlockAck() {
-            if (this.message === MSG_WITNESS_BLOCK_ACK && this.groupName !== '' + this.content) {
-                throw new TypeError(`Malformed "${MSG_WITNESS_BLOCK_ACK}"`);
-            }
+        isWitnessBlockAccept() {
             return this.message === MSG_WITNESS_BLOCK_ACK;
+        }
+
+        isWitnessBlockReject() {
+            if (this.message === MSG_WITNESS_BLOCK_REJECT && 'reject' !== '' + this.content) {
+                throw new TypeError(`Malformed "${MSG_WITNESS_BLOCK_REJECT}"`);
+            }
+            return this.message === MSG_WITNESS_BLOCK_REJECT;
         }
 
     };
