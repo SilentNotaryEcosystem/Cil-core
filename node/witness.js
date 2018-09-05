@@ -4,12 +4,10 @@ const debugLib = require('debug');
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
-module.exports = (Node, Messages, Constants, BFT, Block, Transaction) => {
-    const {MsgVersion, MsgCommon, MsgReject, MsgBlock} = Messages;
-    const {MsgWitnessCommon, MsgWitnessNextRound, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
+module.exports = (factory) => {
+    const {Node, Messages, Constants, BFT, Block, Transaction} = factory;
+    const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
-    const {MSG_VERSION, MSG_VERACK} = Constants.messageTypes;
-    const {MSG_WITNESS_NEXT_ROUND, MSG_WITNESS_EXPOSE} = Constants.messageTypes;
 
     return class Witness extends Node {
         constructor(options = {}) {

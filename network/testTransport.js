@@ -19,9 +19,10 @@ const TestConnectionWrapper = require('./testConnection');
 
 const EventBus = new EventEmitter();
 
-module.exports = (SerializerImplementation, MessageAssembler, Constants) => {
+module.exports = (factory) => {
+    const {Serializer, MessageAssembler, Constants} = factory;
+    const TestConnection = TestConnectionWrapper(Serializer, MessageAssembler, Constants);
 
-    const TestConnection = TestConnectionWrapper(SerializerImplementation, MessageAssembler, Constants);
     return class TestTransport extends EventEmitter {
 
         /**

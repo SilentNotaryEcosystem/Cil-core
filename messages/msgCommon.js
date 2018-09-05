@@ -6,7 +6,7 @@
  * @return {{new(*): MessageCommon}}
  */
 module.exports = (Constants, Crypto, MessageProto) => {
-    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT, MSG_BLOCK} = Constants.messageTypes;
+    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT, MSG_BLOCK, MSG_TX} = Constants.messageTypes;
 
     return class MessageCommon {
 
@@ -139,6 +139,10 @@ module.exports = (Constants, Crypto, MessageProto) => {
 
         isBlock() {
             return this.message === MSG_BLOCK;
+        }
+
+        isTx() {
+            return this.message === MSG_TX;
         }
 
     };

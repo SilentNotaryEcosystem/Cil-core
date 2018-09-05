@@ -4,10 +4,10 @@ const {sleep} = require('../utils');
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
-module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) => {
-    const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject} = Messages;
+module.exports = (factory) => {
+    const {Transport, Messages, Constants, Peer, PeerManager, Storage, Crypto} = factory;
+    const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx} = Messages;
     const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
-
 
     return class Node {
         constructor(options) {
@@ -199,10 +199,40 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                     return await this._handlePeerList(peer, message);
                 }
 
+                if (message.isTx()) {
+                    return await this._handleTx(peer, message);
+                }
+
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(`${err.message} Peer ${peer.remoteAddress}.`);
                 peer.misbehave(1);
+            }
+        }
+
+        /**
+         *
+         * Handler for MSG_TX message
+         *
+         * @param {Peer} peer - peer that send message
+         * @param {MessageCommon} message
+         * @return {Promise<void>}
+         * @private
+         */
+        async _handleTx(peer, message) {
+            /*
+            1. Validate
+            - Есть ли средства на аккаунте отправителя в достаточном количестве ДЛЯ этой одной транзакции!
+            - Достаточно ли gasLimit
+            - Проверить nonce (в stateRoot последнего блока будет последняя транзакция для этого аккаунта + те, что уже есть в mempool)
+            2. Если нет в мемпуле - добавить, есть - перезаписать.
+            3. Отправить соседям
+             */
+            const msgTx = new MsgTx(message);
+            const tx = msgTx.tx;
+            await this._checkTx(tx);
+            if (await this._mempool.accept(tx)) {
+                this._relayTx(tx);
             }
         }
 
@@ -323,6 +353,21 @@ module.exports = (Transport, Messages, Constants, Peer, PeerManager, Storage) =>
                 peerInfo: this._myPeerInfo.data,
                 height: this._mainChain
             });
+        }
+
+        /**
+         - Есть ли средства на аккаунте отправителя в достаточном количестве ДЛЯ этой одной транзакции!
+         - Достаточно ли gasLimit
+         - Проверить nonce (в stateRoot последнего блока будет последняя транзакция для этого аккаунта + те, что уже есть в mempool)
+
+         * @param tx
+         * @private
+         */
+        async _checkTx(tx) {
+            const senderAddr = Crypto.address(tx.publicKey);
+            const result = this._storage.getAccount(senderAddr);
+            if (!result) throw new Error('Account doesn\'t found');
+
         }
     };
 };

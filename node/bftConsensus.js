@@ -3,7 +3,8 @@ const EventEmitter = require('events');
 const Tick = require('tick-tock');
 const debug = require('debug')('bft:app');
 
-module.exports = (Constants, Crypto, Messages) => {
+module.exports = (factory) => {
+    const {Constants, Crypto, Messages} = factory;
     const {MsgWitnessNextRound} = Messages;
     const States = Constants.consensusStates;
     const MAIN_TIMER_NAME = 'stateChange';
@@ -247,11 +248,16 @@ module.exports = (Constants, Crypto, Messages) => {
                     this._blockStateHandler(false);
                     break;
                 case States.VOTE_BLOCK:
+
+                    // TODO: add signatures (of hash) of voted witnesses to block
                     this._voteStateHandler(isConsensus, consensusValue);
                     break;
                 case States.COMMIT:
 
                     // timeout for commit is reached. it's desired behavior to allow slow nodes keep round sync
+                    // TODO: this state also requires acknowledge, because for small block it speed up process
+                    // TODO: and will let all node to process large blocks
+
                     this._nextRound();
                     break;
             }

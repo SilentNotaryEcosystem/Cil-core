@@ -9,8 +9,10 @@ const {sleep} = require('../utils');
  * @emits 'message' {this, message}
  */
 
-module.exports = ({PeerInfo}, Transport, Constants) =>
-    class Peer extends EventEmitter {
+module.exports = (factory) => {
+    const {Messages, Transport, Constants} = factory;
+    const {PeerInfo} = Messages;
+    return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
             const {connection, peerInfo, lastActionTimestamp, transport} = options;
@@ -241,3 +243,4 @@ module.exports = ({PeerInfo}, Transport, Constants) =>
         }
 
     };
+};

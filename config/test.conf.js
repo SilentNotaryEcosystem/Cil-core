@@ -30,6 +30,7 @@ module.exports = {
             MSG_ADDR: 'addr',
             MSG_REJECT: 'reject',
             MSG_BLOCK: 'block',
+            MSG_TX: 'tx',
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',

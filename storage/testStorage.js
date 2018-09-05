@@ -3,8 +3,9 @@ const {sleep} = require('../utils');
 
 const debug = debugLib('storage:');
 
-module.exports = (Constants) =>
-    class Storage {
+module.exports = (factory) => {
+    const {Constants} = factory;
+    return class Storage {
         constructor(options) {
 
             const {arrTestDefinition = []} = options;
@@ -20,4 +21,5 @@ module.exports = (Constants) =>
             // TODO: read from DB
             return this._groupDefinitions;
         }
-    };
+    }
+}

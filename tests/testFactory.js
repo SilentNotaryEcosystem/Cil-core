@@ -51,27 +51,13 @@ class Factory {
         this._donePromise.then(() => {
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
-                this._transportImplemetation = TransportWrapper(this.Serializer, this.MessageAssembler, this.Constants);
-                this._peerImplementation = PeerWrapper(this.Messages, this.Transport, this.Constants);
-                this._peerManagerImplemetation = PeerManagerWrapper(undefined, this.Constants, this.Messages, this.Peer);
-                this._storageImplementation = StorageWrapper(this.Constants);
-                this._bftImplementation = BftWrapper(this.Constants, this.Crypto, this.Messages);
-                this._nodeImplementation = NodeWrapper(
-                    this.Transport,
-                    this.Messages,
-                    this.Constants,
-                    this.Peer,
-                    this.PeerManager,
-                    this.Storage
-                );
-                this._witnessImplementation = WitnessWrapper(
-                    this.Node,
-                    this.Messages,
-                    this.Constants,
-                    this.BFT,
-                    this.Block,
-                    this.Transaction
-                );
+                this._transportImplemetation = TransportWrapper(this);
+                this._peerImplementation = PeerWrapper(this);
+                this._peerManagerImplemetation = PeerManagerWrapper(this);
+                this._storageImplementation = StorageWrapper(this);
+                this._bftImplementation = BftWrapper(this);
+                this._nodeImplementation = NodeWrapper(this);
+                this._witnessImplementation = WitnessWrapper(this);
             })
             .catch(err => {
                 logger.error(err);
@@ -81,7 +67,7 @@ class Factory {
         this._constants = {
             ...config.constants
         };
-        this._walletImplementation = WalletWrapper(Crypto);
+        this._walletImplementation = WalletWrapper(this.Crypto);
     }
 
     get version() {
@@ -169,7 +155,7 @@ class Factory {
         this._blockImplementation = BlockWrapper(this.Crypto, blockProto, blockPayloadProto);
 
         this._messagesImplementation =
-            MessagesWrapper(this.Constants, this.Crypto, this.Block, this.Transaction, prototypes);
+            MessagesWrapper(this, prototypes);
 
         this._constants = {
             ...this._constants,

@@ -2,16 +2,16 @@ const EventEmitter = require('events');
 
 /**
  *
- * @param Storage
- * @param Constants
- * @param PeerInfo
- * @param Peer
+ * @param {Factory} factory
  * @return {{new(*=): PeerManager}}
  *
  * @emits 'message' {peer, message}
  */
-module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
-    class PeerManager extends EventEmitter {
+module.exports = (factory) => {
+    const {Storage, Constants, Messages, Peer} = factory;
+    const {PeerInfo} = Messages;
+
+    return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
             const {transport} = options;
@@ -126,4 +126,5 @@ module.exports = (Storage, Constants, {PeerInfo}, Peer) =>
             // it could be ripemd160
             return address.toString('hex');
         }
-    };
+    }
+}

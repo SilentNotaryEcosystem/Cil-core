@@ -4,6 +4,7 @@ const MsgAddrWrapper = require('./node/msgAddr');
 const MsgVersionWrapper = require('./node/msgVersion');
 const MsgRejectWrapper = require('./node/msgReject');
 const MsgBlockWrapper = require('./node/msgBlock');
+const MsgTxWrapper = require('./node/msgTx');
 
 const PeerInfoWrapper = require('./includes/peerInfo');
 
@@ -12,8 +13,9 @@ const MsgWitnessNextRoundWrapper = require('./witness/msgWitnessNextRound.js');
 const MsgWitnessExposeWrapper = require('./witness/msgWitnessExpose.js');
 const MsgWitnessBlockWrapper = require('./witness/msgWitnessBlock.js');
 
-module.exports = (Constants, Crypto, Block, Transaction, objPrototypes) => {
+module.exports = (factory, objPrototypes) => {
 
+    const {Constants, Crypto, Block, Transaction} = factory;
     const {messageProto, versionPayloadProto, addrPayloadProto, rejectPayloadProto} = objPrototypes;
     const {witnessMessageProto, witnessNextRoundProto} = objPrototypes;
     const {peerInfoProto} = objPrototypes;
@@ -28,6 +30,7 @@ module.exports = (Constants, Crypto, Block, Transaction, objPrototypes) => {
         MsgAddr: MsgAddrWrapper(Constants, MsgCommon, addrPayloadProto),
         MsgReject: MsgRejectWrapper(Constants, MsgCommon, rejectPayloadProto),
         MsgBlock,
+        MsgTx: MsgTxWrapper(Constants, Crypto, MsgCommon, Transaction),
 
         PeerInfo: PeerInfoWrapper(Constants, peerInfoProto),
 
