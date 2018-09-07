@@ -3,7 +3,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
         constructor(data) {
             if (Buffer.isBuffer(data)) {
                 this._data = {...TransactionProto.decode(data)};
-                this._setPublicKey();
+                this._recoverPublicKey();
                 this._encodedPayload = null;
             } else if (typeof data === 'object') {
                 const errMsg = TransactionProto.verify(data);
@@ -38,7 +38,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             return Crypto.signatureFromBuffer(this._data.signature);
         }
 
-        _setPublicKey() {
+        _recoverPublicKey() {
             this._publicKey = Crypto.recoverPubKey(this.hash, this.signature);
         }
 
@@ -48,7 +48,7 @@ module.exports = (Crypto, TransactionProto, TransactionPayloadProto) =>
             }
             try {
                 if (!this._publicKey) {
-                    this._setPublicKey();
+                    this._recoverPublicKey();
                 }
                 return this._publicKey;
             }

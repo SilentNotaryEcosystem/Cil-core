@@ -2,18 +2,22 @@ syntax = "proto3";
 
 package structures;
 
-message Transaction {
-    TransactionPayload payload = 1;
-    bytes signature = 2;
+message input{
+    bytes txHash=1;
+    uint32 nTxOutput=2;
+    bytes claimProof=3;
 }
 
-message TransactionPayload {
-    uint32 nonce = 1;
-    uint32 gasLimit = 2;
-    uint32 gasPrice = 3;
-    string to = 4;
-    uint32 value = 5;
-    string extField = 6;
+message output{
+
+    // possibly here should be uint64 or bytes (BN)
+    uint32 amount=1;
+    bytes codeClaim=2;
+}
+
+message Transaction {
+    repeated input ins=1;
+    repeated output outs=2;
 }
 
 message Block{
