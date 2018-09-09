@@ -151,8 +151,9 @@ class Factory {
             blockProto, blockPayloadProto, transactionProto, transactionPayloadProto, enumServices, enumRejectCodes
         } = prototypes;
 
-        this._transactionImplementation = TransactionWrapper(this.Crypto, transactionProto, transactionPayloadProto);
-        this._blockImplementation = BlockWrapper(this.Crypto, blockProto, blockPayloadProto);
+        this._transactionImplementation =
+            TransactionWrapper(this.Constants, this.Crypto, transactionProto, transactionPayloadProto);
+        this._blockImplementation = BlockWrapper(this.Constants, this.Crypto, blockProto, blockPayloadProto);
 
         this._messagesImplementation =
             MessagesWrapper(this, prototypes);

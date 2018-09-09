@@ -1,4 +1,4 @@
-module.exports = (Crypto, BlockProto, BlockPayloadProto) =>
+module.exports = (Constants, Crypto, BlockProto, BlockPayloadProto) =>
     class Block {
         constructor(data) {
             if (Buffer.isBuffer(data)) {

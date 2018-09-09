@@ -2,15 +2,6 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const debug = require('debug')('transaction:');
 
-const txPayload = {
-    nonce: 20,
-    gasLimit: 102,
-    gasPrice: 21,
-    to: '43543543525454',
-    value: 1200,
-    extField: 'extFieldextFieldextField'
-};
-
 let keyPair;
 let privateKey;
 let publicKey;
@@ -24,80 +15,155 @@ describe('Transaction tests', () => {
         privateKey = keyPair.getPrivate();
         publicKey = keyPair.getPublic();
     });
-    // it('should restore the correct public key from the signature', async () => {
-    //     for (let i = 1; i <= 1000; i++) {
-    //         const countBytes = Math.round(Math.random() * (8192 - 1) + 1);
-    //         const buff = factory.Crypto.randomBytes(countBytes);
-    //         const buffHash = factory.Crypto.createHash(buff);
-    //         const { signature, recoveryParam } = factory.Crypto.sign(buffHash, privateKey, undefined, undefined, true);
 
-    //         const recoveredPublicKey = factory.Crypto.recoverPubKey(buffHash, signature, recoveryParam);
-    //         assert.equal(recoveredPublicKey.encode('hex', true), publicKey);
-    //     }
-    // });
+    it('should create empty transaction', async () => {
+        const wrapper = () => new factory.Transaction();
+        assert.doesNotThrow(wrapper);
+    });
 
-    // it('should be a valid signature', async () => {
-    //     for (let i = 1; i <= 1000; i++) {
-    //         const countBytes = Math.round(Math.random() * (8192 - 1) + 1);
-    //         const buff = factory.Crypto.randomBytes(countBytes);
-    //         const buffHash = factory.Crypto.createHash(buff);
-    //         const { signature, recoveryParam } = factory.Crypto.sign(buffHash, privateKey, undefined, undefined, true);
+    it('should FAIL due oversized transaction', async () => {
+        const wrapper = () => new factory.Transaction(Buffer.allocUnsafe(factory.Constants.MAX_BLOCK_SIZE + 1));
+        assert.throws(wrapper);
+    });
 
-    //         const recoveredPublicKey = factory.Crypto.recoverPubKey(buffHash, signature, recoveryParam);
+    it('should create transaction from Object', async () => {
+        const wrapper = () => new factory.Transaction({
+            payload: {
+                ins: [{txHash: Buffer.from([1, 2, 3]), nTxOutput: 1}],
+                outs: []
+            },
+            claimProofs: [Buffer.from([1, 2, 3])]
+        });
+        assert.doesNotThrow(wrapper);
+    });
 
-    //         assert.equal(factory.Crypto.verify(buffHash, signature, recoveredPublicKey), true, 'Signature is not valid');
-    //     }
-    // });
+    it('should add input', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 1);
+        assert.isOk(tx._data.payload.ins);
+        assert.equal(tx._data.payload.ins.length, 1);
+    });
 
-    it('should create transaction', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        assert.exists(tr);
-        assert.isOk(tr);
+    it('should add output (receiver)', async () => {
+        const tx = new factory.Transaction();
+        tx.addReceiver(100, Buffer.allocUnsafe(20));
+        assert.isOk(tx._data.payload.outs);
+        assert.equal(tx._data.payload.outs.length, 1);
     });
-    it('should exist transactions signature', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        tr.sign(privateKey);
-        assert.exists(tr.signature);
-        assert.isOk(tr.signature);
+
+    it('should sign it', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addReceiver(100, Buffer.allocUnsafe(20));
+        tx.sign(0, keyPair.privateKey);
+        assert.isOk(Array.isArray(tx._data.claimProofs));
+        assert.equal(tx._data.claimProofs.length, 1);
+        assert.isOk(Buffer.isBuffer(tx._data.claimProofs[0]));
+
+        assert.isOk(factory.Crypto.verify(tx.hash(), tx._data.claimProofs[0], keyPair.publicKey));
     });
-    it('should create transactions hash', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        tr.sign(privateKey);
-        const transactionHash = tr.encode();
-        assert.isOk(tr);
-        assert.isOk(transactionHash);
+
+    it('should FAIL to sign (missed PK) ', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addReceiver(100, Buffer.allocUnsafe(20));
+        const wrapper = () => tx.sign(0);
+        assert.throws(wrapper);
     });
-    it('should recover public key from signature', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        tr.sign(privateKey);
-        assert.isOk(tr);
-        assert.isOk(tr.publicKey);
+
+    it('should FAIL to sign (wrong index) ', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addReceiver(100, Buffer.allocUnsafe(20));
+        const wrapper = () => tx.sign(2, keyPair.privateKey);
+        assert.throws(wrapper);
     });
-    it('should be equality recovered public key generated public key', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        tr.sign(privateKey);
-        assert.isOk(tr);
-        assert.isOk(tr.publicKey);
-        assert.equal(tr.publicKey, publicKey);
+
+    it('should FAIL to modify after signing it', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.sign(0, keyPair.privateKey);
+        const wrapper = () => tx.addInput(Buffer.allocUnsafe(32), 1);
+        assert.throws(wrapper);
     });
-    it('should deserialize transaction', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        tr.sign(privateKey);
-        const transactionBuffer = tr.encode();
-        const deserializedTr = new factory.Transaction(transactionBuffer);
-        assert.isOk(deserializedTr);
+
+    it('should encode/decode', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addReceiver(1117, Buffer.allocUnsafe(20));
+        tx.sign(0, keyPair.privateKey);
+
+        const buffEncoded = tx.encode();
+
+        const recoveredTx = new factory.Transaction(buffEncoded);
+        assert.isOk(recoveredTx._data.payload.ins);
+        assert.equal(recoveredTx._data.payload.ins.length, 1);
+        assert.isOk(recoveredTx._data.payload.outs);
+        assert.equal(recoveredTx._data.payload.outs.length, 1);
+        assert.isOk(Array.isArray(recoveredTx._data.claimProofs));
+        assert.equal(recoveredTx._data.claimProofs.length, 1);
+        assert.isOk(Buffer.isBuffer(recoveredTx._data.claimProofs[0]));
+
+        assert.isOk(recoveredTx._data.claimProofs[0].equals(tx._data.claimProofs[0]));
+        assert.equal(recoveredTx._data.payload.ins[0].nTxOutput, tx._data.payload.ins[0].nTxOutput);
+        assert.equal(recoveredTx._data.payload.outs[0].amount, tx._data.payload.outs[0].amount);
     });
-    it('should PASS verification', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        tr.sign(privateKey);
-        const deserializedTr = new factory.Transaction(tr.encode());
-        assert.isOk(deserializedTr.verifySignature());
+
+    it('should change hash upon modification', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addReceiver(1117, Buffer.allocUnsafe(20));
+        const hash = tx.hash();
+
+        tx._data.payload.ins[0].nTxOutput = 1;
+        assert.notEqual(hash, tx.hash());
     });
-    it('should FAIL verification', async () => {
-        const tr = new factory.Transaction({payload: txPayload});
-        tr.sign(privateKey);
-        let deserializedTr = new factory.Transaction(tr.encode());
-        deserializedTr.payload.nonce = 22;
-        assert.isNotOk(deserializedTr.verifySignature());
+
+    it('should fail signature check upon modification', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addReceiver(1117, Buffer.allocUnsafe(20));
+        tx.sign(0, keyPair.privateKey);
+
+        tx._data.payload.ins[0].nTxOutput = 1;
+
+        assert.isNotOk(factory.Crypto.verify(tx.hash(), tx._data.claimProofs[0], keyPair.publicKey));
+    });
+
+    it('should fail to verify: no claimProof for input0', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 15);
+
+        assert.isNotOk(tx.verify());
+    });
+
+    it('should fail to verify: zero tx', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.alloc(32), 15);
+
+        assert.isNotOk(tx.verify());
+    });
+
+    it('should fail to verify: negative tx index', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), -1);
+
+        assert.isNotOk(tx.verify());
+    });
+
+    it('should fail to verify: zero amount', async () => {
+        const tx = new factory.Transaction();
+        tx.addReceiver(0, Buffer.allocUnsafe(20));
+
+        assert.isNotOk(tx.verify());
+    });
+
+    it('should verify', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 0);
+        tx.addReceiver(1, Buffer.allocUnsafe(20));
+        tx.sign(0, keyPair.privateKey);
+
+        assert.isOk(tx.verify());
     });
 });
