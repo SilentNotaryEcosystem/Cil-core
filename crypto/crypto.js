@@ -86,8 +86,7 @@ class CryptoLib {
      * @param {BN|String} key - private key (BN - BigNumber @see https://github.com/indutny/bn.js)
      * @param {String} enc - encoding of private key. possible value = 'hex', else it's trated as Buffer
      * @param {Object} options - for hmac-drbg
-     * @param {boolean} wRecoveryParam - return signature with recoveryParam
-     * @return {Buffer|Object}
+     * @return {Buffer}
      */
     static sign(msg, key, enc = 'hex', options) {
         if (!key) throw new Error('Bad private key!');

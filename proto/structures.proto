@@ -5,19 +5,25 @@ package structures;
 message input{
     bytes txHash=1;
     uint32 nTxOutput=2;
-    bytes claimProof=3;
 }
 
 message output{
 
     // possibly here should be uint64 or bytes (BN)
     uint32 amount=1;
+
+    // code to be executed in App with claimProofs as parameters
     bytes codeClaim=2;
 }
 
-message Transaction {
+message TransactionPayload {
     repeated input ins=1;
     repeated output outs=2;
+}
+
+message Transaction {
+    TransactionPayload payload=1;
+    repeated bytes claimProofs=2;
 }
 
 message Block{
