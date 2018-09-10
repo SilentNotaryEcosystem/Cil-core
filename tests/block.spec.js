@@ -8,13 +8,10 @@ const factory = require('./testFactory');
 
 const createDummyTx = () => ({
     payload: {
-        nonce: parseInt(Math.random() * 1000),
-        gasLimit: parseInt(Math.random() * 1000),
-        gasPrice: parseInt(Math.random() * 100),
-        to: '43543543525454',
-        value: parseInt(Math.random() * 1000),
-        extField: 'extFieldextFieldextField'
-    }
+        ins: [{txHash: Buffer.allocUnsafe(32), nTxOutput: parseInt(Math.random() * 1000)}],
+        outs: [{amount: parseInt(Math.random() * 1000)}]
+    },
+    claimProofs: [Buffer.allocUnsafe(32)]
 });
 
 describe('Block tests', () => {
@@ -40,7 +37,7 @@ describe('Block tests', () => {
         const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
-        tx.sign(keyPair.privateKey);
+        tx.sign(0, keyPair.privateKey);
 
         block.addTx(tx);
         debug(block.hash);
@@ -49,7 +46,7 @@ describe('Block tests', () => {
 
         const anotherBlock = new factory.Block();
         const anotherTx = new factory.Transaction(createDummyTx());
-        anotherTx.sign(keyPair.privateKey);
+        anotherTx.sign(0, keyPair.privateKey);
         anotherBlock.addTx(anotherTx);
         debug(anotherBlock.hash);
         assert.notEqual(block.hash, anotherBlock.hash);
@@ -59,7 +56,7 @@ describe('Block tests', () => {
         const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
-        tx.sign(keyPair.privateKey);
+        tx.sign(0, keyPair.privateKey);
 
         block.addTx(tx);
         const buffBlock = block.encode();
@@ -70,9 +67,8 @@ describe('Block tests', () => {
         assert.isOk(Array.isArray(restoredBlock.txns));
         assert.equal(restoredBlock.txns.length, 1);
 
-        // get rid of __proto__ that makes them diffrent
-        assert.deepEqual(Object.assign({}, restoredBlock.txns[0].payload), Object.assign({}, tx.rawData.payload));
-        assert.isOk(restoredBlock.txns[0].signature.equals(tx.rawData.signature));
+        const restoredTx = new factory.Transaction(restoredBlock.txns[0]);
+        assert.isOk(restoredTx.equals(tx));
     });
 
 });
