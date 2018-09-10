@@ -1,6 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debug = require('debug')('transaction:');
+
+const {createDummyTx} = require('./testUtil');
 
 let keyPair;
 let privateKey;
@@ -27,13 +28,7 @@ describe('Transaction tests', () => {
     });
 
     it('should create transaction from Object', async () => {
-        const wrapper = () => new factory.Transaction({
-            payload: {
-                ins: [{txHash: Buffer.from([1, 2, 3]), nTxOutput: 1}],
-                outs: []
-            },
-            claimProofs: [Buffer.from([1, 2, 3])]
-        });
+        const wrapper = () => new factory.Transaction(createDummyTx());
         assert.doesNotThrow(wrapper);
     });
 
@@ -186,5 +181,13 @@ describe('Transaction tests', () => {
 
         assert.isOk(Array.isArray(tx.coins));
         assert.isOk(utxo.equals(tx.coins[0]));
+    });
+
+    it('should get hash as string', async () => {
+        const tx = new factory.Transaction();
+        const utxo = Buffer.allocUnsafe(32);
+        tx.addInput(utxo, 11);
+
+        assert.equal(tx.strHash, tx.hash().toString('hex'));
     });
 });

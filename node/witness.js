@@ -8,7 +8,6 @@ module.exports = (factory) => {
     const {Node, Messages, Constants, BFT, Block, Transaction} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
-
     return class Witness extends Node {
         constructor(options = {}) {
             super(options);
@@ -319,13 +318,19 @@ module.exports = (factory) => {
         _createAndBroadcastBlock(groupName) {
 
             // TODO: implement
-            const createDummyTx = () => ({
-                payload: {
-                    ins: [{txHash: Buffer.allocUnsafe(32), nTxOutput: parseInt(Math.random() * 1000)}],
-                    outs: [{amount: parseInt(Math.random() * 1000)}]
-                },
-                claimProofs: [Buffer.allocUnsafe(32)]
-            });
+            const createDummyTx = (hash) => {
+                const pseudoRandomBytes = Buffer.allocUnsafe(32);
+
+                // this will prevent all zeroes buffer (it will make tx invalid
+                pseudoRandomBytes[0] = 1;
+                return {
+                    payload: {
+                        ins: [{txHash: hash ? hash : pseudoRandomBytes, nTxOutput: parseInt(Math.random() * 1000) + 1}],
+                        outs: [{amount: parseInt(Math.random() * 1000) + 1}]
+                    },
+                    claimProofs: [Buffer.allocUnsafe(32)]
+                };
+            };
 
             const msg = new MsgWitnessBlock({groupName});
             const block = new Block();

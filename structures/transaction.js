@@ -96,6 +96,10 @@ module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) 
             return Crypto.createHash(TransactionPayloadProto.encode(this._data.payload).finish());
         }
 
+        get strHash() {
+            return this.hash().toString('hex');
+        }
+
         /**
          * Is this transaction could be modified
          *

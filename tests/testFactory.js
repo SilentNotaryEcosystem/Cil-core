@@ -37,6 +37,7 @@ const BftWrapper = require('../node/bftConsensus');
 const PeerWrapper = require('../network/peer');
 const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
+const MempoolWrapper = require('../node/mempool');
 const WitnessWrapper = require('../node/witness');
 const StorageWrapper = require('../storage/testStorage');
 const TransactionWrapper = require('../structures/transaction');
@@ -58,6 +59,7 @@ class Factory {
                 this._bftImplementation = BftWrapper(this);
                 this._nodeImplementation = NodeWrapper(this);
                 this._witnessImplementation = WitnessWrapper(this);
+                this._mempoolImplementation = MempoolWrapper(this);
             })
             .catch(err => {
                 logger.error(err);
@@ -75,6 +77,10 @@ class Factory {
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
                parseInt(arrSubversions[1]) * Math.pow(2, 10) +
                parseInt(arrSubversions[2]);
+    }
+
+    get Mempool() {
+        return this._mempoolImplementation;
     }
 
     get Crypto() {
