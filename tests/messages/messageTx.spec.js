@@ -1,16 +1,10 @@
+'use strict';
+
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon');
+const {createDummyTx} = require('../testUtil');
 
 const factory = require('../testFactory');
-
-const createDummyTx = () => ({
-    payload: {
-        ins: [{txHash: Buffer.allocUnsafe(32), nTxOutput: parseInt(Math.random() * 1000)}],
-        outs: [{amount: parseInt(Math.random() * 1000)}]
-    },
-    claimProofs: [Buffer.allocUnsafe(32)]
-});
 
 describe('Message Transaction', () => {
     before(async function() {

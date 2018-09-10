@@ -5,14 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('block:');
 
 const factory = require('./testFactory');
-
-const createDummyTx = () => ({
-    payload: {
-        ins: [{txHash: Buffer.allocUnsafe(32), nTxOutput: parseInt(Math.random() * 1000)}],
-        outs: [{amount: parseInt(Math.random() * 1000)}]
-    },
-    claimProofs: [Buffer.allocUnsafe(32)]
-});
+const {createDummyTx} = require('./testUtil');
 
 describe('Block tests', () => {
     before(async function() {
