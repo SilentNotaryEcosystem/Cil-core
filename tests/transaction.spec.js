@@ -37,6 +37,11 @@ describe('Transaction tests', () => {
         assert.doesNotThrow(wrapper);
     });
 
+    it('should FAIL to parse random bytes', async () => {
+        const wrapper = () => new factory.Transaction(Buffer.allocUnsafe(100));
+        assert.throws(wrapper);
+    });
+
     it('should add input', async () => {
         const tx = new factory.Transaction();
         tx.addInput(Buffer.allocUnsafe(32), 1);
@@ -155,5 +160,31 @@ describe('Transaction tests', () => {
         tx.sign(0, keyPair.privateKey);
 
         assert.isOk(tx.verify());
+    });
+
+    it('should fail to create tx: verification failed during decoding from buffer', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 15);
+
+        const buffEncodedTx = tx.encode();
+        const wrapper = () => new factory.Transaction(buffEncodedTx);
+        assert.throws(wrapper);
+    });
+
+    it('should fail to create tx: verification failed during creating from Object', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(Buffer.allocUnsafe(32), 15);
+
+        const wrapper = () => new factory.Transaction(tx.rawData);
+        assert.throws(wrapper);
+    });
+
+    it('should get utxos from tx', async () => {
+        const tx = new factory.Transaction();
+        const utxo = Buffer.allocUnsafe(32);
+        tx.addInput(utxo, 15);
+
+        assert.isOk(Array.isArray(tx.coins));
+        assert.isOk(utxo.equals(tx.coins[0]));
     });
 });

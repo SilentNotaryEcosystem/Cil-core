@@ -10,14 +10,16 @@ module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) 
     class Transaction {
         constructor(data) {
             if (Buffer.isBuffer(data)) {
-                if (data.length > Constants.MAX_BLOCK_SIZE) throw new Error('Oversized transaction');
+                if (data.length > Constants.MAX_BLOCK_SIZE) throw new Error('Oversize transaction');
 
                 this._data = {...TransactionProto.decode(data)};
+                if (!this.verify()) throw new Error('Transaction is invalid');
             } else if (typeof data === 'object') {
                 const errMsg = TransactionProto.verify(data);
                 if (errMsg) throw new Error(`Transaction: ${errMsg}`);
 
                 this._data = TransactionProto.create(data);
+                if (!this.verify()) throw new Error('Transaction is invalid');
             } else if (data === undefined) {
                 this._data = {
                     payload: {
@@ -177,6 +179,17 @@ module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) 
 
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
             return outsValid && this._data.claimProofs.length === this._data.payload.ins.length;
+        }
+
+        /**
+         *
+         * @return {Array} utxos this tx tries to spend
+         */
+        get coins() {
+            const inputs = this.inputs;
+            if (!inputs) throw new Error('Unexpected: empty inputs!');
+
+            return inputs.map(_in => _in.txHash);
         }
 
     };
