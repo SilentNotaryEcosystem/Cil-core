@@ -31,6 +31,33 @@ module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) 
             }
         }
 
+        get rawData() {
+            return this._data;
+        }
+
+        get inputs() {
+            const checkPath = this._data &&
+                              this._data.payload &&
+                              this._data.payload.ins &&
+                              Array.isArray(this._data.payload.ins);
+            return checkPath ? this._data.payload.ins : undefined;
+        }
+
+        get outputs() {
+            const checkPath = this._data &&
+                              this._data.payload &&
+                              this._data.payload.outs &&
+                              Array.isArray(this._data.payload.outs);
+            return checkPath ? this._data.payload.outs : undefined;
+        }
+
+        get claimProofs() {
+            const checkPath = this._data &&
+                              this._data.claimProofs &&
+                              Array.isArray(this._data.claimProofs);
+            return checkPath ? this._data.claimProofs : undefined;
+        }
+
         /**
          *
          * @param {Buffer | String} utxo - unspent tx output
@@ -91,6 +118,42 @@ module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) 
 
             const hash = this.hash(idx);
             this._data.claimProofs[idx] = Crypto.sign(hash, key, enc);
+        }
+
+        /**
+         *
+         * @param {Transaction} txToCompare
+         * @return {boolean}
+         */
+        equals(txToCompare) {
+            const arrInputsToCompare = txToCompare.inputs;
+            const arrOutputsToCompare = txToCompare.outputs;
+            const arrClaimProofToCompare = txToCompare.claimProofs;
+
+            const roughEqual = (arrInputsToCompare ? this.inputs.length === arrInputsToCompare.length : true) &&
+                               (arrOutputsToCompare ? this.outputs.length === arrOutputsToCompare.length : true) &&
+                               (arrClaimProofToCompare
+                                   ? this.claimProofs.length === arrClaimProofToCompare.length : true);
+            if (!roughEqual) return false;
+
+            // check inputs
+            const insEqual = this.inputs.every((val, idx) => {
+                return val.nTxOutput === arrInputsToCompare[idx].nTxOutput &&
+                       val.txHash.equals(arrInputsToCompare[idx].txHash);
+            });
+            if (!insEqual) return false;
+
+            // check outputs
+            const outsEqual = this.outputs.every((val, idx) => {
+                return val.amount === arrOutputsToCompare[idx].amount &&
+                       Buffer.isBuffer(val.codeClaim) ? val.codeClaim.equals(arrOutputsToCompare[idx].codeClaim) : true;
+            });
+            if (!outsEqual) return false;
+
+            // check the rest: codeClaim
+            return this.claimProofs.every((val, idx) => {
+                return val.equals(arrClaimProofToCompare[idx]);
+            });
         }
 
         encode() {

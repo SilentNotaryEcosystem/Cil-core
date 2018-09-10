@@ -96,17 +96,7 @@ describe('Transaction tests', () => {
         const buffEncoded = tx.encode();
 
         const recoveredTx = new factory.Transaction(buffEncoded);
-        assert.isOk(recoveredTx._data.payload.ins);
-        assert.equal(recoveredTx._data.payload.ins.length, 1);
-        assert.isOk(recoveredTx._data.payload.outs);
-        assert.equal(recoveredTx._data.payload.outs.length, 1);
-        assert.isOk(Array.isArray(recoveredTx._data.claimProofs));
-        assert.equal(recoveredTx._data.claimProofs.length, 1);
-        assert.isOk(Buffer.isBuffer(recoveredTx._data.claimProofs[0]));
-
-        assert.isOk(recoveredTx._data.claimProofs[0].equals(tx._data.claimProofs[0]));
-        assert.equal(recoveredTx._data.payload.ins[0].nTxOutput, tx._data.payload.ins[0].nTxOutput);
-        assert.equal(recoveredTx._data.payload.outs[0].amount, tx._data.payload.outs[0].amount);
+        assert.isOk(recoveredTx.equals(tx));
     });
 
     it('should change hash upon modification', async () => {

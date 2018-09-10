@@ -12,7 +12,7 @@ const createDummyTx = () => ({
     claimProofs: [Buffer.allocUnsafe(32)]
 });
 
-describe('MessageBlock', () => {
+describe('Message Transaction', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -23,62 +23,51 @@ describe('MessageBlock', () => {
     });
 
     it('should create empty message', async () => {
-        const msg = new factory.Messages.MsgBlock();
+        const msg = new factory.Messages.MsgTx();
         assert.isOk(msg.network);
         assert.equal(msg.network, factory.Constants.network);
-        assert.isOk(msg.isBlock());
+        assert.isOk(msg.isTx());
     });
 
     it('should set/get block', async () => {
-        const msg = new factory.Messages.MsgBlock();
+        const msg = new factory.Messages.MsgTx();
 
-        const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);
+        msg.tx = tx;
 
-        block.addTx(tx);
-        msg.block = block;
+        assert.isOk(Buffer.isBuffer(msg.payload));
 
-        const restoredBlock = msg.block;
-        assert.equal(block.hash, restoredBlock.hash);
-        assert.isOk(Array.isArray(restoredBlock.txns));
-        assert.equal(restoredBlock.txns.length, 1);
-
-        const restoredTx = new factory.Transaction(restoredBlock.txns[0]);
+        const restoredTx = msg.tx;
+        assert.equal(tx.hash, restoredTx.hash);
         assert.isOk(restoredTx.equals(tx));
+
     });
 
     it('should encode/decode message', async () => {
-        const msg = new factory.Messages.MsgBlock();
+        const msg = new factory.Messages.MsgTx();
 
-        const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);
-
-        block.addTx(tx);
-        msg.block = block;
+        msg.tx = tx;
 
         const buffMsg = msg.encode();
         assert.isOk(Buffer.isBuffer(buffMsg));
-        const restoredMsg = new factory.Messages.MsgBlock(buffMsg);
+        const restoredMsg = new factory.Messages.MsgTx(buffMsg);
 
-        const restoredBlock = restoredMsg.block;
-        assert.equal(block.hash, restoredBlock.hash);
-        assert.isOk(Array.isArray(restoredBlock.txns));
-        assert.equal(restoredBlock.txns.length, 1);
-
-        const restoredTx = new factory.Transaction(restoredBlock.txns[0]);
+        const restoredTx = restoredMsg.tx;
+        assert.equal(tx.hash, restoredTx.hash);
         assert.isOk(restoredTx.equals(tx));
     });
 
     it('should fail to decode block message', async () => {
-        const msg = new factory.Messages.MsgBlock();
+        const msg = new factory.Messages.MsgTx();
         msg.payload = Buffer.from('123');
 
-        const restoredBlock = msg.block;
-        assert.isNotOk(restoredBlock);
+        const restoredTx = msg.tx;
+        assert.isNotOk(restoredTx);
     });
 
 });

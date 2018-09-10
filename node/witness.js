@@ -319,22 +319,18 @@ module.exports = (factory) => {
         _createAndBroadcastBlock(groupName) {
 
             // TODO: implement
-
             const createDummyTx = () => ({
                 payload: {
-                    nonce: parseInt(Math.random() * 1000),
-                    gasLimit: parseInt(Math.random() * 1000),
-                    gasPrice: parseInt(Math.random() * 100),
-                    to: '43543543525454',
-                    value: parseInt(Math.random() * 1000),
-                    extField: 'extFieldextFieldextField'
-                }
+                    ins: [{txHash: Buffer.allocUnsafe(32), nTxOutput: parseInt(Math.random() * 1000)}],
+                    outs: [{amount: parseInt(Math.random() * 1000)}]
+                },
+                claimProofs: [Buffer.allocUnsafe(32)]
             });
 
             const msg = new MsgWitnessBlock({groupName});
             const block = new Block();
             const tx = new Transaction(createDummyTx());
-            tx.sign(this._wallet.privateKey);
+            tx.sign(0, this._wallet.privateKey);
             block.addTx(tx);
             msg.block = block;
             msg.sign(this._wallet.privateKey);

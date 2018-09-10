@@ -4,14 +4,13 @@ const sinon = require('sinon');
 
 const factory = require('../testFactory');
 
-const txPayload = {
-    nonce: 20,
-    gasLimit: 102,
-    gasPrice: 21,
-    to: '43543543525454',
-    value: 1200,
-    extField: 'extFieldextFieldextField'
-};
+const createDummyTx = () => ({
+    payload: {
+        ins: [{txHash: Buffer.allocUnsafe(32), nTxOutput: parseInt(Math.random() * 1000)}],
+        outs: [{amount: parseInt(Math.random() * 1000)}]
+    },
+    claimProofs: [Buffer.allocUnsafe(32)]
+});
 
 describe('MessageWitnessBlock', () => {
     before(async function() {
@@ -38,8 +37,8 @@ describe('MessageWitnessBlock', () => {
 
         const block = new factory.Block();
         const keyPair = factory.Crypto.createKeyPair();
-        const tx = new factory.Transaction({payload: txPayload});
-        tx.sign(keyPair.privateKey);
+        const tx = new factory.Transaction(createDummyTx());
+        tx.sign(0, keyPair.privateKey);
 
         block.addTx(tx);
         msg.block = block;
@@ -57,7 +56,9 @@ describe('MessageWitnessBlock', () => {
         assert.equal(block.hash, restoredBlock.hash);
         assert.isOk(Array.isArray(restoredBlock.txns));
         assert.equal(restoredBlock.txns.length, 1);
-        assert.deepEqual(Object.assign({}, restoredBlock.txns[0].payload), Object.assign({}, tx.rawData.payload));
+
+        const restoredTx = new factory.Transaction(restoredBlock.txns[0]);
+        assert.isOk(restoredTx.equals(tx));
     });
 
 });

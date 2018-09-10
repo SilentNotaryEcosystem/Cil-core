@@ -26,12 +26,6 @@ module.exports = (Constants, Crypto, BlockProto, BlockPayloadProto) =>
             return this._data.payload;
         }
 
-        // TODO: remove! only for test purposes!
-        generateFakePayload() {
-            this._encodedPayload = null;
-            this._data.payload = Crypto.randomBytes(16);
-        }
-
         get txns() {
             return this._data.payload.txns;
         }
