@@ -72,8 +72,11 @@ describe('Mempool tests', () => {
         mempool.addTxUnchecked(tx1);
         mempool.addTxUnchecked(tx2);
 
+        // hash is String
         assert.isOk(mempool.hasTx(tx1.hash()));
-        assert.isOk(mempool.hasTx(tx2.hash()));
+
+        // hash is Buffer
+        assert.isOk(mempool.hasTx(Buffer.from(tx2.hash(), 'hex')));
     });
 
     it('should remove txns from mempool with new block', async () => {
@@ -92,6 +95,18 @@ describe('Mempool tests', () => {
 
         assert.isNotOk(mempool.hasTx(tx1.hash()));
         assert.isNotOk(mempool.hasTx(tx2.hash()));
+    });
+
+    it('should get tx by hash', async () => {
+        const mempool = new factory.Mempool();
+        const tx1 = new factory.Transaction(createDummyTx());
+        const tx2 = new factory.Transaction(createDummyTx());
+
+        mempool.addTxUnchecked(tx1);
+        mempool.addTxUnchecked(tx2);
+
+        const gotTx = mempool.getTx(tx1.hash());
+        assert.isOk(gotTx.equals(tx1));
     });
 
 });

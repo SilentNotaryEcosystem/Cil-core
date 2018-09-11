@@ -1,3 +1,5 @@
+'use strict';
+
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const {sleep} = require('../utils');
@@ -8,7 +10,7 @@ const debug = debugLib('mempool:');
 module.exports = ({Transaction}) =>
     class Mempool {
         constructor(options) {
-            this._setTxns = new Set();
+            this._mapTxns = new Map();
             this._coinsCache = new Set();
         }
 
@@ -21,7 +23,7 @@ module.exports = ({Transaction}) =>
                 const tx = new Transaction(objTx);
 
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
-                this._setTxns.delete(tx.strHash);
+                this._mapTxns.delete(tx.strHash);
                 this._removeTxCoinsFromCache(tx.coins);
             }
         }
@@ -30,7 +32,7 @@ module.exports = ({Transaction}) =>
             typeforce(typeforce.oneOf('String', 'Buffer'), txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-            return this._setTxns.has(strTxHash);
+            return this._mapTxns.has(strTxHash);
         }
 
         /**
@@ -51,11 +53,11 @@ module.exports = ({Transaction}) =>
          */
         addTxUnchecked(tx) {
             const strHash = tx.strHash;
-            if (this._setTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
+            if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
             const arrCoins = tx.coins;
             this._addTxCoinsToCache(arrCoins);
-            this._setTxns.add(strHash, {tx, arrived: Date.now()});
+            this._mapTxns.set(strHash, {tx, arrived: Date.now()});
         }
 
         _addTxCoinsToCache(arrCoins) {
@@ -71,5 +73,19 @@ module.exports = ({Transaction}) =>
 
         _removeTxCoinsFromCache(arrCoins) {
             arrCoins.forEach(hash => this._coinsCache.delete(hash.toString('hex')));
+        }
+
+        /**
+         *
+         * @param {Buffer | String} txHash
+         * @return {Transaction}
+         */
+        getTx(txHash) {
+            typeforce(typeforce.oneOf('String', 'Buffer'), txHash);
+
+            let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+            const tx = this._mapTxns.get(strTxHash);
+            if (!tx) throw new Error(`Mempool: No tx found by hash ${strTxHash}`);
+            return tx.tx;
         }
     };
