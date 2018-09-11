@@ -1,3 +1,5 @@
+'use strict';
+
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
@@ -7,7 +9,7 @@ let keyPair;
 let privateKey;
 let publicKey;
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
 describe('Transaction tests', () => {
     before(async function() {
@@ -30,6 +32,13 @@ describe('Transaction tests', () => {
     it('should create transaction from Object', async () => {
         const wrapper = () => new factory.Transaction(createDummyTx());
         assert.doesNotThrow(wrapper);
+    });
+
+    it('should calculate hash', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+        const hash = tx.hash();
+        assert.isOk(typeof hash === 'string');
+        assert.equal(hash.length, 64);
     });
 
     it('should FAIL to parse random bytes', async () => {

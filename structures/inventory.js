@@ -27,7 +27,10 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
          * @param {Transaction} tx
          */
         addTx(tx) {
-            this._data.invVector.push({type: Constants.INV_TX, hash: tx.hash()});
+            const vector = {type: Constants.INV_TX, hash: Buffer.from(tx.hash(), 'hex')};
+            typeforce(types.InvVector, vector);
+
+            this._data.invVector.push(vector);
         }
 
         /**
@@ -35,10 +38,19 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
          * @param {Block} block
          */
         addBlock(block) {
-            this._data.invVector.push({type: Constants.INV_BLOCK, hash: block.hash()});
+            const vector = {type: Constants.INV_BLOCK, hash: Buffer.from(block.hash(), 'hex')};
+            typeforce(types.InvVector, vector);
+
+            this._data.invVector.push(vector);
         }
 
         get vector() {
             return this._data.invVector;
+        }
+
+        addVector(vector) {
+            typeforce(types.InvVector, vector);
+
+            this._data.invVector.push(vector);
         }
     };

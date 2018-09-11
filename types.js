@@ -16,9 +16,12 @@ function Empty(value) {
     return value === undefined;
 }
 
+const Hash256bit = typeforce.BufferN(32);
+
 module.exports = {
-    Hash256bit: typeforce.BufferN(32),
+    Hash256bit,
     Address: typeforce.BufferN(20),
     PrivateKey,
-    Empty
+    Empty,
+    InvVector: typeforce.compile({type: 'Number', hash: Hash256bit})
 };

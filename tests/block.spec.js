@@ -33,9 +33,15 @@ describe('Block tests', () => {
         tx.sign(0, keyPair.privateKey);
 
         block.addTx(tx);
+
+        const hash = block.hash();
         debug(block.hash());
-        assert.isOk(block.hash());
-        assert.equal(block.hash(), block.hash());
+
+        assert.isOk(typeof hash === 'string');
+        assert.equal(hash.length, 64);
+
+        // next hash call - return same value
+        assert.equal(hash, block.hash());
 
         const anotherBlock = new factory.Block();
         const anotherTx = new factory.Transaction(createDummyTx());
