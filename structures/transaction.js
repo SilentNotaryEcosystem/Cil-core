@@ -6,19 +6,19 @@ const types = require('../types');
     TODO: implement codeClaim
  */
 
-module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) =>
+module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProto}) =>
     class Transaction {
         constructor(data) {
             if (Buffer.isBuffer(data)) {
                 if (data.length > Constants.MAX_BLOCK_SIZE) throw new Error('Oversize transaction');
 
-                this._data = {...TransactionProto.decode(data)};
+                this._data = {...transactionProto.decode(data)};
                 if (!this.verify()) throw new Error('Transaction is invalid');
             } else if (typeof data === 'object') {
-                const errMsg = TransactionProto.verify(data);
+                const errMsg = transactionProto.verify(data);
                 if (errMsg) throw new Error(`Transaction: ${errMsg}`);
 
-                this._data = TransactionProto.create(data);
+                this._data = transactionProto.create(data);
                 if (!this.verify()) throw new Error('Transaction is invalid');
             } else if (data === undefined) {
                 this._data = {
@@ -93,7 +93,7 @@ module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) 
          * @return {Buffer|Hash|*}
          */
         hash(idx) {
-            return Crypto.createHash(TransactionPayloadProto.encode(this._data.payload).finish());
+            return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());
         }
 
         get strHash() {
@@ -163,7 +163,7 @@ module.exports = (Constants, Crypto, TransactionProto, TransactionPayloadProto) 
         }
 
         encode() {
-            return TransactionProto.encode(this._data).finish();
+            return transactionProto.encode(this._data).finish();
         }
 
         verify() {

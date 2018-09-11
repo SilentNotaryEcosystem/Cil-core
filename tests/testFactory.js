@@ -49,7 +49,20 @@ class Factory {
     constructor() {
 
         this._donePromise = this._asyncLoader();
-        this._donePromise.then(() => {
+        this._donePromise.then((prototypes) => {
+                this._transactionImplementation =
+                    TransactionWrapper(this, prototypes);
+                this._blockImplementation = BlockWrapper(this, prototypes);
+
+                this._messagesImplementation =
+                    MessagesWrapper(this, prototypes);
+
+                this._constants = {
+                    ...this._constants,
+                    ...prototypes.enumServices.values,
+                    ...prototypes.enumRejectCodes.values
+                };
+
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = TransportWrapper(this);
@@ -152,23 +165,7 @@ class Factory {
     }
 
     async _asyncLoader() {
-        const prototypes = await this._loadMessagePrototypes();
-        const {
-            blockProto, blockPayloadProto, transactionProto, transactionPayloadProto, enumServices, enumRejectCodes
-        } = prototypes;
-
-        this._transactionImplementation =
-            TransactionWrapper(this.Constants, this.Crypto, transactionProto, transactionPayloadProto);
-        this._blockImplementation = BlockWrapper(this.Constants, this.Crypto, blockProto, blockPayloadProto);
-
-        this._messagesImplementation =
-            MessagesWrapper(this, prototypes);
-
-        this._constants = {
-            ...this._constants,
-            ...enumServices.values,
-            ...enumRejectCodes.values
-        };
+        return await this._loadMessagePrototypes();
     }
 
     /**

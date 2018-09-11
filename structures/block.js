@@ -1,16 +1,16 @@
-module.exports = (Constants, Crypto, BlockProto, BlockPayloadProto) =>
+module.exports = ({Constants, Crypto}, {blockProto, blockPayloadProto}) =>
     class Block {
         constructor(data) {
             if (Buffer.isBuffer(data)) {
-                this._data = {...BlockProto.decode(data)};
+                this._data = {...blockProto.decode(data)};
             } else if (typeof data === 'object') {
-                const errMsg = BlockProto.verify(data);
+                const errMsg = blockProto.verify(data);
                 if (errMsg) throw new Error(`Block: ${errMsg}`);
 
-                this._data = BlockProto.create(data);
+                this._data = blockProto.create(data);
             } else {
                 this._data = {
-                    payload: BlockPayloadProto.create({})
+                    payload: blockPayloadProto.create({})
                 };
             }
         }
@@ -31,11 +31,11 @@ module.exports = (Constants, Crypto, BlockProto, BlockPayloadProto) =>
         }
 
         encodePayload() {
-            this._encodedPayload = BlockPayloadProto.encode(this.payload).finish();
+            this._encodedPayload = blockPayloadProto.encode(this.payload).finish();
         }
 
         encode() {
-            return BlockProto.encode(this._data).finish();
+            return blockProto.encode(this._data).finish();
         }
 
         /**
