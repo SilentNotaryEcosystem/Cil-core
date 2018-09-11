@@ -1,21 +1,24 @@
+const typeforce = require('typeforce');
+const types = require('../types');
+
 module.exports = ({Constants, Crypto}, {blockProto, blockPayloadProto}) =>
     class Block {
         constructor(data) {
+            typeforce(typeforce.oneOf('Object', 'Buffer', types.Empty), data);
+
+            if (data === undefined) data = {payload: blockPayloadProto.create({})};
+
             if (Buffer.isBuffer(data)) {
-                this._data = {...blockProto.decode(data)};
+                this._data = blockProto.decode(data);
             } else if (typeof data === 'object') {
                 const errMsg = blockProto.verify(data);
                 if (errMsg) throw new Error(`Block: ${errMsg}`);
 
                 this._data = blockProto.create(data);
-            } else {
-                this._data = {
-                    payload: blockPayloadProto.create({})
-                };
             }
         }
 
-        get hash() {
+        hash() {
             if (!this._encodedPayload) {
                 this.encodePayload();
             }

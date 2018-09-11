@@ -151,7 +151,7 @@ module.exports = (factory) => {
         }
 
         processValidBlock(block) {
-            debug(`BFT "${this._nonce}". Received block with hash: ${block.hash}. State ${this._state}`);
+            debug(`BFT "${this._nonce}". Received block with hash: ${block.hash()}. State ${this._state}`);
             if (this._state !== States.BLOCK) {
                 logger.error(`Got block at wrong state: "${this._state}"`);
                 return;
@@ -330,7 +330,7 @@ module.exports = (factory) => {
                 this._state = States.COMMIT;
 
                 if (this._block) {
-                    if (consensusValue.data + '' === this._block.hash) {
+                    if (consensusValue.data + '' === this._block.hash()) {
                         this.emit('commitBlock', this._block);
                     } else {
 

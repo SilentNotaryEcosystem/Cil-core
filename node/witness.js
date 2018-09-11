@@ -206,7 +206,7 @@ module.exports = (factory) => {
                     consensus.processValidBlock(block);
 
                     // send our blockACK to consensus
-                    message = this._createBlockAcceptMessage(messageWitness.groupName, block.hash);
+                    message = this._createBlockAcceptMessage(messageWitness.groupName, block.hash());
                 }
 
                 // here we are at VOTE_BLOCK state - let's send our vote!
@@ -256,12 +256,12 @@ module.exports = (factory) => {
                 consensus.processValidBlock(block);
 
                 // send ACK for own block to consensus
-                const msgBlockAck = this._createBlockAcceptMessage(consensus.groupName, block.hash);
+                const msgBlockAck = this._createBlockAcceptMessage(consensus.groupName, block.hash());
                 this._broadcastConsensusInitiatedMessage(msgBlockAck);
             });
             consensus.on('commitBlock', (block) => {
                 logger.log(
-                    `Witness: "${this._debugAddress}" block "${block.hash}" Round: ${consensus._roundNo} commited at ${new Date} `);
+                    `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
 
                 //TODO: pass block to App layer
             });

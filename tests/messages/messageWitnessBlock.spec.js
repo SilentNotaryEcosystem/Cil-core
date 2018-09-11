@@ -47,7 +47,7 @@ describe('MessageWitnessBlock', () => {
         assert.equal(restoredMsg.publicKey, keyPair.publicKey);
 
         const restoredBlock = restoredMsg.block;
-        assert.equal(block.hash, restoredBlock.hash);
+        assert.equal(block.hash(), restoredBlock.hash());
         assert.isOk(Array.isArray(restoredBlock.txns));
         assert.equal(restoredBlock.txns.length, 1);
 

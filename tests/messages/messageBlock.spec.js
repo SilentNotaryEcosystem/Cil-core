@@ -35,7 +35,7 @@ describe('MessageBlock', () => {
         msg.block = block;
 
         const restoredBlock = msg.block;
-        assert.equal(block.hash, restoredBlock.hash);
+        assert.equal(block.hash(), restoredBlock.hash());
         assert.isOk(Array.isArray(restoredBlock.txns));
         assert.equal(restoredBlock.txns.length, 1);
 
@@ -59,7 +59,7 @@ describe('MessageBlock', () => {
         const restoredMsg = new factory.Messages.MsgBlock(buffMsg);
 
         const restoredBlock = restoredMsg.block;
-        assert.equal(block.hash, restoredBlock.hash);
+        assert.equal(block.hash(), restoredBlock.hash());
         assert.isOk(Array.isArray(restoredBlock.txns));
         assert.equal(restoredBlock.txns.length, 1);
 

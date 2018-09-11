@@ -33,16 +33,16 @@ describe('Block tests', () => {
         tx.sign(0, keyPair.privateKey);
 
         block.addTx(tx);
-        debug(block.hash);
-        assert.isOk(block.hash);
-        assert.equal(block.hash, block.hash);
+        debug(block.hash());
+        assert.isOk(block.hash());
+        assert.equal(block.hash(), block.hash());
 
         const anotherBlock = new factory.Block();
         const anotherTx = new factory.Transaction(createDummyTx());
         anotherTx.sign(0, keyPair.privateKey);
         anotherBlock.addTx(anotherTx);
-        debug(anotherBlock.hash);
-        assert.notEqual(block.hash, anotherBlock.hash);
+        debug(anotherBlock.hash());
+        assert.notEqual(block.hash(), anotherBlock.hash());
     });
 
     it('should encode/decode', async () => {
@@ -56,7 +56,7 @@ describe('Block tests', () => {
         assert.isOk(Buffer.isBuffer(buffBlock));
 
         const restoredBlock = new factory.Block(buffBlock);
-        assert.equal(block.hash, restoredBlock.hash);
+        assert.equal(block.hash(), restoredBlock.hash());
         assert.isOk(Array.isArray(restoredBlock.txns));
         assert.equal(restoredBlock.txns.length, 1);
 
