@@ -56,7 +56,9 @@ describe('MessageBlock', () => {
 
         const buffMsg = msg.encode();
         assert.isOk(Buffer.isBuffer(buffMsg));
-        const restoredMsg = new factory.Messages.MsgBlock(buffMsg);
+        const msgCommon = new factory.Messages.MsgCommon(buffMsg);
+
+        const restoredMsg = new factory.Messages.MsgBlock(msgCommon);
 
         const restoredBlock = restoredMsg.block;
         assert.equal(block.hash(), restoredBlock.hash());

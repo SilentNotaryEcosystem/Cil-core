@@ -54,7 +54,9 @@ describe('MessageInventory', () => {
         msg.inventory = inv;
         const buffMsg = msg.encode();
         assert.isOk(Buffer.isBuffer(buffMsg));
-        const restoredMsg = new factory.Messages.MsgInv(buffMsg);
+
+        const msgCommon = new factory.Messages.MsgCommon(buffMsg);
+        const restoredMsg = new factory.Messages.MsgInv(msgCommon);
 
         const wrapper = () => restoredMsg.inventory;
         assert.doesNotThrow(wrapper);
@@ -67,5 +69,4 @@ describe('MessageInventory', () => {
         const wrapper = () => msg.inventory;
         assert.throws(wrapper);
     });
-
 });

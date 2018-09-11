@@ -49,7 +49,8 @@ describe('Message Transaction', () => {
 
         const buffMsg = msg.encode();
         assert.isOk(Buffer.isBuffer(buffMsg));
-        const restoredMsg = new factory.Messages.MsgTx(buffMsg);
+        const msgCommon = new factory.Messages.MsgCommon(buffMsg);
+        const restoredMsg = new factory.Messages.MsgTx(msgCommon);
 
         const restoredTx = restoredMsg.tx;
         assert.equal(tx.hash, restoredTx.hash);
