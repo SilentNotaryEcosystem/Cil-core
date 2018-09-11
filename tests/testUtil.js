@@ -1,3 +1,11 @@
+const pseudoRandomBuffer = (length = 32) => {
+    const pseudoRandomBytes = Buffer.allocUnsafe(length);
+
+    // this will prevent all zeroes buffer (it will make tx invalid
+    pseudoRandomBytes[0] = 1;
+    return pseudoRandomBytes;
+};
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
@@ -6,16 +14,23 @@ module.exports = {
     },
 
     createDummyTx: (hash) => {
-        const pseudoRandomBytes = Buffer.allocUnsafe(32);
-
-        // this will prevent all zeroes buffer (it will make tx invalid
-        pseudoRandomBytes[0] = 1;
         return {
             payload: {
-                ins: [{txHash: hash ? hash : pseudoRandomBytes, nTxOutput: parseInt(Math.random() * 1000) + 1}],
+                ins: [{txHash: hash ? hash : pseudoRandomBuffer(), nTxOutput: parseInt(Math.random() * 1000) + 1}],
                 outs: [{amount: parseInt(Math.random() * 1000) + 1}]
             },
-            claimProofs: [Buffer.allocUnsafe(32)]
+            claimProofs: [pseudoRandomBuffer()]
         };
-    }
+    },
+
+    createDummyPeer: () => ({
+        peerInfo: {
+            capabilities: [
+                {service: factory.Constants.WITNESS, data: pseudoRandomBuffer()}
+            ],
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
+        }
+    }),
+
+    pseudoRandomBuffer
 };

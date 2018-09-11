@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {createDummyTx} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 
 let keyPair;
 let privateKey;
@@ -48,7 +48,7 @@ describe('Transaction tests', () => {
 
     it('should add input', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addInput(pseudoRandomBuffer(), 1);
         assert.isOk(tx._data.payload.ins);
         assert.equal(tx._data.payload.ins.length, 1);
     });
@@ -60,9 +60,21 @@ describe('Transaction tests', () => {
         assert.equal(tx._data.payload.outs.length, 1);
     });
 
+    it('should change hash upon changes', async () => {
+        const tx = new factory.Transaction();
+        const hash = tx.hash();
+
+        tx.addInput(pseudoRandomBuffer(), 1);
+        const inHash = tx.hash();
+        assert.notEqual(hash, inHash);
+
+        tx.addReceiver(100, Buffer.allocUnsafe(20));
+        assert.notEqual(inHash, tx.hash());
+    });
+
     it('should sign it', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
         tx.sign(0, keyPair.privateKey);
         assert.isOk(Array.isArray(tx._data.claimProofs));
@@ -74,7 +86,7 @@ describe('Transaction tests', () => {
 
     it('should FAIL to sign (missed PK) ', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
         const wrapper = () => tx.sign(0);
         assert.throws(wrapper);
@@ -82,7 +94,7 @@ describe('Transaction tests', () => {
 
     it('should FAIL to sign (wrong index) ', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
         const wrapper = () => tx.sign(2, keyPair.privateKey);
         assert.throws(wrapper);
@@ -90,15 +102,15 @@ describe('Transaction tests', () => {
 
     it('should FAIL to modify after signing it', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 1);
+        tx.addInput(pseudoRandomBuffer(), 1);
         tx.sign(0, keyPair.privateKey);
-        const wrapper = () => tx.addInput(Buffer.allocUnsafe(32), 1);
+        const wrapper = () => tx.addInput(pseudoRandomBuffer(), 1);
         assert.throws(wrapper);
     });
 
     it('should encode/decode', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addInput(pseudoRandomBuffer(), 15);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
         tx.sign(0, keyPair.privateKey);
 
@@ -110,7 +122,7 @@ describe('Transaction tests', () => {
 
     it('should change hash upon modification', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addInput(pseudoRandomBuffer(), 15);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
         const hash = tx.hash();
 
@@ -120,7 +132,7 @@ describe('Transaction tests', () => {
 
     it('should fail signature check upon modification', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addInput(pseudoRandomBuffer(), 15);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
         tx.sign(0, keyPair.privateKey);
 
@@ -131,7 +143,7 @@ describe('Transaction tests', () => {
 
     it('should fail to verify: no claimProof for input0', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addInput(pseudoRandomBuffer(), 15);
 
         assert.isNotOk(tx.verify());
     });
@@ -145,7 +157,7 @@ describe('Transaction tests', () => {
 
     it('should fail to verify: negative tx index', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), -1);
+        tx.addInput(pseudoRandomBuffer(), -1);
 
         assert.isNotOk(tx.verify());
     });
@@ -159,7 +171,7 @@ describe('Transaction tests', () => {
 
     it('should verify', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 0);
+        tx.addInput(pseudoRandomBuffer(), 0);
         tx.addReceiver(1, Buffer.allocUnsafe(20));
         tx.sign(0, keyPair.privateKey);
 
@@ -168,7 +180,7 @@ describe('Transaction tests', () => {
 
     it('should fail to create tx: verification failed during decoding from buffer', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addInput(pseudoRandomBuffer(), 15);
 
         const buffEncodedTx = tx.encode();
         const wrapper = () => new factory.Transaction(buffEncodedTx);
@@ -177,7 +189,7 @@ describe('Transaction tests', () => {
 
     it('should fail to create tx: verification failed during creating from Object', async () => {
         const tx = new factory.Transaction();
-        tx.addInput(Buffer.allocUnsafe(32), 15);
+        tx.addInput(pseudoRandomBuffer(), 17);
 
         const wrapper = () => new factory.Transaction(tx.rawData);
         assert.throws(wrapper);
@@ -185,7 +197,7 @@ describe('Transaction tests', () => {
 
     it('should get utxos from tx', async () => {
         const tx = new factory.Transaction();
-        const utxo = Buffer.allocUnsafe(32);
+        const utxo = pseudoRandomBuffer();
         tx.addInput(utxo, 15);
 
         assert.isOk(Array.isArray(tx.coins));
@@ -194,9 +206,9 @@ describe('Transaction tests', () => {
 
     it('should get hash as string', async () => {
         const tx = new factory.Transaction();
-        const utxo = Buffer.allocUnsafe(32);
-        tx.addInput(utxo, 11);
+        tx.addInput(pseudoRandomBuffer(), 11);
 
         assert.equal(tx.strHash, tx.hash().toString('hex'));
     });
+
 });

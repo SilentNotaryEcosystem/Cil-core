@@ -24,6 +24,7 @@ module.exports = (Constants, Crypto, MessageCommon, Transaction) => {
                 }
             } else {
                 super();
+                if (data instanceof Transaction) this.tx = data;
                 this.message = MSG_TX;
             }
         }

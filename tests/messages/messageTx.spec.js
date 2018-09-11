@@ -23,6 +23,13 @@ describe('Message Transaction', () => {
         assert.isOk(msg.isTx());
     });
 
+    it('should create from tx', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+        const msgTx = new factory.Messages.MsgTx(tx);
+
+        assert.isOk(tx.equals(msgTx.tx));
+    });
+
     it('should set/get block', async () => {
         const msg = new factory.Messages.MsgTx();
 

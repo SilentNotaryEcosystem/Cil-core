@@ -12,7 +12,7 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             if (Buffer.isBuffer(data)) {
                 if (data.length > Constants.MAX_BLOCK_SIZE) throw new Error('Oversize transaction');
 
-                this._data = {...transactionProto.decode(data)};
+                this._data = transactionProto.decode(data);
                 if (!this.verify()) throw new Error('Transaction is invalid');
             } else if (typeof data === 'object') {
                 const errMsg = transactionProto.verify(data);
@@ -60,6 +60,21 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             return checkPath ? this._data.claimProofs : undefined;
         }
 
+        get strHash() {
+            return this.hash().toString('hex');
+        }
+
+        /**
+         *
+         * @return {Array} utxos this tx tries to spend
+         */
+        get coins() {
+            const inputs = this.inputs;
+            if (!inputs) throw new Error('Unexpected: empty inputs!');
+
+            return inputs.map(_in => _in.txHash);
+        }
+
         /**
          *
          * @param {Buffer | String} utxo - unspent tx output
@@ -96,10 +111,6 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());
         }
 
-        get strHash() {
-            return this.hash().toString('hex');
-        }
-
         /**
          * Is this transaction could be modified
          *
@@ -132,34 +143,11 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
          * @return {boolean}
          */
         equals(txToCompare) {
-            const arrInputsToCompare = txToCompare.inputs;
-            const arrOutputsToCompare = txToCompare.outputs;
-            const arrClaimProofToCompare = txToCompare.claimProofs;
-
-            const roughEqual = (arrInputsToCompare ? this.inputs.length === arrInputsToCompare.length : true) &&
-                               (arrOutputsToCompare ? this.outputs.length === arrOutputsToCompare.length : true) &&
-                               (arrClaimProofToCompare
-                                   ? this.claimProofs.length === arrClaimProofToCompare.length : true);
-            if (!roughEqual) return false;
-
-            // check inputs
-            const insEqual = this.inputs.every((val, idx) => {
-                return val.nTxOutput === arrInputsToCompare[idx].nTxOutput &&
-                       val.txHash.equals(arrInputsToCompare[idx].txHash);
-            });
-            if (!insEqual) return false;
-
-            // check outputs
-            const outsEqual = this.outputs.every((val, idx) => {
-                return val.amount === arrOutputsToCompare[idx].amount &&
-                       Buffer.isBuffer(val.codeClaim) ? val.codeClaim.equals(arrOutputsToCompare[idx].codeClaim) : true;
-            });
-            if (!outsEqual) return false;
-
-            // check the rest: codeClaim
-            return this.claimProofs.every((val, idx) => {
-                return val.equals(arrClaimProofToCompare[idx]);
-            });
+            return this.hash() === txToCompare.hash() &&
+                   Array.isArray(this.claimProofs) &&
+                   this.claimProofs.every((val, idx) => {
+                       return val.equals(txToCompare.claimProofs[idx]);
+                   });
         }
 
         encode() {
@@ -169,7 +157,7 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
         verify() {
 
             // check inputs
-            const insValid = this._data.payload.ins.every(input => {
+            const insValid = this.inputs && this._data.payload.ins.every(input => {
                 return !input.txHash.equals(Buffer.alloc(32)) &&
                        input.nTxOutput >= 0;
             });
@@ -177,23 +165,12 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             if (!insValid) return false;
 
             // check outputs
-            const outsValid = this._data.payload.outs.every(output => {
+            const outsValid = this.outputs && this._data.payload.outs.every(output => {
                 return output.amount > 0;
             });
 
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
             return outsValid && this._data.claimProofs.length === this._data.payload.ins.length;
-        }
-
-        /**
-         *
-         * @return {Array} utxos this tx tries to spend
-         */
-        get coins() {
-            const inputs = this.inputs;
-            if (!inputs) throw new Error('Unexpected: empty inputs!');
-
-            return inputs.map(_in => _in.txHash);
         }
 
     };
