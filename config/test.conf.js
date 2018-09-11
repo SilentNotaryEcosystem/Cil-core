@@ -32,6 +32,7 @@ module.exports = {
             MSG_BLOCK: 'block',
             MSG_TX: 'tx',
             MSG_INV: 'inv',
+            MSG_GET_DATA: 'getdata',
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',

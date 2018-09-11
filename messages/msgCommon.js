@@ -14,7 +14,8 @@ module.exports = (Constants, Crypto, MessageProto) => {
         MSG_REJECT,
         MSG_BLOCK,
         MSG_TX,
-        MSG_INV
+        MSG_INV,
+        MSG_GET_DATA
     } = Constants.messageTypes;
 
     return class MessageCommon {
@@ -156,6 +157,10 @@ module.exports = (Constants, Crypto, MessageProto) => {
 
         isInv() {
             return this.message === MSG_INV;
+        }
+
+        isGetData() {
+            return this.message === MSG_GET_DATA;
         }
 
     };

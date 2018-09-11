@@ -2,12 +2,12 @@
  *
  * @param {Object} Constants
  * @param {Crypto} Crypto
- * @param {Object} MessageCommon
+ * @param {MessageCommon} MessageCommon
  * @param {Inventory} Inventory
  * @return {{new(*): MessageInv}}
  */
 module.exports = (Constants, Crypto, MessageCommon, Inventory) => {
-    const {MSG_INV} = Constants.messageTypes;
+    const {MSG_INV, MSG_GET_DATA} = Constants.messageTypes;
 
     return class MessageInv extends MessageCommon {
 
@@ -19,8 +19,8 @@ module.exports = (Constants, Crypto, MessageCommon, Inventory) => {
             super(data);
 
             if ((data instanceof MessageCommon || Buffer.isBuffer(data)) &&
-                !this.isInv()) {
-                throw new Error(`Wrong message type. Expected "${MSG_INV}" got "${this.message}"`);
+                !(this.isInv() || this.isGetData())) {
+                throw new Error(`Wrong message type. Expected "${MSG_INV} | ${MSG_GET_DATA}" got "${this.message}"`);
             }
             this.message = MSG_INV;
         }
