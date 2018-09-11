@@ -42,6 +42,7 @@ const WitnessWrapper = require('../node/witness');
 const StorageWrapper = require('../storage/testStorage');
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
+const InventoryWrapper = require('../structures/inventory');
 
 const pack = require('../package');
 
@@ -50,18 +51,21 @@ class Factory {
 
         this._donePromise = this._asyncLoader();
         this._donePromise.then((prototypes) => {
+                this._constants = {
+                    ...this._constants,
+                    ...prototypes.enumServices.values,
+                    ...prototypes.enumRejectCodes.values,
+                    ...prototypes.enumInventory.values
+                };
+
                 this._transactionImplementation =
                     TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
+                this._inventoryImplementation = InventoryWrapper(this, prototypes);
 
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
 
-                this._constants = {
-                    ...this._constants,
-                    ...prototypes.enumServices.values,
-                    ...prototypes.enumRejectCodes.values
-                };
 
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
@@ -160,6 +164,10 @@ class Factory {
         return this._blockImplementation;
     }
 
+    get Inventory() {
+        return this._inventoryImplementation;
+    }
+
     asyncLoad() {
         return this._donePromise;
     }
@@ -179,23 +187,32 @@ class Factory {
         const protoStructures = await protobuf.load('./proto/structures.proto');
 
         return {
+
+            // Node messages
             messageProto: protoNetwork.lookupType("network.Message"),
             versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
-            peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
             rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
 
+            // part of messages
+            peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
+
+            // Witness messages
             witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
             witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
 
             enumServices: protoNetwork.lookup("network.Services"),
             enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
+            enumInventory: protoStructures.lookup("structures.InventoryTypes"),
 
+            // Structures
             transactionProto: protoStructures.lookupType("structures.Transaction"),
             transactionPayloadProto: protoStructures.lookupType("structures.TransactionPayload"),
 
             blockProto: protoStructures.lookupType("structures.Block"),
-            blockPayloadProto: protoStructures.lookupType("structures.BlockPayload")
+            blockPayloadProto: protoStructures.lookupType("structures.BlockPayload"),
+
+            inventoryProto: protoStructures.lookupType("structures.Inventory")
         };
     }
 }

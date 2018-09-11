@@ -12,8 +12,13 @@ function PrivateKey(value) {
     }
 }
 
+function Empty(value) {
+    return value === undefined;
+}
+
 module.exports = {
     Hash256bit: typeforce.BufferN(32),
     Address: typeforce.BufferN(20),
-    PrivateKey: PrivateKey
+    PrivateKey,
+    Empty
 };

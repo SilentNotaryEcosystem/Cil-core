@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package structures;
 
+//------------------- Tx ---------
 message input{
     bytes txHash=1;
     uint32 nTxOutput=2;
@@ -17,25 +18,47 @@ message output{
 }
 
 message TransactionPayload {
+
+    // place here all fields that will be hashed
     repeated input ins=1;
     repeated output outs=2;
 }
 
 message Transaction {
+
+    // place here non hashed fields
     TransactionPayload payload=1;
     repeated bytes claimProofs=2;
 }
 
-message Block{
-
-    // TODO: complete
-    bytes hash =1;
-    BlockPayload payload=2;
-}
+//------------------- Block ---------
 
 message BlockPayload{
 
     // TODO: complete
+
+    // place here all fields that will be hashed
     repeated bytes parentHashes=1;
     repeated Transaction txns=2;
+}
+
+message Block{
+    // non hashed fields
+    BlockPayload payload=2;
+}
+
+//------------------- Inventory ---------
+
+enum InventoryTypes{
+    INV_TX = 11;
+    INV_BLOCK = 21;
+}
+
+message InventoryVector{
+    InventoryTypes type =1;
+    bytes hash =2;
+}
+
+message Inventory{
+    repeated InventoryVector invVector=1;
 }
