@@ -30,7 +30,7 @@ describe('Mempool tests', () => {
         tx.sign(0, keyPair.privateKey);
 
         mempool.addTxUnchecked(tx);
-        assert.isOk(mempool.hasTx(tx));
+        assert.isOk(mempool.hasTx(tx.hash()));
     });
 
     it('should FAIL add tx to mempool (already exists)', async () => {
@@ -72,8 +72,8 @@ describe('Mempool tests', () => {
         mempool.addTxUnchecked(tx1);
         mempool.addTxUnchecked(tx2);
 
-        assert.isOk(mempool.hasTx(tx1));
-        assert.isOk(mempool.hasTx(tx2));
+        assert.isOk(mempool.hasTx(tx1.hash()));
+        assert.isOk(mempool.hasTx(tx2.hash()));
     });
 
     it('should remove txns from mempool with new block', async () => {
@@ -90,8 +90,8 @@ describe('Mempool tests', () => {
 
         mempool.removeForBlock(block);
 
-        assert.isNotOk(mempool.hasTx(tx1));
-        assert.isNotOk(mempool.hasTx(tx2));
+        assert.isNotOk(mempool.hasTx(tx1.hash()));
+        assert.isNotOk(mempool.hasTx(tx2.hash()));
     });
 
 });

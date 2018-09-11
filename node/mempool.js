@@ -26,8 +26,11 @@ module.exports = ({Transaction}) =>
             }
         }
 
-        hasTx(tx) {
-            return this._setTxns.has(tx.strHash);
+        hasTx(txHash) {
+            typeforce(typeforce.oneOf('String', 'Buffer'), txHash);
+
+            let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+            return this._setTxns.has(strTxHash);
         }
 
         /**
