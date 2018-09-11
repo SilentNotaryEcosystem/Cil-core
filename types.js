@@ -16,7 +16,11 @@ function Empty(value) {
     return value === undefined;
 }
 
-const Hash256bit = typeforce.BufferN(32);
+function Str64(value) {
+    return typeof value === 'string' && value.length === 64;
+}
+
+const Hash256bit = typeforce.oneOf(typeforce.BufferN(32), Str64);
 
 module.exports = {
     Hash256bit,

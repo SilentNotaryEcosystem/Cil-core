@@ -4,10 +4,11 @@ const sinon = require('sinon').createSandbox();
 const {sleep} = require('../utils');
 
 factory = require('./testFactory');
+const {createDummyTx, createDummyPeer} = require('./testUtil');
 
 let seedAddress;
-
 let seedNode;
+
 describe('Node tests', () => {
     before(async function() {
         this.timeout(15000);
@@ -118,7 +119,7 @@ describe('Node tests', () => {
         });
     });
 
-    it('should send "getaddr" message', async () => {
+    it('should send GET_ADDR message', async () => {
         const sendMessage = sinon.fake.returns(Promise.resolve(null));
         const newPeer = new factory.Peer({
             connection: {
@@ -139,4 +140,56 @@ describe('Node tests', () => {
     });
 
     // TODO: add message handlers test
+    it('should send GET_DATA message', async () => {
+        const node = new factory.Node({});
+        node._mempool.hasTx = sinon.fake.returns(false);
+        node._storage.hasBlock = sinon.fake.returns(false);
+
+        const peer = new factory.Peer(createDummyPeer());
+        peer.pushMessage = sinon.fake();
+
+        const msgInv = new factory.Messages.MsgInv();
+        const inv = new factory.Inventory();
+        const tx = new factory.Transaction(createDummyTx());
+        const block = new factory.Block();
+
+        block.addTx(tx);
+        inv.addBlock(block);
+        inv.addTx(tx);
+
+        msgInv.inventory = inv;
+        await node._handleInv(peer, msgInv);
+
+        assert.isOk(node._mempool.hasTx.calledOnce);
+        assert.isOk(node._storage.hasBlock.calledOnce);
+        assert.isOk(peer.pushMessage.calledOnce);
+
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isGetData());
+    });
+
+    it('should NOT send GET_DATA message (that hashes are known to node)', async () => {
+        const node = new factory.Node({});
+        node._mempool.hasTx = sinon.fake.returns(true);
+        node._storage.hasBlock = sinon.fake.returns(true);
+
+        const peer = new factory.Peer(createDummyPeer());
+        peer.pushMessage = sinon.fake();
+
+        const msgInv = new factory.Messages.MsgInv();
+        const inv = new factory.Inventory();
+        const tx = new factory.Transaction(createDummyTx());
+        const block = new factory.Block();
+
+        block.addTx(tx);
+        inv.addBlock(block);
+        inv.addTx(tx);
+
+        msgInv.inventory = inv;
+        await node._handleInv(peer, msgInv);
+
+        assert.isOk(node._mempool.hasTx.calledOnce);
+        assert.isOk(node._storage.hasBlock.calledOnce);
+        assert.isNotOk(peer.pushMessage.calledOnce);
+    });
 });

@@ -201,6 +201,7 @@ module.exports = (factory) => {
             }
         }
 
+        // TODO: for MsgGetData - make a cache for already requested hashes!
         async pushMessage(msg) {
             // we have pending messages
             if (Array.isArray(this._queue)) {

@@ -5,8 +5,8 @@ const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
 module.exports = (factory) => {
-    const {Transport, Messages, Constants, Peer, PeerManager, Storage, Crypto} = factory;
-    const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx} = Messages;
+    const {Transport, Messages, Constants, Peer, PeerManager, Storage, Crypto, Mempool, Inventory, RPC} = factory;
+    const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData} = Messages;
     const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
 
     return class Node {
@@ -45,6 +45,13 @@ module.exports = (factory) => {
             debugNode(`(address: "${this._debugAddress}") start listening`);
             this._transport.listen();
             this._transport.on('connect', this._incomingConnection.bind(this));
+
+            // create mempool
+            this._mempool = new Mempool(options);
+
+            //start RPC
+//            this._rpc=new RPC(options);
+//            this._rpc.on('rpc', this._rpcHandler.bind(this));
         }
 
         get nonce() {
@@ -64,6 +71,7 @@ module.exports = (factory) => {
             }
 
             // start connecting to peers
+            // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
             for (let peer of arrBestPeers) {
                 if (peer.disconnected) await this._connectToPeer(peer);
@@ -71,7 +79,7 @@ module.exports = (factory) => {
                 await peer.loaded();
             }
 
-            // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections, query new peers ...)
+            // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections, query new peers ... see above)
         }
 
         /**
@@ -194,13 +202,20 @@ module.exports = (factory) => {
                 if (message.isGetAddr()) {
                     return await this._handlePeerRequest(peer);
                 }
-
                 if (message.isAddr()) {
                     return await this._handlePeerList(peer, message);
                 }
-
+                if (message.isInv()) {
+                    return await this._handleInv(peer, message);
+                }
+                if (message.isGetData()) {
+                    return await this._handleGetData(peer, message);
+                }
                 if (message.isTx()) {
                     return await this._handleTx(peer, message);
+                }
+                if (message.isBlock()) {
+                    return await this._handleBlock(peer, message);
                 }
 
                 throw new Error(`Unhandled message type "${message.message}"`);
@@ -211,7 +226,6 @@ module.exports = (factory) => {
         }
 
         /**
-         *
          * Handler for MSG_TX message
          *
          * @param {Peer} peer - peer that send message
@@ -222,9 +236,6 @@ module.exports = (factory) => {
         async _handleTx(peer, message) {
             /*
             1. Validate
-            - Есть ли средства на аккаунте отправителя в достаточном количестве ДЛЯ этой одной транзакции!
-            - Достаточно ли gasLimit
-            - Проверить nonce (в stateRoot последнего блока будет последняя транзакция для этого аккаунта + те, что уже есть в mempool)
             2. Если нет в мемпуле - добавить, есть - перезаписать.
             3. Отправить соседям
              */
@@ -233,6 +244,88 @@ module.exports = (factory) => {
             await this._checkTx(tx);
             if (await this._mempool.accept(tx)) {
                 this._relayTx(tx);
+            }
+        }
+
+        /**
+         * Handler for MSG_BLOCK message
+         *
+         * @param {Peer} peer - peer that send message
+         * @param {MessageCommon} message
+         * @return {Promise<void>}
+         * @private
+         */
+        async _handleBlock(peer, message) {
+
+        }
+
+        /**
+         * Handler for MSG_INV message.
+         * Send MSG_GET_DATA for unknown hashes
+         *
+         * @param {Peer} peer - peer that send message
+         * @param {MessageCommon} message
+         * @return {Promise<void>}
+         * @private
+         */
+        async _handleInv(peer, message) {
+            const invMsg = new MsgInv(message);
+            const invToRequest = new Inventory();
+            for (let objVector of invMsg.inventory.vector) {
+                let bShouldRequest = false;
+                if (objVector.type === Constants.INV_TX) {
+
+                    // TODO: more checks? for example search this hash in UTXOs?
+                    bShouldRequest = !this._mempool.hasTx(objVector.hash);
+                } else if (objVector.type === Constants.INV_BLOCK) {
+
+                    bShouldRequest = !await this._storage.hasBlock(objVector.hash);
+                }
+
+                if (bShouldRequest) invToRequest.addVector(objVector);
+            }
+
+            // TODO: add cache of already requested items to PeerManager, but this cache should expire, because node could fail
+            if (invToRequest.vector.length) {
+                const msgGetData = new MsgGetData();
+                msgGetData.inventory = invToRequest;
+                await peer.pushMessage(msgGetData);
+            }
+        }
+
+        /**
+         * Handler for MSG_GET_DATA message.
+         * Send series of MSG_TX + MSG_BLOCK for known hashes
+         *
+         * @param {Peer} peer - peer that send message
+         * @param {MessageCommon} message
+         * @return {Promise<void>}
+         * @private
+         */
+        async _handleGetData(peer, message) {
+
+            // TODO: think about rate limiting here + use bloom filter to prevent leeching?
+            const msgGetData = new MsgGetData(message);
+            for (let objVector of msgGetData.inventory.vector) {
+                try {
+                    let msg;
+                    if (objVector.type === Constants.INV_TX) {
+
+                        // we allow to request txns only from mempool!
+                        const tx = this._mempool.getTx(objVector.hash);
+                        msg = new MsgTx(tx);
+                        await peer.pushMessage(msgTx);
+                    } else if (objVector.type === Constants.INV_BLOCK) {
+                        const block = await this._storage.getBlock(objVector.hash);
+                        msg = new MsgBlock(block);
+                    } else {
+                        throw new Error(`Unknown inventory type: ${objVector.type}`);
+                    }
+                    await peer.pushMessage(msg);
+                } catch (e) {
+                    peer.misbehave(5);
+                    if (peer.banned) return;
+                }
             }
         }
 
@@ -356,10 +449,6 @@ module.exports = (factory) => {
         }
 
         /**
-         - Есть ли средства на аккаунте отправителя в достаточном количестве ДЛЯ этой одной транзакции!
-         - Достаточно ли gasLimit
-         - Проверить nonce (в stateRoot последнего блока будет последняя транзакция для этого аккаунта + те, что уже есть в mempool)
-
          * @param tx
          * @private
          */
@@ -367,6 +456,17 @@ module.exports = (factory) => {
             const senderAddr = Crypto.address(tx.publicKey);
             const result = this._storage.getAccount(senderAddr);
             if (!result) throw new Error('Account doesn\'t found');
+
+        }
+
+        /**
+         *
+         * @param {String} event - event name
+         * @param {*} content
+         * @return {Promise<void>}
+         * @private
+         */
+        async _rpcHandler({event, content}) {
 
         }
     };

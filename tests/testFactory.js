@@ -74,9 +74,11 @@ class Factory {
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
                 this._storageImplementation = StorageWrapper(this);
                 this._bftImplementation = BftWrapper(this);
+                this._mempoolImplementation = MempoolWrapper(this);
+
+                // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);
                 this._witnessImplementation = WitnessWrapper(this);
-                this._mempoolImplementation = MempoolWrapper(this);
             })
             .catch(err => {
                 logger.error(err);
