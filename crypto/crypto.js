@@ -131,7 +131,7 @@ class CryptoLib {
     /**
      *
      * @param {Buffer} msg
-     * @return {Buffer}
+     * @return {String}
      */
     static createHash(msg) {
         return this.sha3(msg);
@@ -203,6 +203,7 @@ class CryptoLib {
      *
      * @param {Buffer} buffer
      * @param {Number} length acceptably 224 | 256 | 384 | 512
+     * @return {String} hex string!!
      */
     static sha3(buffer, length = 256) {
         switch (length) {
