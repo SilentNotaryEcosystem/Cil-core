@@ -23,6 +23,15 @@ describe('MessageBlock', () => {
         assert.isOk(msg.isBlock());
     });
 
+    it('should create from block', async () => {
+        const block = new factory.Block();
+        const tx = new factory.Transaction(createDummyTx());
+        block.addTx(tx);
+
+        const msg = new factory.Messages.MsgBlock(block);
+        assert.isOk(tx.equals(new factory.Transaction(msg.block.txns[0])));
+    });
+
     it('should set/get block', async () => {
         const msg = new factory.Messages.MsgBlock();
 

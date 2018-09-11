@@ -24,6 +24,7 @@ module.exports = (Constants, Crypto, MessageCommon, Block) => {
                 }
             } else {
                 super();
+                if (data instanceof Block) this.block = data;
                 this.message = MSG_BLOCK;
             }
         }
