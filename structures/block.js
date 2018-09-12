@@ -18,6 +18,10 @@ module.exports = ({Constants, Crypto}, {blockProto, blockPayloadProto}) =>
             }
         }
 
+        /**
+         *
+         * @returns {String} !!
+         */
         hash() {
             if (!this._encodedPayload) {
                 this.encodePayload();

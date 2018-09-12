@@ -30,7 +30,8 @@ module.exports = (factory) => {
          * @return {Array} of connected peers with specified tag.
          */
         connectedPeers(tag) {
-            return Array.from(this._allPeers.values())
+            return Array
+                .from(this._allPeers.values())
                 .reduce((arrPeers, peer) => {
                     if (!peer.disconnected && peer.hasTag(tag)) arrPeers.push(peer);
                     return arrPeers;

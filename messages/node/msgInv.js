@@ -21,8 +21,10 @@ module.exports = (Constants, Crypto, MessageCommon, Inventory) => {
             if ((data instanceof MessageCommon || Buffer.isBuffer(data)) &&
                 !(this.isInv() || this.isGetData())) {
                 throw new Error(`Wrong message type. Expected "${MSG_INV} | ${MSG_GET_DATA}" got "${this.message}"`);
+            } else {
+                if (data instanceof Inventory) this.inventory = data;
+                this.message = MSG_INV;
             }
-            this.message = MSG_INV;
         }
 
         get inventory() {

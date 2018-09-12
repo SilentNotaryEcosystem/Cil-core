@@ -1,15 +1,29 @@
+'use strict';
+
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const uuid = require('node-uuid');
 const os = require('os');
 const debugLib = require('debug');
 const util = require('util');
 
-factory = require('../testFactory');
+const factory = require('../testFactory');
+const {createDummyTx} = require('../testUtil');
 
 const debugNode = debugLib('node:app');
 
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
+
+const createNet = () => {
+    const seedAddress = factory.Transport.generateAddress();
+    const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+
+    const arrNodes = [];
+    for (let i = 0; i < maxConnections; i++) {
+        const node = new factory.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
+        arrNodes.push(node);
+    }
+    return {seedNode, arrNodes};
+};
 
 describe('Node integration tests', () => {
     before(async function() {
@@ -79,20 +93,16 @@ describe('Node integration tests', () => {
         });
     });
 
-    it(`should create ${maxConnections} nodes and get all of them connected and advertised to seed`, async function() {
+    it('should create nodes and get all of them connected and advertised to seed', async function() {
         this.timeout(60000);
-        const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
-
-        const arrNodes = [];
+        const {seedNode, arrNodes} = createNet();
         const arrPromises = [];
-        for (let i = 0; i < maxConnections; i++) {
-            const node = new factory.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
-            arrPromises.push(node.bootstrap());
-            arrNodes.push(node);
-        }
 
+        for (let i = 0; i < maxConnections; i++) {
+            arrPromises.push(arrNodes[i].bootstrap());
+        }
         await Promise.all(arrPromises);
+
         for (let node of arrNodes) {
             const peers = node._peerManager.filterPeers();
             assert.isOk(peers && peers.length);
@@ -108,4 +118,25 @@ describe('Node integration tests', () => {
         });
     });
 
+    it('should propagate TX over all nodes', async function() {
+        this.timeout(60000);
+        const {seedNode, arrNodes} = createNet();
+        const arrBootrapPromises = [];
+        const arrTxPromises = [];
+
+        for (let i = 0; i < maxConnections; i++) {
+
+            // set fakes for _mempool.addTx that means: node received tx
+            arrTxPromises.push(new Promise(resolve => {
+                arrNodes[i]._mempool.addTx = resolve;
+            }));
+            arrBootrapPromises.push(arrNodes[i].bootstrap());
+        }
+        await Promise.all(arrBootrapPromises);
+
+        const tx = new factory.Transaction(createDummyTx());
+        seedNode.rpc.sendRawTx(tx.encode());
+
+        const arrTxns = await Promise.all(arrTxPromises);
+    });
 });

@@ -23,6 +23,16 @@ describe('MessageGetData', () => {
         assert.isOk(msg.isGetData());
     });
 
+    it('should create from inventory', async () => {
+        const inv = new factory.Inventory();
+        const tx = new factory.Transaction(createDummyTx());
+        inv.addTx(tx);
+
+        const msg = new factory.Messages.MsgGetData(inv);
+        assert.isOk(msg.inventory.vector);
+        assert.equal(msg.inventory.vector.length, 1);
+    });
+
     it('should set/get inventory', async () => {
         const msg = new factory.Messages.MsgGetData();
 

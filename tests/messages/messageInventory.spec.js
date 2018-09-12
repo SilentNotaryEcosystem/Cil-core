@@ -23,6 +23,16 @@ describe('MessageInventory', () => {
         assert.isOk(msg.isInv());
     });
 
+    it('should create from inventory', async () => {
+        const inv = new factory.Inventory();
+        const tx = new factory.Transaction(createDummyTx());
+        inv.addTx(tx);
+
+        const msg = new factory.Messages.MsgInv(inv);
+        assert.isOk(msg.inventory.vector);
+        assert.equal(msg.inventory.vector.length, 1);
+    });
+
     it('should set/get inventory', async () => {
         const msg = new factory.Messages.MsgInv();
 
@@ -36,8 +46,9 @@ describe('MessageInventory', () => {
 
         msg.inventory = inv;
 
-        const restoredInv = msg.inventory;
-        assert.isOk(restoredInv);
+        assert.isOk(msg.inventory);
+        assert.isOk(msg.inventory.vector);
+        assert.equal(msg.inventory.vector.length, 2);
     });
 
     it('should encode/decode message', async () => {

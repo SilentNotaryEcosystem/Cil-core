@@ -50,8 +50,12 @@ module.exports = (factory) => {
             this._mempool = new Mempool(options);
 
             //start RPC
-//            this._rpc=new RPC(options);
-//            this._rpc.on('rpc', this._rpcHandler.bind(this));
+            this._rpc = new RPC(options);
+            this._rpc.on('rpc', this._rpcHandler.bind(this));
+        }
+
+        get rpc() {
+            return this._rpc;
         }
 
         get nonce() {
@@ -221,6 +225,8 @@ module.exports = (factory) => {
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(`${err.message} Peer ${peer.remoteAddress}.`);
+
+                // TODO: implement state (like bitcoin) to keep misbehave score
                 peer.misbehave(1);
             }
         }
@@ -234,17 +240,15 @@ module.exports = (factory) => {
          * @private
          */
         async _handleTx(peer, message) {
-            /*
-            1. Validate
-            2. Если нет в мемпуле - добавить, есть - перезаписать.
-            3. Отправить соседям
-             */
+
+            // this will check syntactic correctness
             const msgTx = new MsgTx(message);
             const tx = msgTx.tx;
-            await this._checkTx(tx);
-            if (await this._mempool.accept(tx)) {
-                this._relayTx(tx);
-            }
+
+            // we wouldn't check against DB (utxos) here, because it's rather slow
+            // this will check for double spend in pending txns
+            // if something wrong - it will throw error
+            this._processReceivedTx(tx);
         }
 
         /**
@@ -289,6 +293,7 @@ module.exports = (factory) => {
             if (invToRequest.vector.length) {
                 const msgGetData = new MsgGetData();
                 msgGetData.inventory = invToRequest;
+                debugMsg(`(address: "${this._debugAddress}") sending "${msgGetData.message}" to "${peer.address}"`);
                 await peer.pushMessage(msgGetData);
             }
         }
@@ -314,15 +319,16 @@ module.exports = (factory) => {
                         // we allow to request txns only from mempool!
                         const tx = this._mempool.getTx(objVector.hash);
                         msg = new MsgTx(tx);
-                        await peer.pushMessage(msgTx);
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         const block = await this._storage.getBlock(objVector.hash);
                         msg = new MsgBlock(block);
                     } else {
                         throw new Error(`Unknown inventory type: ${objVector.type}`);
                     }
+                    debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
+                    logger.error(e);
                     peer.misbehave(5);
                     if (peer.banned) return;
                 }
@@ -449,17 +455,6 @@ module.exports = (factory) => {
         }
 
         /**
-         * @param tx
-         * @private
-         */
-        async _checkTx(tx) {
-            const senderAddr = Crypto.address(tx.publicKey);
-            const result = this._storage.getAccount(senderAddr);
-            if (!result) throw new Error('Account doesn\'t found');
-
-        }
-
-        /**
          *
          * @param {String} event - event name
          * @param {*} content
@@ -467,7 +462,49 @@ module.exports = (factory) => {
          * @private
          */
         async _rpcHandler({event, content}) {
-
+            switch (event) {
+                case 'tx':
+                    this._processReceivedTx(content);
+                    break;
+            }
         }
+
+        _processReceivedTx(tx) {
+            this._mempool.addTx(tx);
+            this._relayTx(tx);
+        }
+
+        /**
+         * Broadcast MSG_INV to connected nodes
+         * TODO: implement cache in _peerManager to combine multiple hashes in one inv to save bandwidth & CPU
+         *
+         * @param {Transaction} tx
+         * @private
+         */
+        _relayTx(tx) {
+            const inv = new Inventory();
+            inv.addTx(tx);
+            const msgInv = new MsgInv(inv);
+            debugNode(`Relaying TX ${tx.strHash} to neighbors`);
+            this._peerManager.broadcastToConnected(undefined, msgInv);
+        }
+
+        /**
+         * Process block:
+         * - verify
+         * - run Application for each tx
+         * - return patch (or null) that could be applied to storage
+         *
+         * @param block
+         * @returns {Patch | null}
+         * @private
+         */
+        _processBlock(block) {
+
+            // TODO: pass block to App layer
+            this._storage.saveBlock(block);
+            return {};
+        }
+
     };
 };

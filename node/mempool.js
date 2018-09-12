@@ -25,6 +25,7 @@ module.exports = ({Transaction}) =>
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
                 this._mapTxns.delete(tx.strHash);
                 this._removeTxCoinsFromCache(tx.coins);
+                debug(`Block arrived: removed TX ${tx.strHash}`);
             }
         }
 
@@ -36,30 +37,28 @@ module.exports = ({Transaction}) =>
         }
 
         /**
-         *
-         *
-         * @param tx
-         */
-        validateAddTx(tx) {
-            if (!tx.validate()) throw new Error('Invalid tx');
-            this.addTxUnchecked(tx);
-        }
-
-        /**
          * throws error!
          * used for wire tx (it's already validated)
          *
          * @param {Transaction} tx - transaction to add
          */
-        addTxUnchecked(tx) {
+        addTx(tx) {
             const strHash = tx.strHash;
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
             const arrCoins = tx.coins;
             this._addTxCoinsToCache(arrCoins);
+            debug(`TX ${strHash} added`);
             this._mapTxns.set(strHash, {tx, arrived: Date.now()});
         }
 
+        /**
+         * Maintain cache ot utxos to be a frontier of double spend prevention
+         * Consider using of bloom filters (to save memory) but false positives could ruin all
+         *
+         * @param arrCoins
+         * @private
+         */
         _addTxCoinsToCache(arrCoins) {
             arrCoins.forEach(hash => {
                 const strHash = hash.toString('hex');
@@ -86,6 +85,8 @@ module.exports = ({Transaction}) =>
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             const tx = this._mapTxns.get(strTxHash);
             if (!tx) throw new Error(`Mempool: No tx found by hash ${strTxHash}`);
+
+            debug(`retrieved TX ${strTxHash}`);
             return tx.tx;
         }
     };

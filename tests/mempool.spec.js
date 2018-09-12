@@ -29,7 +29,7 @@ describe('Mempool tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);
 
-        mempool.addTxUnchecked(tx);
+        mempool.addTx(tx);
         assert.isOk(mempool.hasTx(tx.hash()));
     });
 
@@ -38,7 +38,7 @@ describe('Mempool tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);
 
-        const wrapper = () => mempool.addTxUnchecked(tx);
+        const wrapper = () => mempool.addTx(tx);
         assert.doesNotThrow(wrapper);
         assert.throws(wrapper);
     });
@@ -55,12 +55,12 @@ describe('Mempool tests', () => {
         const mempool = new factory.Mempool();
         const tx = new factory.Transaction(createDummyTx());
 
-        const wrapper = () => mempool.addTxUnchecked(tx);
+        const wrapper = () => mempool.addTx(tx);
         assert.doesNotThrow(wrapper);
 
         const [utxo] = tx.coins;
         const doubleSpend = new factory.Transaction(createDummyTx(utxo));
-        const wrapperDs = () => mempool.addTxUnchecked(doubleSpend);
+        const wrapperDs = () => mempool.addTx(doubleSpend);
         assert.throws(wrapperDs);
     });
 
@@ -69,8 +69,8 @@ describe('Mempool tests', () => {
         const tx1 = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
 
-        mempool.addTxUnchecked(tx1);
-        mempool.addTxUnchecked(tx2);
+        mempool.addTx(tx1);
+        mempool.addTx(tx2);
 
         // hash is String
         assert.isOk(mempool.hasTx(tx1.hash()));
@@ -84,8 +84,8 @@ describe('Mempool tests', () => {
         const tx1 = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
 
-        mempool.addTxUnchecked(tx1);
-        mempool.addTxUnchecked(tx2);
+        mempool.addTx(tx1);
+        mempool.addTx(tx2);
 
         const block = new factory.Block();
         block.addTx(tx1);
@@ -102,8 +102,8 @@ describe('Mempool tests', () => {
         const tx1 = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
 
-        mempool.addTxUnchecked(tx1);
-        mempool.addTxUnchecked(tx2);
+        mempool.addTx(tx1);
+        mempool.addTx(tx2);
 
         const gotTx = mempool.getTx(tx1.hash());
         assert.isOk(gotTx.equals(tx1));

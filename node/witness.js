@@ -198,7 +198,8 @@ module.exports = (factory) => {
                 const msgBlock = new MsgWitnessBlock(messageWitness);
                 const block = msgBlock.block;
                 let message;
-                if (!this._verifyBlock(block)) {
+                const statePatch = this._processBlock(block);
+                if (!statePatch) {
                     consensus.invalidBlock();
 
                     message = this._createBlockRejectMessage(messageWitness.groupName);

@@ -39,6 +39,7 @@ const PeerManagerWrapper = require('../network/peerManager');
 const NodeWrapper = require('../node/node');
 const MempoolWrapper = require('../node/mempool');
 const WitnessWrapper = require('../node/witness');
+const RpcWrapper = require('../node/rpc');
 const StorageWrapper = require('../storage/testStorage');
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
@@ -66,7 +67,6 @@ class Factory {
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
 
-
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = TransportWrapper(this);
@@ -75,6 +75,7 @@ class Factory {
                 this._storageImplementation = StorageWrapper(this);
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
+                this._rpcImplementation = RpcWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);
@@ -96,6 +97,10 @@ class Factory {
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
                parseInt(arrSubversions[1]) * Math.pow(2, 10) +
                parseInt(arrSubversions[2]);
+    }
+
+    get RPC() {
+        return this._rpcImplementation;
     }
 
     get Mempool() {
