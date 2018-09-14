@@ -60,13 +60,9 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             return checkPath ? this._data.claimProofs : undefined;
         }
 
-        get strHash() {
-            return this.hash().toString('hex');
-        }
-
         /**
          *
-         * @return {Array} utxos this tx tries to spend
+         * @return {Array} utxos (Buffer!) this tx tries to spend
          */
         get coins() {
             const inputs = this.inputs;
@@ -105,7 +101,7 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
          * The rest is TODO: SIGHASH_SINGLE & SIGHASH_NONE
          *
          * @param {Number} idx - for SIGHASH_SINGLE (not used now)
-         * @return {Buffer|Hash|*}
+         * @return {String} !!
          */
         hash(idx) {
             return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());

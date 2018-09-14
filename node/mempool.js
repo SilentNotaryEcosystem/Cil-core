@@ -23,9 +23,9 @@ module.exports = ({Transaction}) =>
                 const tx = new Transaction(objTx);
 
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
-                this._mapTxns.delete(tx.strHash);
+                this._mapTxns.delete(tx.hash());
                 this._removeTxCoinsFromCache(tx.coins);
-                debug(`Block arrived: removed TX ${tx.strHash}`);
+                debug(`Block arrived: removed TX ${tx.hash()}`);
             }
         }
 
@@ -43,7 +43,7 @@ module.exports = ({Transaction}) =>
          * @param {Transaction} tx - transaction to add
          */
         addTx(tx) {
-            const strHash = tx.strHash;
+            const strHash = tx.hash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
             const arrCoins = tx.coins;

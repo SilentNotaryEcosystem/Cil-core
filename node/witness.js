@@ -198,16 +198,16 @@ module.exports = (factory) => {
                 const msgBlock = new MsgWitnessBlock(messageWitness);
                 const block = msgBlock.block;
                 let message;
-                const statePatch = this._processBlock(block);
-                if (!statePatch) {
-                    consensus.invalidBlock();
-
-                    message = this._createBlockRejectMessage(messageWitness.groupName);
-                } else {
+                try {
+                    this._processBlock(block);
                     consensus.processValidBlock(block);
 
                     // send our blockACK to consensus
                     message = this._createBlockAcceptMessage(messageWitness.groupName, block.hash());
+
+                } catch (e) {
+                    consensus.invalidBlock();
+                    message = this._createBlockRejectMessage(messageWitness.groupName);
                 }
 
                 // here we are at VOTE_BLOCK state - let's send our vote!
@@ -307,13 +307,6 @@ module.exports = (factory) => {
             msgBlockReject.blockRejectMessage = true;
             msgBlockReject.sign(this._wallet.privateKey);
             return msgBlockReject;
-        }
-
-        _verifyBlock(block) {
-
-            // TODO: implement
-            //TODO: pass block to App layer
-            return true;
         }
 
         _createAndBroadcastBlock(groupName) {

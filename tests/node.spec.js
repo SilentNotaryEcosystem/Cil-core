@@ -1,9 +1,12 @@
+'use strict';
+
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
 const {sleep} = require('../utils');
+const debug = require('debug')('node:test');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 const {createDummyTx, createDummyPeer} = require('./testUtil');
 
 let seedAddress;
@@ -145,7 +148,7 @@ describe('Node tests', () => {
         node._mempool.hasTx = sinon.fake.returns(false);
         node._storage.hasBlock = sinon.fake.returns(false);
 
-        const peer = new factory.Peer(createDummyPeer());
+        const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
 
         const inv = new factory.Inventory();
@@ -157,7 +160,7 @@ describe('Node tests', () => {
         inv.addTx(tx);
 
         const msgInv = new factory.Messages.MsgInv(inv);
-        await node._handleInv(peer, msgInv);
+        await node._handleInvMessage(peer, msgInv);
 
         assert.isOk(node._mempool.hasTx.calledOnce);
         assert.isOk(node._storage.hasBlock.calledOnce);
@@ -172,7 +175,7 @@ describe('Node tests', () => {
         node._mempool.hasTx = sinon.fake.returns(true);
         node._storage.hasBlock = sinon.fake.returns(true);
 
-        const peer = new factory.Peer(createDummyPeer());
+        const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
 
         const inv = new factory.Inventory();
@@ -184,7 +187,7 @@ describe('Node tests', () => {
         inv.addTx(tx);
 
         const msgInv = new factory.Messages.MsgInv(inv);
-        await node._handleInv(peer, msgInv);
+        await node._handleInvMessage(peer, msgInv);
 
         assert.isOk(node._mempool.hasTx.calledOnce);
         assert.isOk(node._storage.hasBlock.calledOnce);
@@ -196,7 +199,7 @@ describe('Node tests', () => {
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
         node._storage.getBlock = sinon.fake.returns(new factory.Block());
 
-        const peer = new factory.Peer(createDummyPeer());
+        const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
 
         const inv = new factory.Inventory();
@@ -209,7 +212,7 @@ describe('Node tests', () => {
 
         const msgGetData = new factory.Messages.MsgGetData(inv);
 
-        await node._handleGetData(peer, msgGetData);
+        await node._handleGetDataMessage(peer, msgGetData);
 
         assert.isOk(node._mempool.getTx.calledOnce);
         assert.isOk(node._storage.getBlock.calledOnce);
@@ -227,7 +230,7 @@ describe('Node tests', () => {
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
         node._storage.getBlock = sinon.fake.returns(new factory.Block());
 
-        const peer = new factory.Peer(createDummyPeer());
+        const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
 
         const msgGetData = new factory.Messages.MsgGetData();
@@ -237,12 +240,13 @@ describe('Node tests', () => {
 
         try {
             await node._handleGetData(peer, msgGetData);
-            assert.isOk(false, 'Unexpected success');
         } catch (e) {
             assert.isNotOk(node._mempool.getTx.called);
             assert.isNotOk(node._storage.getBlock.called);
             assert.isNotOk(peer.pushMessage.called);
+            return;
         }
+        assert.isOk(false, 'Unexpected success');
     });
 
     it('should send NOTHING and mark peer misbehaving (no tx in mempool)', async () => {
@@ -250,7 +254,7 @@ describe('Node tests', () => {
         node._mempool.getTx = sinon.fake.throws(new Error('No tx in mempool'));
         node._storage.getBlock = sinon.fake.returns(new factory.Block());
 
-        const peer = new factory.Peer(createDummyPeer());
+        const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
         peer.misbehave = sinon.fake();
 
@@ -260,52 +264,124 @@ describe('Node tests', () => {
 
         const msgGetData = new factory.Messages.MsgGetData(inv);
 
-        try {
-            await node._handleGetData(peer, msgGetData);
-            assert.isOk(false, 'Unexpected success');
-        } catch (e) {
-            assert.isOk(peer.misbehave.calledOnce);
-            assert.isOk(node._mempool.getTx.calledOnce);
-            assert.isNotOk(peer.pushMessage.called);
-        }
+        await node._handleGetDataMessage(peer, msgGetData);
+        assert.isOk(peer.misbehave.calledOnce);
+        assert.isOk(node._mempool.getTx.calledOnce);
+        assert.isNotOk(peer.pushMessage.called);
     });
 
     it('should relay received TX to neighbors', async () => {
         const node = new factory.Node({});
         node._mempool.addTx = sinon.fake();
-        node._relayTx = sinon.fake();
+        node._informNeighbors = sinon.fake();
 
-        const peer = new factory.Peer(createDummyPeer());
+        const peer = new factory.Peer(createDummyPeer(factory));
         peer.misbehave = sinon.fake();
 
         const tx = new factory.Transaction(createDummyTx());
         const msg = new factory.Messages.MsgTx(tx);
 
-        await node._handleTx(peer, msg);
+        await node._handleTxMessage(peer, msg);
 
         assert.isNotOk(peer.misbehave.called);
         assert.isOk(node._mempool.addTx.calledOnce);
-        assert.isOk(node._relayTx.calledOnce);
+        assert.isOk(node._informNeighbors.calledOnce);
 
-        const [txToSend] = node._relayTx.args[0];
+        const [txToSend] = node._informNeighbors.args[0];
         assert.isOk(txToSend);
         assert.isOk(txToSend.equals(tx));
+    });
+
+    it('should NOT relay received TX (already known)', async () => {
+        const err = 'err msg';
+        const node = new factory.Node({});
+        node._mempool.addTx = sinon.fake.throws(err);
+        node._informNeighbors = sinon.fake();
+
+        const peer = new factory.Peer(createDummyPeer(factory));
+        peer.misbehave = sinon.fake();
+
+        const tx = new factory.Transaction(createDummyTx());
+        const msg = new factory.Messages.MsgTx(tx);
+
+        try {
+            await node._handleTxMessage(peer, msg);
+        } catch (e) {
+            assert.equal(e.message, err);
+            assert.isOk(node._mempool.addTx.calledOnce);
+            assert.isNotOk(node._informNeighbors.called);
+            return;
+        }
+        assert.isOk(false, 'Unexpected success');
     });
 
     it('should broadcast TX received via RPC', async () => {
         const node = new factory.Node({});
         node._mempool.addTx = sinon.fake();
-        node._relayTx = sinon.fake();
+        node._informNeighbors = sinon.fake();
 
         const tx = new factory.Transaction(createDummyTx());
 
         node.rpc.sendRawTx(tx.encode());
 
         assert.isOk(node._mempool.addTx.calledOnce);
-        assert.isOk(node._relayTx.calledOnce);
+        assert.isOk(node._informNeighbors.calledOnce);
 
-        const [txToSend] = node._relayTx.args[0];
+        const [txToSend] = node._informNeighbors.args[0];
         assert.isOk(txToSend);
         assert.isOk(txToSend.equals(tx));
+    });
+
+    it('should process good block from MsgBlock', async () => {
+        const node = new factory.Node({});
+        node._app.processBlock = sinon.fake.returns({});
+        node._storage.saveBlock = sinon.fake();
+        node._storage.applyPatch = sinon.fake();
+        node._informNeighbors = sinon.fake();
+
+        const peer = new factory.Peer(createDummyPeer(factory));
+        peer.ban = sinon.fake();
+
+        const tx = new factory.Transaction(createDummyTx());
+        const block = new factory.Block();
+        block.addTx(tx);
+
+        const msg = new factory.Messages.MsgBlock(block);
+
+        await node._handleBlockMessage(peer, msg).catch(err => {throw new Error(err);});
+
+        assert.isOk(node._app.processBlock.calledOnce);
+        assert.isOk(node._storage.saveBlock.calledOnce);
+        assert.isOk(node._storage.applyPatch.calledOnce);
+        assert.isOk(node._informNeighbors.calledOnce);
+
+    });
+
+    it('should process BAD block from MsgBlock', async () => {
+        const node = new factory.Node({});
+        node._app.processBlock = sinon.fake.throws('error');
+        node._storage.saveBlock = sinon.fake();
+        node._storage.applyPatch = sinon.fake();
+        node._informNeighbors = sinon.fake();
+
+        const peer = new factory.Peer(createDummyPeer(factory));
+        peer.ban = sinon.fake();
+
+        const tx = new factory.Transaction(createDummyTx());
+        const block = new factory.Block();
+        block.addTx(tx);
+
+        const msg = new factory.Messages.MsgBlock(block);
+
+        try {
+            await node._handleBlockMessage(peer, msg);
+        } catch (e) {
+            assert.isOk(node._app.processBlock.called);
+            assert.isNotOk(node._storage.saveBlock.called);
+            assert.isNotOk(node._storage.applyPatch.called);
+            assert.isNotOk(node._informNeighbors.called);
+            return;
+        }
+        assert.isOk(false, 'Unexpected success');
     });
 });

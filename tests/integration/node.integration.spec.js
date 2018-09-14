@@ -148,16 +148,20 @@ describe('Node integration tests', () => {
 
         for (let i = 0; i < maxConnections; i++) {
 
-            // set fakes for _mempool.addTx that means: node received tx
+            // set fakes for _storage.saveBlock that means: node processed block
             arrTxPromises.push(new Promise(resolve => {
-                arrNodes[i]._mempool.addTx = resolve;
+                arrNodes[i]._storage.saveBlock = resolve;
             }));
             arrBootrapPromises.push(arrNodes[i].bootstrap());
         }
         await Promise.all(arrBootrapPromises);
 
         const tx = new factory.Transaction(createDummyTx());
-        seedNode.rpc.sendRawTx(tx.encode());
+        const block = new factory.Block();
+        block.addTx(tx);
+
+        // inject block to seed node
+        await seedNode._processBlock(block);
 
         await Promise.all(arrTxPromises);
     });

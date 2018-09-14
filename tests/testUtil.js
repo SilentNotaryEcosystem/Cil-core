@@ -23,7 +23,7 @@ module.exports = {
         };
     },
 
-    createDummyPeer: () => ({
+    createDummyPeer: (factory) => ({
         peerInfo: {
             capabilities: [
                 {service: factory.Constants.WITNESS, data: pseudoRandomBuffer()}

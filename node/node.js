@@ -5,7 +5,21 @@ const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
 module.exports = (factory) => {
-    const {Transport, Messages, Constants, Peer, PeerManager, Storage, Crypto, Mempool, Inventory, RPC} = factory;
+    const {
+        Transport,
+        Messages,
+        Constants,
+        Peer,
+        PeerManager,
+        Storage,
+        Crypto,
+        Mempool,
+        Inventory,
+        RPC,
+        Application,
+        Transaction,
+        Block
+    } = factory;
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData} = Messages;
     const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
 
@@ -52,6 +66,8 @@ module.exports = (factory) => {
             //start RPC
             this._rpc = new RPC(options);
             this._rpc.on('rpc', this._rpcHandler.bind(this));
+
+            this._app = new Application(options);
         }
 
         get rpc() {
@@ -210,23 +226,23 @@ module.exports = (factory) => {
                     return await this._handlePeerList(peer, message);
                 }
                 if (message.isInv()) {
-                    return await this._handleInv(peer, message);
+                    return await this._handleInvMessage(peer, message);
                 }
                 if (message.isGetData()) {
-                    return await this._handleGetData(peer, message);
+                    return await this._handleGetDataMessage(peer, message);
                 }
                 if (message.isTx()) {
-                    return await this._handleTx(peer, message);
+                    return await this._handleTxMessage(peer, message);
                 }
                 if (message.isBlock()) {
-                    return await this._handleBlock(peer, message);
+                    return await this._handleBlockMessage(peer, message);
                 }
 
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(`${err.message} Peer ${peer.remoteAddress}.`);
 
-                // TODO: implement state (like bitcoin) to keep misbehave score
+                // TODO: implement state (like bitcoin) to keep misbehave score or penalize on each handler?
                 peer.misbehave(1);
             }
         }
@@ -239,7 +255,7 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          * @private
          */
-        async _handleTx(peer, message) {
+        async _handleTxMessage(peer, message) {
 
             // this will check syntactic correctness
             const msgTx = new MsgTx(message);
@@ -259,8 +275,14 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          * @private
          */
-        async _handleBlock(peer, message) {
-
+        async _handleBlockMessage(peer, message) {
+            const msg = new MsgBlock(message);
+            try {
+                await this._processBlock(msg.block);
+            } catch (e) {
+                peer.ban();
+                throw e;
+            }
         }
 
         /**
@@ -272,7 +294,7 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          * @private
          */
-        async _handleInv(peer, message) {
+        async _handleInvMessage(peer, message) {
             const invMsg = new MsgInv(message);
             const invToRequest = new Inventory();
             for (let objVector of invMsg.inventory.vector) {
@@ -307,7 +329,7 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          * @private
          */
-        async _handleGetData(peer, message) {
+        async _handleGetDataMessage(peer, message) {
 
             // TODO: think about rate limiting here + use bloom filter to prevent leeching?
             const msgGetData = new MsgGetData(message);
@@ -471,21 +493,21 @@ module.exports = (factory) => {
 
         _processReceivedTx(tx) {
             this._mempool.addTx(tx);
-            this._relayTx(tx);
+            this._informNeighbors(tx);
         }
 
         /**
          * Broadcast MSG_INV to connected nodes
          * TODO: implement cache in _peerManager to combine multiple hashes in one inv to save bandwidth & CPU
          *
-         * @param {Transaction} tx
+         * @param {Transaction | Block} item
          * @private
          */
-        _relayTx(tx) {
+        _informNeighbors(item) {
             const inv = new Inventory();
-            inv.addTx(tx);
+            item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
-            debugNode(`Relaying TX ${tx.strHash} to neighbors`);
+            debugNode(`Informing neighbors about new item ${item.hash()}`);
             this._peerManager.broadcastToConnected(undefined, msgInv);
         }
 
@@ -499,11 +521,29 @@ module.exports = (factory) => {
          * @returns {Patch | null}
          * @private
          */
-        _processBlock(block) {
+        async _processBlock(block) {
+            this._verifyBlock(block);
+            const patchState = await this._app.processBlock(block);
 
-            // TODO: pass block to App layer
-            this._storage.saveBlock(block);
-            return {};
+            // write raw block to storage
+            await this._storage.saveBlock(block);
+            await this._storage.applyPatch(patchState);
+
+            this._informNeighbors(block);
+        }
+
+        /**
+         * Throws error
+         * validate block (parents, signatures and so on)
+         *
+         * @param block
+         * @returns {boolean}
+         * @private
+         */
+        _verifyBlock(block) {
+
+            // TODO: validate block (parents, signatures and so on)
+            return true;
         }
 
     };
