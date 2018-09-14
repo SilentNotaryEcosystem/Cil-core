@@ -40,7 +40,8 @@ const NodeWrapper = require('../node/node');
 const MempoolWrapper = require('../node/mempool');
 const WitnessWrapper = require('../node/witness');
 const RpcWrapper = require('../node/rpc');
-const StorageWrapper = require('../storage/testStorage');
+const AppWrapper = require('../node/app');
+const StorageWrapper = require('../storage/memoryStorage');
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
 const InventoryWrapper = require('../structures/inventory');
@@ -76,6 +77,7 @@ class Factory {
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
+                this._appImplementation = AppWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);
@@ -97,6 +99,10 @@ class Factory {
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
                parseInt(arrSubversions[1]) * Math.pow(2, 10) +
                parseInt(arrSubversions[2]);
+    }
+
+    get Application() {
+        return this._appImplementation;
     }
 
     get RPC() {
