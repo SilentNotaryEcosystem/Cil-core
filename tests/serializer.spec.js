@@ -55,13 +55,12 @@ describe('Serializer', () => {
         const serializedMessage = [
             61, 8, 132, 198, 160, 148, 1, 26, 7, 118, 101, 114, 115, 105, 111, 110, 50, 44, 16, 204, 235, 250, 218, 5,
             26, 32, 10, 2];
-        let msg;
         try {
-            msg = factory.Serializer.deSerialize(Buffer.from(serializedMessage));
-            assert.isOk(false, 'Unexpected success');
+            factory.Serializer.deSerialize(Buffer.from(serializedMessage));
         } catch (err) {
-            assert.isNotOk(msg);
             debug(err);
+            return;
         }
+        assert.isOk(false, 'Unexpected success');
     });
 });

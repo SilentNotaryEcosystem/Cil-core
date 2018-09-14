@@ -204,11 +204,4 @@ describe('Transaction tests', () => {
         assert.isOk(utxo.equals(tx.coins[0]));
     });
 
-    it('should get hash as string', async () => {
-        const tx = new factory.Transaction();
-        tx.addInput(pseudoRandomBuffer(), 11);
-
-        assert.equal(tx.strHash, tx.hash().toString('hex'));
-    });
-
 });

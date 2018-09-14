@@ -137,6 +137,28 @@ describe('Node integration tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         seedNode.rpc.sendRawTx(tx.encode());
 
-        const arrTxns = await Promise.all(arrTxPromises);
+        await Promise.all(arrTxPromises);
+    });
+
+    it('should propagate Block over all nodes', async function() {
+        this.timeout(60000);
+        const {seedNode, arrNodes} = createNet();
+        const arrBootrapPromises = [];
+        const arrTxPromises = [];
+
+        for (let i = 0; i < maxConnections; i++) {
+
+            // set fakes for _mempool.addTx that means: node received tx
+            arrTxPromises.push(new Promise(resolve => {
+                arrNodes[i]._mempool.addTx = resolve;
+            }));
+            arrBootrapPromises.push(arrNodes[i].bootstrap());
+        }
+        await Promise.all(arrBootrapPromises);
+
+        const tx = new factory.Transaction(createDummyTx());
+        seedNode.rpc.sendRawTx(tx.encode());
+
+        await Promise.all(arrTxPromises);
     });
 });

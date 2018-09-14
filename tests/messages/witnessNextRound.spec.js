@@ -16,10 +16,10 @@ describe('Witness NextRound message', () => {
     it('should FAIL to create empty', async () => {
         try {
             new factory.Messages.MsgWitnessNextRound();
-            assert.isOk(false, 'Unexpected success');
         } catch (e) {
-
+            return;
         }
+        assert.isOk(false, 'Unexpected success');
     });
 
     it('should create message', async () => {

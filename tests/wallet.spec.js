@@ -1,6 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debug = require('debug')('wallet:');
+const debug = require('debug')('wallet:test');
 
 factory = require('./testFactory');
 
@@ -17,10 +17,11 @@ describe('Wallet tests', () => {
     it('should NOT create wallet', async () => {
         try {
             new factory.Wallet();
-            assert.isOk(false, 'Unexpected success');
         } catch (err) {
             debug(err);
+            return;
         }
+        assert.isOk(false, 'Unexpected success');
     });
 
     it('should create wallet', function() {

@@ -106,10 +106,11 @@ describe('Witness tests', () => {
 
         try {
             await witness._checkPeerAndMessage(peer, undefined);
-            assert.isOk(false, 'Unexpected success');
         } catch (e) {
             debug(e);
+            return;
         }
+        assert.isOk(false, 'Unexpected success');
     });
 
     it('should create and broadcast block', async () => {

@@ -124,11 +124,11 @@ describe('TestTransport', () => {
                 endpoint1.listenSync(),
                 endpoint2.connect(address2)
             ]));
-            assert.isOk(false, 'Unexpected success');
         } catch (err) {
             debug(err);
+            return;
         }
-        assert.isNotOk(connection1);
+        assert.isOk(false, 'Unexpected success');
     });
 
     it('should simulate network latency (3 sec)', async function() {

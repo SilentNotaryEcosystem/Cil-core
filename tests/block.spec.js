@@ -2,7 +2,7 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debug = require('debug')('block:');
+const debug = require('debug')('block:test');
 
 const factory = require('./testFactory');
 const {createDummyTx} = require('./testUtil');
