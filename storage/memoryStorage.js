@@ -8,6 +8,12 @@ const types = require('../types');
 
 const debug = debugLib('storage:');
 
+// TODO: use mutex to get|put|patch records !!!
+
+const UTXO_PREFIX = 'c';
+const BLOCK_PREFIX = 'B';
+
+
 module.exports = (factory) => {
     const {Constants, Block} = factory;
     return class Storage {
@@ -34,8 +40,8 @@ module.exports = (factory) => {
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            // TODO: implement query DB for hash. keys are buffers
-            return !!this._db.get(strHash);
+            const key = BLOCK_PREFIX + strHash;
+            return !!this._db.get(key);
         }
 
         async getBlock(blockHash) {
@@ -44,38 +50,48 @@ module.exports = (factory) => {
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            // TODO: implement query DB for hash. keys are buffers
-            const block = this._db.get(strHash);
-            if (!block) throw new Error(`Storage: No block found by hash ${strTxHash}`);
+            const key = BLOCK_PREFIX + strHash;
+            const block = this._db.get(key);
+            if (!block) throw new Error(`Storage: No block found by hash ${strHash}`);
             return block;
         }
 
         async getUtxo(hash) {
-            typeforce(typeforce.Hash256bit, hash);
+            typeforce(types.Hash256bit, hash);
 
-            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
+            const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
+            const key = UTXO_PREFIX + strHash;
 
-            // TODO: implement query DB for hash. keys are buffers
-            return {};
+            return this._db.get(key);
         }
 
         async saveBlock(block) {
-            const strHash = block.hash();
+            const hash = block.hash();
 
-            if (await this.hasBlock(strHash)) throw new Error(`Storage: Block ${strHash} already saved!`);
+//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
+            const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
+            const key = BLOCK_PREFIX + strHash;
+            if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${strHash} already saved!`);
 
             // TODO: replace to persistent store
-            this._db.set(block.hash(), block);
+            this._db.set(key, block);
         }
 
         /**
          *
-         * @param {Patch} statePatch
+         * @param {PatchDB} statePatch
          * @returns {Promise<void>}
          */
         async applyPatch(statePatch) {
 
-            // TODO: spend coins, create new coins (utxo), change definitions (groups|templates)
+            // TODO: implement definitions (groups|templates)
+            // TODO: add mutex here!
+            for (let [txHash, utxo] of statePatch.getCoinsToAdd().entries()) {
+                const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+                const key = UTXO_PREFIX + strHash;
+                this._db.set(key, utxo);
+            }
         }
     }
 }

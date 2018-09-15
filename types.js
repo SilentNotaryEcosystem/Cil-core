@@ -33,5 +33,6 @@ module.exports = {
     Empty,
     InvVector: typeforce.compile({type: 'Number', hash: Hash256bit}),
     Coins: typeforce.quacksLike('Coins'),
-    Amount
+    Amount,
+    Signature: typeforce.BufferN(65)
 };

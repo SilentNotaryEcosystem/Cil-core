@@ -45,7 +45,7 @@ const RpcWrapper = require('../node/rpc');
 const AppWrapper = require('../node/app');
 
 const StorageWrapper = require('../storage/memoryStorage');
-//const PatchWrapper = require('../storage/patch');
+const PatchWrapper = require('../storage/patch');
 
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
@@ -86,8 +86,8 @@ class Factory {
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
+                this._patchImplementation = PatchWrapper(this);
                 this._appImplementation = AppWrapper(this);
-                //this._patchImplementation = PatchWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);

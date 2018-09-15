@@ -204,4 +204,15 @@ describe('Transaction tests', () => {
         assert.isOk(utxo.equals(tx.coins[0]));
     });
 
+    it('should recover pubkey from signature', async () => {
+        const keyPair = factory.Crypto.createKeyPair();
+
+        const tx = new factory.Transaction();
+        const utxo = pseudoRandomBuffer();
+        tx.addInput(utxo, 15);
+        tx.sign(0, keyPair.privateKey);
+
+        const pubKey = factory.Crypto.recoverPubKey(tx.hash(), tx.claimProofs[0]);
+        assert.equal(pubKey, keyPair.publicKey);
+    });
 });

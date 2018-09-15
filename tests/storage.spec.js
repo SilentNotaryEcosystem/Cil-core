@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('storage:test');
 
 const factory = require('./testFactory');
-const {createDummyTx} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 
 describe('Storage tests', () => {
     before(async function() {
@@ -71,6 +71,31 @@ describe('Storage tests', () => {
         assert.isOk(gotBlock.txns);
         const rTx = new factory.Transaction(gotBlock.txns[0]);
         assert.isOk(rTx.equals(tx));
+    });
+
+    it('should apply "addCoins" patch to empty storage (like genezis)', async () => {
+        const storage = new factory.Storage({});
+
+        const patch = new factory.PatchDB();
+        const txHash = pseudoRandomBuffer();
+        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        patch.createCoins(txHash, 12, coins);
+        patch.createCoins(txHash, 0, coins);
+        patch.createCoins(txHash, 80, coins);
+
+        const txHash2 = pseudoRandomBuffer();
+        const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
+        patch.createCoins(txHash2, 22, coins2);
+
+        await storage.applyPatch(patch);
+
+        const utxo1 = await storage.getUtxo(txHash);
+        assert.isOk(utxo1);
+        assert.isOk(utxo1.coinsAtIndex(12));
+
+        const utxo2 = await storage.getUtxo(txHash2);
+        assert.isOk(utxo2);
+        assert.isOk(utxo2.coinsAtIndex(22));
     });
 
 });

@@ -19,7 +19,7 @@ describe('Crypto library', () => {
         const keyPair = Crypto.keyPairFromPrivate(strPrivKey, 'hex');
 
         assert.equal(strPrivKey, keyPair.getPrivate());
-        assert.equal(address, Crypto.getAddress(keyPair.getPublic()));
+        assert.equal(address, Crypto.getAddress(keyPair.publicKey));
         assert.equal(strPublicKey, keyPair.getPublic());
     });
 

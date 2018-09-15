@@ -172,11 +172,12 @@ class CryptoLib {
 
     /**
      *
-     * @param {String} strPublicKey - transform if needed as kyePair.getPublic(true, 'hex')
-     * @return {*}
+     * @param {String | Buffer} publicKey - transform if needed as kyePair.getPublic(true, 'hex')
+     * @param {Boolean} needBuffer - do we need address as Buffer or as String
+     * @return {String | Buffer}
      */
-    static getAddress(strPublicKey) {
-        return this.hash160(strPublicKey);
+    static getAddress(publicKey, needBuffer = false) {
+        return needBuffer ? Buffer.from(this.hash160(publicKey), 'hex') : this.hash160(publicKey);
     }
 
     static ripemd160(buffer) {

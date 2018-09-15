@@ -59,6 +59,7 @@ module.exports = {
         // maximum time offset for nodes we tolerate
         networkTimeDiff: 60 * 60 * 1000,
 
-        MAX_BLOCK_SIZE: 1024
+        MAX_BLOCK_SIZE: 1024,
+        MIN_TX_FEE: 1000
     }
 };

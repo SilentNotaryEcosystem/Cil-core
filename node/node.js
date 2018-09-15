@@ -518,11 +518,12 @@ module.exports = (factory) => {
          * - return patch (or null) that could be applied to storage
          *
          * @param block
-         * @returns {Patch | null}
+         * @returns {PatchDB | null}
          * @private
          */
         async _processBlock(block) {
-            this._verifyBlock(block);
+            await this._verifyBlock(block);
+
             const patchState = await this._app.processBlock(block);
 
             // write raw block to storage
@@ -540,7 +541,7 @@ module.exports = (factory) => {
          * @returns {boolean}
          * @private
          */
-        _verifyBlock(block) {
+        async _verifyBlock(block) {
 
             // TODO: validate block (parents, signatures and so on)
             return true;
