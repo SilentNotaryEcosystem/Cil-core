@@ -20,6 +20,10 @@ function Str64(value) {
     return typeof value === 'string' && value.length === 64;
 }
 
+function Amount(value) {
+    return typeof value === 'number';
+}
+
 const Hash256bit = typeforce.oneOf(typeforce.BufferN(32), Str64);
 
 module.exports = {
@@ -27,5 +31,7 @@ module.exports = {
     Address: typeforce.BufferN(20),
     PrivateKey,
     Empty,
-    InvVector: typeforce.compile({type: 'Number', hash: Hash256bit})
+    InvVector: typeforce.compile({type: 'Number', hash: Hash256bit}),
+    Coins: typeforce.quacksLike('Coins'),
+    Amount
 };

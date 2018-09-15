@@ -311,6 +311,26 @@ module.exports = (factory) => {
 
         _createAndBroadcastBlock(groupName) {
 
+            // empty block - is ok, just don't store it on COMMIT stage
+            const msg = new MsgWitnessBlock({groupName});
+            const block = this._createBlock();
+            msg.block = block;
+            msg.sign(this._wallet.privateKey);
+
+            this._peerManager.broadcastToConnected(groupName, msg);
+            return block;
+        }
+
+        _broadcastConsensusInitiatedMessage(msg) {
+            const groupName = msg.groupName;
+            this._peerManager.broadcastToConnected(groupName, msg);
+            const consensusInstance = this._consensuses.get(groupName);
+
+            // set my own view
+            consensusInstance.processMessage(msg);
+        }
+
+        _createBlock() {
             // TODO: implement
             const createDummyTx = (hash) => {
                 const pseudoRandomBytes = Buffer.allocUnsafe(32);
@@ -325,27 +345,11 @@ module.exports = (factory) => {
                     claimProofs: [Buffer.allocUnsafe(32)]
                 };
             };
-
-            const msg = new MsgWitnessBlock({groupName});
             const block = new Block();
             const tx = new Transaction(createDummyTx());
             tx.sign(0, this._wallet.privateKey);
             block.addTx(tx);
-            msg.block = block;
-            msg.sign(this._wallet.privateKey);
-
-            // empty block - is ok, just don't store it on COMMIT stage
-            this._peerManager.broadcastToConnected(groupName, msg);
             return block;
-        }
-
-        _broadcastConsensusInitiatedMessage(msg) {
-            const groupName = msg.groupName;
-            this._peerManager.broadcastToConnected(groupName, msg);
-            const consensusInstance = this._consensuses.get(groupName);
-
-            // set my own view
-            consensusInstance.processMessage(msg);
         }
     };
 };

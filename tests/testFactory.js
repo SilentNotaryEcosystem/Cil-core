@@ -31,20 +31,27 @@ const Crypto = require('../crypto/crypto');
 const TransportWrapper = require('../network/testTransport');
 const SerializerWrapper = require('../network/serializer');
 const MessageAssemblerWrapper = require('../network/messageAssembler');
-const WalletWrapper = require('../node/wallet');
-const MessagesWrapper = require('../messages/index');
-const BftWrapper = require('../node/bftConsensus');
 const PeerWrapper = require('../network/peer');
 const PeerManagerWrapper = require('../network/peerManager');
+
+const MessagesWrapper = require('../messages/index');
+
+const WalletWrapper = require('../node/wallet');
+const BftWrapper = require('../node/bftConsensus');
 const NodeWrapper = require('../node/node');
 const MempoolWrapper = require('../node/mempool');
 const WitnessWrapper = require('../node/witness');
 const RpcWrapper = require('../node/rpc');
 const AppWrapper = require('../node/app');
+
 const StorageWrapper = require('../storage/memoryStorage');
+//const PatchWrapper = require('../storage/patch');
+
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
 const InventoryWrapper = require('../structures/inventory');
+const UtxoWrapper = require('../structures/utxo');
+const CoinsWrapper = require('../structures/coins');
 
 const pack = require('../package');
 
@@ -67,6 +74,8 @@ class Factory {
 
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
+                this._utxoImplementation = UtxoWrapper(this);
+                this._coinsImplementation = CoinsWrapper(this);
 
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
@@ -78,6 +87,7 @@ class Factory {
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
                 this._appImplementation = AppWrapper(this);
+                //this._patchImplementation = PatchWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);
@@ -99,6 +109,18 @@ class Factory {
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
                parseInt(arrSubversions[1]) * Math.pow(2, 10) +
                parseInt(arrSubversions[2]);
+    }
+
+    get UTXO() {
+        return this._utxoImplementation;
+    }
+
+    get Coins() {
+        return this._coinsImplementation;
+    }
+
+    get PatchDB() {
+        return this._patchImplementation;
     }
 
     get Application() {

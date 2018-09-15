@@ -2,7 +2,7 @@ const pseudoRandomBuffer = (length = 32) => {
     const pseudoRandomBytes = Buffer.allocUnsafe(length);
 
     // this will prevent all zeroes buffer (it will make tx invalid
-    pseudoRandomBytes[0] = 1;
+    pseudoRandomBytes[0] = parseInt(Math.random() * 255);
     return pseudoRandomBytes;
 };
 
