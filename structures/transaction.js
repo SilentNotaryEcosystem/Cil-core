@@ -6,6 +6,8 @@ const types = require('../types');
     TODO: implement codeClaim
  */
 
+const CURRENT_TX_VERSION = 1;
+
 module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProto}) =>
     class Transaction {
         constructor(data) {
@@ -31,6 +33,7 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             } else {
                 throw new Error('Contruct from Buffer|Object|Empty');
             }
+            if (!this._data.payload.version) this._data.payload.version = CURRENT_TX_VERSION;
         }
 
         get rawData() {
