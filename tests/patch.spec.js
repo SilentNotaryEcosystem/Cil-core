@@ -49,4 +49,36 @@ describe('PatchDB', () => {
         assert.isOk(mapCoinsToAdd.get(txHash2));
         assert.equal(mapCoinsToAdd.size, 2);
     });
+
+    it('should remove coins', async () => {
+        const patch = new factory.PatchDB();
+        const txHash = pseudoRandomBuffer(32).toString('hex');
+        const txHash2 = pseudoRandomBuffer(32).toString('hex');
+
+        const utxo = new factory.UTXO({txHash});
+        const coins = new factory.Coins(1000, Buffer.allocUnsafe(100));
+        utxo.addCoins(12, coins);
+        utxo.addCoins(0, coins);
+        utxo.addCoins(431, coins);
+
+        const utxo2 = new factory.UTXO({txHash: txHash2});
+        const coins2 = new factory.Coins(20000, Buffer.allocUnsafe(100));
+        utxo2.addCoins(12, coins2);
+        utxo2.addCoins(0, coins2);
+
+        patch.spendCoins(utxo, 12);
+        patch.spendCoins(utxo, 0);
+        patch.spendCoins(utxo, 431);
+        patch.spendCoins(utxo2, 12);
+
+        assert.isOk(patch.getCoinsToRemove());
+        assert.equal(patch.getCoinsToRemove().size, 2);
+
+        const utxoPatched = patch.getCoinsToRemove().get(txHash);
+        const utxo2Patched = patch.getCoinsToRemove().get(txHash2);
+
+        assert.isOk(utxoPatched.isEmpty());
+        assert.isNotOk(utxo2Patched.isEmpty());
+        assert.isOk(utxo2Patched.coinsAtIndex(0));
+    });
 });
