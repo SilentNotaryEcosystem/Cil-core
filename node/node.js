@@ -18,7 +18,8 @@ module.exports = (factory) => {
         RPC,
         Application,
         Transaction,
-        Block
+        Block,
+        PatchDB
     } = factory;
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData} = Messages;
     const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
@@ -261,10 +262,12 @@ module.exports = (factory) => {
             const msgTx = new MsgTx(message);
             const tx = msgTx.tx;
 
-            // we wouldn't check against DB (utxos) here, because it's rather slow
-            // this will check for double spend in pending txns
-            // if something wrong - it will throw error
-            this._processReceivedTx(tx);
+            try {
+                await this._processReceivedTx(tx);
+            } catch (e) {
+                peer.ban();
+                throw e;
+            }
         }
 
         /**
@@ -486,12 +489,19 @@ module.exports = (factory) => {
         async _rpcHandler({event, content}) {
             switch (event) {
                 case 'tx':
-                    this._processReceivedTx(content);
+                    await this._processReceivedTx(content).catch(err => logger.error('RPC error:', err));
                     break;
             }
         }
 
-        _processReceivedTx(tx) {
+        async _processReceivedTx(tx) {
+
+            // TODO: check against DB & valid claim here rather slow, consider light checks
+            // this will check for double spend in pending txns
+            // if something wrong - it will throw error
+            const mapUtxos = await this._storage.getUtxosCreateMap(tx.coins);
+            await this._app.processTx(tx, mapUtxos);
+
             this._mempool.addTx(tx);
             this._informNeighbors(tx);
         }
@@ -524,10 +534,19 @@ module.exports = (factory) => {
         async _processBlock(block) {
             await this._verifyBlock(block);
 
-            const patchState = await this._app.processBlock(block);
+            const patchState = new PatchDB();
+            const isGenezis = block.hash() === Constants.GENEZIS_BLOCK;
+
+            for (let txData of block.txns) {
+                const tx = new Transaction(txData);
+                const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.coins);
+                await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
+            }
 
             // write raw block to storage
             await this._storage.saveBlock(block);
+
+            // TODO: implement check for finality here!! Store patches, until we decide block is final, and apply it one by one to storage
             await this._storage.applyPatch(patchState);
 
             this._informNeighbors(block);
@@ -538,13 +557,11 @@ module.exports = (factory) => {
          * validate block (parents, signatures and so on)
          *
          * @param block
-         * @returns {boolean}
          * @private
          */
         async _verifyBlock(block) {
 
             // TODO: validate block (parents, signatures and so on)
-            return true;
         }
 
     };

@@ -68,4 +68,31 @@ describe('PatchDB', () => {
         assert.isOk(utxo.coinsAtIndex(0));
     });
 
+    it('should remove 2 coins', async () => {
+        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const utxo = new factory.UTXO({txHash});
+        const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
+
+        utxo.addCoins(12, coins);
+        utxo.addCoins(0, coins);
+        utxo.addCoins(431, coins);
+
+        utxo.spendCoins(0);
+
+        assert.isOk(utxo.coinsAtIndex(12));
+        assert.isOk(utxo.coinsAtIndex(431));
+        assert.isNotOk(utxo.isEmpty());
+        assert.throws(() => utxo.coinsAtIndex(0));
+
+        utxo.spendCoins(431);
+
+        assert.isOk(utxo.coinsAtIndex(12));
+        assert.isNotOk(utxo.isEmpty());
+        assert.throws(() => utxo.coinsAtIndex(0));
+        assert.throws(() => utxo.coinsAtIndex(431));
+
+        utxo.spendCoins(12);
+        assert.isOk(utxo.isEmpty());
+    });
+
 });

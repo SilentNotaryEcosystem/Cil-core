@@ -126,7 +126,7 @@ describe('Transaction tests', () => {
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
         const hash = tx.hash();
 
-        tx._data.payload.ins[0].nTxOutput = 1;
+        tx.addInput(pseudoRandomBuffer(), 15);
         assert.notEqual(hash, tx.hash());
     });
 

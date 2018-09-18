@@ -13,7 +13,6 @@ const debug = debugLib('storage:');
 const UTXO_PREFIX = 'c';
 const BLOCK_PREFIX = 'B';
 
-
 module.exports = (factory) => {
     const {Constants, Block} = factory;
     return class Storage {
@@ -56,6 +55,21 @@ module.exports = (factory) => {
             return block;
         }
 
+        /**
+         *
+         * @param {Array} arrUtxoHashes -
+         * @returns {Promise<Object>}  keys are txHashes, values - UTXOs
+         */
+        async getUtxosCreateMap(arrUtxoHashes) {
+            const mapUtxos = {};
+            for (let coin of arrUtxoHashes) {
+                const utxo = await this.getUtxo(coin);
+                const strHash = Buffer.isBuffer(coin) ? coin.toString('hex') : coin;
+                mapUtxos[strHash] = utxo;
+            }
+            return mapUtxos;
+        }
+
         async getUtxo(hash) {
             typeforce(types.Hash256bit, hash);
 
@@ -63,7 +77,10 @@ module.exports = (factory) => {
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
             const key = UTXO_PREFIX + strHash;
 
-            return this._db.get(key);
+            const utxo = this._db.get(key);
+            if (!utxo) throw new Error(`Storage: UTXO with hash ${strHash} not found!`);
+
+            return utxo;
         }
 
         async saveBlock(block) {
@@ -92,6 +109,12 @@ module.exports = (factory) => {
                 const key = UTXO_PREFIX + strHash;
                 this._db.set(key, utxo);
             }
+
+            for (let [txHash, utxo] of statePatch.getCoinsToRemove()) {
+                const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+                const key = UTXO_PREFIX + strHash;
+                this._db.set(key, utxo);
+            }
         }
-    }
-}
+    };
+};

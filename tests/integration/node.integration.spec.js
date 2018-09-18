@@ -7,11 +7,34 @@ const debugLib = require('debug');
 const util = require('util');
 
 const factory = require('../testFactory');
-const {createDummyTx} = require('../testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('../testUtil');
 
 const debugNode = debugLib('node:app');
 
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
+
+const createGenezisPatchAndSpendingTx = (factory) => {
+    const patch = new factory.PatchDB();
+
+    const receiverKeyPair = factory.Crypto.createKeyPair();
+    const buffAddress = factory.Crypto.getAddress(receiverKeyPair.publicKey, true);
+    const utxoHash = pseudoRandomBuffer().toString('hex');
+
+    // create "genezis"
+    const coins = new factory.Coins(100000, buffAddress);
+    patch.createCoins(utxoHash, 12, coins);
+    patch.createCoins(utxoHash, 0, coins);
+    patch.createCoins(utxoHash, 80, coins);
+
+    // create tx
+
+    const tx = new factory.Transaction();
+    tx.addInput(utxoHash, 12);
+    tx.addReceiver(1000, buffAddress);
+    tx.sign(0, receiverKeyPair.privateKey);
+
+    return {patch, tx};
+};
 
 const createNet = () => {
     const seedAddress = factory.Transport.generateAddress();
@@ -121,6 +144,12 @@ describe('Node integration tests', () => {
     it('should propagate TX over all nodes', async function() {
         this.timeout(60000);
         const {seedNode, arrNodes} = createNet();
+        const {patch, tx} = createGenezisPatchAndSpendingTx(factory);
+
+        // make all nodes aware of utxo
+        for (let node of arrNodes) node._storage.applyPatch(patch);
+        seedNode._storage.applyPatch(patch);
+
         const arrBootrapPromises = [];
         const arrTxPromises = [];
 
@@ -134,7 +163,6 @@ describe('Node integration tests', () => {
         }
         await Promise.all(arrBootrapPromises);
 
-        const tx = new factory.Transaction(createDummyTx());
         seedNode.rpc.sendRawTx(tx.encode());
 
         await Promise.all(arrTxPromises);

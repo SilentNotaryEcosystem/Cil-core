@@ -7,6 +7,8 @@ const types = require('../types');
 
 const debug = debugLib('mempool:');
 
+// TODO: add tx expiration (14 days?)
+
 module.exports = ({Transaction}) =>
     class Mempool {
         constructor(options) {
@@ -49,6 +51,7 @@ module.exports = ({Transaction}) =>
             const arrCoins = tx.coins;
             this._addTxCoinsToCache(arrCoins);
             debug(`TX ${strHash} added`);
+
             this._mapTxns.set(strHash, {tx, arrived: Date.now()});
         }
 
@@ -64,7 +67,7 @@ module.exports = ({Transaction}) =>
                 const strHash = hash.toString('hex');
                 if (this._coinsCache.has(strHash)) {
                     throw new Error(
-                        `Mempool._addTxCoinsToCache: tx ${strHash} already in!`);
+                        `Mempool._addTxCoinsToCache: tx ${strHash} has UTXO conflict!`);
                 }
                 this._coinsCache.add(strHash);
             });

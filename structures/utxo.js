@@ -18,11 +18,29 @@ module.exports = () =>
                     arrIndexes: [],
                     arrOutputs: []
                 };
-            } else if (data) {
-                // TODO: decode from serialized data
+            } else if (data && Buffer.isBuffer(data)) {
+
+                // TODO: decode from serialized data from storage
             } else {
                 throw new Error('Construct from txHash or serialized data');
             }
+        }
+
+        /**
+         * All outputs in UTXO are spent!
+         *
+         * @returns {boolean}
+         */
+        isEmpty() {
+            if (this._data.arrIndexes.length !== this._data.arrOutputs.length) {
+                throw new Error(
+                    'UTXO integrity check failed!');
+            }
+            return !this._data.arrIndexes.length;
+        }
+
+        getTxHash() {
+            return this._txHash;
         }
 
         addCoins(idx, coins) {
@@ -34,6 +52,18 @@ module.exports = () =>
 
             this._data.arrIndexes.push(idx);
             this._data.arrOutputs.push(coins);
+        }
+
+        spendCoins(nTxOutput) {
+            typeforce('Number', nTxOutput);
+
+            const idx = this._data.arrIndexes.findIndex(i => i === nTxOutput);
+            if (!~idx) {
+                throw new Error(`Tx ${this._strHash} index ${idx} already deleted!`);
+            }
+
+            this._data.arrIndexes.splice(idx, 1);
+            this._data.arrOutputs.splice(idx, 1);
         }
 
         coinsAtIndex(idx) {

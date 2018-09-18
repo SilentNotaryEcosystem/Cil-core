@@ -23,10 +23,13 @@ module.exports = ({Constants, Crypto}, {blockProto, blockPayloadProto}) =>
          * @returns {String} !!
          */
         hash() {
-            if (!this._encodedPayload) {
-                this.encodePayload();
+            if (!this._hashCache) {
+                if (!this._encodedPayload) {
+                    this.encodePayload();
+                }
+                this._hashCache = Crypto.createHash(this._encodedPayload);
             }
-            return Crypto.createHash(this._encodedPayload);
+            return this._hashCache;
         }
 
         get payload() {
@@ -50,6 +53,9 @@ module.exports = ({Constants, Crypto}, {blockProto, blockPayloadProto}) =>
          * @param {Transaction} tx
          */
         addTx(tx) {
+
+            // invalidate cache (if any)
+            this._hashCache = undefined;
             this.payload.txns.push(tx.rawData);
         }
     };

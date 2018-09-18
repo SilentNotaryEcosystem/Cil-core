@@ -13,42 +13,39 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
         }
 
         /**
-         * Throws error
-         *
-         * @param block
-         * @returns {Promise<{}>}
-         */
-        async processBlock(block) {
-            return {};
-        }
-
-        /**
+         * TODO: lock DB for all UTXO with mutex right after forming mapUtxos and release it after applying patch or UTXO DB could be corrupted!
          *
          * @param {Transaction} tx
-         * @param {Object} objUtxos - keys are txHashes, values - UTXO
+         * @param {Object} mapUtxos - keys are txHashes, values - UTXO
+         * @param {PatchDB} patchForBlock - for processing whole block we'll use same patch
+         *                  (if this function fails for even for one TX in block - whole block invalid, patch unusable
+         *                  so there is no need to use separate patches, or use transaction-like behavior)
+         * @param {Boolean} isGenezis - do we process tx from Genezis block (no inputs)
          * @returns {Promise<void>}
          */
-        async processTx(tx, objUtxos) {
-            const claimProofs = tx.claimProofs;
+        async processTx(tx, mapUtxos, patchForBlock, isGenezis = false) {
             const txHash = tx.hash();
-            const patch = new PatchDB();
-            const txInputs = tx.inputs;
+            const patch = patchForBlock ? patchForBlock : new PatchDB();
 
             // TODO: change "amount" from Numbers to BN or uint64 to avoid floating point issues!
-            let totalHash = 0;
+            let totalHas = 0;
             let totalSpend = 0;
-            for (let i = 0; i < txInputs.length; i++) {
+            if (!isGenezis) {
+                const txInputs = tx.inputs;
+                const claimProofs = tx.claimProofs;
+                for (let i = 0; i < txInputs.length; i++) {
 
-                // now it's equals txHash, but if you plan to implement SIGHASH_SINGLE & SIGHASH_NONE it will be different
-                const buffInputHash = Buffer.from(tx.hash(i), 'hex');
-                const input = txInputs[i];
-                const strInputTxHash = input.txHash.toString('hex');
-                const utxo = objUtxos[strInputTxHash];
+                    // now it's equals txHash, but if you plan to implement SIGHASH_SINGLE & SIGHASH_NONE it will be different
+                    const buffInputHash = Buffer.from(tx.hash(i), 'hex');
+                    const input = txInputs[i];
+                    const strInputTxHash = input.txHash.toString('hex');
+                    const utxo = mapUtxos[strInputTxHash];
 
-                const coins = utxo.coinsAtIndex(input.nTxOutput);
-                this._verifyClaim(coins.getCodeClaim(), claimProofs[i], buffInputHash);
-                patch.spendCoins(input);
-                totalHash += coins.getAmount();
+                    const coins = utxo.coinsAtIndex(input.nTxOutput);
+                    this._verifyClaim(coins.getCodeClaim(), claimProofs[i], buffInputHash);
+                    patch.spendCoins(utxo, input.nTxOutput);
+                    totalHas += coins.getAmount();
+                }
             }
 
             const txOutputs = tx.outputs;
@@ -57,9 +54,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
                 patch.createCoins(txHash, i, coins);
                 totalSpend += txOutputs[i].amount;
             }
-
-            const fee = totalHash - totalSpend;
-            if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${txHash} fee ${fee} too small!`);
+            if (!isGenezis) {
+                const fee = totalHas - totalSpend;
+                if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${txHash} fee ${fee} too small!`);
+            }
 
             return patch;
         }

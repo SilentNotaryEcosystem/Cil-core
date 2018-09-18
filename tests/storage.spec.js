@@ -98,4 +98,52 @@ describe('Storage tests', () => {
         assert.isOk(utxo2.coinsAtIndex(22));
     });
 
+    it('should apply "spendCoins" patch', async () => {
+        const storage = new factory.Storage({});
+
+        const patch = new factory.PatchDB();
+        const txHash = pseudoRandomBuffer();
+        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        patch.createCoins(txHash, 12, coins);
+        patch.createCoins(txHash, 0, coins);
+        patch.createCoins(txHash, 80, coins);
+
+        const txHash2 = pseudoRandomBuffer();
+        const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
+        patch.createCoins(txHash2, 22, coins2);
+
+        await storage.applyPatch(patch);
+
+        const utxo1 = await storage.getUtxo(txHash);
+        assert.isOk(utxo1);
+        assert.isOk(utxo1.coinsAtIndex(12));
+
+        const utxo2 = await storage.getUtxo(txHash2);
+        assert.isOk(utxo2);
+        assert.isOk(utxo2.coinsAtIndex(22));
+    });
+
+    it('should get UTXOs from DB as map', async () => {
+        const storage = new factory.Storage({});
+
+        const patch = new factory.PatchDB();
+        const txHash = pseudoRandomBuffer();
+        const txHash2 = pseudoRandomBuffer();
+        const txHash3 = pseudoRandomBuffer();
+        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+
+        patch.createCoins(txHash, 12, coins);
+        patch.createCoins(txHash2, 0, coins);
+        patch.createCoins(txHash3, 80, coins);
+
+        await storage.applyPatch(patch);
+
+        const objUtxos = await storage.getUtxosCreateMap([txHash, txHash2, txHash3]);
+
+        assert.isOk(objUtxos);
+        assert.isOk(objUtxos[txHash.toString('hex')]);
+        assert.isOk(objUtxos[txHash2.toString('hex')]);
+        assert.isOk(objUtxos[txHash3.toString('hex')]);
+    });
+
 });

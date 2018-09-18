@@ -8,7 +8,7 @@ function PrivateKey(value) {
             return value.length === 32;
         }
     } else {
-        return value.length === 64;
+        return value.length >= 62 || value.length <= 64;
     }
 }
 
@@ -34,5 +34,6 @@ module.exports = {
     InvVector: typeforce.compile({type: 'Number', hash: Hash256bit}),
     Coins: typeforce.quacksLike('Coins'),
     Amount,
-    Signature: typeforce.BufferN(65)
+    Signature: typeforce.BufferN(65),
+    Input: typeforce.compile({nTxOutput: 'Number', txHash: Hash256bit})
 };
