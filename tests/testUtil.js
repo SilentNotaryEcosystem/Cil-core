@@ -17,7 +17,7 @@ module.exports = {
         return {
             payload: {
                 ins: [{txHash: hash ? hash : pseudoRandomBuffer(), nTxOutput: parseInt(Math.random() * 1000) + 1}],
-                outs: [{amount: parseInt(Math.random() * 1000) + 1}]
+                outs: [{amount: parseInt(Math.random() * 1000) + 1, codeClaim: pseudoRandomBuffer()}]
             },
             claimProofs: [pseudoRandomBuffer()]
         };

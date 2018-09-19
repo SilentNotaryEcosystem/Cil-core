@@ -168,7 +168,12 @@ describe('Node integration tests', () => {
         await Promise.all(arrTxPromises);
     });
 
-    it('should propagate Block over all nodes', async function() {
+    it('should propagate GENEZIS block over all nodes', async function() {
+        const tx = new factory.Transaction(createDummyTx());
+        const block = new factory.Block();
+        block.addTx(tx);
+        factory.Constants.GENEZIS_BLOCK = block.hash();
+
         this.timeout(60000);
         const {seedNode, arrNodes} = createNet();
         const arrBootrapPromises = [];
@@ -183,10 +188,6 @@ describe('Node integration tests', () => {
             arrBootrapPromises.push(arrNodes[i].bootstrap());
         }
         await Promise.all(arrBootrapPromises);
-
-        const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
-        block.addTx(tx);
 
         // inject block to seed node
         await seedNode._processBlock(block);
