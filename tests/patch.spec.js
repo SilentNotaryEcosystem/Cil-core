@@ -79,6 +79,8 @@ describe('PatchDB', () => {
 
         assert.isOk(utxoPatched.isEmpty());
         assert.isNotOk(utxo2Patched.isEmpty());
+
         assert.isOk(utxo2Patched.coinsAtIndex(0));
+        assert.throws(() => utxo2Patched.coinsAtIndex(12));
     });
 });

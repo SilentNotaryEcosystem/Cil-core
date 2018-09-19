@@ -12,8 +12,7 @@ module.exports = ({UTXO, Coins}) =>
     class PatchDB {
         constructor() {
             this._data = {
-                coinsToAdd: new Map(),
-                coinsToRemove: new Map()
+                coins: new Map()
             };
         }
 
@@ -29,13 +28,13 @@ module.exports = ({UTXO, Coins}) =>
         spendCoins(utxo, nTxOutput) {
             typeforce('Number', nTxOutput);
 
-            // no need to get in from this._data.coinsToRemove, because it store just ref to object that passed as param
+            // no need to get in from this._data.coins, because it store just ref to object that passed as param
             // just modify it and store in map. it will really store in for first time
             const strHash = utxo.getTxHash();
             utxo.spendCoins(nTxOutput);
 
             // rewrite reference
-            this._data.coinsToRemove.set(strHash, utxo);
+            this._data.coins.set(strHash, utxo);
         }
 
         /**
@@ -45,17 +44,17 @@ module.exports = ({UTXO, Coins}) =>
          * @param {Coins} coins
          */
         createCoins(txHash, idx, coins) {
-            const utxo = this._data.coinsToAdd.get(txHash) || new UTXO({txHash});
+            const utxo = this._data.coins.get(txHash) || new UTXO({txHash});
             utxo.addCoins(idx, coins);
 
-            this._data.coinsToAdd.set(txHash, utxo);
+            this._data.coins.set(txHash, utxo);
         }
 
         getCoinsToAdd() {
-            return this._data.coinsToAdd;
+            return this._data.coins;
         }
 
         getCoinsToRemove() {
-            return this._data.coinsToRemove;
+            return this._data.coins;
         }
     };
