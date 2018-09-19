@@ -1,7 +1,7 @@
 const typeforce = require('typeforce');
 const types = require('../types');
 
-module.exports = ({Constants, Crypto}, {blockProto, blockPayloadProto}) =>
+module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockPayloadProto}) =>
     class Block {
         constructor(data) {
             typeforce(typeforce.oneOf('Object', 'Buffer', types.Empty), data);
@@ -57,5 +57,9 @@ module.exports = ({Constants, Crypto}, {blockProto, blockPayloadProto}) =>
             // invalidate cache (if any)
             this._hashCache = undefined;
             this.payload.txns.push(tx.rawData);
+        }
+
+        getTxHashes() {
+            return this.txns.map(objTx => (new Transaction(objTx)).hash());
         }
     };

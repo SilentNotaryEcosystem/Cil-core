@@ -527,7 +527,7 @@ module.exports = (factory) => {
          * - run Application for each tx
          * - return patch (or null) that could be applied to storage
          *
-         * @param block
+         * @param {Block} block
          * @returns {PatchDB | null}
          * @private
          */
@@ -545,6 +545,8 @@ module.exports = (factory) => {
 
             // write raw block to storage
             await this._storage.saveBlock(block);
+
+            this._mempool.removeForBlock(block.getTxHashes());
 
             // TODO: implement check for finality here!! Store patches, until we decide block is final, and apply it one by one to storage
             await this._storage.applyPatch(patchState);

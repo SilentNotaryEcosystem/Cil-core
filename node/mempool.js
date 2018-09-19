@@ -18,16 +18,22 @@ module.exports = ({Transaction}) =>
 
         /**
          * New block arrived, processed by app, here is array of hashes to remove
-         * @param {Block} block
+         * @param {Array} arrTxHashes
          */
-        removeForBlock(block) {
-            for (let objTx of block.txns) {
-                const tx = new Transaction(objTx);
+        removeForBlock(arrTxHashes) {
+            for (let txHash of arrTxHashes) {
 
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
-                this._mapTxns.delete(tx.hash());
-                this._removeTxCoinsFromCache(tx.coins);
-                debug(`Block arrived: removed TX ${tx.hash()}`);
+                // TODO: think about: is it problem that TX isn't present in mempool, but present in block
+                if (this._mapTxns.has(txHash)) {
+                    const {tx} = this._mapTxns.get(txHash);
+                    this._removeTxCoinsFromCache(tx.coins);
+
+                    this._mapTxns.delete(txHash);
+                    debug(`Block arrived: removed TX ${txHash}`);
+                } else {
+                    debug(`Block arrived: but no TX ${txHash} in mempool`);
+                }
             }
         }
 

@@ -91,7 +91,7 @@ describe('Mempool tests', () => {
         block.addTx(tx1);
         block.addTx(tx2);
 
-        mempool.removeForBlock(block);
+        mempool.removeForBlock(block.getTxHashes());
 
         assert.isNotOk(mempool.hasTx(tx1.hash()));
         assert.isNotOk(mempool.hasTx(tx2.hash()));
