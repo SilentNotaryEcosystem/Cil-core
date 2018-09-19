@@ -12,6 +12,10 @@ module.exports = () =>
             };
         }
 
+        static createFromData({amount, codeClaim}) {
+            return new this(amount, codeClaim);
+        }
+
         getAmount() {
             return this._data.amount;
         }
@@ -20,4 +24,7 @@ module.exports = () =>
             return this._data.codeClaim;
         }
 
+        getRawData() {
+            return this._data;
+        }
     };

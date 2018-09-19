@@ -63,3 +63,10 @@ message InventoryVector{
 message Inventory{
     repeated InventoryVector invVector=1;
 }
+
+//------------------- UTXO ---------
+
+message UTXO{
+    repeated uint32 arrIndexes =1;
+    repeated output arrOutputs =2;
+}

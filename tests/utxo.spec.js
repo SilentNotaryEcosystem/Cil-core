@@ -95,4 +95,22 @@ describe('PatchDB', () => {
         assert.isOk(utxo.isEmpty());
     });
 
+    it('should encode/decode', async () => {
+        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const utxo = new factory.UTXO({txHash});
+        const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
+
+        utxo.addCoins(12, coins);
+        utxo.addCoins(431, coins);
+
+        const buffData = utxo.encode();
+        assert.isOk(buffData.length);
+
+        const restoredUtxo = new factory.UTXO({txHash, data: buffData});
+        assert.isNotOk(restoredUtxo.isEmpty());
+        assert.isOk(restoredUtxo.coinsAtIndex(12));
+        assert.isOk(restoredUtxo.coinsAtIndex(431));
+        assert.throws(() => restoredUtxo.coinsAtIndex(0));
+    });
+
 });

@@ -1,7 +1,7 @@
 const typeforce = require('typeforce');
 const types = require('../types');
 
-module.exports = () =>
+module.exports = ({Coins}, {utxoProto}) =>
     class UTXO {
         /**
          *
@@ -18,11 +18,12 @@ module.exports = () =>
                     arrIndexes: [],
                     arrOutputs: []
                 };
-            } else if (data && Buffer.isBuffer(data)) {
 
-                // TODO: decode from serialized data from storage
+                if (data && Buffer.isBuffer(data)) {
+                    this._data = utxoProto.decode(data);
+                }
             } else {
-                throw new Error('Construct from txHash or serialized data');
+                throw new Error('Construct from txHash');
             }
         }
 
@@ -43,6 +44,11 @@ module.exports = () =>
             return this._txHash;
         }
 
+        /**
+         *
+         * @param {Number} idx - outputNo
+         * @param {Coins} coins -
+         */
         addCoins(idx, coins) {
             typeforce(typeforce.tuple(types.Amount, types.Coins), arguments);
 
@@ -50,8 +56,9 @@ module.exports = () =>
                 throw new Error(`Tx ${this._strHash} index ${idx} already added!`);
             }
 
+            // this will make serialization mode simple
+            this._data.arrOutputs.push(coins.getRawData());
             this._data.arrIndexes.push(idx);
-            this._data.arrOutputs.push(coins);
         }
 
         spendCoins(nTxOutput) {
@@ -66,13 +73,21 @@ module.exports = () =>
             this._data.arrOutputs.splice(idx, 1);
         }
 
+        /**
+         *
+         * @param {Number} idx - outputNo
+         * @returns {Coins}
+         */
         coinsAtIndex(idx) {
             typeforce('Number', idx);
 
             const index = this._data.arrIndexes.findIndex(nOutput => nOutput === idx);
             if (!~index) throw new Error(`Output #${idx} of Tx ${this._strHash} already spent!`);
 
-            return this._data.arrOutputs[index];
+            return Coins.createFromData(this._data.arrOutputs[index]);
         }
 
+        encode() {
+            return utxoProto.encode(this._data).finish();
+        }
     };

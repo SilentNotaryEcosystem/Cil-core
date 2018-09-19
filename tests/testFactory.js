@@ -60,6 +60,9 @@ class Factory {
 
         this._donePromise = this._asyncLoader();
         this._donePromise.then((prototypes) => {
+
+                // Order is mandatory!
+                // For example if Utxo depends on Coins implementation, you should implement Coins first
                 this._constants = {
                     ...this._constants,
                     ...prototypes.enumServices.values,
@@ -74,8 +77,8 @@ class Factory {
 
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
-                this._utxoImplementation = UtxoWrapper(this);
                 this._coinsImplementation = CoinsWrapper(this);
+                this._utxoImplementation = UtxoWrapper(this, prototypes);
 
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
@@ -247,7 +250,9 @@ class Factory {
             blockProto: protoStructures.lookupType("structures.Block"),
             blockPayloadProto: protoStructures.lookupType("structures.BlockPayload"),
 
-            inventoryProto: protoStructures.lookupType("structures.Inventory")
+            inventoryProto: protoStructures.lookupType("structures.Inventory"),
+
+            utxoProto: protoStructures.lookupType("structures.UTXO")
         };
     }
 }
