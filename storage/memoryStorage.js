@@ -14,7 +14,7 @@ const UTXO_PREFIX = 'c';
 const BLOCK_PREFIX = 'B';
 
 module.exports = (factory) => {
-    const {Constants, Block} = factory;
+    const {Constants, Block, UTXO} = factory;
     return class Storage {
         constructor(options) {
 
@@ -52,7 +52,7 @@ module.exports = (factory) => {
             const key = BLOCK_PREFIX + strHash;
             const block = this._db.get(key);
             if (!block) throw new Error(`Storage: No block found by hash ${strHash}`);
-            return block;
+            return new Block(block);
         }
 
         /**
@@ -80,7 +80,7 @@ module.exports = (factory) => {
             const utxo = this._db.get(key);
             if (!utxo) throw new Error(`Storage: UTXO with hash ${strHash} not found!`);
 
-            return utxo;
+            return new UTXO({txHash: hash, data: utxo});
         }
 
         async saveBlock(block) {
@@ -92,7 +92,7 @@ module.exports = (factory) => {
             if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${strHash} already saved!`);
 
             // TODO: replace to persistent store
-            this._db.set(key, block);
+            this._db.set(key, block.encode());
         }
 
         /**
@@ -104,16 +104,14 @@ module.exports = (factory) => {
 
             // TODO: implement definitions (groups|templates)
             // TODO: add mutex here!
-            for (let [txHash, utxo] of statePatch.getCoinsToAdd().entries()) {
+            for (let [txHash, utxo] of statePatch.getCoins()) {
                 const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
                 const key = UTXO_PREFIX + strHash;
-                this._db.set(key, utxo);
-            }
-
-            for (let [txHash, utxo] of statePatch.getCoinsToRemove()) {
-                const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-                const key = UTXO_PREFIX + strHash;
-                this._db.set(key, utxo);
+                if (utxo.isEmpty()) {
+                    this._db.delete(key);
+                } else {
+                    this._db.set(key, utxo.encode());
+                }
             }
         }
     };

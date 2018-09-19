@@ -50,11 +50,7 @@ module.exports = ({UTXO, Coins}) =>
             this._data.coins.set(txHash, utxo);
         }
 
-        getCoinsToAdd() {
-            return this._data.coins;
-        }
-
-        getCoinsToRemove() {
+        getCoins() {
             return this._data.coins;
         }
     };

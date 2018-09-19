@@ -101,6 +101,7 @@ describe('Storage tests', () => {
     it('should apply "spendCoins" patch', async () => {
         const storage = new factory.Storage({});
 
+        // create coins that we plan to spend
         const patch = new factory.PatchDB();
         const txHash = pseudoRandomBuffer();
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
@@ -114,13 +115,36 @@ describe('Storage tests', () => {
 
         await storage.applyPatch(patch);
 
-        const utxo1 = await storage.getUtxo(txHash);
-        assert.isOk(utxo1);
-        assert.isOk(utxo1.coinsAtIndex(12));
+        // now spend it
+        {
+            const spendPatch = new factory.PatchDB();
 
-        const utxo2 = await storage.getUtxo(txHash2);
-        assert.isOk(utxo2);
-        assert.isOk(utxo2.coinsAtIndex(22));
+            // 2 of 3 from first utxo
+            const utxo = await storage.getUtxo(txHash);
+            spendPatch.spendCoins(utxo, 12);
+            spendPatch.spendCoins(utxo, 80);
+
+            // 1 of 1 from first utxo2
+            const utxo2 = await storage.getUtxo(txHash2);
+            spendPatch.spendCoins(utxo2, 22);
+
+            await storage.applyPatch(spendPatch);
+        }
+        {
+            // we should have only 1 output in txHash rest are spent
+            const utxo = await storage.getUtxo(txHash);
+            assert.isOk(utxo.coinsAtIndex(0));
+            assert.throws(() => utxo.coinsAtIndex(12));
+            assert.throws(() => utxo.coinsAtIndex(80));
+
+            // empty utxo removed from DB
+            try {
+                await storage.getUtxo(txHash2);
+            } catch (e) {
+                return;
+            }
+            throw new Error('Unexpected success');
+        }
     });
 
     it('should get UTXOs from DB as map', async () => {
@@ -138,12 +162,12 @@ describe('Storage tests', () => {
 
         await storage.applyPatch(patch);
 
-        const objUtxos = await storage.getUtxosCreateMap([txHash, txHash2, txHash3]);
+        const mapUtxos = await storage.getUtxosCreateMap([txHash, txHash2, txHash3]);
 
-        assert.isOk(objUtxos);
-        assert.isOk(objUtxos[txHash.toString('hex')]);
-        assert.isOk(objUtxos[txHash2.toString('hex')]);
-        assert.isOk(objUtxos[txHash3.toString('hex')]);
+        assert.isOk(mapUtxos);
+        assert.isOk(mapUtxos[txHash.toString('hex')]);
+        assert.isOk(mapUtxos[txHash2.toString('hex')]);
+        assert.isOk(mapUtxos[txHash3.toString('hex')]);
     });
 
 });

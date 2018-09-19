@@ -163,8 +163,8 @@ describe('Application layer', () => {
 
         await app.processTx(tx, undefined, patch, true);
 
-        assert.equal(patch.getCoinsToAdd().size, 1);
-        const utxo = patch.getCoinsToAdd().get(tx.hash());
+        assert.equal(patch.getCoins().size, 1);
+        const utxo = patch.getCoins().get(tx.hash());
         assert.isOk(utxo);
         assert.isNotOk(utxo.isEmpty());
     });

@@ -28,7 +28,7 @@ describe('PatchDB', () => {
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 2, coins);
 
-        const mapCoinsToAdd = patch.getCoinsToAdd();
+        const mapCoinsToAdd = patch.getCoins();
         assert.isOk(mapCoinsToAdd);
         assert.isOk(mapCoinsToAdd.get(txHash));
         assert.equal(mapCoinsToAdd.size, 1);
@@ -43,7 +43,7 @@ describe('PatchDB', () => {
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash2, 2, coins);
 
-        const mapCoinsToAdd = patch.getCoinsToAdd();
+        const mapCoinsToAdd = patch.getCoins();
         assert.isOk(mapCoinsToAdd);
         assert.isOk(mapCoinsToAdd.get(txHash));
         assert.isOk(mapCoinsToAdd.get(txHash2));
@@ -71,11 +71,11 @@ describe('PatchDB', () => {
         patch.spendCoins(utxo, 431);
         patch.spendCoins(utxo2, 12);
 
-        assert.isOk(patch.getCoinsToRemove());
-        assert.equal(patch.getCoinsToRemove().size, 2);
+        assert.isOk(patch.getCoins());
+        assert.equal(patch.getCoins().size, 2);
 
-        const utxoPatched = patch.getCoinsToRemove().get(txHash);
-        const utxo2Patched = patch.getCoinsToRemove().get(txHash2);
+        const utxoPatched = patch.getCoins().get(txHash);
+        const utxo2Patched = patch.getCoins().get(txHash2);
 
         assert.isOk(utxoPatched.isEmpty());
         assert.isNotOk(utxo2Patched.isEmpty());
