@@ -496,11 +496,12 @@ module.exports = (factory) => {
 
         async _processReceivedTx(tx) {
 
-            // TODO: check against DB & valid claim here rather slow, consider light checks
+            // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
             const mapUtxos = await this._storage.getUtxosCreateMap(tx.coins);
-            await this._app.processTx(tx, mapUtxos);
+            const {fee} = await this._app.processTx(tx, mapUtxos);
+            if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
             this._mempool.addTx(tx);
             this._informNeighbors(tx);
@@ -537,10 +538,18 @@ module.exports = (factory) => {
             const patchState = new PatchDB();
             const isGenezis = block.hash() === Constants.GENEZIS_BLOCK;
 
-            for (let txData of block.txns) {
-                const tx = new Transaction(txData);
+            let blockFees = 0;
+            const blockTxns = block.txns;
+
+            // TODO add coinbase processing here
+            // should start from 1, because coinbase tx need different processing
+            for (let i = 0; i < blockTxns.length; i++) {
+                const tx = new Transaction(blockTxns[i]);
                 const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.coins);
-                await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
+
+                // TODO: consider using a cache patch from mempool?
+                const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
+                blockFees += fee;
             }
 
             // write raw block to storage

@@ -21,7 +21,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
          *                  (if this function fails for even for one TX in block - whole block invalid, patch unusable
          *                  so there is no need to use separate patches, or use transaction-like behavior)
          * @param {Boolean} isGenezis - do we process tx from Genezis block (no inputs)
-         * @returns {Promise<void>}
+         * @returns {Promise<{patch, fee}>}
          */
         async processTx(tx, mapUtxos, patchForBlock, isGenezis = false) {
             const txHash = tx.hash();
@@ -54,12 +54,9 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
                 patch.createCoins(txHash, i, coins);
                 totalSpend += txOutputs[i].amount;
             }
-            if (!isGenezis) {
-                const fee = totalHas - totalSpend;
-                if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${txHash} fee ${fee} too small!`);
-            }
 
-            return patch;
+            const fee = totalHas - totalSpend;
+            return {patch, fee};
         }
 
         _verifyClaim(codeClaim, claimProofs, buffHash) {
