@@ -91,33 +91,6 @@ describe('Application layer', () => {
         throw new Error('Unexpected success');
     });
 
-    it('should throw (not enough moneys)', async () => {
-        const app = new factory.Application();
-
-        const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
-        const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
-
-        // create tx
-        const tx = new factory.Transaction();
-        tx.addInput(utxoHash, 12);
-        tx.addReceiver(100000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-
-        // get utxos from storage, and form object for app.processTx
-        const utxo = await storage.getUtxo(utxoHash);
-        const mapUtxos = {[utxoHash]: utxo};
-
-        try {
-            await app.processTx(tx, mapUtxos);
-        } catch (e) {
-            debug(e);
-            assert.equal(e.message, `Tx ${tx.hash()} fee 0 too small!`);
-            return;
-        }
-        throw new Error('Unexpected success');
-    });
-
     it('should throw (bad claim)', async () => {
         const app = new factory.Application();
 

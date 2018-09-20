@@ -25,6 +25,7 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             } else if (data === undefined) {
                 this._data = {
                     payload: {
+                        witnessGroupId: 0,
                         ins: [],
                         outs: []
                     },
@@ -34,6 +35,13 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
                 throw new Error('Contruct from Buffer|Object|Empty');
             }
             if (!this._data.payload.version) this._data.payload.version = CURRENT_TX_VERSION;
+            if (this._data.payload.witnessGroupId === undefined) {
+                throw new Error('Specify witness group, who will notarize this TX');
+            }
+        }
+
+        get witnessGroupId() {
+            return this._data.payload.witnessGroupId;
         }
 
         get rawData() {
@@ -154,6 +162,8 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
         }
 
         verify() {
+
+            if (this.witnessGroupId === undefined) return false;
 
             // check inputs
             const insValid = this.inputs && this._data.payload.ins.every(input => {

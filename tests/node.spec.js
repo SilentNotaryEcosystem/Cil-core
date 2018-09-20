@@ -434,7 +434,34 @@ describe('Node tests', () => {
         } catch (e) {
             return;
         }
+        throw new Error('Unexpected success');
+    });
 
+    it('should throw (fee is too small)', async () => {
+        const node = new factory.Node({});
+
+        const patch = new factory.PatchDB();
+        const keyPair = factory.Crypto.createKeyPair();
+        const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
+        const txHash = pseudoRandomBuffer().toString('hex');
+
+        // create "genezis"
+        const coins = new factory.Coins(100000, buffAddress);
+        patch.createCoins(txHash, 12, coins);
+
+        node._storage.applyPatch(patch);
+
+        const tx = new factory.Transaction();
+        tx.addInput(txHash, 12);
+        tx.addReceiver(100000, buffAddress);
+        tx.sign(0, keyPair.privateKey);
+
+        try {
+            await node._processReceivedTx(tx);
+        } catch (e) {
+            assert.isOk(e.message.match(/fee 0 too small!$/));
+            return;
+        }
         throw new Error('Unexpected success');
     });
 
@@ -447,7 +474,7 @@ describe('Node tests', () => {
 
     it('should process GENEZIS block', async () => {
         const node = new factory.Node({});
-        node._app.processTx = sinon.fake();
+        node._app.processTx = sinon.fake.returns({fee: 1});
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
         node._informNeighbors = sinon.fake();

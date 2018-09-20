@@ -19,6 +19,7 @@ message output{
 
 message TransactionPayload {
     uint32 version=3;
+    uint32 witnessGroupIndex=4;
 
     // place here all fields that will be hashed
     repeated input ins=1;
