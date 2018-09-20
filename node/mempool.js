@@ -27,7 +27,6 @@ module.exports = ({Transaction}) =>
                 // TODO: think about: is it problem that TX isn't present in mempool, but present in block
                 if (this._mapTxns.has(txHash)) {
                     const {tx} = this._mapTxns.get(txHash);
-                    this._removeTxCoinsFromCache(tx.coins);
 
                     this._mapTxns.delete(txHash);
                     debug(`Block arrived: removed TX ${txHash}`);
@@ -54,33 +53,9 @@ module.exports = ({Transaction}) =>
             const strHash = tx.hash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
-            const arrCoins = tx.coins;
-            this._addTxCoinsToCache(arrCoins);
-            debug(`TX ${strHash} added`);
-
+            // TODO: implement check for double spend by different witness group
             this._mapTxns.set(strHash, {tx, arrived: Date.now()});
-        }
-
-        /**
-         * Maintain cache ot utxos to be a frontier of double spend prevention
-         * Consider using of bloom filters (to save memory) but false positives could ruin all
-         *
-         * @param arrCoins
-         * @private
-         */
-        _addTxCoinsToCache(arrCoins) {
-            arrCoins.forEach(hash => {
-                const strHash = hash.toString('hex');
-                if (this._coinsCache.has(strHash)) {
-                    throw new Error(
-                        `Mempool._addTxCoinsToCache: tx ${strHash} has UTXO conflict!`);
-                }
-                this._coinsCache.add(strHash);
-            });
-        }
-
-        _removeTxCoinsFromCache(arrCoins) {
-            arrCoins.forEach(hash => this._coinsCache.delete(hash.toString('hex')));
+            debug(`TX ${strHash} added`);
         }
 
         /**
@@ -97,5 +72,15 @@ module.exports = ({Transaction}) =>
 
             debug(`retrieved TX ${strTxHash}`);
             return tx.tx;
+        }
+
+        /**
+         *
+         * @returns {IterableIterator<any>} - iterator of {tx, arrived ...}
+         */
+        getFinalTxns() {
+
+            // TODO: implement lock_time
+            return this._mapTxns.values();
         }
     };

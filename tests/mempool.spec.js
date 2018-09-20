@@ -51,19 +51,6 @@ describe('Mempool tests', () => {
         assert.throws(wrapper);
     });
 
-    it('should FAIL add tx to mempool (DOUBLE SPEND)', async () => {
-        const mempool = new factory.Mempool();
-        const tx = new factory.Transaction(createDummyTx());
-
-        const wrapper = () => mempool.addTx(tx);
-        assert.doesNotThrow(wrapper);
-
-        const [utxo] = tx.coins;
-        const doubleSpend = new factory.Transaction(createDummyTx(utxo));
-        const wrapperDs = () => mempool.addTx(doubleSpend);
-        assert.throws(wrapperDs);
-    });
-
     it('should add 2 different tx', async () => {
         const mempool = new factory.Mempool();
         const tx1 = new factory.Transaction(createDummyTx());
