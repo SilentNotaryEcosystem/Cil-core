@@ -5,7 +5,7 @@ const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
 module.exports = (factory) => {
-    const {Node, Messages, Constants, BFT, Block, Transaction} = factory;
+    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {
@@ -30,11 +30,11 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          */
         async start() {
-            this._groups = await this._getMyGroups();
+            const arrGroupDefinitions = await this._storage.getGroupsByKey(this._wallet.publicKey);
 
-            for (let group of this._groups) {
-                await this._createConsensusForGroup(group);
-                await this.startWitnessGroup(group);
+            for (let def of arrGroupDefinitions) {
+                await this._createConsensusForGroup(def);
+                await this.startWitnessGroup(def);
             }
 
             // TODO: add watchdog to maintain connections to as much as possible witnesses
@@ -43,13 +43,13 @@ module.exports = (factory) => {
         /**
          * Establish connection with other witnesses in specified group
          *
-         * @param {String} groupName
+         * @param {WitnessGroupDefinition} groupDefinition
          * @return {Promise<void>}
          */
-        async startWitnessGroup(groupName) {
-            const peers = await this._getGroupPeers(groupName);
+        async startWitnessGroup(groupDefinition) {
+            const peers = await this._getGroupPeers(groupDefinition);
             debugWitness(
-                `******* "${this._debugAddress}" started WITNESS for group: "${groupName}" ${peers.length} peers *******`);
+                `******* "${this._debugAddress}" started WITNESS for group: "${groupDefinition.getGroupName()}" ${peers.length} peers *******`);
 
             for (let peer of peers) {
                 debugWitness(`--------- "${this._debugAddress}" started WITNESS handshake with "${peer.address}" ----`);
@@ -63,7 +63,7 @@ module.exports = (factory) => {
                 if (!peer.disconnected) {
 
                     // to prove that it's real witness it should perform signed handshake
-                    const handshakeMsg = this._createHandshakeMessage(groupName);
+                    const handshakeMsg = this._createHandshakeMessage(groupDefinition.getGroupName());
                     debugWitnessMsg(
                         `(address: "${this._debugAddress}") sending SIGNED message "${handshakeMsg.message}" to "${peer.address}"`);
                     await peer.pushMessage(handshakeMsg);
@@ -72,7 +72,7 @@ module.exports = (factory) => {
                     if (peer.witnessLoadDone) {
 
                         // mark it for broadcast
-                        peer.addTag(this._groups[0]);
+                        peer.addTag(groupDefinition.getGroupName());
 
                         // overwrite this peer definition with freshest data
                         this._peerManager.addPeer(peer);
@@ -86,45 +86,29 @@ module.exports = (factory) => {
             }
         }
 
-        async _createConsensusForGroup(group) {
-            const mapDefinitions = await this._storage.getGroupDefinitions();
-
-            const consensus = new BFT({
-                groupName: group,
-                wallet: this._wallet,
-                arrPublicKeys: mapDefinitions.get(group)
-            });
-            this._setConsensusHandlers(consensus);
-            this._consensuses.set(group, consensus);
-        }
-
         /**
          *
-         * @return {Array} of group names this witness participates
+         * @param {WitnessGroupDefinition} groupDefinition
+         * @returns {Promise<void>}
          * @private
          */
-        async _getMyGroups() {
-            const myPubKey = this._wallet.publicKey;
-            const mapDefinitions = await this._storage.getGroupDefinitions();
-            const arrGroups = [];
-            for (let [groupName, arrKeys] of mapDefinitions) {
-
-                // == because it will be casted to String
-                if (~arrKeys.findIndex(key => key == myPubKey)) arrGroups.push(groupName);
-            }
-
-            return arrGroups;
+        async _createConsensusForGroup(groupDefinition) {
+            const consensus = new BFT({
+                groupDefinition,
+                wallet: this._wallet,
+            });
+            this._setConsensusHandlers(consensus);
+            this._consensuses.set(groupDefinition.getGroupName(), consensus);
         }
 
         /**
          *
-         * @param {String} group - witness group
+         * @param {WitnessGroupDefinition} groupDefinition
          * @return {Array} of Peers with capability WITNESS which belongs to group
          * @private
          */
-        async _getGroupPeers(group) {
-            const mapDefinitions = await this._storage.getGroupDefinitions();
-            const arrGroupKeys = mapDefinitions.get(group);
+        async _getGroupPeers(groupDefinition) {
+            const arrGroupKeys = groupDefinition.getPublicKeys();
             const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS});
             const arrPeers = [];
             for (let peer of arrAllWitnessesPeers) {
@@ -252,15 +236,23 @@ module.exports = (factory) => {
                 debugWitness(`Witness: "${this._debugAddress}" message "${message.message}" from CONSENSUS engine`);
                 this._broadcastConsensusInitiatedMessage(message);
             });
-            consensus.on('createBlock', () => {
-                const block = this._createAndBroadcastBlock(consensus.groupName);
-                consensus.processValidBlock(block);
+            consensus.on('createBlock', async () => {
+                try {
+                    const block = await this._createBlockAndBroadcast(consensus);
+                    consensus.processValidBlock(block);
 
-                // send ACK for own block to consensus
-                const msgBlockAck = this._createBlockAcceptMessage(consensus.groupName, block.hash());
-                this._broadcastConsensusInitiatedMessage(msgBlockAck);
+                    // send ACK for own block to consensus
+                    const msgBlockAck = this._createBlockAcceptMessage(consensus.groupName, block.hash());
+                    this._broadcastConsensusInitiatedMessage(msgBlockAck);
+                } catch (e) {
+                    if (typeof e === 'number') {
+                        debugWitness('Suppressing empty block');
+                    } else {
+                        logger.error(e.message);
+                    }
+                }
             });
-            consensus.on('commitBlock', (block) => {
+            consensus.on('commitBlock', async (block) => {
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
 
@@ -309,11 +301,25 @@ module.exports = (factory) => {
             return msgBlockReject;
         }
 
-        _createAndBroadcastBlock(groupName) {
+        /**
+         * Create block, and it it's not empty broadcast MSG_WITNESS_BLOCK to other witnesses
+         *
+         * @param {BftConsensus} consensusInstance
+         * @returns {Promise<*>}
+         * @private
+         */
+        async _createBlockAndBroadcast(consensusInstance) {
+            const {groupName, groupId} = consensusInstance;
 
             // empty block - is ok, just don't store it on COMMIT stage
             const msg = new MsgWitnessBlock({groupName});
-            const block = this._createBlock();
+            const block = await this._createBlock(groupId);
+
+            // suppress empty blocks
+            if (block.isEmpty() && !consensusInstance.timeForWitnessBlock()) {
+                throw (0);
+            }
+
             msg.block = block;
             msg.sign(this._wallet.privateKey);
 
@@ -330,26 +336,14 @@ module.exports = (factory) => {
             consensusInstance.processMessage(msg);
         }
 
-        _createBlock() {
-            // TODO: implement
-            const createDummyTx = (hash) => {
-                const pseudoRandomBytes = Buffer.allocUnsafe(32);
-
-                // this will prevent all zeroes buffer (it will make tx invalid
-                pseudoRandomBytes[0] = 1;
-                return {
-                    payload: {
-                        ins: [{txHash: hash ? hash : pseudoRandomBytes, nTxOutput: parseInt(Math.random() * 1000) + 1}],
-                        outs: [{amount: parseInt(Math.random() * 1000) + 1}]
-                    },
-                    claimProofs: [Buffer.allocUnsafe(32)]
-                };
-            };
+        async _createBlock(groupId) {
             const block = new Block();
-            const tx = new Transaction(createDummyTx());
-            tx.sign(0, this._wallet.privateKey);
-            block.addTx(tx);
+            block.witnessGroupId = groupId;
+            for (let tx of this._mempool.getFinalTxns(groupId)) {
+                block.addTx(tx);
+            }
             return block;
         }
+
     };
 };

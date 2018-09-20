@@ -19,7 +19,7 @@ message output{
 
 message TransactionPayload {
     uint32 version=3;
-    uint32 witnessGroupIndex=4;
+    uint32 witnessGroupId=4;
 
     // place here all fields that will be hashed
     repeated input ins=1;
@@ -42,10 +42,12 @@ message BlockPayload{
     // place here all fields that will be hashed
     repeated bytes parentHashes=1;
     repeated Transaction txns=2;
+    uint32 witnessGroupId=3;
 }
 
 message Block{
-    // non hashed fields
+    // non hashed fields here
+
     BlockPayload payload=2;
 }
 
@@ -70,4 +72,12 @@ message Inventory{
 message UTXO{
     repeated uint32 arrIndexes =1;
     repeated output arrOutputs =2;
+}
+
+//--------------- Witness group definition ---------
+
+message WitnessGroupDefinition{
+    repeated bytes publicKeys=1;
+    string groupName=2;
+    uint32 groupId=3;
 }

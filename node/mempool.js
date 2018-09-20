@@ -76,11 +76,17 @@ module.exports = ({Transaction}) =>
 
         /**
          *
-         * @returns {IterableIterator<any>} - iterator of {tx, arrived ...}
+         * @param {Number} groupId - witness groupId
+         * @returns {IterableIterator<any>} {tx, arrived ...}
          */
-        getFinalTxns() {
+        getFinalTxns(groupId) {
 
             // TODO: implement lock_time
-            return this._mapTxns.values();
+            // TODO: implement cache if mempool becomes huge
+            const arrResult = [];
+            for (let r of this._mapTxns.values()) {
+                if (r.tx.witnessGroupId === groupId) arrResult.push(r.tx);
+            }
+            return arrResult;
         }
     };

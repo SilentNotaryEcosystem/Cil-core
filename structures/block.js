@@ -36,6 +36,14 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockPayloadPro
             return this._data.payload;
         }
 
+        get witnessGroupId() {
+            return this._data.payload.witnessGroupId;
+        }
+
+        set witnessGroupId(id) {
+            this._data.payload.witnessGroupId = id;
+        }
+
         get txns() {
             return this._data.payload.txns;
         }
@@ -61,5 +69,9 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockPayloadPro
 
         getTxHashes() {
             return this.txns.map(objTx => (new Transaction(objTx)).hash());
+        }
+
+        isEmpty() {
+            return !this.txns.length;
         }
     };

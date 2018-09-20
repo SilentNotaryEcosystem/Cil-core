@@ -52,6 +52,7 @@ const BlockWrapper = require('../structures/block');
 const InventoryWrapper = require('../structures/inventory');
 const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
+const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
 
 const pack = require('../package');
 
@@ -74,11 +75,11 @@ class Factory {
                     TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
-
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
                 this._coinsImplementation = CoinsWrapper(this);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
+                this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
 
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
@@ -112,6 +113,10 @@ class Factory {
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
                parseInt(arrSubversions[1]) * Math.pow(2, 10) +
                parseInt(arrSubversions[2]);
+    }
+
+    get WitnessGroupDefinition() {
+        return this._witnessGroupDefinition;
     }
 
     get UTXO() {
@@ -252,7 +257,9 @@ class Factory {
 
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 
-            utxoProto: protoStructures.lookupType("structures.UTXO")
+            utxoProto: protoStructures.lookupType("structures.UTXO"),
+
+            witnessGroupDefinitionProto: protoStructures.lookupType("structures.WitnessGroupDefinition")
         };
     }
 }

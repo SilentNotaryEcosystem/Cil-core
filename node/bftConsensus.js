@@ -23,22 +23,22 @@ module.exports = (factory) => {
          */
         constructor(options) {
             super();
-            const {groupName, arrPublicKeys, wallet} = options;
+            const {groupDefinition, wallet} = options;
 
             // TODO: implement network time (localtime + average network offset, calculated during handshake) it should be updated by Node?
             this._networkOffset = 0;
 
             this._nonce = parseInt(Math.random() * 100000);
 
-            if (!groupName) throw new Error('Specify group name');
-            this._groupName = groupName;
+            if (!groupDefinition) throw new Error('Use group definition to construct');
+            this._groupDefinition = groupDefinition;
 
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
-            if (!arrPublicKeys) throw new Error('Specify arrPublicKeys');
-            this._arrPublicKeys = arrPublicKeys.sort();
-            this._quorum = parseInt(arrPublicKeys.length / 2) + 1;
+            // public keys are buffers, transform it to strings, to use with maps
+            this._arrPublicKeys = groupDefinition.getPublicKeys().sort().map(key => key.toString('hex'));
+            this._quorum = parseInt(this._arrPublicKeys.length / 2) + 1;
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
@@ -47,10 +47,16 @@ module.exports = (factory) => {
             this._tock.setInterval(MAIN_TIMER_NAME, this._stateChange.bind(this), Timeouts.INIT);
 
             this._resetState();
+
+            this._lastBlockTime = Date.now();
         }
 
         get groupName() {
-            return this._groupName;
+            return this._groupDefinition.getGroupName();
+        }
+
+        get groupId() {
+            return this._groupDefinition.getGroupId();
         }
 
 //        get quorum() {
@@ -157,6 +163,7 @@ module.exports = (factory) => {
                 return;
             }
             this._block = block;
+            this._lastBlockTime = Date.now();
             this._blockStateHandler(true);
         }
 
@@ -424,6 +431,10 @@ module.exports = (factory) => {
         shouldPublish(proposer = this._wallet.publicKey) {
             const idx = this._roundNo % this._arrPublicKeys.length;
             return this._arrPublicKeys[idx] === proposer;
+        }
+
+        timeForWitnessBlock() {
+            return Date.now() - this._lastBlockTime > Constants.WITNESS_HOLDOFF;
         }
 
         /**

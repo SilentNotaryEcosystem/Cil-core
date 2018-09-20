@@ -18,19 +18,30 @@ module.exports = (factory) => {
     return class Storage {
         constructor(options) {
 
+            // only for tests, for prod we should query DB
             const {arrTestDefinition = []} = options;
-            this._groupDefinitions = new Map(arrTestDefinition);
+            this._groupDefinitions = new Map();
+            for (let def of arrTestDefinition) {
+                this._groupDefinitions.set(def.getGroupName(), def);
+            }
+
             this._db = new Map();
         }
 
         /**
          *
-         * @return {Promise<*>} Map witnessGroupName -> Array of public keys
+         * @param {Buffer | String} publicKey
+         * @returns {Promise<Array>} of groupDefinition publicKey belongs to
          */
-        async getGroupDefinitions() {
+        async getGroupsByKey(publicKey) {
+            const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
 
             // TODO: read from DB
-            return this._groupDefinitions;
+            const arrResult = [];
+            for (let def of this._groupDefinitions.values()) {
+                if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) arrResult.push(def);
+            }
+            return arrResult;
         }
 
         async hasBlock(blockHash) {

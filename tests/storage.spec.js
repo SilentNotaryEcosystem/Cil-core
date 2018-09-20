@@ -17,6 +17,28 @@ describe('Storage tests', () => {
         assert.doesNotThrow(wrapper);
     });
 
+    it('should store group definitions', async () => {
+        const def1 = factory.WitnessGroupDefinition.create('test', 0, [Buffer.from('public1'), Buffer.from('public2')]);
+        const def2 = factory.WitnessGroupDefinition.create('test2', 1,
+            [Buffer.from('public2'), Buffer.from('public3')]
+        );
+
+        const storage = new factory.Storage({arrTestDefinition: [def1, def2]});
+
+        {
+            const arrDefs = await storage.getGroupsByKey(Buffer.from('public1'));
+            assert.isOk(Array.isArray(arrDefs));
+            assert.equal(arrDefs.length, 1);
+        }
+
+        {
+            const arrDefs = await storage.getGroupsByKey(Buffer.from('public2'));
+            assert.isOk(Array.isArray(arrDefs));
+            assert.equal(arrDefs.length, 2);
+        }
+
+    });
+
     it('should save block', async () => {
         const block = new factory.Block();
         const tx = new factory.Transaction(createDummyTx());

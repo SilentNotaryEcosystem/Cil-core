@@ -96,4 +96,20 @@ describe('Mempool tests', () => {
         assert.isOk(gotTx.equals(tx1));
     });
 
+    it('should get TXns with specific witnessGroupId', async () => {
+        const mempool = new factory.Mempool();
+        const tx1 = new factory.Transaction(createDummyTx());
+        const tx2 = new factory.Transaction(createDummyTx());
+        const tx3 = new factory.Transaction();
+        tx3.rawData.payload.witnessGroupId = 2;
+
+        mempool.addTx(tx1);
+        mempool.addTx(tx2);
+        mempool.addTx(tx3);
+
+        const arrTxns = mempool.getFinalTxns(0);
+        assert.isOk(Array.isArray(arrTxns));
+        assert.equal(arrTxns.length, 2);
+    });
+
 });
