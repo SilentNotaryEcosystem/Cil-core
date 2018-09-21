@@ -129,6 +129,9 @@ module.exports = (factory) => {
          * @private
          */
         _addViewOfNodeWithPubKey(publicKey, pubKeyI, dataI) {
+            publicKey = Buffer.isBuffer(publicKey) ? publicKey.toString('hex') : publicKey;
+            pubKeyI = Buffer.isBuffer(pubKeyI) ? pubKeyI.toString('hex') : pubKeyI;
+
             this._views[publicKey][pubKeyI] = dataI;
         }
 
@@ -401,7 +404,8 @@ module.exports = (factory) => {
         _roundFromConsensusValue(value) {
             let roundNo = undefined;
             if (value) {
-                const msgNextRound = new MsgWitnessNextRound({groupName: this._groupName, roundNo: 1});
+                const msgNextRound = new MsgWitnessNextRound(
+                    {groupName: this._groupDefinition.getGroupName(), roundNo: 1});
                 try {
                     msgNextRound.parseContent(value);
                     roundNo = msgNextRound.roundNo;
