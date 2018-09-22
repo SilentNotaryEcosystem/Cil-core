@@ -170,13 +170,15 @@ module.exports = (factory) => {
             try {
                 debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
                 const newPeer = new Peer({connection, transport: this._transport});
-                const result = this._peerManager.addPeer(newPeer);
-                if (result !== undefined) return;
 
-                // peer already connected
+                const result = this._peerManager.addPeer(newPeer);
+                if (result instanceof Peer) return;
+
+                // peer already connected or banned
+                const reason = result === Constants.REJECT_BANNED ? 'You are banned' : 'Duplicate connection';
                 const message = new MsgReject({
-                    code: Constants.REJECT_DUPLICATE,
-                    reason: 'Duplicate connection detected'
+                    code: result,
+                    reason
                 });
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${newPeer.address}"`);

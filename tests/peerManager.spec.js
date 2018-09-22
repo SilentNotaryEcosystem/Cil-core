@@ -1,7 +1,11 @@
+'use strict';
+
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const sinon = require('sinon');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
+const {createDummyPeer} = require('./testUtil');
 
 describe('Peer manager', () => {
     before(async function() {
@@ -42,9 +46,7 @@ describe('Peer manager', () => {
                 remoteAddress: factory.Transport.generateAddress(),
                 listenerCount: () => 0,
                 on: () => {},
-                sendMessage: async (msgAddr) => {
-                    msg = msgAddr;
-                }
+                sendMessage: sinon.fake()
             }
         });
         pm.addPeer(peer);
@@ -240,4 +242,20 @@ describe('Peer manager', () => {
         assert.equal(peer.capabilities.length, 1);
         assert.isNotOk(peer.isWitness);
     });
+
+    it('should NOT add banned peer (REJECT_BANNED)', async () => {
+        const pm = new factory.PeerManager();
+        const peer = new factory.Peer(createDummyPeer(factory));
+
+        const result = pm.addPeer(peer);
+        assert.isOk(result instanceof factory.Peer);
+
+        {
+            peer.ban();
+            const result = pm.addPeer(peer);
+            assert.isNotOk(result instanceof factory.Peer);
+            assert.equal(result, factory.Constants.REJECT_BANNED);
+        }
+    });
+
 });
