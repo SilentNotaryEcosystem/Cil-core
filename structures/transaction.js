@@ -44,6 +44,10 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             return this._data.payload.witnessGroupId;
         }
 
+        set witnessGroupId(groupId) {
+            return this._data.payload.witnessGroupId = groupId;
+        }
+
         get rawData() {
             return this._data;
         }

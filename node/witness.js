@@ -122,11 +122,11 @@ module.exports = (factory) => {
             return arrPeers;
         }
 
-        async _connectToWitness(peer) {
-            const address = this._transport.constructor.addressToString(peer.address);
-            debugWitness(`(address: "${this._debugAddress}") connecting to witness ${address}`);
-            return await peer.connect();
-        }
+//        async _connectToWitness(peer) {
+//            const address = this._transport.constructor.addressToString(peer.address);
+//            debugWitness(`(address: "${this._debugAddress}") connecting to witness ${address}`);
+//            return await peer.connect();
+//        }
 
         async _incomingWitnessMessage(peer, message) {
             try {
@@ -246,19 +246,26 @@ module.exports = (factory) => {
                     this._broadcastConsensusInitiatedMessage(msgBlockAck);
                 } catch (e) {
                     if (typeof e === 'number') {
-                        debugWitness('Suppressing empty block');
+                        this._suppressedBlockHandler();
                     } else {
                         logger.error(e.message);
                     }
                 }
             });
             consensus.on('commitBlock', async (block) => {
+                await this._commitBlock(block);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
-
-                //TODO: pass block to App layer
             });
+        }
 
+        /**
+         *
+         *
+         * @private
+         */
+        _suppressedBlockHandler() {
+            debugWitness('Suppressing empty block');
         }
 
         /**
@@ -343,6 +350,11 @@ module.exports = (factory) => {
                 block.addTx(tx);
             }
             return block;
+        }
+
+        async _commitBlock(block) {
+
+            //TODO: pass block to App layer
         }
 
     };
