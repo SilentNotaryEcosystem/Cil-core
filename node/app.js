@@ -39,7 +39,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
                     const buffInputHash = Buffer.from(tx.hash(i), 'hex');
                     const input = txInputs[i];
                     const strInputTxHash = input.txHash.toString('hex');
-                    const utxo = mapUtxos[strInputTxHash];
+                    const utxo = patch.getUtxo(strInputTxHash) || mapUtxos[strInputTxHash];
+                    if (!utxo) throw new Error(`UTXO not found for ${strInputTxHash} neither in patch nor in mapUtxos`);
 
                     const coins = utxo.coinsAtIndex(input.nTxOutput);
                     this._verifyClaim(coins.getCodeClaim(), claimProofs[i], buffInputHash);

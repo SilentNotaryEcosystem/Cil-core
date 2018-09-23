@@ -99,13 +99,13 @@ describe('Storage tests', () => {
         const storage = new factory.Storage({});
 
         const patch = new factory.PatchDB();
-        const txHash = pseudoRandomBuffer();
+        const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 80, coins);
 
-        const txHash2 = pseudoRandomBuffer();
+        const txHash2 = pseudoRandomBuffer().toString('hex');
         const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
         patch.createCoins(txHash2, 22, coins2);
 
@@ -125,13 +125,13 @@ describe('Storage tests', () => {
 
         // create coins that we plan to spend
         const patch = new factory.PatchDB();
-        const txHash = pseudoRandomBuffer();
+        const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 80, coins);
 
-        const txHash2 = pseudoRandomBuffer();
+        const txHash2 = pseudoRandomBuffer().toString('hex');
         const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
         patch.createCoins(txHash2, 22, coins2);
 
@@ -173,9 +173,9 @@ describe('Storage tests', () => {
         const storage = new factory.Storage({});
 
         const patch = new factory.PatchDB();
-        const txHash = pseudoRandomBuffer();
-        const txHash2 = pseudoRandomBuffer();
-        const txHash3 = pseudoRandomBuffer();
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const txHash2 = pseudoRandomBuffer().toString('hex');
+        const txHash3 = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
 
         patch.createCoins(txHash, 12, coins);

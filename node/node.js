@@ -260,6 +260,8 @@ module.exports = (factory) => {
          */
         async _handleTxMessage(peer, message) {
 
+            //TODO: make sure that's a tx we requested! not pushed to us
+
             // this will check syntactic correctness
             const msgTx = new MsgTx(message);
             const tx = msgTx.tx;
@@ -281,6 +283,9 @@ module.exports = (factory) => {
          * @private
          */
         async _handleBlockMessage(peer, message) {
+
+            //TODO: make sure that's a block we requested! not pushed to us
+
             const msg = new MsgBlock(message);
             try {
                 await this._processBlock(msg.block);

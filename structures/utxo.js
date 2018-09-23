@@ -40,8 +40,12 @@ module.exports = ({Coins}, {utxoProto}) =>
             return !this._data.arrIndexes.length;
         }
 
+        /**
+         *
+         * @returns {string | *}
+         */
         getTxHash() {
-            return this._txHash;
+            return this._strHash;
         }
 
         /**

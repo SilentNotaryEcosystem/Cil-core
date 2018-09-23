@@ -44,13 +44,30 @@ module.exports = ({UTXO, Coins}) =>
          * @param {Coins} coins
          */
         createCoins(txHash, idx, coins) {
+            typeforce(typeforce.tuple(types.Str64, 'Number'), [txHash, idx]);
+
             const utxo = this._data.coins.get(txHash) || new UTXO({txHash});
             utxo.addCoins(idx, coins);
 
             this._data.coins.set(txHash, utxo);
         }
 
+        /**
+         *
+         * @returns {Map} of UTXOs. keys are hashes, values UTXOs
+         */
         getCoins() {
             return this._data.coins;
+        }
+
+        /**
+         *
+         * @param {String} txHash
+         * @returns {UTXO}
+         */
+        getUtxo(txHash) {
+            typeforce(types.Str64, txHash);
+
+            return this._data.coins.get(txHash);
         }
     };

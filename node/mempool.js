@@ -13,7 +13,6 @@ module.exports = ({Transaction}) =>
     class Mempool {
         constructor(options) {
             this._mapTxns = new Map();
-            this._coinsCache = new Set();
         }
 
         /**
@@ -26,8 +25,6 @@ module.exports = ({Transaction}) =>
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
                 // TODO: think about: is it problem that TX isn't present in mempool, but present in block
                 if (this._mapTxns.has(txHash)) {
-                    const {tx} = this._mapTxns.get(txHash);
-
                     this._mapTxns.delete(txHash);
                     debug(`Block arrived: removed TX ${txHash}`);
                 } else {
@@ -37,7 +34,7 @@ module.exports = ({Transaction}) =>
         }
 
         hasTx(txHash) {
-            typeforce(typeforce.oneOf('String', 'Buffer'), txHash);
+            typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             return this._mapTxns.has(strTxHash);
@@ -64,7 +61,7 @@ module.exports = ({Transaction}) =>
          * @return {Transaction}
          */
         getTx(txHash) {
-            typeforce(typeforce.oneOf('String', 'Buffer'), txHash);
+            typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             const tx = this._mapTxns.get(strTxHash);
