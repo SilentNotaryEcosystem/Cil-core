@@ -74,7 +74,7 @@ describe('Mempool tests', () => {
         mempool.addTx(tx1);
         mempool.addTx(tx2);
 
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx1);
         block.addTx(tx2);
 

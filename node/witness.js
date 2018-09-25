@@ -344,8 +344,7 @@ module.exports = (factory) => {
         }
 
         async _createBlock(groupId) {
-            const block = new Block();
-            block.witnessGroupId = groupId;
+            const block = new Block(groupId);
             for (let tx of this._mempool.getFinalTxns(groupId)) {
                 block.addTx(tx);
             }

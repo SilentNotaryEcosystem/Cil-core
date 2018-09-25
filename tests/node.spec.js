@@ -175,7 +175,7 @@ describe('Node tests', () => {
 
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
 
         block.addTx(tx);
         inv.addBlock(block);
@@ -202,7 +202,7 @@ describe('Node tests', () => {
 
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
 
         block.addTx(tx);
         inv.addBlock(block);
@@ -219,14 +219,14 @@ describe('Node tests', () => {
     it('should send MSG_TX & MSG_BLOCK', async () => {
         const node = new factory.Node({});
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
-        node._storage.getBlock = sinon.fake.returns(new factory.Block());
+        node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
 
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
 
         block.addTx(tx);
         inv.addBlock(block);
@@ -250,7 +250,7 @@ describe('Node tests', () => {
     it('should send NOTHING (bad msg)', async () => {
         const node = new factory.Node({});
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
-        node._storage.getBlock = sinon.fake.returns(new factory.Block());
+        node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
@@ -274,7 +274,7 @@ describe('Node tests', () => {
     it('should send NOTHING and mark peer misbehaving (no tx in mempool)', async () => {
         const node = new factory.Node({});
         node._mempool.getTx = sinon.fake.throws(new Error('No tx in mempool'));
-        node._storage.getBlock = sinon.fake.returns(new factory.Block());
+        node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
@@ -370,7 +370,7 @@ describe('Node tests', () => {
 
         const tx = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx);
         block.addTx(tx2);
 
@@ -398,7 +398,7 @@ describe('Node tests', () => {
         peer.ban = sinon.fake();
 
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx);
 
         const msg = new factory.Messages.MsgBlock(block);
@@ -480,7 +480,7 @@ describe('Node tests', () => {
         node._informNeighbors = sinon.fake();
 
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx);
 
         factory.Constants.GENEZIS_BLOCK = block.hash();

@@ -24,7 +24,7 @@ describe('MessageBlock', () => {
     });
 
     it('should create from block', async () => {
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const tx = new factory.Transaction(createDummyTx());
         block.addTx(tx);
 
@@ -35,7 +35,7 @@ describe('MessageBlock', () => {
     it('should set/get block', async () => {
         const msg = new factory.Messages.MsgBlock();
 
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);
@@ -55,7 +55,7 @@ describe('MessageBlock', () => {
     it('should encode/decode message', async () => {
         const msg = new factory.Messages.MsgBlock();
 
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);

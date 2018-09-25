@@ -525,7 +525,7 @@ describe('BFT general tests', () => {
 
         assert.isNotOk(newBft._views[newBft._wallet.publicKey][newBft._wallet.publicKey]);
 
-        newBft.processValidBlock(new factory.Block());
+        newBft.processValidBlock(new factory.Block(0));
 
         assert.isOk(newBft._block);
     });
@@ -568,7 +568,7 @@ describe('BFT general tests', () => {
 
     it('should advance from VOTE_BLOCK to COMMIT state (block accepted)', async () => {
         const {newBft} = createDummyBFT(groupName);
-        newBft._block = new factory.Block();
+        newBft._block = new factory.Block(0);
         const blockCommitHandler = sinon.fake();
         newBft.on('commitBlock', blockCommitHandler);
 
@@ -598,7 +598,7 @@ describe('BFT general tests', () => {
 
     it('should advance from VOTE_BLOCK to COMMIT state but NO COMMIT (wrong hash!)', async () => {
         const {newBft} = createDummyBFT(groupName);
-        newBft._block = new factory.Block();
+        newBft._block = new factory.Block(0);
 
         const blockCommitHandler = sinon.fake();
         newBft.on('commitBlock', blockCommitHandler);

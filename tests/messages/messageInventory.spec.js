@@ -40,7 +40,7 @@ describe('MessageInventory', () => {
         const tx = new factory.Transaction(createDummyTx());
         inv.addTx(tx);
 
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx);
         inv.addBlock(block);
 
@@ -58,7 +58,7 @@ describe('MessageInventory', () => {
         const tx = new factory.Transaction(createDummyTx());
         inv.addTx(tx);
 
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx);
         inv.addBlock(block);
 

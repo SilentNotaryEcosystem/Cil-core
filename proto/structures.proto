@@ -35,20 +35,18 @@ message Transaction {
 
 //------------------- Block ---------
 
-message BlockPayload{
-
-    // TODO: complete
-
-    // place here all fields that will be hashed
+message BlockHeader{
     repeated bytes parentHashes=1;
-    repeated Transaction txns=2;
+    bytes merkleRoot =2;
     uint32 witnessGroupId=3;
 }
 
 message Block{
-    // non hashed fields here
 
-    BlockPayload payload=2;
+    // non hashed fields here
+    BlockHeader header=1;
+    repeated Transaction txns=2;
+    repeated bytes signatures=3;
 }
 
 //------------------- Inventory ---------

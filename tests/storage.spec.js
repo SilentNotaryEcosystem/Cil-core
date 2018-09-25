@@ -40,7 +40,7 @@ describe('Storage tests', () => {
     });
 
     it('should save block', async () => {
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const tx = new factory.Transaction(createDummyTx());
         block.addTx(tx);
 
@@ -49,7 +49,7 @@ describe('Storage tests', () => {
     });
 
     it('should find block in storage', async () => {
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const tx = new factory.Transaction(createDummyTx());
         block.addTx(tx);
 
@@ -81,7 +81,7 @@ describe('Storage tests', () => {
     });
 
     it('should get saved block', async () => {
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const tx = new factory.Transaction(createDummyTx());
         block.addTx(tx);
 

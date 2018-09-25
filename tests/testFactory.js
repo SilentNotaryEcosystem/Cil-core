@@ -253,7 +253,7 @@ class Factory {
             transactionPayloadProto: protoStructures.lookupType("structures.TransactionPayload"),
 
             blockProto: protoStructures.lookupType("structures.Block"),
-            blockPayloadProto: protoStructures.lookupType("structures.BlockPayload"),
+            blockHeaderProto: protoStructures.lookupType("structures.BlockHeader"),
 
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 

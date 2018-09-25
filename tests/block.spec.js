@@ -13,12 +13,12 @@ describe('Block tests', () => {
     });
 
     it('should create block', async () => {
-        const wrapper = () => new factory.Block();
+        const wrapper = () => new factory.Block(0);
         assert.doesNotThrow(wrapper);
     });
 
     it('should add tx', async () => {
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const tx = new factory.Transaction(createDummyTx());
 
         block.addTx(tx);
@@ -27,7 +27,7 @@ describe('Block tests', () => {
     });
 
     it('should calc hash', async () => {
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);
@@ -43,7 +43,7 @@ describe('Block tests', () => {
         // next hash call - return same value
         assert.equal(hash, block.hash());
 
-        const anotherBlock = new factory.Block();
+        const anotherBlock = new factory.Block(0);
         const anotherTx = new factory.Transaction(createDummyTx());
         anotherTx.sign(0, keyPair.privateKey);
         anotherBlock.addTx(anotherTx);
@@ -52,7 +52,7 @@ describe('Block tests', () => {
     });
 
     it('should encode/decode', async () => {
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);

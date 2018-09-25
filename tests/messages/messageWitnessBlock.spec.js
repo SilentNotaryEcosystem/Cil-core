@@ -29,7 +29,7 @@ describe('MessageWitnessBlock', () => {
     it('should encode/decode message', async () => {
         const msg = new factory.Messages.MsgWitnessBlock({groupName: 'test'});
 
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
         tx.sign(0, keyPair.privateKey);

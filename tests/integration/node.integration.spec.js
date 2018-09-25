@@ -170,7 +170,7 @@ describe('Node integration tests', () => {
 
     it('should propagate GENEZIS block over all nodes', async function() {
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx);
         factory.Constants.GENEZIS_BLOCK = block.hash();
 
