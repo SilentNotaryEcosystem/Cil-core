@@ -28,7 +28,8 @@ global.logger.debug = console.log;
 const config = require('../config/test.conf');
 
 const Crypto = require('../crypto/crypto');
-const TransportWrapper = require('../network/testTransport');
+// const TransportWrapper = require('../network/testTransport');
+const TransportWrapper = require('../network/ipv6Transport');
 const SerializerWrapper = require('../network/serializer');
 const MessageAssemblerWrapper = require('../network/messageAssembler');
 const PeerWrapper = require('../network/peer');
