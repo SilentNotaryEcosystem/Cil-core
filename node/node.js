@@ -37,6 +37,8 @@ module.exports = (factory) => {
             this._arrDnsSeeds = arrDnsSeeds;
 
             this._nMaxPeers = nMaxPeers || Constants.MAX_PEERS;
+
+            // TODO: add minPeers to maintain connection
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
             this._transport = new Transport(options);
 
@@ -55,6 +57,8 @@ module.exports = (factory) => {
             this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
 
             this._peerManager = new PeerManager({transport: this._transport});
+
+            // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
 
             debugNode(`(address: "${this._debugAddress}") start listening`);
@@ -100,7 +104,7 @@ module.exports = (factory) => {
                 await peer.loaded();
             }
 
-            // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections, query new peers ... see above)
+            // TODO: add watchdog to mantain MIN connections (send pings cleanup failed connections, query new peers ... see above)
         }
 
         /**
@@ -123,6 +127,7 @@ module.exports = (factory) => {
         _findBestPeers() {
 
             // we prefer witness nodes
+            // TODO: REWORK! it's not good idea to overload witnesses!
             const arrWitnessNodes = this._peerManager.filterPeers({service: Constants.WITNESS});
             if (arrWitnessNodes.length) return arrWitnessNodes;
 
@@ -221,6 +226,8 @@ module.exports = (factory) => {
                     peer.misbehave(1);
                     return;
                 }
+
+                // TODO: check number of bytes sent to each node (except witness?)
 
                 if (message.isGetAddr()) {
                     return await this._handlePeerRequest(peer);
@@ -543,7 +550,7 @@ module.exports = (factory) => {
             await this._verifyBlock(block);
 
             const patchState = new PatchDB();
-            const isGenezis = block.hash() === Constants.GENEZIS_BLOCK;
+            const isGenezis = this.isGenezisBlock(block);
 
             let blockFees = 0;
             const blockTxns = block.txns;
@@ -568,6 +575,10 @@ module.exports = (factory) => {
             await this._storage.applyPatch(patchState);
 
             this._informNeighbors(block);
+        }
+
+        isGenezisBlock(block) {
+            return block.hash() === Constants.GENEZIS_BLOCK && block.mci === 0;
         }
 
         /**

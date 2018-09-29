@@ -83,6 +83,8 @@ module.exports = (factory) => {
                 } else {
                     debugWitness(`----- "${this._debugAddress}" WITNESS "${peer.address}" DISCONNECTED ---`);
                 }
+
+                // TODO: request mempool tx from neighbor with MSG_MEMPOOL (https://en.bitcoin.it/wiki/Protocol_documentation#mempool)
             }
         }
 
@@ -137,6 +139,12 @@ module.exports = (factory) => {
                     await this._processHandshakeMessage(peer, messageWitness, consensus);
                     return;
                 }
+
+//                if(!peer.witnessLoadDone) {
+//                    peer.ban();
+//                    throw new Error('Peer missed handshake stage');
+//                }
+
                 if (messageWitness.isWitnessBlock()) {
                     await this._processBlockMessage(peer, messageWitness, consensus);
                     return;
@@ -171,6 +179,7 @@ module.exports = (factory) => {
                 await peer.pushMessage(response);
                 peer.addTag(messageWitness.groupName);
             } else {
+
                 peer.witnessLoadDone = true;
             }
         }
@@ -181,33 +190,25 @@ module.exports = (factory) => {
                 // this will advance us to VOTE_BLOCK state whether block valid or not!
                 const msgBlock = new MsgWitnessBlock(messageWitness);
                 const block = msgBlock.block;
-                let message;
                 try {
-                    this._processBlock(block);
+                    await this._processBlock(block);
+
                     consensus.processValidBlock(block);
-
-                    // send our blockACK to consensus
-                    message = this._createBlockAcceptMessage(messageWitness.groupName, block.hash());
-
                 } catch (e) {
                     consensus.invalidBlock();
-                    message = this._createBlockRejectMessage(messageWitness.groupName);
                 }
-
-                // here we are at VOTE_BLOCK state - let's send our vote!
-                this._broadcastConsensusInitiatedMessage(message);
             } else {
+
+                // we still wait for block from designated proposer or timer for BLOCK state will expire
                 debugWitness(
                     `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not it's turn!`);
             }
-
-            // we still wait for block from designated proposer or timer for BLOCK state will expire
         }
 
         /**
          *
          * @param {Peer} peer
-         * @param {MessageCommon} message
+         * @param {MessageCommon | undefined} message undefined means that signature check for witness peer failed (@see peer._setConnectionHandlers)
          * @return {WitnessMessageCommon | undefined}
          * @private
          */
@@ -240,10 +241,6 @@ module.exports = (factory) => {
                 try {
                     const block = await this._createBlockAndBroadcast(consensus);
                     consensus.processValidBlock(block);
-
-                    // send ACK for own block to consensus
-                    const msgBlockAck = this._createBlockAcceptMessage(consensus.groupName, block.hash());
-                    this._broadcastConsensusInitiatedMessage(msgBlockAck);
                 } catch (e) {
                     if (typeof e === 'number') {
                         this._suppressedBlockHandler();
@@ -294,19 +291,6 @@ module.exports = (factory) => {
             return msg;
         }
 
-        _createBlockAcceptMessage(groupName, blockHash) {
-            const msgBlockAccept = new MsgWitnessCommon({groupName});
-            msgBlockAccept.blockAcceptMessage = blockHash;
-            msgBlockAccept.sign(this._wallet.privateKey);
-            return msgBlockAccept;
-        }
-
-        _createBlockRejectMessage(groupName) {
-            const msgBlockReject = new MsgWitnessCommon({groupName});
-            msgBlockReject.blockRejectMessage = true;
-            msgBlockReject.sign(this._wallet.privateKey);
-            return msgBlockReject;
-        }
 
         /**
          * Create block, and it it's not empty broadcast MSG_WITNESS_BLOCK to other witnesses

@@ -344,7 +344,7 @@ describe('BFT general tests', () => {
         const wrapper = () => newBft.processMessage(msg);
         assert.doesNotThrow(wrapper);
         assert.isOk(newBft._views[keyPair1.publicKey][keyPair1.publicKey]);
-        assert.equal(newBft._views[keyPair1.publicKey][keyPair1.publicKey].data, msg.content);
+        assert.equal(newBft._views[keyPair1.publicKey][keyPair1.publicKey].roundNo, msg.roundNo);
     });
 
     it('should accept "MsgExpose" witness message', async () => {
@@ -360,7 +360,7 @@ describe('BFT general tests', () => {
         const wrapper = () => newBft.processMessage(msgExpose);
         assert.doesNotThrow(wrapper);
         assert.isOk(newBft._views[keyPair2.publicKey][keyPair1.publicKey]);
-        assert.equal(newBft._views[keyPair2.publicKey][keyPair1.publicKey].data + '', msg.content + '');
+        assert.equal(newBft._views[keyPair2.publicKey][keyPair1.publicKey].roundNo, msg.roundNo);
     });
 
     it('should reject message with bad signature', async function() {
@@ -455,13 +455,47 @@ describe('BFT general tests', () => {
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 864});
         msg.encode();
 
-        newBft._roundChangeHandler(true, {state: newBft._state, data: msg.content});
+        newBft._roundChangeHandler(true, {state: newBft._state, ...msg.content});
 
         assert.isNotOk(newBft._nextRound.calledOnce);
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);
         assert.equal(newBft._roundNo, 864);
 
         if (newBft.shouldPublish()) assert.isOk(blockCreateHandler.calledOnce);
+    });
+
+    it('should sync rounds and advance to BLOCK state', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
+
+        newBft._state = factory.Constants.consensusStates.ROUND_CHANGE;
+        newBft._stateChange = sinon.fake();
+
+        const createNextRoundMessage = (groupName, privateKey) => {
+            const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 864});
+            msg.sign(privateKey);
+            return msg;
+        };
+
+        // Message received from party
+        const msgParty = createNextRoundMessage(groupName, keyPair2.privateKey);
+        newBft.processMessage(msgParty);
+
+        // My message
+        const msgMy = createNextRoundMessage(groupName, keyPair1.privateKey);
+        newBft.processMessage(msgMy);
+
+        // My message returned by party
+        const msgMyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgMy);
+        msgMyExposed.sign(keyPair2.privateKey);
+        newBft.processMessage(msgMyExposed);
+
+        // Party message exposed by me
+        const msgPartyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgParty);
+        msgPartyExposed.sign(keyPair1.privateKey);
+        newBft.processMessage(msgPartyExposed);
+
+        assert.isOk(newBft._stateChange.calledOnce);
     });
 
     it('should vote for a Block and advance state', async () => {
@@ -472,10 +506,9 @@ describe('BFT general tests', () => {
         newBft._state = factory.Constants.consensusStates.BLOCK;
         newBft._stateChange = sinon.fake();
 
-        const fakeBlockHash = factory.Crypto.createHash(factory.Crypto.randomBytes(16));
+        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
         const createBlockAckMessage = (groupName, privateKey) => {
-            const msgBlockAck = new factory.Messages.MsgWitnessCommon({groupName});
-            msgBlockAck.blockAcceptMessage = fakeBlockHash;
+            const msgBlockAck = new factory.Messages.MsgWitnessBlockAck({groupName, blockHash: fakeBlockHash});
             msgBlockAck.sign(privateKey);
             return msgBlockAck;
         };

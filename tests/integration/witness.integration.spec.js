@@ -9,8 +9,8 @@ const {pseudoRandomBuffer} = require('../testUtil');
 
 const debugWitness = debugLib('witness:app');
 
-const maxConnections = os.platform() === 'win32' ? 4 : 10;
-//const maxConnections = 2;
+//const maxConnections = os.platform() === 'win32' ? 4 : 10;
+const maxConnections = 2;
 
 // set to undefined to use random delays
 //const delay = undefined;

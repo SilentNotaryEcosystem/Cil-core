@@ -61,6 +61,9 @@ module.exports = (factory) => {
             if (existingPeer && (existingPeer.version || !existingPeer.disconnected)) return existingPeer;
 
             this.updateHandlers(peer);
+
+            // TODO: store it in DB
+            // TODO: emit new peer
             this._allPeers.set(key, peer);
             return peer;
         }

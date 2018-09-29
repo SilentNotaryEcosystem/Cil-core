@@ -8,7 +8,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             typeforce(typeforce.oneOf('Object', 'Buffer', 'Number'), data);
 
             if (typeof data === 'number') {
-                data = {header: blockHeaderProto.create({witnessGroupId: data})};
+                data = {header: blockHeaderProto.create({witnessGroupId: data, mci: 0})};
             }
 
             if (Buffer.isBuffer(data)) {
@@ -33,6 +33,14 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
         get txns() {
             return this._data.txns;
+        }
+
+        get mci() {
+            return this._data.header.mci;
+        }
+
+        set mci(value) {
+            return this._data.header.mci = value;
         }
 
         /**

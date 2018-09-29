@@ -28,6 +28,7 @@ const Hash256bit = typeforce.oneOf(typeforce.BufferN(32), Str64);
 
 module.exports = {
     Str64,
+    Buf32: typeforce.BufferN(32),
     Hash256bit,
     Address: typeforce.BufferN(20),
     PrivateKey,

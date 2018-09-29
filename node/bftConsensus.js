@@ -1,11 +1,14 @@
 'use strict';
+const typeforce = require('typeforce');
 const EventEmitter = require('events');
 const Tick = require('tick-tock');
 const debug = require('debug')('bft:app');
 
+const types = require('../types');
+
 module.exports = (factory) => {
     const {Constants, Crypto, Messages} = factory;
-    const {MsgWitnessNextRound} = Messages;
+    const {MsgWitnessNextRound, MsgWitnessCommon, MsgWitnessBlockAck} = Messages;
     const States = Constants.consensusStates;
     const MAIN_TIMER_NAME = 'stateChange';
     const Timeouts = Constants.consensusTimeouts;
@@ -79,25 +82,34 @@ module.exports = (factory) => {
 
             debug(`BFT "${this._nonce}" processing "${witnessMsg.message}". State: "${this._state}"`);
 
+            let msgCommon;
             if (witnessMsg.isExpose()) {
-                const msgCommon = Messages.MsgWitnessWitnessExpose.extract(witnessMsg);
-                if (msgCommon.isNextRound()) witnessMsg = new Messages.MsgWitnessNextRound(msgCommon);
-                if (msgCommon.isWitnessBlockAccept() ||
-                    msgCommon.isWitnessBlockReject()) {
-                    witnessMsg = new Messages.MsgWitnessCommon(msgCommon);
-                }
+                msgCommon = Messages.MsgWitnessWitnessExpose.extract(witnessMsg);
+            } else {
+                msgCommon = witnessMsg;
+            }
+
+            // get real message
+            if (msgCommon.isNextRound()) {
+                witnessMsg = new Messages.MsgWitnessNextRound(msgCommon);
+            } else if (msgCommon.isWitnessBlockAccept()) {
+                witnessMsg = new Messages.MsgWitnessBlockAck(msgCommon);
+            } else if (msgCommon.isWitnessBlockReject()) {
+                witnessMsg = new Messages.MsgWitnessCommon(msgCommon);
             }
 
             const state = this._stateFromMessage(witnessMsg);
 
             // it make a sense after extracting message from MsgWitnessWitnessExpose
             const pubKeyI = witnessMsg.publicKey;
+
+            // make sure that those guys from our group
             if (!this.checkPublicKey(senderPubKey) || !this.checkPublicKey(pubKeyI)) {
                 throw new Error(`wrong public key for message ${witnessMsg.message}`);
             }
 
 //            debug(`BFT "${this._nonce}" added "${senderPubKey}--${pubKeyI}" data ${witnessMsg.content}`);
-            this._addViewOfNodeWithPubKey(senderPubKey, pubKeyI, {state, data: witnessMsg.content});
+            this._addViewOfNodeWithPubKey(senderPubKey, pubKeyI, {state, ...witnessMsg.content});
             const value = this.runConsensus();
             if (!value) return false;
 
@@ -136,10 +148,9 @@ module.exports = (factory) => {
         }
 
         /**
-         * @param {boolean} weak - we need just value that has most witnesses, used to adjust initial state
          * @return {Object|undefined} - consensus value
          */
-        runConsensus({weak} = {weak: false}) {
+        runConsensus() {
 
             // i'm a single node (for example Initial witness)
             if (this._arrPublicKeys.length === 1 &&
@@ -148,49 +159,37 @@ module.exports = (factory) => {
             }
 
             const arrWitnessValues = this._arrPublicKeys.map(pubKeyI => {
-
-                // Let's get data of I witness
-                const arrDataWitnessI = this._arrPublicKeys.map(pubKeyJ => {
-                    return this._views[pubKeyJ][pubKeyI];
-                });
-                return this._majority(arrDataWitnessI, weak);
+                const arrDataWitnessI = this._witnessData(pubKeyI);
+                return this._majority(arrDataWitnessI);
             });
 
-            return this._majority(arrWitnessValues, weak);
+            return this._majority(arrWitnessValues);
         }
 
-        processValidBlock(block) {
-            debug(`BFT "${this._nonce}". Received block with hash: ${block.hash()}. State ${this._state}`);
-            if (this._state !== States.BLOCK) {
-                logger.error(`Got block at wrong state: "${this._state}"`);
-                return;
-            }
-            this._block = block;
-            this._lastBlockTime = Date.now();
-            this._blockStateHandler(true);
-        }
-
-        invalidBlock() {
-            debug(`BFT "${this._nonce}". Received INVALID block. State ${this._state}`);
-            if (this._state !== States.BLOCK) {
-                logger.error(`Got block at wrong state: "${this._state}"`);
-                return;
-            }
-            this._block = undefined;
-            this._blockStateHandler(false);
+        /**
+         * Get all data we received from witness with pubKeyI @see _addViewOfNodeWithPubKey
+         *
+         * @param {String} pubKeyI
+         * @private
+         */
+        _witnessData(pubKeyI) {
+            return this._arrPublicKeys.map(pubKeyJ => {
+                return this._views[pubKeyJ][pubKeyI];
+            });
         }
 
         /**
          *
          * @param {Array} arrDataWitnessI - array of values to find majority
-         * @param {boolean} weak - we need just max value
          * @private
          */
-        _majority(arrDataWitnessI, weak = false) {
+        _majority(arrDataWitnessI) {
             const objHashes = {};
             for (let data of arrDataWitnessI) {
                 const hash = this._calcDataHash(data);
                 if (typeof objHashes[hash] !== 'object') {
+
+                    // new value found
                     objHashes[hash] = {
                         count: 1,
                         value: data
@@ -208,19 +207,62 @@ module.exports = (factory) => {
                 return maxCount;
             }, 0);
 
-            if (weak) return count === 1 ? undefined : majorityValue;
             return count >= this._quorum ? majorityValue : undefined;
         }
 
+        processValidBlock(block) {
+            debug(`BFT "${this._nonce}". Received block with hash: ${block.hash()}. State ${this._state}`);
+            if (this._state !== States.BLOCK) {
+                logger.error(`Got block at wrong state: "${this._state}"`);
+                return;
+            }
+            this._block = block;
+            this._lastBlockTime = Date.now();
+            this._blockStateHandler(true);
+
+            const message = this._createBlockAcceptMessage(
+                this._groupDefinition.getGroupName(),
+                Buffer.from(block.hash(), 'hex')
+            );
+            this.emit('message', message);
+        }
+
+        invalidBlock() {
+            debug(`BFT "${this._nonce}". Received INVALID block. State ${this._state}`);
+            if (this._state !== States.BLOCK) {
+                logger.error(`Got block at wrong state: "${this._state}"`);
+                return;
+            }
+            this._block = undefined;
+            this._blockStateHandler(false);
+
+            const message = this._createBlockRejectMessage(this._groupDefinition.getGroupName());
+            this.emit('message', message);
+        }
+
         /**
-         * Calculate hash of data to sum votes
+         * Transfrm data to hash to make data comparable
          *
          * @param {Object} data
          * @return {String|undefined}
          * @private
          */
         _calcDataHash(data) {
-            return data === undefined ? undefined : Crypto.sha256(JSON.stringify(data));
+
+            // TODO: it's not best method i suppose. But deepEqual is even worse?
+            if (data === undefined) return undefined;
+
+            let copyData;
+            // remove signature (it will be present for MSG_WITNESS_BLOCK_ACK) it will make items unequal
+            if (data.hasOwnProperty('signature')) {
+
+                // make a copy, because we'll modify it
+                copyData = Object.assign({}, data);
+                copyData.signature = undefined;
+            } else {
+                copyData = data;
+            }
+            return Crypto.createHash(JSON.stringify(copyData));
         }
 
         _adjustTimer() {
@@ -293,10 +335,13 @@ module.exports = (factory) => {
          */
         _roundChangeHandler(isConsensus, consensusValue) {
             if (!isConsensus) {
-                this._tryToAdjustRound();
+
+                // if there is no consensus - force all to use _roundFromNetworkTime
+                this._roundFromNetworkTime();
+                debug(`BFT "${this._nonce}" adjusting round to NETWORK time`);
                 this._nextRound();
             } else {
-                this._roundNo = this._roundFromConsensusValue(consensusValue.data);
+                this._roundNo = consensusValue.roundNo;
                 this._state = States.BLOCK;
                 this._adjustTimer();
 
@@ -340,19 +385,19 @@ module.exports = (factory) => {
                 this._state = States.COMMIT;
 
                 if (this._block) {
-                    if (consensusValue.data + '' === this._block.hash()) {
+                    if (consensusValue.blockHash.equals(Buffer.from(this._block.hash(), 'hex'))) {
                         this.emit('commitBlock', this._block);
                     } else {
 
-                        // witness misbehave!! sent us different block than other!
-                        // TODO: punish publisher!
-                        const idx = this._roundNo % this._arrPublicKeys.length;
-                        logger.error(`Witness with pubkey "${this._arrPublicKeys[idx]}" misbehave!`);
+                        // Proposer misbehave!! sent us different block than other!
+                        logger.error(`Proposer (pubkey "${this._getProposerKey()}") misbehave. Sent different blocks!`);
                     }
                 }
 
                 // if we missed block (!this._block i.e. late join to consensus) just wait a timeout to keep synced
             } else {
+
+                // no consensus or all witnesses send MSG_WITNESS_BLOCK_REJECT
                 this._nextRound();
             }
 
@@ -378,43 +423,6 @@ module.exports = (factory) => {
         }
 
         /**
-         * It will try get maximum roundNo from other group members, and we'll try to reach consensus with it
-         *
-         * @private
-         */
-        _tryToAdjustRound() {
-            const value = this.runConsensus({weak: true});
-            const roundNo = this._roundFromConsensusValue(value);
-            if (roundNo !== undefined) {
-                this._roundNo = roundNo;
-            } else {
-
-                // neither consensus nor weak consensus. all at their own roundNo
-                this._roundFromNetworkTime();
-                debug(`BFT "${this._nonce}" adjusting round to NETWORK time`);
-            }
-        }
-
-        /**
-         *
-         * @param {Buffer} value - serialized
-         * @return {Number | undefined} - roundNo parsed from value
-         * @private
-         */
-        _roundFromConsensusValue(value) {
-            let roundNo = undefined;
-            if (value) {
-                const msgNextRound = new MsgWitnessNextRound(
-                    {groupName: this._groupDefinition.getGroupName(), roundNo: 1});
-                try {
-                    msgNextRound.parseContent(value);
-                    roundNo = msgNextRound.roundNo;
-                } catch (e) {}
-            }
-            return roundNo;
-        }
-
-        /**
          * let's choose one, that should be same for all connected peers.
          * All peers that ahead or behind us more than Constants.networkTimeDiff will be banned
          *
@@ -433,8 +441,18 @@ module.exports = (factory) => {
          * @return {boolean}
          */
         shouldPublish(proposer = this._wallet.publicKey) {
+            return this._getProposerKey() === proposer;
+        }
+
+        /**
+         * Redefine this to change proposing behavior
+         *
+         * @returns {*}
+         * @private
+         */
+        _getProposerKey() {
             const idx = this._roundNo % this._arrPublicKeys.length;
-            return this._arrPublicKeys[idx] === proposer;
+            return this._arrPublicKeys[idx];
         }
 
         timeForWitnessBlock() {
@@ -464,5 +482,21 @@ module.exports = (factory) => {
         _stopTimer() {
             this._tock.end();
         }
+
+        _createBlockAcceptMessage(groupName, blockHash) {
+            typeforce(typeforce.tuple('String', typeforce.BufferN(32)), arguments);
+
+            const msgBlockAccept = new MsgWitnessBlockAck({groupName, blockHash});
+            msgBlockAccept.sign(this._wallet.privateKey);
+            return msgBlockAccept;
+        }
+
+        _createBlockRejectMessage(groupName) {
+            const msgBlockReject = new MsgWitnessCommon({groupName});
+            msgBlockReject.blockRejectMessage = true;
+            msgBlockReject.sign(this._wallet.privateKey);
+            return msgBlockReject;
+        }
+
     };
 };

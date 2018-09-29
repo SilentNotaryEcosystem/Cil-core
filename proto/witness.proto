@@ -12,3 +12,9 @@ message WitnessMessage {
 message NextRound {
     uint32 roundNo =1;
 }
+
+// -------------- MSG_WITNESS_BLOCK_ACK -----
+message BlockAck {
+    bytes blockHash=1;
+    bytes signature=2;
+}

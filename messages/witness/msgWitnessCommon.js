@@ -77,14 +77,9 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
             this.content = Buffer.from(this.groupName);
         }
 
-        set blockAcceptMessage(hash) {
-            this.message = MSG_WITNESS_BLOCK_ACK;
-            this.content = Buffer.from(hash);
-        }
-
         set blockRejectMessage(unused) {
             this.message = MSG_WITNESS_BLOCK_REJECT;
-            this.content = Buffer.from(Buffer.from(this.groupName));
+            this.content = Buffer.from('reject');
         }
 
         parseContent(value) {
