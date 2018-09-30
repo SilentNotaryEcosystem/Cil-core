@@ -476,8 +476,9 @@ module.exports = (factory) => {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
                 const newPeer = this._peerManager.addPeer(peerInfo);
-                debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
-
+                if (newPeer instanceof Peer) {
+                    debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
+                }
             }
 
             // TODO: request block here

@@ -42,7 +42,7 @@ describe('Witness NextRound message', () => {
 
     it('should get content as roundNo', async () => {
         const sampleMsg = new factory.Messages.MsgWitnessNextRound({roundNo: 13, groupName: 'test'});
-        assert.equal(sampleMsg.roundNo, sampleMsg.content);
+        assert.equal(sampleMsg.roundNo, sampleMsg.content.roundNo);
         assert.equal(sampleMsg.roundNo, 13);
     });
 });

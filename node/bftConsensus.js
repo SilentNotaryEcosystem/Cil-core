@@ -8,7 +8,7 @@ const types = require('../types');
 
 module.exports = (factory) => {
     const {Constants, Crypto, Messages} = factory;
-    const {MsgWitnessNextRound, MsgWitnessCommon, MsgWitnessBlockAck} = Messages;
+    const {MsgWitnessNextRound, MsgWitnessCommon, MsgWitnessBlockVote} = Messages;
     const States = Constants.consensusStates;
     const MAIN_TIMER_NAME = 'stateChange';
     const Timeouts = Constants.consensusTimeouts;
@@ -41,7 +41,6 @@ module.exports = (factory) => {
 
             // public keys are buffers, transform it to strings, to use with maps
             this._arrPublicKeys = groupDefinition.getPublicKeys().sort().map(key => key.toString('hex'));
-            this._quorum = parseInt(this._arrPublicKeys.length / 2) + 1;
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
@@ -92,10 +91,8 @@ module.exports = (factory) => {
             // get real message
             if (msgCommon.isNextRound()) {
                 witnessMsg = new Messages.MsgWitnessNextRound(msgCommon);
-            } else if (msgCommon.isWitnessBlockAccept()) {
-                witnessMsg = new Messages.MsgWitnessBlockAck(msgCommon);
-            } else if (msgCommon.isWitnessBlockReject()) {
-                witnessMsg = new Messages.MsgWitnessCommon(msgCommon);
+            } else if (msgCommon.isWitnessBlockVote()) {
+                witnessMsg = new Messages.MsgWitnessBlockVote(msgCommon);
             }
 
             const state = this._stateFromMessage(witnessMsg);
@@ -207,7 +204,7 @@ module.exports = (factory) => {
                 return maxCount;
             }, 0);
 
-            return count >= this._quorum ? majorityValue : undefined;
+            return count >= this._groupDefinition.getQuorum() ? majorityValue : undefined;
         }
 
         processValidBlock(block) {
@@ -377,11 +374,11 @@ module.exports = (factory) => {
          *
          * @param {boolean} isConsensus -  whether it called after consensus, or by timeout
          * @param {Object} consensusValue - if isConsensus == true if will contain data
-         * @param {Buffer} consensusValue.data - block hash if VOTED for block || 'reject' if declined block
+         * @param {Buffer} consensusValue.blockHash - block hash if VOTED for block || 'reject' if declined block
          * @private
          */
         _voteStateHandler(isConsensus, consensusValue) {
-            if (isConsensus && consensusValue.data + '' !== 'reject') {
+            if (isConsensus && consensusValue.blockHash + '' !== 'reject') {
                 this._state = States.COMMIT;
 
                 if (this._block) {
@@ -470,7 +467,7 @@ module.exports = (factory) => {
         }
 
         _stateFromMessage(msg) {
-            if (msg.isWitnessBlockAccept() || msg.isWitnessBlockReject()) return States.VOTE_BLOCK;
+            if (msg.isWitnessBlockVote()) return States.VOTE_BLOCK;
             if (msg.isNextRound()) return States.ROUND_CHANGE;
         }
 
@@ -486,14 +483,13 @@ module.exports = (factory) => {
         _createBlockAcceptMessage(groupName, blockHash) {
             typeforce(typeforce.tuple('String', typeforce.BufferN(32)), arguments);
 
-            const msgBlockAccept = new MsgWitnessBlockAck({groupName, blockHash});
+            const msgBlockAccept = new MsgWitnessBlockVote({groupName, blockHash});
             msgBlockAccept.sign(this._wallet.privateKey);
             return msgBlockAccept;
         }
 
         _createBlockRejectMessage(groupName) {
-            const msgBlockReject = new MsgWitnessCommon({groupName});
-            msgBlockReject.blockRejectMessage = true;
+            const msgBlockReject = MsgWitnessBlockVote.reject(groupName);
             msgBlockReject.sign(this._wallet.privateKey);
             return msgBlockReject;
         }

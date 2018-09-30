@@ -124,6 +124,7 @@ module.exports = (factory) => {
             return arrPeers;
         }
 
+        //TODO: fix duplicate connections handling
 //        async _connectToWitness(peer) {
 //            const address = this._transport.constructor.addressToString(peer.address);
 //            debugWitness(`(address: "${this._debugAddress}") connecting to witness ${address}`);

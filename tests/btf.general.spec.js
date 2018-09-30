@@ -3,6 +3,7 @@ const {assert} = require('chai');
 const sinon = require('sinon');
 
 const {sleep} = require('../utils');
+const {pseudoRandomBuffer} = require('./testUtil');
 
 factory = require('./testFactory');
 
@@ -498,17 +499,49 @@ describe('BFT general tests', () => {
         assert.isOk(newBft._stateChange.calledOnce);
     });
 
+    it('should REJECT block (all witnesses rejects it)', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
+        newBft._state = factory.Constants.consensusStates.BLOCK;
+        newBft._nextRound = sinon.fake();
+
+        const createBlockRejectMessage = (groupName, privateKey) => {
+            const msg = factory.Messages.MsgWitnessBlockVote.reject(groupName);
+            msg.sign(privateKey);
+            return msg;
+        };
+
+        // Message received from party
+        const msgParty = createBlockRejectMessage(groupName, keyPair2.privateKey);
+        newBft.processMessage(msgParty);
+
+        // My message
+        const msgMy = createBlockRejectMessage(groupName, keyPair1.privateKey);
+        newBft.processMessage(msgMy);
+
+        // My message returned by party
+        const msgMyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgMy);
+        msgMyExposed.sign(keyPair2.privateKey);
+        newBft.processMessage(msgMyExposed);
+
+        // Party message exposed by me
+        const msgPartyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgParty);
+        msgPartyExposed.sign(keyPair1.privateKey);
+        newBft.processMessage(msgPartyExposed);
+
+        assert.isOk(newBft._nextRound.calledOnce);
+    });
+
     it('should vote for a Block and advance state', async () => {
         const {arrKeyPairs, newBft} = createDummyBFT(groupName);
         const [keyPair1, keyPair2] = arrKeyPairs;
-
 
         newBft._state = factory.Constants.consensusStates.BLOCK;
         newBft._stateChange = sinon.fake();
 
         const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
         const createBlockAckMessage = (groupName, privateKey) => {
-            const msgBlockAck = new factory.Messages.MsgWitnessBlockAck({groupName, blockHash: fakeBlockHash});
+            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupName, blockHash: fakeBlockHash});
             msgBlockAck.sign(privateKey);
             return msgBlockAck;
         };
@@ -607,7 +640,7 @@ describe('BFT general tests', () => {
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: newBft._block.hash()
+            blockHash: Buffer.from(newBft._block.hash(), 'hex')
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.COMMIT);
@@ -622,7 +655,7 @@ describe('BFT general tests', () => {
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: '123'
+            blockHash: pseudoRandomBuffer()
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.COMMIT);
@@ -638,7 +671,7 @@ describe('BFT general tests', () => {
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: '123'
+            blockHash: pseudoRandomBuffer()
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.COMMIT);
@@ -654,12 +687,27 @@ describe('BFT general tests', () => {
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: 'reject'
+            blockHash: Buffer.from('reject')
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.ROUND_CHANGE);
         assert.isNotOk(blockCommitHandler.calledOnce);
         assert.isOk(msgHandler.calledOnce);
+    });
+
+    it('should create ACCEPT vote message', async () => {
+        const {newBft} = createDummyBFT(groupName);
+        const blockHash = pseudoRandomBuffer();
+        const msg = newBft._createBlockAcceptMessage(groupName, blockHash);
+        assert.isOk(msg.isWitnessBlockVote());
+        assert.isOk(blockHash.equals(msg.blockHash));
+    });
+
+    it('should create REJECT vote message', async () => {
+        const {newBft} = createDummyBFT(groupName);
+        const msg = newBft._createBlockRejectMessage(groupName);
+        assert.isOk(msg.isWitnessBlockVote());
+        assert.isOk(msg.blockHash.equals(Buffer.from('reject')));
     });
 
 });

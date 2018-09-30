@@ -245,7 +245,7 @@ class Factory {
             // Witness messages
             witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
             witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
-            witnessBlockAckProto: protoWitness.lookup("witness.BlockAck"),
+            witnessBlockVoteProto: protoWitness.lookup("witness.BlockVote"),
 
             enumServices: protoNetwork.lookup("network.Services"),
             enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),

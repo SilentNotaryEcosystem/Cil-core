@@ -14,13 +14,13 @@ const MsgWitnessCommonWrapper = require('./witness/msgWitnessCommon.js');
 const MsgWitnessNextRoundWrapper = require('./witness/msgWitnessNextRound.js');
 const MsgWitnessExposeWrapper = require('./witness/msgWitnessExpose.js');
 const MsgWitnessBlockWrapper = require('./witness/msgWitnessBlock.js');
-const MsgWitnessBlockAckWrapper = require('./witness/msgWitnessBlockAck.js');
+const MsgWitnessBlockVoteWrapper = require('./witness/msgWitnessBlockVote.js');
 
 module.exports = (factory, objPrototypes) => {
 
     const {Constants, Crypto, Block, Transaction, Inventory} = factory;
     const {messageProto, versionPayloadProto, addrPayloadProto, rejectPayloadProto} = objPrototypes;
-    const {witnessMessageProto, witnessNextRoundProto, witnessBlockAckProto} = objPrototypes;
+    const {witnessMessageProto, witnessNextRoundProto, witnessBlockVoteProto} = objPrototypes;
     const {peerInfoProto} = objPrototypes;
 
     const MsgCommon = MsgCommonWrapper(Constants, Crypto, messageProto);
@@ -44,6 +44,6 @@ module.exports = (factory, objPrototypes) => {
         MsgWitnessNextRound: MsgWitnessNextRoundWrapper(Constants, Crypto, MsgWitnessCommon, witnessNextRoundProto),
         MsgWitnessWitnessExpose: MsgWitnessExposeWrapper(Constants, Crypto, MsgWitnessCommon),
         MsgWitnessBlock: MsgWitnessBlockWrapper(Constants, MsgWitnessCommon, Block),
-        MsgWitnessBlockAck: MsgWitnessBlockAckWrapper(Constants, Crypto, MsgWitnessCommon, witnessBlockAckProto)
+        MsgWitnessBlockVote: MsgWitnessBlockVoteWrapper(Constants, Crypto, MsgWitnessCommon, witnessBlockVoteProto)
     };
 };

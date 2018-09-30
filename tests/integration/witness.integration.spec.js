@@ -9,12 +9,12 @@ const {pseudoRandomBuffer} = require('../testUtil');
 
 const debugWitness = debugLib('witness:app');
 
-//const maxConnections = os.platform() === 'win32' ? 4 : 10;
-const maxConnections = 2;
+const maxConnections = os.platform() === 'win32' ? 4 : 10;
+//const maxConnections = 2;
 
 // set to undefined to use random delays
-//const delay = undefined;
-const delay = 10;
+const delay = undefined;
+//const delay = 10;
 
 let groupName = 'test';
 let arrKeyPairs;
@@ -183,6 +183,7 @@ describe('Witness integration tests', () => {
 
         const seedAddress = factory.Transport.strToAddress('w seed node 4');
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        seedNode._storage.applyPatch(patch);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);

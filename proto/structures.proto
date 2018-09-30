@@ -77,4 +77,5 @@ message WitnessGroupDefinition{
     repeated bytes publicKeys=1;
     string groupName=2;
     uint32 groupId=3;
+    uint32 quorum=4;
 }
