@@ -72,13 +72,13 @@ class Factory {
                 };
 
                 // prototypes
+                this._coinsImplementation = CoinsWrapper(this);
                 this._transactionImplementation =
                     TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
-                this._coinsImplementation = CoinsWrapper(this);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
 

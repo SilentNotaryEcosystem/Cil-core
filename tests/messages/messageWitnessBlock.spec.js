@@ -2,7 +2,7 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyTx} = require('../testUtil');
+const {createDummyTx, createDummyBlock} = require('../testUtil');
 
 const factory = require('../testFactory');
 
@@ -29,12 +29,9 @@ describe('MessageWitnessBlock', () => {
     it('should encode/decode message', async () => {
         const msg = new factory.Messages.MsgWitnessBlock({groupName: 'test'});
 
-        const block = new factory.Block(0);
+        const block = createDummyBlock(factory);
         const keyPair = factory.Crypto.createKeyPair();
-        const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
 
-        block.addTx(tx);
         msg.block = block;
         msg.sign(keyPair.privateKey);
 
@@ -52,7 +49,7 @@ describe('MessageWitnessBlock', () => {
         assert.equal(restoredBlock.txns.length, 1);
 
         const restoredTx = new factory.Transaction(restoredBlock.txns[0]);
-        assert.isOk(restoredTx.equals(tx));
+        assert.isOk(restoredTx.isCoinbase());
     });
 
 });

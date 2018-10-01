@@ -7,16 +7,17 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         constructor(data) {
             typeforce(typeforce.oneOf('Object', 'Buffer', 'Number'), data);
 
+            this._final = false;
             if (typeof data === 'number') {
                 data = {header: blockHeaderProto.create({witnessGroupId: data, mci: 0})};
             }
 
             if (Buffer.isBuffer(data)) {
                 this._data = blockProto.decode(data);
+                this._final = true;
             } else if (typeof data === 'object') {
                 const errMsg = blockProto.verify(data);
                 if (errMsg) throw new Error(`Block: ${errMsg}`);
-
                 this._data = blockProto.create(data);
             } else {
                 throw new Error('witnessGroupId mandatory for block creation');
@@ -28,7 +29,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         get witnessGroupId() {
-            return this._data.witnessGroupId;
+            return this._data.header.witnessGroupId;
         }
 
         get txns() {
@@ -48,6 +49,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
          * @returns {String} !!
          */
         hash() {
+            if (!this._final) throw new Error('Call finish() before calculating hash');
             if (!this._hashCache) {
                 this._buildTxTree();
                 this._hashCache = Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
@@ -61,12 +63,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
          */
         _buildTxTree() {
 
-            // TODO: replace this dummy with coinbase TX!
             // MerkleTree hangs on empty arrays!
-            if (!this._data.txns.length) {
-                this._data.header.merkleRoot = Buffer.alloc(32, 0);
-                return;
-            }
+            if (!this._data.txns.length) throw new Error('Empty block! Should be at least a coinbase TX!');
 
             const leaves = this._data.txns.map(tx => {
                 const cTx = new Transaction(tx);
@@ -79,6 +77,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         encode() {
+            if (!this._final) throw new Error('Call finish() before encoding');
             return blockProto.encode(this._data).finish();
         }
 
@@ -87,6 +86,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
          * @param {Transaction} tx
          */
         addTx(tx) {
+            if (this._final) throw new Error('This block was already final!');
 
             // invalidate cache (if any)
             this._hashCache = undefined;
@@ -98,6 +98,24 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         isEmpty() {
-            return !this.txns.length;
+            return this.txns.length === 1 && (new Transaction(this.txns[0])).isCoinbase();
+        }
+
+        finish(totalTxnsFees, pubkeyReceiver) {
+            typeforce.Number(totalTxnsFees);
+            typeforce(types.PublicKey, pubkeyReceiver);
+
+            const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
+
+            this._hashCache = undefined;
+            const coinbase = Transaction.createCoinbase();
+            coinbase.witnessGroupId = this.witnessGroupId;
+            coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
+
+            // to make coinbase hash unique
+            coinbase.addReceiver(0, Crypto.randomBytes(20));
+
+            this._data.txns.unshift(coinbase.rawData);
+            this._final = true;
         }
     };

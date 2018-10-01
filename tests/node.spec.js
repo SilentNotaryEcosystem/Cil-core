@@ -7,7 +7,7 @@ const {sleep} = require('../utils');
 const debug = require('debug')('node:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, createDummyPeer, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, createDummyPeer, createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
 
 let seedAddress;
 let seedNode;
@@ -178,6 +178,8 @@ describe('Node tests', () => {
         const block = new factory.Block(0);
 
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
         inv.addBlock(block);
         inv.addTx(tx);
 
@@ -205,6 +207,8 @@ describe('Node tests', () => {
         const block = new factory.Block(0);
 
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
         inv.addBlock(block);
         inv.addTx(tx);
 
@@ -218,17 +222,17 @@ describe('Node tests', () => {
 
     it('should send MSG_TX & MSG_BLOCK', async () => {
         const node = new factory.Node({});
+
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
-        node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
+        node._storage.getBlock = sinon.fake.returns(createDummyBlock(factory));
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
 
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block(0);
+        const block = createDummyBlock(factory);
 
-        block.addTx(tx);
         inv.addBlock(block);
         inv.addTx(tx);
 
@@ -364,6 +368,7 @@ describe('Node tests', () => {
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
         node._informNeighbors = sinon.fake();
+        node._checkCoinbaseTx = sinon.fake();
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.ban = sinon.fake();
@@ -373,6 +378,7 @@ describe('Node tests', () => {
         const block = new factory.Block(0);
         block.addTx(tx);
         block.addTx(tx2);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
 
         const msg = new factory.Messages.MsgBlock(block);
 
@@ -400,6 +406,7 @@ describe('Node tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         const block = new factory.Block(0);
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
 
         const msg = new factory.Messages.MsgBlock(block);
 
@@ -407,7 +414,7 @@ describe('Node tests', () => {
             await node._handleBlockMessage(peer, msg);
         } catch (e) {
             assert.isOk(node._app.processTx.called);
-            assert.isOk(node._app.processTx.callCount, 1);
+            assert.isOk(node._app.processTx.callCount, 2);
             assert.isNotOk(node._storage.saveBlock.called);
             assert.isNotOk(node._storage.applyPatch.called);
             assert.isNotOk(node._informNeighbors.called);
@@ -482,12 +489,15 @@ describe('Node tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         const block = new factory.Block(0);
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
 
         factory.Constants.GENEZIS_BLOCK = block.hash();
         await node._processBlock(block);
 
         assert.isOk(node._app.processTx.called);
-        assert.isOk(node._app.processTx.callCount, 1);
+
+        // coinbase is not processed by app
+        assert.equal(node._app.processTx.callCount, 1);
         const [appTx, mapUtxos, , isGenezis] = node._app.processTx.args[0];
         assert.isOk(appTx.equals(tx));
         assert.isNotOk(mapUtxos);
@@ -498,4 +508,23 @@ describe('Node tests', () => {
         assert.isOk(node._informNeighbors.called);
     });
 
+    it('should fail to check COINBASE (not a coinbase)', async () => {
+        const node = new factory.Node({});
+        const tx = new factory.Transaction(createDummyTx());
+        assert.throws(() => node._checkCoinbaseTx(tx.rawData, tx.amountOut()));
+    });
+
+    it('should fail to check COINBASE (bad amount)', async () => {
+        const node = new factory.Node({});
+        const coinbase = factory.Transaction.createCoinbase();
+        coinbase.addReceiver(100, pseudoRandomBuffer(20));
+        assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut() - 1));
+    });
+
+    it('should accept COINBASE', async () => {
+        const node = new factory.Node({});
+        const coinbase = factory.Transaction.createCoinbase();
+        coinbase.addReceiver(100, pseudoRandomBuffer(20));
+        assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut()));
+    });
 });

@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('storage:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
 
 describe('Storage tests', () => {
     before(async function() {
@@ -40,19 +40,13 @@ describe('Storage tests', () => {
     });
 
     it('should save block', async () => {
-        const block = new factory.Block(0);
-        const tx = new factory.Transaction(createDummyTx());
-        block.addTx(tx);
-
+        const block = createDummyBlock(factory);
         const storage = new factory.Storage({});
         await storage.saveBlock(block);
     });
 
     it('should find block in storage', async () => {
-        const block = new factory.Block(0);
-        const tx = new factory.Transaction(createDummyTx());
-        block.addTx(tx);
-
+        const block = createDummyBlock(factory);
         const storage = new factory.Storage({});
         await storage.saveBlock(block);
 
@@ -81,10 +75,7 @@ describe('Storage tests', () => {
     });
 
     it('should get saved block', async () => {
-        const block = new factory.Block(0);
-        const tx = new factory.Transaction(createDummyTx());
-        block.addTx(tx);
-
+        const block = createDummyBlock(factory);
         const storage = new factory.Storage({});
         await storage.saveBlock(block);
 
@@ -92,7 +83,6 @@ describe('Storage tests', () => {
 
         assert.isOk(gotBlock.txns);
         const rTx = new factory.Transaction(gotBlock.txns[0]);
-        assert.isOk(rTx.equals(tx));
     });
 
     it('should apply "addCoins" patch to empty storage (like genezis)', async () => {

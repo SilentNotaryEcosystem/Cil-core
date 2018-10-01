@@ -1,14 +1,27 @@
 const typeforce = require('typeforce');
 
+// it's some sorta strange, but i saw 31 byte length keys
 function PrivateKey(value) {
     if (!typeforce.String(value)) {
         if (!typeforce.Buffer(value)) {
             return false;
         } else {
-            return value.length === 32;
+            return value.length >= 31 || value.length <= 32;
         }
     } else {
         return value.length >= 62 || value.length <= 64;
+    }
+}
+
+function PublicKey(value) {
+    if (!typeforce.String(value)) {
+        if (!typeforce.Buffer(value)) {
+            return false;
+        } else {
+            return value.length === 33;
+        }
+    } else {
+        return value.length === 66;
     }
 }
 
@@ -32,6 +45,7 @@ module.exports = {
     Hash256bit,
     Address: typeforce.BufferN(20),
     PrivateKey,
+    PublicKey,
     Empty,
     InvVector: typeforce.compile({type: 'Number', hash: Hash256bit}),
     Coins: typeforce.quacksLike('Coins'),

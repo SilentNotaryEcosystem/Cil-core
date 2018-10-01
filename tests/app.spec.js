@@ -57,7 +57,7 @@ describe('Application layer', () => {
         tx.sign(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.coins);
+        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
 
         await app.processTx(tx, mapUtxos);
 
@@ -77,7 +77,7 @@ describe('Application layer', () => {
         tx.sign(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.coins);
+        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
 
         try {
             await app.processTx(tx, mapUtxos);
@@ -104,7 +104,7 @@ describe('Application layer', () => {
         tx.sign(0, anotherKeyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.coins);
+        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
 
         try {
             await app.processTx(tx, mapUtxos);
@@ -183,7 +183,7 @@ describe('Application layer', () => {
         tx.sign(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.coins);
+        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
         const {patch} = await app.processTx(tx, mapUtxos);
 
         // create tx
@@ -194,7 +194,7 @@ describe('Application layer', () => {
         tx2.addReceiver(1000, buffAddress2);
         tx2.sign(0, keyPair.privateKey);
 
-        const mapUtxos2 = await storage.getUtxosCreateMap(tx2.coins);
+        const mapUtxos2 = await storage.getUtxosCreateMap(tx2.utxos);
 
         try {
             await app.processTx(tx2, mapUtxos2, patch);

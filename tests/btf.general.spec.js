@@ -3,7 +3,7 @@ const {assert} = require('chai');
 const sinon = require('sinon');
 
 const {sleep} = require('../utils');
-const {pseudoRandomBuffer} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
 
 factory = require('./testFactory');
 
@@ -591,7 +591,7 @@ describe('BFT general tests', () => {
 
         assert.isNotOk(newBft._views[newBft._wallet.publicKey][newBft._wallet.publicKey]);
 
-        newBft.processValidBlock(new factory.Block(0));
+        newBft.processValidBlock(createDummyBlock(factory));
 
         assert.isOk(newBft._block);
     });
@@ -634,7 +634,7 @@ describe('BFT general tests', () => {
 
     it('should advance from VOTE_BLOCK to COMMIT state (block accepted)', async () => {
         const {newBft} = createDummyBFT(groupName);
-        newBft._block = new factory.Block(0);
+        newBft._block = createDummyBlock(factory);
         const blockCommitHandler = sinon.fake();
         newBft.on('commitBlock', blockCommitHandler);
 
@@ -662,9 +662,9 @@ describe('BFT general tests', () => {
         assert.isNotOk(blockCommitHandler.calledOnce);
     });
 
-    it('should advance from VOTE_BLOCK to COMMIT state but NO COMMIT (wrong hash!)', async () => {
+    it('should advance from VOTE_BLOCK to COMMIT state but NO COMMIT (wrong block hash!)', async () => {
         const {newBft} = createDummyBFT(groupName);
-        newBft._block = new factory.Block(0);
+        newBft._block = createDummyBlock(factory);
 
         const blockCommitHandler = sinon.fake();
         newBft.on('commitBlock', blockCommitHandler);

@@ -178,21 +178,21 @@ describe('Transaction tests', () => {
         assert.isOk(tx.verify());
     });
 
-    it('should fail to create tx: verification failed during decoding from buffer', async () => {
+    it('should FAIL to verify tx: verification failed during decoding from buffer', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
 
         const buffEncodedTx = tx.encode();
-        const wrapper = () => new factory.Transaction(buffEncodedTx);
-        assert.throws(wrapper);
+        const txRestored = new factory.Transaction(buffEncodedTx);
+        assert.isNotOk(txRestored.verify());
     });
 
-    it('should fail to create tx: verification failed during creating from Object', async () => {
+    it('should FAIL to verify tx: verification failed during creating from Object', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 17);
 
-        const wrapper = () => new factory.Transaction(tx.rawData);
-        assert.throws(wrapper);
+        const txRestored = new factory.Transaction(tx.rawData);
+        assert.isNotOk(txRestored.verify());
     });
 
     it('should get utxos from tx', async () => {
@@ -200,8 +200,8 @@ describe('Transaction tests', () => {
         const utxo = pseudoRandomBuffer();
         tx.addInput(utxo, 15);
 
-        assert.isOk(Array.isArray(tx.coins));
-        assert.isOk(utxo.equals(tx.coins[0]));
+        assert.isOk(Array.isArray(tx.utxos));
+        assert.isOk(utxo.equals(tx.utxos[0]));
     });
 
     it('should recover pubkey from signature', async () => {
@@ -214,5 +214,24 @@ describe('Transaction tests', () => {
 
         const pubKey = factory.Crypto.recoverPubKey(tx.hash(), tx.claimProofs[0]);
         assert.equal(pubKey, keyPair.publicKey);
+    });
+
+    it('should create coinbase', async () => {
+        const coinbase = factory.Transaction.createCoinbase();
+        assert.isOk(coinbase.isCoinbase());
+    });
+
+    it('should count OUT coins of TX', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 0);
+        tx.addReceiver(1, Buffer.allocUnsafe(20));
+        tx.addReceiver(2, Buffer.allocUnsafe(20));
+        tx.addReceiver(4, Buffer.allocUnsafe(20));
+        tx.addReceiver(8, Buffer.allocUnsafe(20));
+
+        assert.equal(tx.amountOut(), 15);
+
+        tx.addReceiver(5, Buffer.allocUnsafe(20));
+        assert.equal(tx.amountOut(), 20);
     });
 });

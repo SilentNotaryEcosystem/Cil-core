@@ -1,3 +1,5 @@
+const assert = require('assert');
+
 const debugLib = require('debug');
 const {sleep} = require('../utils');
 
@@ -19,7 +21,8 @@ module.exports = (factory) => {
         Application,
         Transaction,
         Block,
-        PatchDB
+        PatchDB,
+        Coins
     } = factory;
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData} = Messages;
     const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
@@ -514,7 +517,7 @@ module.exports = (factory) => {
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
-            const mapUtxos = await this._storage.getUtxosCreateMap(tx.coins);
+            const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
             const {fee} = await this._app.processTx(tx, mapUtxos);
             if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
@@ -556,15 +559,24 @@ module.exports = (factory) => {
             let blockFees = 0;
             const blockTxns = block.txns;
 
-            // TODO add coinbase processing here
             // should start from 1, because coinbase tx need different processing
-            for (let i = 0; i < blockTxns.length; i++) {
+            for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.coins);
+                const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
 
                 // TODO: consider using a cache patch from mempool?
                 const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
                 blockFees += fee;
+            }
+
+            // process coinbase tx
+            if (!isGenezis) {
+                const coinbase = new Transaction(blockTxns[0]);
+                this._checkCoinbaseTx(coinbase, blockFees);
+                const coins = coinbase.getCoins();
+                for (let i = 0; i < coins.length; i++) {
+                    patchState.createCoins(coinbase.hash(), i, coins[i]);
+                }
             }
 
             // write raw block to storage
@@ -576,6 +588,11 @@ module.exports = (factory) => {
             await this._storage.applyPatch(patchState);
 
             this._informNeighbors(block);
+        }
+
+        _checkCoinbaseTx(tx, blockFees) {
+            assert(tx.isCoinbase(), 'Not a coinbase TX!');
+            assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
         }
 
         isGenezisBlock(block) {
@@ -592,6 +609,7 @@ module.exports = (factory) => {
         async _verifyBlock(block) {
 
             // TODO: validate block (parents, signatures and so on)
+            // TODO: block with txhash that equal to non empty UTXO is invalid! (@see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
         }
 
     };

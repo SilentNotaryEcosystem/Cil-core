@@ -2,7 +2,7 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyTx} = require('../testUtil');
+const {createDummyTx, createDummyBlock} = require('../testUtil');
 
 const factory = require('../testFactory');
 
@@ -40,8 +40,7 @@ describe('MessageInventory', () => {
         const tx = new factory.Transaction(createDummyTx());
         inv.addTx(tx);
 
-        const block = new factory.Block(0);
-        block.addTx(tx);
+        const block = createDummyBlock(factory);
         inv.addBlock(block);
 
         msg.inventory = inv;
@@ -58,8 +57,7 @@ describe('MessageInventory', () => {
         const tx = new factory.Transaction(createDummyTx());
         inv.addTx(tx);
 
-        const block = new factory.Block(0);
-        block.addTx(tx);
+        const block = createDummyBlock(factory);
         inv.addBlock(block);
 
         msg.inventory = inv;

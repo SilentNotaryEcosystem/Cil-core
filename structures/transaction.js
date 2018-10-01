@@ -8,20 +8,18 @@ const types = require('../types');
 
 const CURRENT_TX_VERSION = 1;
 
-module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProto}) =>
+module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayloadProto}) =>
     class Transaction {
         constructor(data) {
             if (Buffer.isBuffer(data)) {
                 if (data.length > Constants.MAX_BLOCK_SIZE) throw new Error('Oversize transaction');
 
                 this._data = transactionProto.decode(data);
-                if (!this.verify()) throw new Error('Transaction is invalid');
             } else if (typeof data === 'object') {
                 const errMsg = transactionProto.verify(data);
                 if (errMsg) throw new Error(`Transaction: ${errMsg}`);
 
                 this._data = transactionProto.create(data);
-                if (!this.verify()) throw new Error('Transaction is invalid');
             } else if (data === undefined) {
                 this._data = {
                     payload: {
@@ -79,7 +77,7 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
          *
          * @return {Array} utxos (Buffer!) this tx tries to spend
          */
-        get coins() {
+        get utxos() {
             const inputs = this.inputs;
             if (!inputs) throw new Error('Unexpected: empty inputs!');
 
@@ -88,12 +86,23 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
 
         /**
          *
+         * @return {Array} Coins
+         */
+        getCoins() {
+            const outputs = this.outputs;
+            if (!outputs) throw new Error('Unexpected: empty outputs!');
+
+            return outputs.map(out => new Coins(out.amount, out.codeClaim));
+        }
+
+        /**
+         *
          * @param {Buffer | String} utxo - unspent tx output
          * @param {Number} index - index in tx
          */
         addInput(utxo, index) {
-            if (typeof utxo === 'string') utxo = Buffer.from(utxo, 'hex');
             typeforce(typeforce.tuple(types.Hash256bit, 'Number'), arguments);
+            if (typeof utxo === 'string') utxo = Buffer.from(utxo, 'hex');
 
             this._checkDone();
             this._data.payload.ins.push({txHash: utxo, nTxOutput: index});
@@ -169,7 +178,7 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
 
             if (this.witnessGroupId === undefined) return false;
 
-            // check inputs
+            // check inputs (not a coinbase & nTxOutput - non negative)
             const insValid = this.inputs && this._data.payload.ins.every(input => {
                 return !input.txHash.equals(Buffer.alloc(32)) &&
                        input.nTxOutput >= 0;
@@ -186,4 +195,30 @@ module.exports = ({Constants, Crypto}, {transactionProto, transactionPayloadProt
             return outsValid && this._data.claimProofs.length === this._data.payload.ins.length;
         }
 
+        static createCoinbase() {
+            const coinbase = new this();
+            coinbase.addInput(Buffer.alloc(32), 0);
+            return coinbase;
+        }
+
+        /**
+         * Check whether is this TX coinbase: only one input and all of zeroes
+         *
+         * @returns {boolean}
+         */
+        isCoinbase() {
+            const inputs = this.inputs;
+            return inputs && inputs.length === 1
+                   && inputs[0].txHash.equals(Buffer.alloc(32))
+                   && inputs[0].nTxOutput === 0;
+        }
+
+        /**
+         * Amount of coins to transfer with this TX
+         *
+         * @returns {*}
+         */
+        amountOut() {
+            return this.outputs.reduce((accum, out) => accum + out.amount, 0);
+        }
     };

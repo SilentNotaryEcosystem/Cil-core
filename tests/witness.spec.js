@@ -7,7 +7,7 @@ const debug = require('debug')('witness:');
 
 const factory = require('./testFactory');
 
-const {createDummyTx} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 
 let wallet;
 
@@ -111,14 +111,28 @@ describe('Witness tests', () => {
     it('should create block', async () => {
         const {witness, groupDefinition} = createDummyWitness();
 
-        const tx1 = new factory.Transaction(createDummyTx());
-        const tx2 = new factory.Transaction(createDummyTx());
+        const patch = new factory.PatchDB();
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const coins = new factory.Coins(100000, Buffer.from(witness._wallet.address, 'hex'));
+        patch.createCoins(txHash, 1, coins);
+        patch.createCoins(txHash, 2, coins);
+        patch.createCoins(txHash, 3, coins);
+        await witness._storage.applyPatch(patch);
+
+        const tx1 = new factory.Transaction();
+        tx1.addInput(txHash, 1);
+        tx1.addReceiver(1000, Buffer.from(witness._wallet.address, 'hex'));
+        tx1.sign(0, witness._wallet.privateKey);
+        const tx2 = new factory.Transaction();
+        tx2.addInput(txHash, 2);
+        tx2.addReceiver(1000, Buffer.from(witness._wallet.address, 'hex'));
+        tx2.sign(0, witness._wallet.privateKey);
 
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
         const block = await witness._createBlock(groupDefinition.getGroupId());
-        assert.equal(block.txns.length, 2);
+        assert.equal(block.txns.length, 3);
     });
 
     it('should NOT broadcast block (hold off timer)', async () => {

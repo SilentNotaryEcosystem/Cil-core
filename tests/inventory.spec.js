@@ -2,7 +2,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
 const factory = require('./testFactory');
-const {createDummyTx} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 
 describe('Inventory', () => {
     before(async function() {
@@ -32,6 +32,8 @@ describe('Inventory', () => {
         const block = new factory.Block(0);
 
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
         inv.addBlock(block);
         assert.isOk(inv.vector[0]);
         assert.isOk(inv.vector[0].type, factory.Constants.INV_BLOCK);
@@ -44,6 +46,8 @@ describe('Inventory', () => {
 
         const block = new factory.Block(0);
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
         inv.addBlock(block);
 
         const buffer = inv.encode();
