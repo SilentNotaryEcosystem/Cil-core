@@ -49,11 +49,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
                 }
             }
 
-            const txOutputs = tx.outputs;
-            for (let i = 0; i < txOutputs.length; i++) {
-                const coins = new Coins(txOutputs[i].amount, txOutputs[i].codeClaim);
-                patch.createCoins(txHash, i, coins);
-                totalSpend += txOutputs[i].amount;
+            const txCoins = tx.getCoins();
+            for (let i = 0; i < txCoins.length; i++) {
+                patch.createCoins(txHash, i, txCoins[i]);
+                totalSpend += txCoins[i].getAmount();
             }
 
             const fee = totalHas - totalSpend;

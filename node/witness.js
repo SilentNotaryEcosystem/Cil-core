@@ -5,7 +5,7 @@ const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
 module.exports = (factory) => {
-    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition} = factory;
+    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {
@@ -97,7 +97,7 @@ module.exports = (factory) => {
         async _createConsensusForGroup(groupDefinition) {
             const consensus = new BFT({
                 groupDefinition,
-                wallet: this._wallet,
+                wallet: this._wallet
             });
             this._setConsensusHandlers(consensus);
             this._consensuses.set(groupDefinition.getGroupName(), consensus);
@@ -292,7 +292,6 @@ module.exports = (factory) => {
             return msg;
         }
 
-
         /**
          * Create block, and it it's not empty broadcast MSG_WITNESS_BLOCK to other witnesses
          *
@@ -329,16 +328,38 @@ module.exports = (factory) => {
         }
 
         async _createBlock(groupId) {
+
+            // TODO: get tips for parents
             const block = new Block(groupId);
+
+            // TODO: replace it for patch for current level
+            const patchState = new PatchDB();
+            const arrBadHashes = [];
+            let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
-                block.addTx(tx);
+                const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
+                try {
+                    const {fee} = await this._app.processTx(tx, mapUtxos, patchState, false);
+                    if (fee < Constants.MIN_TX_FEE) throw new Error(`Fee of ${fee} too small in "${tx.hash()}"`);
+                    totalFee += fee;
+                    block.addTx(tx);
+                } catch (e) {
+                    logger.error(e);
+                    arrBadHashes.push(tx.hash());
+                }
             }
+            if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
+
+            // TODO: Store patch in DAG for pending blocks
+            block.finish(totalFee, this._wallet.publicKey);
+            debugWitness(`Block ${block.hash()} ready`);
+
             return block;
         }
 
         async _commitBlock(block) {
 
-            //TODO: pass block to App layer
+            //TODO: check finality
         }
 
     };
