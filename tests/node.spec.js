@@ -34,6 +34,19 @@ const createTxAddCoinsToNode = (node) => {
     return {tx, keyPair};
 };
 
+const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
+    const arrPubKeys = [];
+    const arrSignatures = [];
+    const buffHash = block.hash();
+    for (let i = 0; i < numOfSignatures; i++) {
+        const keyPair = factory.Crypto.createKeyPair();
+        arrPubKeys.push(Buffer.from(keyPair.publicKey, 'hex'));
+        arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
+    }
+    block.addWitnessSignatures(arrSignatures);
+    return factory.WitnessGroupDefinition.create('test', block.witnessGroupId, arrPubKeys);
+};
+
 describe('Node tests', () => {
     before(async function() {
         this.timeout(15000);
@@ -362,7 +375,16 @@ describe('Node tests', () => {
     });
 
     it('should process good block from MsgBlock', async () => {
-        const node = new factory.Node({});
+        const tx = new factory.Transaction(createDummyTx());
+        const tx2 = new factory.Transaction(createDummyTx());
+        const block = new factory.Block(0);
+        block.addTx(tx);
+        block.addTx(tx2);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
+        const groupDef = createGroupDefAndSignBlock(block);
+        const node = new factory.Node({arrTestDefinition: [groupDef]});
+
         node._app.processTx = sinon.fake.returns({});
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
@@ -372,13 +394,6 @@ describe('Node tests', () => {
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.ban = sinon.fake();
-
-        const tx = new factory.Transaction(createDummyTx());
-        const tx2 = new factory.Transaction(createDummyTx());
-        const block = new factory.Block(0);
-        block.addTx(tx);
-        block.addTx(tx2);
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
 
         const msg = new factory.Messages.MsgBlock(block);
 
@@ -390,10 +405,19 @@ describe('Node tests', () => {
         assert.isOk(node._storage.applyPatch.calledOnce);
         assert.isOk(node._informNeighbors.calledOnce);
 
+        assert.isNotOk(peer.ban.called);
+
     });
 
     it('should process BAD block from MsgBlock', async () => {
-        const node = new factory.Node({});
+        const tx = new factory.Transaction(createDummyTx());
+        const block = new factory.Block(0);
+        block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
+        const groupDef = createGroupDefAndSignBlock(block);
+        const node = new factory.Node({arrTestDefinition: [groupDef]});
+
         node._app.processTx = sinon.fake.throws('error');
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
@@ -402,11 +426,6 @@ describe('Node tests', () => {
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.ban = sinon.fake();
-
-        const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block(0);
-        block.addTx(tx);
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
 
         const msg = new factory.Messages.MsgBlock(block);
 
@@ -418,6 +437,7 @@ describe('Node tests', () => {
             assert.isNotOk(node._storage.saveBlock.called);
             assert.isNotOk(node._storage.applyPatch.called);
             assert.isNotOk(node._informNeighbors.called);
+            assert.isOk(peer.ban.calledOnce);
             return;
         }
         assert.isOk(false, 'Unexpected success');
@@ -502,10 +522,6 @@ describe('Node tests', () => {
         assert.isOk(appTx.equals(tx));
         assert.isNotOk(mapUtxos);
         assert.isOk(isGenezis);
-
-        assert.isOk(node._storage.saveBlock.called);
-        assert.isOk(node._storage.applyPatch.called);
-        assert.isOk(node._informNeighbors.called);
     });
 
     it('should fail to check COINBASE (not a coinbase)', async () => {
@@ -526,5 +542,67 @@ describe('Node tests', () => {
         const coinbase = factory.Transaction.createCoinbase();
         coinbase.addReceiver(100, pseudoRandomBuffer(20));
         assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut()));
+    });
+
+    it('should fail check BLOCK SIGNATURES (unknown group)', async () => {
+        const block = createDummyBlock(factory);
+        const node = new factory.Node({});
+
+        try {
+            await node._verifyBlockSignatures(block);
+        } catch (e) {
+            console.error(e);
+            assert.equal(e.message, 'Unknown witnessGroupId: 0');
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should fail check BLOCK SIGNATURES (not enough signatures)', async () => {
+        const block = createDummyBlock(factory);
+        createGroupDefAndSignBlock(block);
+
+        const block2 = createDummyBlock(factory);
+        const groupDef2 = createGroupDefAndSignBlock(block2, 7);
+
+        // groupId: 0 will have different keys used for block2
+        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+
+        try {
+            await node._verifyBlockSignatures(block);
+        } catch (e) {
+            console.error(e);
+            assert.equal(e.message, 'Expected 4 signatures, got 2');
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should fail check BLOCK SIGNATURES (bad signatures)', async () => {
+        const block = createDummyBlock(factory);
+        createGroupDefAndSignBlock(block);
+
+        const block2 = createDummyBlock(factory);
+        const groupDef2 = createGroupDefAndSignBlock(block2);
+
+        // groupId: 0 will have different keys used for block2
+        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+
+        try {
+            await node._verifyBlockSignatures(block);
+        } catch (e) {
+            assert.isOk(e.message.startsWith('Bad signature for block'));
+            console.error(e);
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should check BLOCK SIGNATURES', async () => {
+        const block = createDummyBlock(factory);
+        const groupDef = createGroupDefAndSignBlock(block);
+        const node = new factory.Node({arrTestDefinition: [groupDef]});
+
+        await node._verifyBlockSignatures(block);
     });
 });

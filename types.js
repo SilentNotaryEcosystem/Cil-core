@@ -49,6 +49,8 @@ module.exports = {
     Empty,
     InvVector: typeforce.compile({type: 'Number', hash: Hash256bit}),
     Coins: typeforce.quacksLike('Coins'),
+    Patch: typeforce.quacksLike('PatchDB'),
+    Block: typeforce.quacksLike('Block'),
     Amount,
     Signature: typeforce.BufferN(65),
     Input: typeforce.compile({nTxOutput: 'Number', txHash: Hash256bit})

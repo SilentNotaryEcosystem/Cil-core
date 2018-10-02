@@ -22,7 +22,7 @@ module.exports = (factory) => {
             const {arrTestDefinition = []} = options;
             this._groupDefinitions = new Map();
             for (let def of arrTestDefinition) {
-                this._groupDefinitions.set(def.getGroupName(), def);
+                this._groupDefinitions.set(def.getGroupId(), def);
             }
 
             this._db = new Map();
@@ -31,9 +31,9 @@ module.exports = (factory) => {
         /**
          *
          * @param {Buffer | String} publicKey
-         * @returns {Promise<Array>} of groupDefinition publicKey belongs to
+         * @returns {Promise<Array>} of WitnessGroupDefinition this publicKey belongs to
          */
-        async getGroupsByKey(publicKey) {
+        async getWitnessGroupsByKey(publicKey) {
             const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
 
             // TODO: read from DB
@@ -43,6 +43,18 @@ module.exports = (factory) => {
             }
             return arrResult;
         }
+
+        /**
+         *
+         * @param {Number} id
+         * @returns {Promise<WitnessGroupDefinition>} of groupDefinition publicKey belongs to
+         */
+        async getWitnessGroupById(id) {
+
+            // TODO: implement persistent storage
+            return this._groupDefinitions.get(id);
+        }
+
 
         async hasBlock(blockHash) {
             typeforce(types.Hash256bit, blockHash);
@@ -67,6 +79,24 @@ module.exports = (factory) => {
         }
 
         /**
+         * Throws error if we find UTXO with same hash
+         * @see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
+         *
+         * @param {Array} arrTxHashes
+         * @returns {Promise<void>}
+         */
+        async checkTxCollision(arrTxHashes) {
+            for (let txHash of arrTxHashes) {
+                try {
+                    await this.getUtxo(txHash);
+                } catch (e) {
+                    continue;
+                }
+                throw new Error(`Tx collision for ${txHash}!`);
+            }
+        }
+
+        /**
          *
          * @param {Array} arrUtxoHashes -
          * @returns {Promise<Object>}  keys are txHashes, values - UTXOs
@@ -88,6 +118,7 @@ module.exports = (factory) => {
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
             const key = UTXO_PREFIX + strHash;
 
+            // TODO: implement persistent storage
             const utxo = this._db.get(key);
             if (!utxo) throw new Error(`Storage: UTXO with hash ${strHash} not found!`);
 
@@ -113,7 +144,7 @@ module.exports = (factory) => {
          */
         async applyPatch(statePatch) {
 
-            // TODO: implement definitions (groups|templates)
+            // TODO: implement creating/midification of definitions (groups|templates)
             // TODO: add mutex here!
             for (let [txHash, utxo] of statePatch.getCoins()) {
                 const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;

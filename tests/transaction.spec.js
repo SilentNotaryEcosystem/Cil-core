@@ -30,8 +30,7 @@ describe('Transaction tests', () => {
     });
 
     it('should create transaction from Object', async () => {
-        const wrapper = () => new factory.Transaction(createDummyTx());
-        assert.doesNotThrow(wrapper);
+        new factory.Transaction(createDummyTx());
     });
 
     it('should calculate hash', async () => {
@@ -42,8 +41,7 @@ describe('Transaction tests', () => {
     });
 
     it('should FAIL to parse random bytes', async () => {
-        const wrapper = () => new factory.Transaction(Buffer.allocUnsafe(100));
-        assert.throws(wrapper);
+        assert.throws(() => new factory.Transaction(Buffer.allocUnsafe(100)));
     });
 
     it('should add input', async () => {
@@ -120,6 +118,28 @@ describe('Transaction tests', () => {
         assert.isOk(recoveredTx.equals(tx));
     });
 
+    it('should test setters/getters', async () => {
+        const tx = new factory.Transaction();
+        tx.witnessGroupId = 17;
+        const [input1, input2] = [pseudoRandomBuffer(), pseudoRandomBuffer()];
+        tx.addInput(input1, 15);
+        tx.addInput(input2, 11);
+        tx.addReceiver(1117, Buffer.allocUnsafe(20));
+
+        assert.equal(tx.witnessGroupId, 17);
+        assert.isOk(tx.inputs && tx.inputs.length === 2);
+        assert.isOk(tx.outputs && tx.outputs.length === 1);
+        assert.isNotOk(tx.claimProofs.length);
+
+        const keyPair = factory.Crypto.createKeyPair();
+        tx.sign(0, keyPair.privateKey);
+        assert.isOk(tx.claimProofs.length);
+
+        const arrUtxos = tx.utxos;
+        assert.isOk(input1.equals(arrUtxos[0]));
+        assert.isOk(input2.equals(arrUtxos[1]));
+    });
+
     it('should change hash upon modification', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
@@ -145,37 +165,38 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
 
-        assert.isNotOk(tx.verify());
+        assert.throws(() => tx.verify());
     });
 
     it('should fail to verify: zero tx', async () => {
         const tx = new factory.Transaction();
         tx.addInput(Buffer.alloc(32), 15);
 
-        assert.isNotOk(tx.verify());
+        assert.throws(() => tx.verify());
     });
 
     it('should fail to verify: negative tx index', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), -1);
 
-        assert.isNotOk(tx.verify());
+        assert.throws(() => tx.verify());
     });
 
     it('should fail to verify: zero amount', async () => {
         const tx = new factory.Transaction();
         tx.addReceiver(0, Buffer.allocUnsafe(20));
 
-        assert.isNotOk(tx.verify());
+        assert.throws(() => tx.verify());
     });
 
     it('should verify', async () => {
         const tx = new factory.Transaction();
+        tx.witnessGroupId = 0;
         tx.addInput(pseudoRandomBuffer(), 0);
         tx.addReceiver(1, Buffer.allocUnsafe(20));
         tx.sign(0, keyPair.privateKey);
 
-        assert.isOk(tx.verify());
+        assert.doesNotThrow(() => tx.verify());
     });
 
     it('should FAIL to verify tx: verification failed during decoding from buffer', async () => {
@@ -184,7 +205,7 @@ describe('Transaction tests', () => {
 
         const buffEncodedTx = tx.encode();
         const txRestored = new factory.Transaction(buffEncodedTx);
-        assert.isNotOk(txRestored.verify());
+        assert.throws(() => txRestored.verify());
     });
 
     it('should FAIL to verify tx: verification failed during creating from Object', async () => {
@@ -192,7 +213,7 @@ describe('Transaction tests', () => {
         tx.addInput(pseudoRandomBuffer(), 17);
 
         const txRestored = new factory.Transaction(tx.rawData);
-        assert.isNotOk(txRestored.verify());
+        assert.throws(() => txRestored.verify());
     });
 
     it('should get utxos from tx', async () => {

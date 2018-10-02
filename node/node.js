@@ -253,7 +253,7 @@ module.exports = (factory) => {
 
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
-                logger.error(`${err.message} Peer ${peer.remoteAddress}.`);
+                logger.error(err, `Peer ${peer.address}`);
 
                 // TODO: implement state (like bitcoin) to keep misbehave score or penalize on each handler?
                 peer.misbehave(1);
@@ -279,6 +279,7 @@ module.exports = (factory) => {
             try {
                 await this._processReceivedTx(tx);
             } catch (e) {
+                logger.error(e);
                 peer.ban();
                 throw e;
             }
@@ -298,8 +299,18 @@ module.exports = (factory) => {
 
             const msg = new MsgBlock(message);
             try {
-                await this._processBlock(msg.block);
+                const block = msg.block;
+                if (await this._storage.hasBlock(block.hash())) {
+                    logger.error(`Block ${block.hash()} already known!`);
+                    return;
+                }
+
+                await this._verifyBlock(block);
+                const patchState = await this._processBlock(block);
+                await this._acceptBlock(block, patchState);
+                await this._postAccepBlock();
             } catch (e) {
+                logger.error(e);
                 peer.ban();
                 throw e;
             }
@@ -551,7 +562,6 @@ module.exports = (factory) => {
          * @private
          */
         async _processBlock(block) {
-            await this._verifyBlock(block);
 
             const patchState = new PatchDB();
             const isGenezis = this.isGenezisBlock(block);
@@ -562,6 +572,8 @@ module.exports = (factory) => {
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
+                tx.verify();
+
                 const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
 
                 // TODO: consider using a cache patch from mempool?
@@ -579,6 +591,11 @@ module.exports = (factory) => {
                 }
             }
 
+            return patchState;
+        }
+
+        async _acceptBlock(block, patchState) {
+
             // write raw block to storage
             await this._storage.saveBlock(block);
 
@@ -588,6 +605,16 @@ module.exports = (factory) => {
             await this._storage.applyPatch(patchState);
 
             this._informNeighbors(block);
+        }
+
+        /**
+         * post hook
+         *
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _postAccepBlock() {
+
         }
 
         _checkCoinbaseTx(tx, blockFees) {
@@ -603,14 +630,37 @@ module.exports = (factory) => {
          * Throws error
          * validate block (parents, signatures and so on)
          *
-         * @param block
+         * @param {Block} block
+         * @param {Boolean} checkSignatures - whether to check block signatures (used for witness)
          * @private
          */
-        async _verifyBlock(block) {
+        async _verifyBlock(block, checkSignatures = true) {
 
-            // TODO: validate block (parents, signatures and so on)
-            // TODO: block with txhash that equal to non empty UTXO is invalid! (@see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
+            // TODO: validate block parents
+            if (checkSignatures && !this.isGenezisBlock(block)) await this._verifyBlockSignatures(block);
+
+            assert(block.hash() !== block.merkleRoot.toString('hex'), `Bad merkle root for ${block.hash()}`);
+
+            await this._storage.checkTxCollision(block.getTxHashes());
         }
 
+        async _verifyBlockSignatures(block) {
+            const buffBlockHash = Buffer.from(block.hash(), 'hex');
+
+            const witnessGroupDefinition = await this._storage.getWitnessGroupById(block.witnessGroupId);
+            assert(witnessGroupDefinition, `Unknown witnessGroupId: ${block.witnessGroupId}`);
+            const arrPubKeys = witnessGroupDefinition.getPublicKeys();
+            assert(
+                block.signatures.length === witnessGroupDefinition.getQuorum(),
+                `Expected ${witnessGroupDefinition.getQuorum()} signatures, got ${block.signatures.length}`
+            );
+            for (let sig of block.signatures) {
+                const buffPubKey = Buffer.from(Crypto.recoverPubKey(buffBlockHash, sig), 'hex');
+                assert(
+                    ~arrPubKeys.findIndex(key => buffPubKey.equals(key)),
+                    `Bad signature for block ${block.hash()}!`
+                );
+            }
+        }
     };
 };

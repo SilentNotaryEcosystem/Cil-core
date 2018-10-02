@@ -13,8 +13,8 @@ const maxConnections = os.platform() === 'win32' ? 4 : 10;
 //const maxConnections = 2;
 
 // set to undefined to use random delays
-const delay = undefined;
-//const delay = 10;
+//const delay = undefined;
+const delay = 10;
 
 let groupName = 'test';
 let arrKeyPairs;
@@ -136,7 +136,7 @@ describe('Witness integration tests', () => {
         for (let i = 0; i < arrWitnesses.length; i++) {
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
-                arrWitnesses[i]._commitBlock = createBlockFake;
+                arrWitnesses[i]._acceptBlock = createBlockFake;
             }));
         }
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
@@ -154,25 +154,32 @@ describe('Witness integration tests', () => {
         const {patch, tx} = createGenezisPatchAndSpendingTx();
 
         const seedAddress = factory.Transport.strToAddress('w seed node 3');
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        const seedNode = new factory.Node({listenAddr: seedAddress, delay, arrTestDefinition: [groupDefinition]});
         seedNode._storage.applyPatch(patch);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
         for (let witness of arrWitnesses) witness._storage.applyPatch(patch);
 
+        // prepare Done handlers for all witnesses & seedNode
         const arrBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
             arrBlocksPromises.push(new Promise(resolve => {
-                arrWitnesses[i]._commitBlock = resolve;
+                arrWitnesses[i]._postAccepBlock = resolve;
             }));
         }
+        arrBlocksPromises.push(new Promise(resolve => {
+            seedNode._postAccepBlock = resolve;
+        }));
+
+        // run
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
         await Promise.all(arrWitnesses.map(witness => witness.start()));
 
+        // inject TX into network
         seedNode.rpc.sendRawTx(tx.encode());
 
-        // all witnesses should call _commitBlock
+        // all witnesses + seedNode should get block (_acceptBlock called)
         await Promise.all(arrBlocksPromises);
     });
 
@@ -189,13 +196,13 @@ describe('Witness integration tests', () => {
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
         for (let witness of arrWitnesses) witness._storage.applyPatch(patch);
 
-        const createBlockFake = sinon.fake();
+        const acceptBlockFake = sinon.fake();
 
         const arrSuppressedBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
-                arrWitnesses[i]._commitBlock = createBlockFake;
+                arrWitnesses[i]._acceptBlock = acceptBlockFake;
             }));
         }
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
@@ -205,7 +212,9 @@ describe('Witness integration tests', () => {
 
         // all witnesses should call _suppressedBlockHandler
         await Promise.all(arrSuppressedBlocksPromises);
-        assert.equal(createBlockFake.callCount, 0);
+
+        // ensure that no block was accepted
+        assert.equal(acceptBlockFake.callCount, 0);
     });
 
 //    it('should DISCONNECT from FAKE Witness', async () => {

@@ -30,7 +30,7 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          */
         async start() {
-            const arrGroupDefinitions = await this._storage.getGroupsByKey(this._wallet.publicKey);
+            const arrGroupDefinitions = await this._storage.getWitnessGroupsByKey(this._wallet.publicKey);
 
             for (let def of arrGroupDefinitions) {
                 await this._createConsensusForGroup(def);
@@ -185,17 +185,35 @@ module.exports = (factory) => {
             }
         }
 
+        /**
+         * Block received from proposer witness
+         *
+         * @param {Peer} peer
+         * @param {MsgWitnessCommon} messageWitness
+         * @param {BFT} consensus
+         * @returns {Promise<void>}
+         * @private
+         */
         async _processBlockMessage(peer, messageWitness, consensus) {
             if (consensus.shouldPublish(messageWitness.publicKey)) {
 
                 // this will advance us to VOTE_BLOCK state whether block valid or not!
                 const msgBlock = new MsgWitnessBlock(messageWitness);
                 const block = msgBlock.block;
+                if (await this._storage.hasBlock(block.hash())) {
+                    logger.error(`Block ${block.hash()} already known!`);
+                    return;
+                }
                 try {
-                    await this._processBlock(block);
 
-                    consensus.processValidBlock(block);
+                    // check block without checking signatures
+                    await this._verifyBlock(block, false);
+                    const patchState = await this._processBlock(block);
+
+                    // no _accept here, because this block should be voted before
+                    consensus.processValidBlock(block, patchState);
                 } catch (e) {
+                    logger.error(e);
                     consensus.invalidBlock();
                 }
             } else {
@@ -240,20 +258,29 @@ module.exports = (factory) => {
             });
             consensus.on('createBlock', async () => {
                 try {
-                    const block = await this._createBlockAndBroadcast(consensus);
-                    consensus.processValidBlock(block);
+                    const {groupName, groupId} = consensus;
+                    const {block, patch} = await this._createBlock(groupId);
+                    if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
+                        throw (0);
+                    }
+
+                    await this._broadcastBlock(groupName, block);
+
+                    consensus.processValidBlock(block, patch);
                 } catch (e) {
                     if (typeof e === 'number') {
                         this._suppressedBlockHandler();
                     } else {
-                        logger.error(e.message);
+                        logger.error(e);
                     }
                 }
             });
-            consensus.on('commitBlock', async (block) => {
-                await this._commitBlock(block);
+            consensus.on('commitBlock', async (block, patch) => {
+                await this._acceptBlock(block, patch);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
+                await this._postAccepBlock();
+                consensus.blockCommited();
             });
         }
 
@@ -295,27 +322,19 @@ module.exports = (factory) => {
         /**
          * Create block, and it it's not empty broadcast MSG_WITNESS_BLOCK to other witnesses
          *
-         * @param {BftConsensus} consensusInstance
+         * @param {String} groupName
+         * @param {Block} block
          * @returns {Promise<*>}
          * @private
          */
-        async _createBlockAndBroadcast(consensusInstance) {
-            const {groupName, groupId} = consensusInstance;
-
-            // empty block - is ok, just don't store it on COMMIT stage
+        async _broadcastBlock(groupName, block) {
             const msg = new MsgWitnessBlock({groupName});
-            const block = await this._createBlock(groupId);
-
-            // suppress empty blocks
-            if (block.isEmpty() && !consensusInstance.timeForWitnessBlock()) {
-                throw (0);
-            }
 
             msg.block = block;
             msg.sign(this._wallet.privateKey);
 
             this._peerManager.broadcastToConnected(groupName, msg);
-            return block;
+            debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} broadcasted`);
         }
 
         _broadcastConsensusInitiatedMessage(msg) {
@@ -327,19 +346,25 @@ module.exports = (factory) => {
             consensusInstance.processMessage(msg);
         }
 
+        /**
+         *
+         * @param {Number} groupId - for which witnessGroupId we create block
+         * @returns {Promise<{block, patch}>}
+         * @private
+         */
         async _createBlock(groupId) {
 
             // TODO: get tips for parents
             const block = new Block(groupId);
 
             // TODO: replace it for patch for current level
-            const patchState = new PatchDB();
+            const patch = new PatchDB();
             const arrBadHashes = [];
             let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
                 const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
                 try {
-                    const {fee} = await this._app.processTx(tx, mapUtxos, patchState, false);
+                    const {fee} = await this._app.processTx(tx, mapUtxos, patch, false);
                     if (fee < Constants.MIN_TX_FEE) throw new Error(`Fee of ${fee} too small in "${tx.hash()}"`);
                     totalFee += fee;
                     block.addTx(tx);
@@ -348,18 +373,15 @@ module.exports = (factory) => {
                     arrBadHashes.push(tx.hash());
                 }
             }
+
+            // remove failed txns
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
             // TODO: Store patch in DAG for pending blocks
             block.finish(totalFee, this._wallet.publicKey);
-            debugWitness(`Block ${block.hash()} ready`);
+            debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} ready`);
 
-            return block;
-        }
-
-        async _commitBlock(block) {
-
-            //TODO: check finality
+            return {block, patch};
         }
 
     };

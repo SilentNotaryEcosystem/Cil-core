@@ -1,3 +1,4 @@
+const assert = require('assert');
 const typeforce = require('typeforce');
 const types = require('../types');
 
@@ -176,7 +177,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         verify() {
 
-            if (this.witnessGroupId === undefined) return false;
+            assert(this.witnessGroupId !== undefined, 'witnessGroupId undefined');
 
             // check inputs (not a coinbase & nTxOutput - non negative)
             const insValid = this.inputs && this._data.payload.ins.every(input => {
@@ -184,7 +185,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
                        input.nTxOutput >= 0;
             });
 
-            if (!insValid) return false;
+            assert(insValid, 'Errors in input');
 
             // check outputs
             const outsValid = this.outputs && this._data.payload.outs.every(output => {
@@ -192,7 +193,9 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             });
 
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
-            return outsValid && this._data.claimProofs.length === this._data.payload.ins.length;
+            assert(outsValid, 'Errors in outputs');
+
+            assert(this._data.claimProofs.length === this._data.payload.ins.length, 'Errors in clamProofs');
         }
 
         static createCoinbase() {

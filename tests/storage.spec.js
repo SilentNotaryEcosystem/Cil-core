@@ -26,13 +26,13 @@ describe('Storage tests', () => {
         const storage = new factory.Storage({arrTestDefinition: [def1, def2]});
 
         {
-            const arrDefs = await storage.getGroupsByKey(Buffer.from('public1'));
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public1'));
             assert.isOk(Array.isArray(arrDefs));
             assert.equal(arrDefs.length, 1);
         }
 
         {
-            const arrDefs = await storage.getGroupsByKey(Buffer.from('public2'));
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public2'));
             assert.isOk(Array.isArray(arrDefs));
             assert.equal(arrDefs.length, 2);
         }
@@ -180,6 +180,38 @@ describe('Storage tests', () => {
         assert.isOk(mapUtxos[txHash.toString('hex')]);
         assert.isOk(mapUtxos[txHash2.toString('hex')]);
         assert.isOk(mapUtxos[txHash3.toString('hex')]);
+    });
+
+    it('should find TX COLLISION', async () => {
+        const storage = new factory.Storage({});
+
+        const patch = new factory.PatchDB();
+
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        patch.createCoins(txHash, 12, coins);
+
+        await storage.applyPatch(patch);
+
+        try {
+            await storage.checkTxCollision([txHash]);
+        } catch (e) {
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should NOT find TX COLLISION', async () => {
+        const storage = new factory.Storage({});
+
+        const patch = new factory.PatchDB();
+
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        patch.createCoins(txHash, 12, coins);
+
+        await storage.applyPatch(patch);
+        await storage.checkTxCollision([pseudoRandomBuffer().toString('hex')]);
     });
 
 });

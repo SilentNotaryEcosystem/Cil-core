@@ -111,8 +111,10 @@ module.exports = (factory) => {
             if (!value) return false;
 
             debug(`BFT "${this._nonce}" consensus REACHED! State: "${this._state}"`);
-            this._resetState();
+
+            // TODO: add mutex here?
             this._stateChange(true, value);
+            this._resetState();
         }
 
         /**
@@ -207,13 +209,16 @@ module.exports = (factory) => {
             return count >= this._groupDefinition.getQuorum() ? majorityValue : undefined;
         }
 
-        processValidBlock(block) {
+        processValidBlock(block, patch) {
+            typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
+
             debug(`BFT "${this._nonce}". Received block with hash: ${block.hash()}. State ${this._state}`);
             if (this._state !== States.BLOCK) {
                 logger.error(`Got block at wrong state: "${this._state}"`);
                 return;
             }
             this._block = block;
+            this._patch = patch;
             this._lastBlockTime = Date.now();
             this._blockStateHandler(true);
 
@@ -235,6 +240,11 @@ module.exports = (factory) => {
 
             const message = this._createBlockRejectMessage(this._groupDefinition.getGroupName());
             this.emit('message', message);
+        }
+
+        blockCommited() {
+            // TODO: this state (COMMIT) also requires acknowledge, because for small block it speed up process
+            // TODO: and will let all node to process large blocks
         }
 
         /**
@@ -302,11 +312,6 @@ module.exports = (factory) => {
                     this._voteStateHandler(isConsensus, consensusValue);
                     break;
                 case States.COMMIT:
-
-                    // timeout for commit is reached. it's desired behavior to allow slow nodes keep round sync
-                    // TODO: this state also requires acknowledge, because for small block it speed up process
-                    // TODO: and will let all node to process large blocks
-
                     this._nextRound();
                     break;
             }
@@ -383,7 +388,16 @@ module.exports = (factory) => {
 
                 if (this._block) {
                     if (consensusValue.blockHash.equals(Buffer.from(this._block.hash(), 'hex'))) {
-                        this.emit('commitBlock', this._block);
+                        const signatures = this._getSignaturesForBlock();
+
+                        if (!signatures) {
+                            logger.error(
+                                `Consensus reached for block ${consensusValue.blockHash}, but fail to get signatures!`);
+                            this._nextRound();
+                        }
+
+                        this._block.addWitnessSignatures(signatures);
+                        this.emit('commitBlock', this._block, this._patch);
                     } else {
 
                         // Proposer misbehave!! sent us different block than other!
@@ -494,5 +508,31 @@ module.exports = (factory) => {
             return msgBlockReject;
         }
 
+        /**
+         * this._views contains {state, blockHash, signature}
+         *
+         * @returns {Array}
+         * @private
+         */
+        _getSignaturesForBlock() {
+            if (!this._block) throw new Error('No block stored!');
+            const buffBlockHash = Buffer.from(this._block.hash(), 'hex');
+
+            const arrSignatures = [];
+            this._arrPublicKeys.forEach(pubKeyI => {
+                const arrDataWitnessI = this._witnessData(pubKeyI);
+                const votedValue = this._majority(arrDataWitnessI);
+                if (votedValue
+                    && Buffer.isBuffer(votedValue.blockHash)
+                    && votedValue.blockHash.equals(buffBlockHash)
+                    && votedValue.signature
+                    && Crypto.verify(buffBlockHash, votedValue.signature, pubKeyI)
+                ) {
+                    arrSignatures.push(votedValue.signature);
+                }
+            });
+            const quorum = this._groupDefinition.getQuorum();
+            return arrSignatures.length >= quorum ? arrSignatures.slice(0, quorum) : undefined;
+        }
     };
 };

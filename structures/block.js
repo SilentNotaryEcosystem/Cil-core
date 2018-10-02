@@ -36,6 +36,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this._data.txns;
         }
 
+        get signatures() {
+            return this._data.signatures;
+        }
+
         get mci() {
             return this._data.header.mci;
         }
@@ -105,9 +109,9 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             typeforce.Number(totalTxnsFees);
             typeforce(types.PublicKey, pubkeyReceiver);
 
+            this._hashCache = undefined;
             const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
 
-            this._hashCache = undefined;
             const coinbase = Transaction.createCoinbase();
             coinbase.witnessGroupId = this.witnessGroupId;
             coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
@@ -117,5 +121,11 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             this._data.txns.unshift(coinbase.rawData);
             this._final = true;
+        }
+
+        addWitnessSignatures(arrSignatures) {
+            typeforce(typeforce.arrayOf(types.Signature), arrSignatures);
+
+            this._data.signatures = arrSignatures.slice();
         }
     };

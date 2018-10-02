@@ -172,6 +172,7 @@ describe('Node integration tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         const block = new factory.Block(0);
         block.addTx(tx);
+        block.finish(0, pseudoRandomBuffer(33));
         factory.Constants.GENEZIS_BLOCK = block.hash();
 
         this.timeout(60000);
@@ -183,14 +184,15 @@ describe('Node integration tests', () => {
 
             // set fakes for _storage.saveBlock that means: node processed block
             arrTxPromises.push(new Promise(resolve => {
-                arrNodes[i]._storage.saveBlock = resolve;
+                arrNodes[i]._acceptBlock = resolve;
             }));
             arrBootrapPromises.push(arrNodes[i].bootstrap());
         }
         await Promise.all(arrBootrapPromises);
 
         // inject block to seed node
-        await seedNode._processBlock(block);
+        const patch = await seedNode._processBlock(block);
+        await seedNode._acceptBlock(block, patch);
 
         await Promise.all(arrTxPromises);
     });

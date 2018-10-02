@@ -131,38 +131,9 @@ describe('Witness tests', () => {
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
-        const block = await witness._createBlock(groupDefinition.getGroupId());
+        const {block} = await witness._createBlock(groupDefinition.getGroupId());
         assert.equal(block.txns.length, 3);
     });
 
-    it('should NOT broadcast block (hold off timer)', async () => {
-        const {witness, groupDefinition} = createDummyWitness();
-
-        await witness.start();
-        const consensusInstance = witness._consensuses.get(groupDefinition.getGroupName());
-        try {
-            await witness._createBlockAndBroadcast(consensusInstance);
-        } catch (e) {
-            if (typeof e === 'number') return;
-            console.error(e);
-        }
-        throw new Error('Unexpected success');
-    });
-
-    it('should broadcast block', async () => {
-        const {witness, groupDefinition} = createDummyWitness();
-
-        await witness.start();
-        const consensusInstance = witness._consensuses.get(groupDefinition.getGroupName());
-        consensusInstance.timeForWitnessBlock = sinon.fake.returns(true);
-        witness._peerManager.broadcastToConnected = sinon.fake();
-
-        const block = await witness._createBlockAndBroadcast(consensusInstance);
-
-        assert.isOk(block);
-        assert.isOk(block.isEmpty());
-        assert.isOk(consensusInstance.timeForWitnessBlock.calledOnce);
-        assert.isOk(witness._peerManager.broadcastToConnected.calledOnce);
-    });
 
 });
