@@ -5,6 +5,8 @@ const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
+const {arrayEquals} = require('../utils');
+const {pseudoRandomBuffer} = require('./testUtil');
 
 describe('PatchDB', () => {
     before(async function() {
@@ -21,12 +23,12 @@ describe('PatchDB', () => {
     });
 
     it('should create instance', async () => {
-        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const txHash = pseudoRandomBuffer().toString('hex');
         new factory.UTXO({txHash});
     });
 
     it('should add/get coins', async () => {
-        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const txHash = pseudoRandomBuffer().toString('hex');
         const utxo = new factory.UTXO({txHash});
         const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
 
@@ -37,7 +39,7 @@ describe('PatchDB', () => {
     });
 
     it('should NOT get coins (wrong index)', async () => {
-        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const txHash = pseudoRandomBuffer().toString('hex');
         const utxo = new factory.UTXO({txHash});
         const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
 
@@ -46,7 +48,7 @@ describe('PatchDB', () => {
     });
 
     it('should NOT add coins (same idx)', async () => {
-        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const txHash = pseudoRandomBuffer().toString('hex');
         const utxo = new factory.UTXO({txHash});
         const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
 
@@ -55,7 +57,7 @@ describe('PatchDB', () => {
     });
 
     it('should add 3 coins', async () => {
-        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const txHash = pseudoRandomBuffer().toString('hex');
         const utxo = new factory.UTXO({txHash});
         const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
 
@@ -69,7 +71,7 @@ describe('PatchDB', () => {
     });
 
     it('should remove 2 coins', async () => {
-        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const txHash = pseudoRandomBuffer().toString('hex');
         const utxo = new factory.UTXO({txHash});
         const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
 
@@ -96,7 +98,7 @@ describe('PatchDB', () => {
     });
 
     it('should encode/decode', async () => {
-        const txHash = Buffer.allocUnsafe(32).toString('hex');
+        const txHash = pseudoRandomBuffer().toString('hex');
         const utxo = new factory.UTXO({txHash});
         const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
 
@@ -111,6 +113,18 @@ describe('PatchDB', () => {
         assert.isOk(restoredUtxo.coinsAtIndex(12));
         assert.isOk(restoredUtxo.coinsAtIndex(431));
         assert.throws(() => restoredUtxo.coinsAtIndex(0));
+    });
+
+    it('should get indexes', async () => {
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const utxo = new factory.UTXO({txHash});
+        const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
+
+        utxo.addCoins(12, coins);
+        utxo.addCoins(431, coins);
+
+        assert.isOk(Array.isArray(utxo.getIndexes()));
+        assert.isOk(arrayEquals(utxo.getIndexes(), [12, 431]));
     });
 
 });

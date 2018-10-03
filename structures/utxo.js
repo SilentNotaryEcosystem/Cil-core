@@ -5,7 +5,7 @@ module.exports = ({Coins}, {utxoProto}) =>
     class UTXO {
         /**
          *
-         * @param {String} txHash - if we manually creates object
+         * @param {String} txHash - mandatory! when it restored from storage, you should set it from key!
          * @param {Buffer} data - if we deserialize from storage
          */
         constructor({txHash, data}) {
@@ -70,7 +70,7 @@ module.exports = ({Coins}, {utxoProto}) =>
 
             const idx = this._data.arrIndexes.findIndex(i => i === nTxOutput);
             if (!~idx) {
-                throw new Error(`Tx ${this._strHash} index ${idx} already deleted!`);
+                throw new Error(`Tx ${this._strHash} index ${nTxOutput} already deleted!`);
             }
 
             this._data.arrIndexes.splice(idx, 1);
@@ -93,5 +93,9 @@ module.exports = ({Coins}, {utxoProto}) =>
 
         encode() {
             return utxoProto.encode(this._data).finish();
+        }
+
+        getIndexes() {
+            return this._data.arrIndexes;
         }
     };
