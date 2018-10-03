@@ -44,7 +44,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
 
                     const coins = utxo.coinsAtIndex(input.nTxOutput);
                     this._verifyClaim(coins.getCodeClaim(), claimProofs[i], buffInputHash);
-                    patch.spendCoins(utxo, input.nTxOutput);
+                    patch.spendCoins(utxo, input.nTxOutput, txHash);
                     totalHas += coins.getAmount();
                 }
             }

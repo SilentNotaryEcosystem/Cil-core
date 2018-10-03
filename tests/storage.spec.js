@@ -125,6 +125,8 @@ describe('Storage tests', () => {
         const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
         patch.createCoins(txHash2, 22, coins2);
 
+        const spendingTx = pseudoRandomBuffer();
+
         await storage.applyPatch(patch);
 
         // now spend it
@@ -133,12 +135,12 @@ describe('Storage tests', () => {
 
             // 2 of 3 from first utxo
             const utxo = await storage.getUtxo(txHash);
-            spendPatch.spendCoins(utxo, 12);
-            spendPatch.spendCoins(utxo, 80);
+            spendPatch.spendCoins(utxo, 12, spendingTx);
+            spendPatch.spendCoins(utxo, 80, spendingTx);
 
             // 1 of 1 from first utxo2
             const utxo2 = await storage.getUtxo(txHash2);
-            spendPatch.spendCoins(utxo2, 22);
+            spendPatch.spendCoins(utxo2, 22, spendingTx);
 
             await storage.applyPatch(spendPatch);
         }

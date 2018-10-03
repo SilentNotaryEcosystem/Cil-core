@@ -5,7 +5,18 @@ const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
+const {arrayEquals} = require('../utils');
 const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+
+const createUtxo = (arrIndexes) => {
+    const txHash = pseudoRandomBuffer(32).toString('hex');
+
+    const utxo = new factory.UTXO({txHash});
+    const coins = new factory.Coins(1000, Buffer.allocUnsafe(100));
+    arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
+
+    return utxo;
+};
 
 describe('PatchDB', () => {
     before(async function() {
@@ -53,35 +64,88 @@ describe('PatchDB', () => {
 
     it('should remove coins', async () => {
         const patch = new factory.PatchDB();
-        const txHash = pseudoRandomBuffer(32).toString('hex');
-        const txHash2 = pseudoRandomBuffer(32).toString('hex');
+        const spendingTx = pseudoRandomBuffer(32).toString('hex');
 
-        const utxo = new factory.UTXO({txHash});
-        const coins = new factory.Coins(1000, Buffer.allocUnsafe(100));
-        utxo.addCoins(12, coins);
-        utxo.addCoins(0, coins);
-        utxo.addCoins(431, coins);
+        const utxo = createUtxo([12, 0, 431]);
+        const utxo2 = createUtxo([12, 0]);
 
-        const utxo2 = new factory.UTXO({txHash: txHash2});
-        const coins2 = new factory.Coins(20000, Buffer.allocUnsafe(100));
-        utxo2.addCoins(12, coins2);
-        utxo2.addCoins(0, coins2);
-
-        patch.spendCoins(utxo, 12);
-        patch.spendCoins(utxo, 0);
-        patch.spendCoins(utxo, 431);
-        patch.spendCoins(utxo2, 12);
+        patch.spendCoins(utxo, 12, spendingTx);
+        patch.spendCoins(utxo, 0, spendingTx);
+        patch.spendCoins(utxo, 431, spendingTx);
+        patch.spendCoins(utxo2, 12, spendingTx);
 
         assert.isOk(patch.getCoins());
         assert.equal(patch.getCoins().size, 2);
 
-        const utxoPatched = patch.getUtxo(txHash);
-        const utxo2Patched = patch.getUtxo(txHash2);
+        const utxoPatched = patch.getUtxo(utxo.getTxHash());
+        const utxo2Patched = patch.getUtxo(utxo2.getTxHash());
 
         assert.isOk(utxoPatched.isEmpty());
         assert.isNotOk(utxo2Patched.isEmpty());
 
         assert.isOk(utxo2Patched.coinsAtIndex(0));
         assert.throws(() => utxo2Patched.coinsAtIndex(12));
+    });
+
+    it('should MERGE patches (different outputs same spending TX)', async () => {
+        const patch = new factory.PatchDB();
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer();
+
+        patch.spendCoins(utxo, 12, spendingTx);
+
+        const patch2 = new factory.PatchDB();
+        patch2.spendCoins(utxo, 0, spendingTx);
+
+        const mergedPatch = patch.merge(patch2);
+
+        const mapSpentOutputs = mergedPatch._getSpentOutputs(utxo.getTxHash());
+        assert.isOk(mapSpentOutputs);
+        assert.isOk(arrayEquals(Array.from(mapSpentOutputs.keys()), [0, 12]));
+
+    });
+
+    it('should MERGE patches (same outputs same spending TX)', async () => {
+        const patch = new factory.PatchDB();
+        const utxo = createUtxo([12, 0, 431]);
+        const buffUtxo = utxo.encode();
+        const spendingTx = pseudoRandomBuffer();
+
+        // simulate retrieving UTXO from DB
+        {
+            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
+            patch.spendCoins(utxoFromDB, 12, spendingTx);
+        }
+        const patch2 = new factory.PatchDB();
+        {
+            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
+            patch2.spendCoins(utxoFromDB, 12, spendingTx);
+        }
+
+        patch.merge(patch2);
+    });
+
+    it('should fail MERGE patches (same outputs different spending TX)', async () => {
+        const patch = new factory.PatchDB();
+        const utxo = createUtxo([12, 0, 431]);
+        const buffUtxo = utxo.encode();
+
+        // simulate retrieving UTXO from DB
+        {
+            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
+            patch.spendCoins(utxoFromDB, 12, pseudoRandomBuffer());
+        }
+        const patch2 = new factory.PatchDB();
+        {
+            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
+            patch2.spendCoins(utxoFromDB, 12, pseudoRandomBuffer());
+        }
+
+        try {
+            patch.merge(patch2);
+        } catch (e) {
+            return;
+        }
+        throw ('Unexpected success');
     });
 });
