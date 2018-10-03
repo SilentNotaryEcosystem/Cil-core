@@ -1,21 +1,51 @@
 const typeforce = require('typeforce');
+const MerkleTree = require('merkletreejs');
 const types = require('../types');
 
-module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockPayloadProto}) =>
+module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProto}) =>
     class Block {
         constructor(data) {
-            typeforce(typeforce.oneOf('Object', 'Buffer', types.Empty), data);
+            typeforce(typeforce.oneOf('Object', 'Buffer', 'Number'), data);
 
-            if (data === undefined) data = {payload: blockPayloadProto.create({})};
+            this._final = false;
+            if (typeof data === 'number') {
+                data = {header: blockHeaderProto.create({witnessGroupId: data, mci: 0})};
+            }
 
             if (Buffer.isBuffer(data)) {
                 this._data = blockProto.decode(data);
+                this._final = true;
             } else if (typeof data === 'object') {
                 const errMsg = blockProto.verify(data);
                 if (errMsg) throw new Error(`Block: ${errMsg}`);
-
                 this._data = blockProto.create(data);
+            } else {
+                throw new Error('witnessGroupId mandatory for block creation');
             }
+        }
+
+        get merkleRoot() {
+            return this._data.header.merkleRoot;
+        }
+
+        get witnessGroupId() {
+            return this._data.header.witnessGroupId;
+        }
+
+        get txns() {
+            return this._data.txns;
+        }
+
+        get signatures() {
+            return this._data.signatures;
+        }
+
+        get mci() {
+            return this._data.header.mci;
+        }
+
+        set mci(value) {
+            return this._data.header.mci = value;
         }
 
         /**
@@ -23,36 +53,35 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockPayloadPro
          * @returns {String} !!
          */
         hash() {
+            if (!this._final) throw new Error('Call finish() before calculating hash');
             if (!this._hashCache) {
-                if (!this._encodedPayload) {
-                    this.encodePayload();
-                }
-                this._hashCache = Crypto.createHash(this._encodedPayload);
+                this._buildTxTree();
+                this._hashCache = Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
             }
             return this._hashCache;
         }
 
-        get payload() {
-            return this._data.payload;
-        }
+        /**
+         *
+         * @private
+         */
+        _buildTxTree() {
 
-        get witnessGroupId() {
-            return this._data.payload.witnessGroupId;
-        }
+            // MerkleTree hangs on empty arrays!
+            if (!this._data.txns.length) throw new Error('Empty block! Should be at least a coinbase TX!');
 
-        set witnessGroupId(id) {
-            this._data.payload.witnessGroupId = id;
-        }
+            const leaves = this._data.txns.map(tx => {
+                const cTx = new Transaction(tx);
+                return cTx.hash();
+            });
+            const tree = new MerkleTree(leaves, Crypto.createHashBuffer.bind(Crypto), {isBitcoinTree: true});
 
-        get txns() {
-            return this._data.payload.txns;
-        }
-
-        encodePayload() {
-            this._encodedPayload = blockPayloadProto.encode(this.payload).finish();
+            // tree.getRoot() returns buffer
+            this._data.header.merkleRoot = tree.getRoot();
         }
 
         encode() {
+            if (!this._final) throw new Error('Call finish() before encoding');
             return blockProto.encode(this._data).finish();
         }
 
@@ -61,10 +90,11 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockPayloadPro
          * @param {Transaction} tx
          */
         addTx(tx) {
+            if (this._final) throw new Error('This block was already final!');
 
             // invalidate cache (if any)
             this._hashCache = undefined;
-            this.payload.txns.push(tx.rawData);
+            this._data.txns.push(tx.rawData);
         }
 
         getTxHashes() {
@@ -72,6 +102,30 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockPayloadPro
         }
 
         isEmpty() {
-            return !this.txns.length;
+            return this.txns.length === 1 && (new Transaction(this.txns[0])).isCoinbase();
+        }
+
+        finish(totalTxnsFees, pubkeyReceiver) {
+            typeforce.Number(totalTxnsFees);
+            typeforce(types.PublicKey, pubkeyReceiver);
+
+            this._hashCache = undefined;
+            const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
+
+            const coinbase = Transaction.createCoinbase();
+            coinbase.witnessGroupId = this.witnessGroupId;
+            coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
+
+            // to make coinbase hash unique
+            coinbase.addReceiver(0, Crypto.randomBytes(20));
+
+            this._data.txns.unshift(coinbase.rawData);
+            this._final = true;
+        }
+
+        addWitnessSignatures(arrSignatures) {
+            typeforce(typeforce.arrayOf(types.Signature), arrSignatures);
+
+            this._data.signatures = arrSignatures.slice();
         }
     };

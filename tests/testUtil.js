@@ -33,5 +33,11 @@ module.exports = {
         }
     }),
 
+    createDummyBlock: (factory) => {
+        const block = new factory.Block(0);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        return block;
+    },
+
     pseudoRandomBuffer
 };

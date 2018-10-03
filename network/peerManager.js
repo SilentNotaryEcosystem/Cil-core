@@ -51,15 +51,19 @@ module.exports = (factory) => {
             const key = this._createKey(peer.address);
             const existingPeer = this._allPeers.get(key);
 
-            if (!peer.disconnected && existingPeer && !existingPeer.disconnected) {
-                logger.error('Duplicate connection detected');
-                return undefined;
+            if (existingPeer && existingPeer.banned) return Constants.REJECT_BANNED;
+
+            if (existingPeer && !existingPeer.disconnected && !peer.disconnected) {
+                return Constants.REJECT_DUPLICATE;
             }
 
             // we connected to that peer so we believe that this info more correct
             if (existingPeer && (existingPeer.version || !existingPeer.disconnected)) return existingPeer;
 
             this.updateHandlers(peer);
+
+            // TODO: store it in DB
+            // TODO: emit new peer
             this._allPeers.set(key, peer);
             return peer;
         }
@@ -127,5 +131,5 @@ module.exports = (factory) => {
             // it could be ripemd160
             return address.toString('hex');
         }
-    }
-}
+    };
+};

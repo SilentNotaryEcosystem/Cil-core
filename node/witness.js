@@ -5,7 +5,7 @@ const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
 module.exports = (factory) => {
-    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition} = factory;
+    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {
@@ -30,7 +30,7 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          */
         async start() {
-            const arrGroupDefinitions = await this._storage.getGroupsByKey(this._wallet.publicKey);
+            const arrGroupDefinitions = await this._storage.getWitnessGroupsByKey(this._wallet.publicKey);
 
             for (let def of arrGroupDefinitions) {
                 await this._createConsensusForGroup(def);
@@ -83,6 +83,8 @@ module.exports = (factory) => {
                 } else {
                     debugWitness(`----- "${this._debugAddress}" WITNESS "${peer.address}" DISCONNECTED ---`);
                 }
+
+                // TODO: request mempool tx from neighbor with MSG_MEMPOOL (https://en.bitcoin.it/wiki/Protocol_documentation#mempool)
             }
         }
 
@@ -95,7 +97,7 @@ module.exports = (factory) => {
         async _createConsensusForGroup(groupDefinition) {
             const consensus = new BFT({
                 groupDefinition,
-                wallet: this._wallet,
+                wallet: this._wallet
             });
             this._setConsensusHandlers(consensus);
             this._consensuses.set(groupDefinition.getGroupName(), consensus);
@@ -122,11 +124,12 @@ module.exports = (factory) => {
             return arrPeers;
         }
 
-        async _connectToWitness(peer) {
-            const address = this._transport.constructor.addressToString(peer.address);
-            debugWitness(`(address: "${this._debugAddress}") connecting to witness ${address}`);
-            return await peer.connect();
-        }
+        //TODO: fix duplicate connections handling
+//        async _connectToWitness(peer) {
+//            const address = this._transport.constructor.addressToString(peer.address);
+//            debugWitness(`(address: "${this._debugAddress}") connecting to witness ${address}`);
+//            return await peer.connect();
+//        }
 
         async _incomingWitnessMessage(peer, message) {
             try {
@@ -137,6 +140,12 @@ module.exports = (factory) => {
                     await this._processHandshakeMessage(peer, messageWitness, consensus);
                     return;
                 }
+
+//                if(!peer.witnessLoadDone) {
+//                    peer.ban();
+//                    throw new Error('Peer missed handshake stage');
+//                }
+
                 if (messageWitness.isWitnessBlock()) {
                     await this._processBlockMessage(peer, messageWitness, consensus);
                     return;
@@ -171,43 +180,54 @@ module.exports = (factory) => {
                 await peer.pushMessage(response);
                 peer.addTag(messageWitness.groupName);
             } else {
+
                 peer.witnessLoadDone = true;
             }
         }
 
+        /**
+         * Block received from proposer witness
+         *
+         * @param {Peer} peer
+         * @param {MsgWitnessCommon} messageWitness
+         * @param {BFT} consensus
+         * @returns {Promise<void>}
+         * @private
+         */
         async _processBlockMessage(peer, messageWitness, consensus) {
             if (consensus.shouldPublish(messageWitness.publicKey)) {
 
                 // this will advance us to VOTE_BLOCK state whether block valid or not!
                 const msgBlock = new MsgWitnessBlock(messageWitness);
                 const block = msgBlock.block;
-                let message;
-                try {
-                    this._processBlock(block);
-                    consensus.processValidBlock(block);
-
-                    // send our blockACK to consensus
-                    message = this._createBlockAcceptMessage(messageWitness.groupName, block.hash());
-
-                } catch (e) {
-                    consensus.invalidBlock();
-                    message = this._createBlockRejectMessage(messageWitness.groupName);
+                if (await this._storage.hasBlock(block.hash())) {
+                    logger.error(`Block ${block.hash()} already known!`);
+                    return;
                 }
+                try {
 
-                // here we are at VOTE_BLOCK state - let's send our vote!
-                this._broadcastConsensusInitiatedMessage(message);
+                    // check block without checking signatures
+                    await this._verifyBlock(block, false);
+                    const patchState = await this._processBlock(block);
+
+                    // no _accept here, because this block should be voted before
+                    consensus.processValidBlock(block, patchState);
+                } catch (e) {
+                    logger.error(e);
+                    consensus.invalidBlock();
+                }
             } else {
+
+                // we still wait for block from designated proposer or timer for BLOCK state will expire
                 debugWitness(
                     `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not it's turn!`);
             }
-
-            // we still wait for block from designated proposer or timer for BLOCK state will expire
         }
 
         /**
          *
          * @param {Peer} peer
-         * @param {MessageCommon} message
+         * @param {MessageCommon | undefined} message undefined means that signature check for witness peer failed (@see peer._setConnectionHandlers)
          * @return {WitnessMessageCommon | undefined}
          * @private
          */
@@ -238,27 +258,39 @@ module.exports = (factory) => {
             });
             consensus.on('createBlock', async () => {
                 try {
-                    const block = await this._createBlockAndBroadcast(consensus);
-                    consensus.processValidBlock(block);
+                    const {groupName, groupId} = consensus;
+                    const {block, patch} = await this._createBlock(groupId);
+                    if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
+                        throw (0);
+                    }
 
-                    // send ACK for own block to consensus
-                    const msgBlockAck = this._createBlockAcceptMessage(consensus.groupName, block.hash());
-                    this._broadcastConsensusInitiatedMessage(msgBlockAck);
+                    await this._broadcastBlock(groupName, block);
+
+                    consensus.processValidBlock(block, patch);
                 } catch (e) {
                     if (typeof e === 'number') {
-                        debugWitness('Suppressing empty block');
+                        this._suppressedBlockHandler();
                     } else {
-                        logger.error(e.message);
+                        logger.error(e);
                     }
                 }
             });
-            consensus.on('commitBlock', async (block) => {
+            consensus.on('commitBlock', async (block, patch) => {
+                await this._acceptBlock(block, patch);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
-
-                //TODO: pass block to App layer
+                await this._postAccepBlock();
+                consensus.blockCommited();
             });
+        }
 
+        /**
+         *
+         *
+         * @private
+         */
+        _suppressedBlockHandler() {
+            debugWitness('Suppressing empty block');
         }
 
         /**
@@ -287,44 +319,22 @@ module.exports = (factory) => {
             return msg;
         }
 
-        _createBlockAcceptMessage(groupName, blockHash) {
-            const msgBlockAccept = new MsgWitnessCommon({groupName});
-            msgBlockAccept.blockAcceptMessage = blockHash;
-            msgBlockAccept.sign(this._wallet.privateKey);
-            return msgBlockAccept;
-        }
-
-        _createBlockRejectMessage(groupName) {
-            const msgBlockReject = new MsgWitnessCommon({groupName});
-            msgBlockReject.blockRejectMessage = true;
-            msgBlockReject.sign(this._wallet.privateKey);
-            return msgBlockReject;
-        }
-
         /**
          * Create block, and it it's not empty broadcast MSG_WITNESS_BLOCK to other witnesses
          *
-         * @param {BftConsensus} consensusInstance
+         * @param {String} groupName
+         * @param {Block} block
          * @returns {Promise<*>}
          * @private
          */
-        async _createBlockAndBroadcast(consensusInstance) {
-            const {groupName, groupId} = consensusInstance;
-
-            // empty block - is ok, just don't store it on COMMIT stage
+        async _broadcastBlock(groupName, block) {
             const msg = new MsgWitnessBlock({groupName});
-            const block = await this._createBlock(groupId);
-
-            // suppress empty blocks
-            if (block.isEmpty() && !consensusInstance.timeForWitnessBlock()) {
-                throw (0);
-            }
 
             msg.block = block;
             msg.sign(this._wallet.privateKey);
 
             this._peerManager.broadcastToConnected(groupName, msg);
-            return block;
+            debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} broadcasted`);
         }
 
         _broadcastConsensusInitiatedMessage(msg) {
@@ -336,13 +346,42 @@ module.exports = (factory) => {
             consensusInstance.processMessage(msg);
         }
 
+        /**
+         *
+         * @param {Number} groupId - for which witnessGroupId we create block
+         * @returns {Promise<{block, patch}>}
+         * @private
+         */
         async _createBlock(groupId) {
-            const block = new Block();
-            block.witnessGroupId = groupId;
+
+            // TODO: get tips for parents
+            const block = new Block(groupId);
+
+            // TODO: replace it for patch for current level
+            const patch = new PatchDB();
+            const arrBadHashes = [];
+            let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
-                block.addTx(tx);
+                const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
+                try {
+                    const {fee} = await this._app.processTx(tx, mapUtxos, patch, false);
+                    if (fee < Constants.MIN_TX_FEE) throw new Error(`Fee of ${fee} too small in "${tx.hash()}"`);
+                    totalFee += fee;
+                    block.addTx(tx);
+                } catch (e) {
+                    logger.error(e);
+                    arrBadHashes.push(tx.hash());
+                }
             }
-            return block;
+
+            // remove failed txns
+            if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
+
+            // TODO: Store patch in DAG for pending blocks
+            block.finish(totalFee, this._wallet.publicKey);
+            debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} ready`);
+
+            return {block, patch};
         }
 
     };

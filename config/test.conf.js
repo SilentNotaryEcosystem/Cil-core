@@ -38,8 +38,7 @@ module.exports = {
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',
             MSG_WITNESS_EXPOSE: 'w_expose',
             MSG_WITNESS_BLOCK: 'w_block',
-            MSG_WITNESS_BLOCK_ACK: 'w_block_ack',
-            MSG_WITNESS_BLOCK_REJECT: 'w_block_rej'
+            MSG_WITNESS_BLOCK_VOTE: 'w_block_vote'
         },
 
         consensusStates: {

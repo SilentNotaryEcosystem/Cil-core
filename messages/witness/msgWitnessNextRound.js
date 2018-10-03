@@ -20,8 +20,8 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessNextRoundProto
         constructor(data) {
             super(data);
 
-            if (data instanceof WitnessMessageCommon || Buffer.isBuffer(this.content)) {
-                this._data = {...WitnessNextRoundProto.decode(this.content)};
+            if (data instanceof WitnessMessageCommon || Buffer.isBuffer(super.content)) {
+                this._data = {...WitnessNextRoundProto.decode(super.content)};
 
                 if (!this.isNextRound()) {
                     throw new Error(`Wrong message type. Expected "${MSG_WITNESS_NEXT_ROUND}" got "${this.message}"`);
@@ -38,8 +38,12 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessNextRoundProto
             this.message = MSG_WITNESS_NEXT_ROUND;
         }
 
-        parseContent(value) {
-            this._data = {...WitnessNextRoundProto.decode(value)};
+        /**
+         * We override it for consensus.processMessage
+         * @returns {*}
+         */
+        get content() {
+            return this._data;
         }
 
         get roundNo() {

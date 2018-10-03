@@ -1,3 +1,5 @@
+const assert = require('assert');
+
 const debugLib = require('debug');
 const {sleep} = require('../utils');
 
@@ -19,7 +21,8 @@ module.exports = (factory) => {
         Application,
         Transaction,
         Block,
-        PatchDB
+        PatchDB,
+        Coins
     } = factory;
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData} = Messages;
     const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
@@ -37,6 +40,8 @@ module.exports = (factory) => {
             this._arrDnsSeeds = arrDnsSeeds;
 
             this._nMaxPeers = nMaxPeers || Constants.MAX_PEERS;
+
+            // TODO: add minPeers to maintain connection
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
             this._transport = new Transport(options);
 
@@ -55,6 +60,8 @@ module.exports = (factory) => {
             this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
 
             this._peerManager = new PeerManager({transport: this._transport});
+
+            // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
 
             debugNode(`(address: "${this._debugAddress}") start listening`);
@@ -100,7 +107,7 @@ module.exports = (factory) => {
                 await peer.loaded();
             }
 
-            // TODO: add watchdog to mantain _nMaxPeers connections (send pings cleanup failed connections, query new peers ... see above)
+            // TODO: add watchdog to mantain MIN connections (send pings cleanup failed connections, query new peers ... see above)
         }
 
         /**
@@ -123,6 +130,7 @@ module.exports = (factory) => {
         _findBestPeers() {
 
             // we prefer witness nodes
+            // TODO: REWORK! it's not good idea to overload witnesses!
             const arrWitnessNodes = this._peerManager.filterPeers({service: Constants.WITNESS});
             if (arrWitnessNodes.length) return arrWitnessNodes;
 
@@ -170,13 +178,15 @@ module.exports = (factory) => {
             try {
                 debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
                 const newPeer = new Peer({connection, transport: this._transport});
-                const result = this._peerManager.addPeer(newPeer);
-                if (result !== undefined) return;
 
-                // peer already connected
+                const result = this._peerManager.addPeer(newPeer);
+                if (result instanceof Peer) return;
+
+                // peer already connected or banned
+                const reason = result === Constants.REJECT_BANNED ? 'You are banned' : 'Duplicate connection';
                 const message = new MsgReject({
-                    code: Constants.REJECT_DUPLICATE,
-                    reason: 'Duplicate connection detected'
+                    code: result,
+                    reason
                 });
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${newPeer.address}"`);
@@ -220,6 +230,8 @@ module.exports = (factory) => {
                     return;
                 }
 
+                // TODO: check number of bytes sent to each node (except witness?)
+
                 if (message.isGetAddr()) {
                     return await this._handlePeerRequest(peer);
                 }
@@ -241,7 +253,7 @@ module.exports = (factory) => {
 
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
-                logger.error(`${err.message} Peer ${peer.remoteAddress}.`);
+                logger.error(err, `Peer ${peer.address}`);
 
                 // TODO: implement state (like bitcoin) to keep misbehave score or penalize on each handler?
                 peer.misbehave(1);
@@ -258,6 +270,8 @@ module.exports = (factory) => {
          */
         async _handleTxMessage(peer, message) {
 
+            //TODO: make sure that's a tx we requested! not pushed to us
+
             // this will check syntactic correctness
             const msgTx = new MsgTx(message);
             const tx = msgTx.tx;
@@ -265,6 +279,7 @@ module.exports = (factory) => {
             try {
                 await this._processReceivedTx(tx);
             } catch (e) {
+                logger.error(e);
                 peer.ban();
                 throw e;
             }
@@ -279,10 +294,23 @@ module.exports = (factory) => {
          * @private
          */
         async _handleBlockMessage(peer, message) {
+
+            //TODO: make sure that's a block we requested! not pushed to us
+
             const msg = new MsgBlock(message);
             try {
-                await this._processBlock(msg.block);
+                const block = msg.block;
+                if (await this._storage.hasBlock(block.hash())) {
+                    logger.error(`Block ${block.hash()} already known!`);
+                    return;
+                }
+
+                await this._verifyBlock(block);
+                const patchState = await this._processBlock(block);
+                await this._acceptBlock(block, patchState);
+                await this._postAccepBlock();
             } catch (e) {
+                logger.error(e);
                 peer.ban();
                 throw e;
             }
@@ -462,8 +490,9 @@ module.exports = (factory) => {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
                 const newPeer = this._peerManager.addPeer(peerInfo);
-                debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
-
+                if (newPeer instanceof Peer) {
+                    debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
+                }
             }
 
             // TODO: request block here
@@ -499,7 +528,7 @@ module.exports = (factory) => {
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
-            const mapUtxos = await this._storage.getUtxosCreateMap(tx.coins);
+            const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
             const {fee} = await this._app.processTx(tx, mapUtxos);
             if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
@@ -533,24 +562,39 @@ module.exports = (factory) => {
          * @private
          */
         async _processBlock(block) {
-            await this._verifyBlock(block);
 
             const patchState = new PatchDB();
-            const isGenezis = block.hash() === Constants.GENEZIS_BLOCK;
+            const isGenezis = this.isGenezisBlock(block);
 
             let blockFees = 0;
             const blockTxns = block.txns;
 
-            // TODO add coinbase processing here
             // should start from 1, because coinbase tx need different processing
-            for (let i = 0; i < blockTxns.length; i++) {
+            for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.coins);
+                tx.verify();
+
+                const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
 
                 // TODO: consider using a cache patch from mempool?
                 const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
                 blockFees += fee;
             }
+
+            // process coinbase tx
+            if (!isGenezis) {
+                const coinbase = new Transaction(blockTxns[0]);
+                this._checkCoinbaseTx(coinbase, blockFees);
+                const coins = coinbase.getCoins();
+                for (let i = 0; i < coins.length; i++) {
+                    patchState.createCoins(coinbase.hash(), i, coins[i]);
+                }
+            }
+
+            return patchState;
+        }
+
+        async _acceptBlock(block, patchState) {
 
             // write raw block to storage
             await this._storage.saveBlock(block);
@@ -564,16 +608,59 @@ module.exports = (factory) => {
         }
 
         /**
+         * post hook
+         *
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _postAccepBlock() {
+
+        }
+
+        _checkCoinbaseTx(tx, blockFees) {
+            assert(tx.isCoinbase(), 'Not a coinbase TX!');
+            assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
+        }
+
+        isGenezisBlock(block) {
+            return block.hash() === Constants.GENEZIS_BLOCK && block.mci === 0;
+        }
+
+        /**
          * Throws error
          * validate block (parents, signatures and so on)
          *
-         * @param block
+         * @param {Block} block
+         * @param {Boolean} checkSignatures - whether to check block signatures (used for witness)
          * @private
          */
-        async _verifyBlock(block) {
+        async _verifyBlock(block, checkSignatures = true) {
 
-            // TODO: validate block (parents, signatures and so on)
+            // TODO: validate block parents
+            if (checkSignatures && !this.isGenezisBlock(block)) await this._verifyBlockSignatures(block);
+
+            assert(block.hash() !== block.merkleRoot.toString('hex'), `Bad merkle root for ${block.hash()}`);
+
+            await this._storage.checkTxCollision(block.getTxHashes());
         }
 
+        async _verifyBlockSignatures(block) {
+            const buffBlockHash = Buffer.from(block.hash(), 'hex');
+
+            const witnessGroupDefinition = await this._storage.getWitnessGroupById(block.witnessGroupId);
+            assert(witnessGroupDefinition, `Unknown witnessGroupId: ${block.witnessGroupId}`);
+            const arrPubKeys = witnessGroupDefinition.getPublicKeys();
+            assert(
+                block.signatures.length === witnessGroupDefinition.getQuorum(),
+                `Expected ${witnessGroupDefinition.getQuorum()} signatures, got ${block.signatures.length}`
+            );
+            for (let sig of block.signatures) {
+                const buffPubKey = Buffer.from(Crypto.recoverPubKey(buffBlockHash, sig), 'hex');
+                assert(
+                    ~arrPubKeys.findIndex(key => buffPubKey.equals(key)),
+                    `Bad signature for block ${block.hash()}!`
+                );
+            }
+        }
     };
 };

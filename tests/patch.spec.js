@@ -32,6 +32,7 @@ describe('PatchDB', () => {
         assert.isOk(mapCoinsToAdd);
         assert.isOk(mapCoinsToAdd.get(txHash));
         assert.equal(mapCoinsToAdd.size, 1);
+        assert.isOk(patch.getUtxo(txHash));
     });
 
     it('should add coins to different UTXOs', async () => {
@@ -74,8 +75,8 @@ describe('PatchDB', () => {
         assert.isOk(patch.getCoins());
         assert.equal(patch.getCoins().size, 2);
 
-        const utxoPatched = patch.getCoins().get(txHash);
-        const utxo2Patched = patch.getCoins().get(txHash2);
+        const utxoPatched = patch.getUtxo(txHash);
+        const utxo2Patched = patch.getUtxo(txHash2);
 
         assert.isOk(utxoPatched.isEmpty());
         assert.isNotOk(utxo2Patched.isEmpty());

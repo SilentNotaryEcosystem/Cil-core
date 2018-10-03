@@ -41,17 +41,9 @@ module.exports = (factory) => {
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
-        }
 
-//        get connection(){
-//            return this._connection;
-//        }
-//
-//        set connection(newConnection){
-//            this._connection = newConnection;
-//            this._bInbound = true;
-//            this._setConnectionHandlers();
-//        }
+            // TODO: add watchdog to unban peers
+        }
 
         get peerInfo() {
             return this._peerInfo;
@@ -202,12 +194,12 @@ module.exports = (factory) => {
         }
 
         // TODO: for MsgGetData - make a cache for already requested hashes!
+        // TODO: count sent data for period
         async pushMessage(msg) {
             // we have pending messages
             if (Array.isArray(this._queue)) {
                 debug(`Queue message "${msg.message}" to "${Transport.addressToString(this.address)}"`);
                 this._queue.push(msg);
-                return;
             } else {
                 this._queue = [msg];
                 let nextMsg;
@@ -223,7 +215,7 @@ module.exports = (factory) => {
             this._bannedTill = new Date(Date.now() + Constants.BAN_PEER_TIME);
             this._bBanned = true;
 
-            debug(`Peer "${this._address}" banned till ${new Date(this._bannedTill)}`);
+            debug(`Peer banned till ${new Date(this._bannedTill)}`);
 
             if (!this.disconnected) this.disconnect();
         }

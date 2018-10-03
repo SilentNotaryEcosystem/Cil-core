@@ -7,7 +7,7 @@ const {sleep} = require('../utils');
 const debug = require('debug')('node:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, createDummyPeer, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, createDummyPeer, createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
 
 let seedAddress;
 let seedNode;
@@ -32,6 +32,19 @@ const createTxAddCoinsToNode = (node) => {
     tx.sign(0, keyPair.privateKey);
 
     return {tx, keyPair};
+};
+
+const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
+    const arrPubKeys = [];
+    const arrSignatures = [];
+    const buffHash = block.hash();
+    for (let i = 0; i < numOfSignatures; i++) {
+        const keyPair = factory.Crypto.createKeyPair();
+        arrPubKeys.push(Buffer.from(keyPair.publicKey, 'hex'));
+        arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
+    }
+    block.addWitnessSignatures(arrSignatures);
+    return factory.WitnessGroupDefinition.create('test', block.witnessGroupId, arrPubKeys);
 };
 
 describe('Node tests', () => {
@@ -175,9 +188,11 @@ describe('Node tests', () => {
 
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
 
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
         inv.addBlock(block);
         inv.addTx(tx);
 
@@ -202,9 +217,11 @@ describe('Node tests', () => {
 
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
 
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
         inv.addBlock(block);
         inv.addTx(tx);
 
@@ -218,17 +235,17 @@ describe('Node tests', () => {
 
     it('should send MSG_TX & MSG_BLOCK', async () => {
         const node = new factory.Node({});
+
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
-        node._storage.getBlock = sinon.fake.returns(new factory.Block());
+        node._storage.getBlock = sinon.fake.returns(createDummyBlock(factory));
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
 
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = createDummyBlock(factory);
 
-        block.addTx(tx);
         inv.addBlock(block);
         inv.addTx(tx);
 
@@ -250,7 +267,7 @@ describe('Node tests', () => {
     it('should send NOTHING (bad msg)', async () => {
         const node = new factory.Node({});
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
-        node._storage.getBlock = sinon.fake.returns(new factory.Block());
+        node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
@@ -274,7 +291,7 @@ describe('Node tests', () => {
     it('should send NOTHING and mark peer misbehaving (no tx in mempool)', async () => {
         const node = new factory.Node({});
         node._mempool.getTx = sinon.fake.throws(new Error('No tx in mempool'));
-        node._storage.getBlock = sinon.fake.returns(new factory.Block());
+        node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
@@ -358,21 +375,25 @@ describe('Node tests', () => {
     });
 
     it('should process good block from MsgBlock', async () => {
-        const node = new factory.Node({});
+        const tx = new factory.Transaction(createDummyTx());
+        const tx2 = new factory.Transaction(createDummyTx());
+        const block = new factory.Block(0);
+        block.addTx(tx);
+        block.addTx(tx2);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
+        const groupDef = createGroupDefAndSignBlock(block);
+        const node = new factory.Node({arrTestDefinition: [groupDef]});
+
         node._app.processTx = sinon.fake.returns({});
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
         node._informNeighbors = sinon.fake();
+        node._checkCoinbaseTx = sinon.fake();
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.ban = sinon.fake();
-
-        const tx = new factory.Transaction(createDummyTx());
-        const tx2 = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
-        block.addTx(tx);
-        block.addTx(tx2);
 
         const msg = new factory.Messages.MsgBlock(block);
 
@@ -384,10 +405,19 @@ describe('Node tests', () => {
         assert.isOk(node._storage.applyPatch.calledOnce);
         assert.isOk(node._informNeighbors.calledOnce);
 
+        assert.isNotOk(peer.ban.called);
+
     });
 
     it('should process BAD block from MsgBlock', async () => {
-        const node = new factory.Node({});
+        const tx = new factory.Transaction(createDummyTx());
+        const block = new factory.Block(0);
+        block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+
+        const groupDef = createGroupDefAndSignBlock(block);
+        const node = new factory.Node({arrTestDefinition: [groupDef]});
+
         node._app.processTx = sinon.fake.throws('error');
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
@@ -397,20 +427,17 @@ describe('Node tests', () => {
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.ban = sinon.fake();
 
-        const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
-        block.addTx(tx);
-
         const msg = new factory.Messages.MsgBlock(block);
 
         try {
             await node._handleBlockMessage(peer, msg);
         } catch (e) {
             assert.isOk(node._app.processTx.called);
-            assert.isOk(node._app.processTx.callCount, 1);
+            assert.isOk(node._app.processTx.callCount, 2);
             assert.isNotOk(node._storage.saveBlock.called);
             assert.isNotOk(node._storage.applyPatch.called);
             assert.isNotOk(node._informNeighbors.called);
+            assert.isOk(peer.ban.calledOnce);
             return;
         }
         assert.isOk(false, 'Unexpected success');
@@ -480,22 +507,102 @@ describe('Node tests', () => {
         node._informNeighbors = sinon.fake();
 
         const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block();
+        const block = new factory.Block(0);
         block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
 
         factory.Constants.GENEZIS_BLOCK = block.hash();
         await node._processBlock(block);
 
         assert.isOk(node._app.processTx.called);
-        assert.isOk(node._app.processTx.callCount, 1);
+
+        // coinbase is not processed by app
+        assert.equal(node._app.processTx.callCount, 1);
         const [appTx, mapUtxos, , isGenezis] = node._app.processTx.args[0];
         assert.isOk(appTx.equals(tx));
         assert.isNotOk(mapUtxos);
         assert.isOk(isGenezis);
-
-        assert.isOk(node._storage.saveBlock.called);
-        assert.isOk(node._storage.applyPatch.called);
-        assert.isOk(node._informNeighbors.called);
     });
 
+    it('should fail to check COINBASE (not a coinbase)', async () => {
+        const node = new factory.Node({});
+        const tx = new factory.Transaction(createDummyTx());
+        assert.throws(() => node._checkCoinbaseTx(tx.rawData, tx.amountOut()));
+    });
+
+    it('should fail to check COINBASE (bad amount)', async () => {
+        const node = new factory.Node({});
+        const coinbase = factory.Transaction.createCoinbase();
+        coinbase.addReceiver(100, pseudoRandomBuffer(20));
+        assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut() - 1));
+    });
+
+    it('should accept COINBASE', async () => {
+        const node = new factory.Node({});
+        const coinbase = factory.Transaction.createCoinbase();
+        coinbase.addReceiver(100, pseudoRandomBuffer(20));
+        assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut()));
+    });
+
+    it('should fail check BLOCK SIGNATURES (unknown group)', async () => {
+        const block = createDummyBlock(factory);
+        const node = new factory.Node({});
+
+        try {
+            await node._verifyBlockSignatures(block);
+        } catch (e) {
+            console.error(e);
+            assert.equal(e.message, 'Unknown witnessGroupId: 0');
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should fail check BLOCK SIGNATURES (not enough signatures)', async () => {
+        const block = createDummyBlock(factory);
+        createGroupDefAndSignBlock(block);
+
+        const block2 = createDummyBlock(factory);
+        const groupDef2 = createGroupDefAndSignBlock(block2, 7);
+
+        // groupId: 0 will have different keys used for block2
+        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+
+        try {
+            await node._verifyBlockSignatures(block);
+        } catch (e) {
+            console.error(e);
+            assert.equal(e.message, 'Expected 4 signatures, got 2');
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should fail check BLOCK SIGNATURES (bad signatures)', async () => {
+        const block = createDummyBlock(factory);
+        createGroupDefAndSignBlock(block);
+
+        const block2 = createDummyBlock(factory);
+        const groupDef2 = createGroupDefAndSignBlock(block2);
+
+        // groupId: 0 will have different keys used for block2
+        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+
+        try {
+            await node._verifyBlockSignatures(block);
+        } catch (e) {
+            assert.isOk(e.message.startsWith('Bad signature for block'));
+            console.error(e);
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should check BLOCK SIGNATURES', async () => {
+        const block = createDummyBlock(factory);
+        const groupDef = createGroupDefAndSignBlock(block);
+        const node = new factory.Node({arrTestDefinition: [groupDef]});
+
+        await node._verifyBlockSignatures(block);
+    });
 });

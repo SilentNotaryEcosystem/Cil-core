@@ -13,7 +13,6 @@ module.exports = ({Transaction}) =>
     class Mempool {
         constructor(options) {
             this._mapTxns = new Map();
-            this._coinsCache = new Set();
         }
 
         /**
@@ -21,23 +20,25 @@ module.exports = ({Transaction}) =>
          * @param {Array} arrTxHashes
          */
         removeForBlock(arrTxHashes) {
+            debug(`Block arrived: removed TXns ${arrTxHashes}`);
+            this.removeTxns(arrTxHashes);
+        }
+
+        removeTxns(arrTxHashes) {
             for (let txHash of arrTxHashes) {
 
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
                 // TODO: think about: is it problem that TX isn't present in mempool, but present in block
                 if (this._mapTxns.has(txHash)) {
-                    const {tx} = this._mapTxns.get(txHash);
-
                     this._mapTxns.delete(txHash);
-                    debug(`Block arrived: removed TX ${txHash}`);
                 } else {
-                    debug(`Block arrived: but no TX ${txHash} in mempool`);
+                    debug(`removeTxns: no TX ${txHash} in mempool`);
                 }
             }
         }
 
         hasTx(txHash) {
-            typeforce(typeforce.oneOf('String', 'Buffer'), txHash);
+            typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             return this._mapTxns.has(strTxHash);
@@ -50,6 +51,8 @@ module.exports = ({Transaction}) =>
          * @param {Transaction} tx - transaction to add
          */
         addTx(tx) {
+
+            // TODO: check and forbid for duplicated TX hashes (@see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
             const strHash = tx.hash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
@@ -64,7 +67,7 @@ module.exports = ({Transaction}) =>
          * @return {Transaction}
          */
         getTx(txHash) {
-            typeforce(typeforce.oneOf('String', 'Buffer'), txHash);
+            typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             const tx = this._mapTxns.get(strTxHash);

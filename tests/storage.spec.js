@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('storage:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
 
 describe('Storage tests', () => {
     before(async function() {
@@ -26,13 +26,13 @@ describe('Storage tests', () => {
         const storage = new factory.Storage({arrTestDefinition: [def1, def2]});
 
         {
-            const arrDefs = await storage.getGroupsByKey(Buffer.from('public1'));
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public1'));
             assert.isOk(Array.isArray(arrDefs));
             assert.equal(arrDefs.length, 1);
         }
 
         {
-            const arrDefs = await storage.getGroupsByKey(Buffer.from('public2'));
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public2'));
             assert.isOk(Array.isArray(arrDefs));
             assert.equal(arrDefs.length, 2);
         }
@@ -40,19 +40,13 @@ describe('Storage tests', () => {
     });
 
     it('should save block', async () => {
-        const block = new factory.Block();
-        const tx = new factory.Transaction(createDummyTx());
-        block.addTx(tx);
-
+        const block = createDummyBlock(factory);
         const storage = new factory.Storage({});
         await storage.saveBlock(block);
     });
 
     it('should find block in storage', async () => {
-        const block = new factory.Block();
-        const tx = new factory.Transaction(createDummyTx());
-        block.addTx(tx);
-
+        const block = createDummyBlock(factory);
         const storage = new factory.Storage({});
         await storage.saveBlock(block);
 
@@ -81,10 +75,7 @@ describe('Storage tests', () => {
     });
 
     it('should get saved block', async () => {
-        const block = new factory.Block();
-        const tx = new factory.Transaction(createDummyTx());
-        block.addTx(tx);
-
+        const block = createDummyBlock(factory);
         const storage = new factory.Storage({});
         await storage.saveBlock(block);
 
@@ -92,20 +83,19 @@ describe('Storage tests', () => {
 
         assert.isOk(gotBlock.txns);
         const rTx = new factory.Transaction(gotBlock.txns[0]);
-        assert.isOk(rTx.equals(tx));
     });
 
     it('should apply "addCoins" patch to empty storage (like genezis)', async () => {
         const storage = new factory.Storage({});
 
         const patch = new factory.PatchDB();
-        const txHash = pseudoRandomBuffer();
+        const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 80, coins);
 
-        const txHash2 = pseudoRandomBuffer();
+        const txHash2 = pseudoRandomBuffer().toString('hex');
         const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
         patch.createCoins(txHash2, 22, coins2);
 
@@ -125,13 +115,13 @@ describe('Storage tests', () => {
 
         // create coins that we plan to spend
         const patch = new factory.PatchDB();
-        const txHash = pseudoRandomBuffer();
+        const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 80, coins);
 
-        const txHash2 = pseudoRandomBuffer();
+        const txHash2 = pseudoRandomBuffer().toString('hex');
         const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
         patch.createCoins(txHash2, 22, coins2);
 
@@ -173,9 +163,9 @@ describe('Storage tests', () => {
         const storage = new factory.Storage({});
 
         const patch = new factory.PatchDB();
-        const txHash = pseudoRandomBuffer();
-        const txHash2 = pseudoRandomBuffer();
-        const txHash3 = pseudoRandomBuffer();
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const txHash2 = pseudoRandomBuffer().toString('hex');
+        const txHash3 = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
 
         patch.createCoins(txHash, 12, coins);
@@ -190,6 +180,38 @@ describe('Storage tests', () => {
         assert.isOk(mapUtxos[txHash.toString('hex')]);
         assert.isOk(mapUtxos[txHash2.toString('hex')]);
         assert.isOk(mapUtxos[txHash3.toString('hex')]);
+    });
+
+    it('should find TX COLLISION', async () => {
+        const storage = new factory.Storage({});
+
+        const patch = new factory.PatchDB();
+
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        patch.createCoins(txHash, 12, coins);
+
+        await storage.applyPatch(patch);
+
+        try {
+            await storage.checkTxCollision([txHash]);
+        } catch (e) {
+            return;
+        }
+        throw ('Unexpected success');
+    });
+
+    it('should NOT find TX COLLISION', async () => {
+        const storage = new factory.Storage({});
+
+        const patch = new factory.PatchDB();
+
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        patch.createCoins(txHash, 12, coins);
+
+        await storage.applyPatch(patch);
+        await storage.checkTxCollision([pseudoRandomBuffer().toString('hex')]);
     });
 
 });

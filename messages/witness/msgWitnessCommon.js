@@ -1,3 +1,5 @@
+const typeforce = require('typeforce');
+
 /**
  * Scenario:
  * - Decode MessageCommon from wire
@@ -18,8 +20,7 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
         MSG_WITNESS_EXPOSE,
         MSG_WITNESS_BLOCK,
         MSG_WITNESS_HANDSHAKE,
-        MSG_WITNESS_BLOCK_ACK,
-        MSG_WITNESS_BLOCK_REJECT
+        MSG_WITNESS_BLOCK_VOTE
     } = Constants.messageTypes;
 
     return class WitnessMessageCommon extends MessageCommon {
@@ -29,17 +30,17 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
                 super(data);
 
                 // invoked from descendant classes via super()
-                // lets copy content
+                // copy content (it's not deep copy, possibly better use encode/decode)
                 this._msgData = Object.assign({}, data._msgData);
             } else if (Buffer.isBuffer(data)) {
                 super(data);
 
-                // this.payload filled with super(date)
+                // this.payload filled with super(date) (NOTE we'r parsing THIS.payload)
                 this._msgData = {...WitnessMessageProto.decode(this.payload)};
-            } else if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
+            } else if (data instanceof MessageCommon) {
                 super(data);
 
-                // we received it from wire
+                // we received it from wire (NOTE we'r parsing data.payload)
                 this._msgData = {...WitnessMessageProto.decode(data.payload)};
             } else {
                 super();
@@ -69,26 +70,14 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
          * @return {*}
          */
         set content(value) {
+            typeforce('Buffer', value);
+
             return this._msgData.content = value;
         }
 
         set handshakeMessage(unused) {
             this.message = MSG_WITNESS_HANDSHAKE;
             this.content = Buffer.from(this.groupName);
-        }
-
-        set blockAcceptMessage(hash) {
-            this.message = MSG_WITNESS_BLOCK_ACK;
-            this.content = Buffer.from(hash);
-        }
-
-        set blockRejectMessage(unused) {
-            this.message = MSG_WITNESS_BLOCK_REJECT;
-            this.content = Buffer.from(Buffer.from(this.groupName));
-        }
-
-        parseContent(value) {
-            throw new Error('You should implement this method!');
         }
 
         encode() {
@@ -115,16 +104,8 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
             return this.message === MSG_WITNESS_BLOCK;
         }
 
-        isWitnessBlockAccept() {
-            return this.message === MSG_WITNESS_BLOCK_ACK;
+        isWitnessBlockVote() {
+            return this.message === MSG_WITNESS_BLOCK_VOTE;
         }
-
-        isWitnessBlockReject() {
-            if (this.message === MSG_WITNESS_BLOCK_REJECT && 'reject' !== '' + this.content) {
-                throw new TypeError(`Malformed "${MSG_WITNESS_BLOCK_REJECT}"`);
-            }
-            return this.message === MSG_WITNESS_BLOCK_REJECT;
-        }
-
     };
 };

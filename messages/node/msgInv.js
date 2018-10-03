@@ -33,9 +33,8 @@ module.exports = (Constants, Crypto, MessageCommon, Inventory) => {
                 if (!this.payload) throw TypeError(`Message payload is empty!`);
                 inventory = new Inventory(this.payload);
             } catch (e) {
-                const msg = `Bad Inventory payload: ${e}`;
-                logger.error(msg);
-                throw new Error(msg);
+                logger.error(`Bad Inventory payload: ${e}`);
+                throw new Error(e);
             }
             return inventory;
         }

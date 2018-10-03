@@ -138,6 +138,16 @@ class CryptoLib {
     }
 
     /**
+     * Same as above, but returns Buffer
+     *
+     * @param {Buffer} msg
+     * @return {Buffer}
+     */
+    static createHashBuffer(msg) {
+        return Buffer.from(this.createHash(msg), 'hex');
+    }
+
+    /**
      * Get public key from signature
      * ATTENTION! due "new BN(msg)" (@see below) msg.length should be less than 256bit!!
      * So it's advisable to sign hashes!

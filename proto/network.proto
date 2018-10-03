@@ -61,6 +61,7 @@ message AddrPayload {
 enum RejectCodes {
     REJECT_DUPLICATE = 1;
     REJECT_BAD_WITNESS = 2;
+    REJECT_BANNED = 3;
 }
 
 message RejectPayload {

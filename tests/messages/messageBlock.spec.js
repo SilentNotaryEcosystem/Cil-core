@@ -2,7 +2,7 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyTx} = require('../testUtil');
+const {createDummyTx, createDummyBlock} = require('../testUtil');
 
 const factory = require('../testFactory');
 
@@ -24,23 +24,14 @@ describe('MessageBlock', () => {
     });
 
     it('should create from block', async () => {
-        const block = new factory.Block();
-        const tx = new factory.Transaction(createDummyTx());
-        block.addTx(tx);
-
+        const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
-        assert.isOk(tx.equals(new factory.Transaction(msg.block.txns[0])));
+        assert.isOk((new factory.Transaction(msg.block.txns[0]).isCoinbase()));
     });
 
     it('should set/get block', async () => {
         const msg = new factory.Messages.MsgBlock();
-
-        const block = new factory.Block();
-        const keyPair = factory.Crypto.createKeyPair();
-        const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
-
-        block.addTx(tx);
+        const block = createDummyBlock(factory);
         msg.block = block;
 
         const restoredBlock = msg.block;
@@ -49,18 +40,13 @@ describe('MessageBlock', () => {
         assert.equal(restoredBlock.txns.length, 1);
 
         const restoredTx = new factory.Transaction(restoredBlock.txns[0]);
-        assert.isOk(restoredTx.equals(tx));
+        assert.isOk(restoredTx.isCoinbase());
     });
 
     it('should encode/decode message', async () => {
         const msg = new factory.Messages.MsgBlock();
 
-        const block = new factory.Block();
-        const keyPair = factory.Crypto.createKeyPair();
-        const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
-
-        block.addTx(tx);
+        const block = createDummyBlock(factory);
         msg.block = block;
 
         const buffMsg = msg.encode();
@@ -75,7 +61,7 @@ describe('MessageBlock', () => {
         assert.equal(restoredBlock.txns.length, 1);
 
         const restoredTx = new factory.Transaction(restoredBlock.txns[0]);
-        assert.isOk(restoredTx.equals(tx));
+        assert.isOk(restoredTx.isCoinbase());
     });
 
     it('should fail to decode block message', async () => {

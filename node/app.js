@@ -39,7 +39,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
                     const buffInputHash = Buffer.from(tx.hash(i), 'hex');
                     const input = txInputs[i];
                     const strInputTxHash = input.txHash.toString('hex');
-                    const utxo = mapUtxos[strInputTxHash];
+                    const utxo = patch.getUtxo(strInputTxHash) || mapUtxos[strInputTxHash];
+                    if (!utxo) throw new Error(`UTXO not found for ${strInputTxHash} neither in patch nor in mapUtxos`);
 
                     const coins = utxo.coinsAtIndex(input.nTxOutput);
                     this._verifyClaim(coins.getCodeClaim(), claimProofs[i], buffInputHash);
@@ -48,11 +49,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
                 }
             }
 
-            const txOutputs = tx.outputs;
-            for (let i = 0; i < txOutputs.length; i++) {
-                const coins = new Coins(txOutputs[i].amount, txOutputs[i].codeClaim);
-                patch.createCoins(txHash, i, coins);
-                totalSpend += txOutputs[i].amount;
+            const txCoins = tx.getCoins();
+            for (let i = 0; i < txCoins.length; i++) {
+                patch.createCoins(txHash, i, txCoins[i]);
+                totalSpend += txCoins[i].getAmount();
             }
 
             const fee = totalHas - totalSpend;

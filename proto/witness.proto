@@ -12,3 +12,11 @@ message WitnessMessage {
 message NextRound {
     uint32 roundNo =1;
 }
+
+// -------------- MSG_WITNESS_BLOCK_VOTE -----
+message BlockVote {
+    bytes blockHash=1;
+
+    // unused for reject
+    bytes signature=2;
+}

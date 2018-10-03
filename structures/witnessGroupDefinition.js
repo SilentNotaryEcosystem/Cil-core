@@ -45,4 +45,8 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
         getGroupId() {
             return this._data.groupId;
         }
+
+        getQuorum() {
+            return !this._data.quorum ? parseInt(this._data.publicKeys.length / 2) + 1 : this._data.quorum;
+        }
     };

@@ -3,6 +3,7 @@ const {assert} = require('chai');
 const sinon = require('sinon');
 
 const {sleep} = require('../utils');
+const {pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
 
 factory = require('./testFactory');
 
@@ -10,18 +11,25 @@ let myWallet;
 const groupName = 'test';
 let BFT;
 
-const createDummyBFT = (groupName) => {
-    const keyPair1 = factory.Crypto.createKeyPair();
-    const keyPair2 = factory.Crypto.createKeyPair();
-    const newWallet = new factory.Wallet(keyPair1.privateKey);
+const createDummyBFT = (groupName, groupId = 0, numOfKeys = 2) => {
+    const arrKeyPairs = [];
+    const arrPublicKeys = [];
+    for (let i = 0; i < numOfKeys; i++) {
+        const keyPair = factory.Crypto.createKeyPair();
+        arrKeyPairs.push(keyPair);
+        arrPublicKeys.push(keyPair.publicKey);
+    }
+    const newWallet = new factory.Wallet(arrKeyPairs[0].privateKey);
+
+    const groupDefinition = factory.WitnessGroupDefinition.create(groupName, groupId, arrPublicKeys);
+
     const newBft = new factory.BFT({
-        groupName,
-        arrPublicKeys: [keyPair1.publicKey, keyPair2.publicKey],
+        groupDefinition,
         wallet: newWallet
     });
     newBft._stopTimer();
 
-    return {keyPair1, keyPair2, newBft, newWallet};
+    return {arrKeyPairs, newWallet, groupDefinition, newBft};
 };
 
 describe('BFT general tests', () => {
@@ -39,331 +47,310 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS (one witness)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 1);
         const sampleData = {data: 1};
+        const [myWalletPubKey] = groupDefinition.getPublicKeys();
         newBft._resetState();
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
         const value = newBft.runConsensus();
         assert.deepEqual(sampleData, value);
     });
 
     it('should PASS (two witness same data)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 2);
+        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, sampleData);
 
         // receive party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, sampleData);
 
         // receive party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, sampleData);
         const value = newBft.runConsensus();
         assert.deepEqual(sampleData, value);
     });
 
     it('should PASS (two witness same data - BUFFER)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 2);
+        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = Buffer.from('1234');
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, sampleData);
 
         // receive party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, sampleData);
 
         // receive party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, sampleData);
         const value = newBft.runConsensus();
         assert.deepEqual(sampleData, value);
     });
 
     it('should FAIL (two witness different data)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 2);
+        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', undefined);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, undefined);
 
         // receive party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, sampleData);
 
         // receive party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', undefined);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, undefined);
         const value = newBft.runConsensus();
         assert.isNotOk(value);
     });
 
     it('should FAIL (two witness party tries to forge my data)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 2);
+        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, sampleData);
 
         // receive party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, undefined);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, undefined);
 
         // receive party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, sampleData);
         const value = newBft.runConsensus();
         assert.isNotOk(value);
     });
 
     it('should PASS 3 witness same data', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey', 'thirdPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of 2nd party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, sampleData);
 
         // my node got version of 3d party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, 'thirdPubKey', sampleData);
 
         // receive 2nd party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, sampleData);
 
         // receive 2nd party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, sampleData);
 
         // receive from 2nd party version of 3d party
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, thirdPubKey, sampleData);
 
         // receive 3d party view my version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, myWalletPubKey, sampleData);
 
         // receive 3d party own version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, thirdPubKey, sampleData);
 
         // receive 3d party own version of 2nd party
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, anotherPubKey, sampleData);
 
         const value = newBft.runConsensus();
         assert.deepEqual(value, sampleData);
     });
 
     it('should PASS 3 witness (one dead)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey', 'thirdPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of 2nd party
-//        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', undefined);
+//        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, undefined);
 
         // my node got version of 3d party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, thirdPubKey, sampleData);
 
         // receive 2nd party view my version
-//        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, undefined);
+//        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, undefined);
 
         // receive 2nd party view of own version
-//        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', undefined);
+//        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, undefined);
 
         // receive from 2nd party version of 3d party
-//        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'thirdPubKey', undefined);
+//        newBft._addViewOfNodeWithPubKey(anotherPubKey, thirdPubKey, undefined);
 
         // receive 3d party view my version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, myWalletPubKey, sampleData);
 
         // receive 3d party own version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, thirdPubKey, sampleData);
 
         // receive 3d party own version of 2nd party
-//        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'anotherPubKey', undefined);
+//        newBft._addViewOfNodeWithPubKey(thirdPubKey, anotherPubKey, undefined);
 
         const value = newBft.runConsensus();
         assert.deepEqual(value, sampleData);
     });
 
     it('should PASS 3 witness (one tries to misbehave)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey', 'thirdPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of 2nd party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', {data: 13});
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, {data: 13});
 
         // my node got version of 3d party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, thirdPubKey, sampleData);
 
         // receive 2nd party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, {data: 14});
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, {data: 14});
 
         // receive 2nd party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', {data: 15});
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, {data: 15});
 
         // receive from 2nd party version of 3d party
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'thirdPubKey', {data: 16});
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, thirdPubKey, {data: 16});
 
         // receive 3d party view my version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, myWalletPubKey, sampleData);
 
         // receive 3d party own version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, thirdPubKey, sampleData);
 
         // receive 3d party own version of 2nd party
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'anotherPubKey', {data: 17});
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, anotherPubKey, {data: 17});
 
         const value = newBft.runConsensus();
         assert.deepEqual(value, sampleData);
     });
 
     it('should PASS 3 witness (MY data is wrong)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey', 'thirdPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, {data: 11});
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, {data: 11});
 
         // my node got version of 2nd party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, sampleData);
 
         // my node got version of 3d party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, thirdPubKey, sampleData);
 
         // receive 2nd party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, {data: 11});
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, {data: 11});
 
         // receive 2nd party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, sampleData);
 
         // receive from 2nd party version of 3d party
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, thirdPubKey, sampleData);
 
         // receive 3d party view my version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', myWallet.publicKey, {data: 11});
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, myWalletPubKey, {data: 11});
 
         // receive 3d party own version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'thirdPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, thirdPubKey, sampleData);
 
         // receive 3d party own version of 2nd party
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'anotherPubKey', sampleData);
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, anotherPubKey, sampleData);
 
         const value = newBft.runConsensus();
         assert.deepEqual(value, sampleData);
     });
 
     it('should FAIL 3 witness (two tries to misbehave)', async () => {
-        const newBft = new BFT({
-            groupName,
-            arrPublicKeys: [myWallet.publicKey, 'anotherPubKey', 'thirdPubKey'],
-            wallet: myWallet
-        });
+        const {newBft, groupDefinition} = createDummyBFT(groupName, 0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+
         const sampleData = {data: 1};
         newBft._resetState();
 
         // my node put own version
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, myWallet.publicKey, sampleData);
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
 
         // my node got version of 2nd party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'anotherPubKey', {data: 13});
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, anotherPubKey, {data: 13});
 
         // my node got version of 3d party
-        newBft._addViewOfNodeWithPubKey(myWallet.publicKey, 'thirdPubKey', {data: 23});
+        newBft._addViewOfNodeWithPubKey(myWalletPubKey, thirdPubKey, {data: 23});
 
         // receive 2nd party view my version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', myWallet.publicKey, {data: 14});
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, myWalletPubKey, {data: 14});
 
         // receive 2nd party view of own version
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'anotherPubKey', {data: 15});
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, anotherPubKey, {data: 15});
 
         // receive from 2nd party version of 3d party
-        newBft._addViewOfNodeWithPubKey('anotherPubKey', 'thirdPubKey', {data: 16});
+        newBft._addViewOfNodeWithPubKey(anotherPubKey, thirdPubKey, {data: 16});
 
         // receive 3d party view my version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', myWallet.publicKey, {data: 24});
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, myWalletPubKey, {data: 24});
 
         // receive 3d party own version
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'thirdPubKey', {data: 25});
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, thirdPubKey, {data: 25});
 
         // receive 3d party own version of 2nd party
-        newBft._addViewOfNodeWithPubKey('thirdPubKey', 'anotherPubKey', {data: 17});
+        newBft._addViewOfNodeWithPubKey(thirdPubKey, anotherPubKey, {data: 17});
 
         const value = newBft.runConsensus();
         assert.isNotOk(value);
     });
 
     it('should accept "non expose" witness message', async () => {
-        const {keyPair1, keyPair2, newBft, newWallet} = createDummyBFT(groupName);
-
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1] = arrKeyPairs;
 
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 12});
+
         msg.sign(keyPair1.privateKey);
 
         assert.isNotOk(newBft._views[keyPair1.publicKey][keyPair1.publicKey]);
         const wrapper = () => newBft.processMessage(msg);
         assert.doesNotThrow(wrapper);
         assert.isOk(newBft._views[keyPair1.publicKey][keyPair1.publicKey]);
-        assert.equal(newBft._views[keyPair1.publicKey][keyPair1.publicKey].data, msg.content);
+        assert.equal(newBft._views[keyPair1.publicKey][keyPair1.publicKey].roundNo, msg.roundNo);
     });
 
     it('should accept "MsgExpose" witness message', async () => {
-        const {keyPair1, keyPair2, newBft, newWallet} = createDummyBFT(groupName);
-
+        const {arrKeyPairs, newWallet, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
 
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 12});
         msg.sign(newWallet.privateKey);
@@ -374,13 +361,12 @@ describe('BFT general tests', () => {
         const wrapper = () => newBft.processMessage(msgExpose);
         assert.doesNotThrow(wrapper);
         assert.isOk(newBft._views[keyPair2.publicKey][keyPair1.publicKey]);
-        assert.equal(newBft._views[keyPair2.publicKey][keyPair1.publicKey].data + '', msg.content + '');
+        assert.equal(newBft._views[keyPair2.publicKey][keyPair1.publicKey].roundNo, msg.roundNo);
     });
 
     it('should reject message with bad signature', async function() {
         const keyPair3 = factory.Crypto.createKeyPair();
         const {newBft} = createDummyBFT(groupName);
-
 
         // wrong outer signature
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 12});
@@ -401,13 +387,11 @@ describe('BFT general tests', () => {
 
     });
 
-    it('should reach consensus and create block', async () => {
-        const {keyPair1, keyPair2, newBft, newWallet} = createDummyBFT(groupName);
+    it('should reach consensus BUT NOT create block (hold off)', async () => {
+        const {arrKeyPairs, newWallet, newBft} = createDummyBFT(groupName);
+        const [, keyPair2] = arrKeyPairs;
 
         newBft.shouldPublish = sinon.fake.returns(true);
-
-        const eventHandler = sinon.fake();
-        newBft.on('createBlock', eventHandler);
 
         // Message received from party
         const msgRoundParty = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 1});
@@ -429,14 +413,12 @@ describe('BFT general tests', () => {
         msgPartyExposed.sign(newWallet.privateKey);
         newBft.processMessage(msgPartyExposed);
 
-        assert.isOk(eventHandler.calledOnce);
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);
 
     });
 
     it('should advance round', async () => {
         const {newBft} = createDummyBFT(groupName);
-
 
         const msgHandler = sinon.fake();
         newBft.on('message', msgHandler);
@@ -474,7 +456,7 @@ describe('BFT general tests', () => {
         const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 864});
         msg.encode();
 
-        newBft._roundChangeHandler(true, {state: newBft._state, data: msg.content});
+        newBft._roundChangeHandler(true, {state: newBft._state, ...msg.content});
 
         assert.isNotOk(newBft._nextRound.calledOnce);
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);
@@ -483,16 +465,83 @@ describe('BFT general tests', () => {
         if (newBft.shouldPublish()) assert.isOk(blockCreateHandler.calledOnce);
     });
 
+    it('should sync rounds and advance to BLOCK state', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
+
+        newBft._state = factory.Constants.consensusStates.ROUND_CHANGE;
+        newBft._stateChange = sinon.fake();
+
+        const createNextRoundMessage = (groupName, privateKey) => {
+            const msg = new factory.Messages.MsgWitnessNextRound({groupName, roundNo: 864});
+            msg.sign(privateKey);
+            return msg;
+        };
+
+        // Message received from party
+        const msgParty = createNextRoundMessage(groupName, keyPair2.privateKey);
+        newBft.processMessage(msgParty);
+
+        // My message
+        const msgMy = createNextRoundMessage(groupName, keyPair1.privateKey);
+        newBft.processMessage(msgMy);
+
+        // My message returned by party
+        const msgMyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgMy);
+        msgMyExposed.sign(keyPair2.privateKey);
+        newBft.processMessage(msgMyExposed);
+
+        // Party message exposed by me
+        const msgPartyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgParty);
+        msgPartyExposed.sign(keyPair1.privateKey);
+        newBft.processMessage(msgPartyExposed);
+
+        assert.isOk(newBft._stateChange.calledOnce);
+    });
+
+    it('should REJECT block (all witnesses rejects it)', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
+        newBft._state = factory.Constants.consensusStates.BLOCK;
+        newBft._nextRound = sinon.fake();
+
+        const createBlockRejectMessage = (groupName, privateKey) => {
+            const msg = factory.Messages.MsgWitnessBlockVote.reject(groupName);
+            msg.sign(privateKey);
+            return msg;
+        };
+
+        // Message received from party
+        const msgParty = createBlockRejectMessage(groupName, keyPair2.privateKey);
+        newBft.processMessage(msgParty);
+
+        // My message
+        const msgMy = createBlockRejectMessage(groupName, keyPair1.privateKey);
+        newBft.processMessage(msgMy);
+
+        // My message returned by party
+        const msgMyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgMy);
+        msgMyExposed.sign(keyPair2.privateKey);
+        newBft.processMessage(msgMyExposed);
+
+        // Party message exposed by me
+        const msgPartyExposed = new factory.Messages.MsgWitnessWitnessExpose(msgParty);
+        msgPartyExposed.sign(keyPair1.privateKey);
+        newBft.processMessage(msgPartyExposed);
+
+        assert.isOk(newBft._nextRound.calledOnce);
+    });
+
     it('should vote for a Block and advance state', async () => {
-        const {keyPair1, keyPair2, newBft, newWallet} = createDummyBFT(groupName);
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
 
         newBft._state = factory.Constants.consensusStates.BLOCK;
         newBft._stateChange = sinon.fake();
 
-        const fakeBlockHash = factory.Crypto.createHash(factory.Crypto.randomBytes(16));
+        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
         const createBlockAckMessage = (groupName, privateKey) => {
-            const msgBlockAck = new factory.Messages.MsgWitnessCommon({groupName});
-            msgBlockAck.blockAcceptMessage = fakeBlockHash;
+            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupName, blockHash: fakeBlockHash});
             msgBlockAck.sign(privateKey);
             return msgBlockAck;
         };
@@ -542,7 +591,7 @@ describe('BFT general tests', () => {
 
         assert.isNotOk(newBft._views[newBft._wallet.publicKey][newBft._wallet.publicKey]);
 
-        newBft.processValidBlock(new factory.Block());
+        newBft.processValidBlock(createDummyBlock(factory), new factory.PatchDB());
 
         assert.isOk(newBft._block);
     });
@@ -585,13 +634,14 @@ describe('BFT general tests', () => {
 
     it('should advance from VOTE_BLOCK to COMMIT state (block accepted)', async () => {
         const {newBft} = createDummyBFT(groupName);
-        newBft._block = new factory.Block();
+        newBft._block = createDummyBlock(factory);
+        newBft._getSignaturesForBlock = sinon.fake.returns([pseudoRandomBuffer(65), pseudoRandomBuffer(65)]);
         const blockCommitHandler = sinon.fake();
         newBft.on('commitBlock', blockCommitHandler);
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: newBft._block.hash()
+            blockHash: Buffer.from(newBft._block.hash(), 'hex')
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.COMMIT);
@@ -606,23 +656,23 @@ describe('BFT general tests', () => {
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: '123'
+            blockHash: pseudoRandomBuffer()
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.COMMIT);
         assert.isNotOk(blockCommitHandler.calledOnce);
     });
 
-    it('should advance from VOTE_BLOCK to COMMIT state but NO COMMIT (wrong hash!)', async () => {
+    it('should advance from VOTE_BLOCK to COMMIT state but NO COMMIT (wrong block hash!)', async () => {
         const {newBft} = createDummyBFT(groupName);
-        newBft._block = new factory.Block();
+        newBft._block = createDummyBlock(factory);
 
         const blockCommitHandler = sinon.fake();
         newBft.on('commitBlock', blockCommitHandler);
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: '123'
+            blockHash: pseudoRandomBuffer()
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.COMMIT);
@@ -638,12 +688,108 @@ describe('BFT general tests', () => {
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.VOTE_BLOCK,
-            data: 'reject'
+            blockHash: Buffer.from('reject')
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.ROUND_CHANGE);
         assert.isNotOk(blockCommitHandler.calledOnce);
         assert.isOk(msgHandler.calledOnce);
+    });
+
+    it('should create ACCEPT vote message', async () => {
+        const {newBft} = createDummyBFT(groupName);
+        const blockHash = pseudoRandomBuffer();
+        const msg = newBft._createBlockAcceptMessage(groupName, blockHash);
+        assert.isOk(msg.isWitnessBlockVote());
+        assert.isOk(blockHash.equals(msg.blockHash));
+    });
+
+    it('should create REJECT vote message', async () => {
+        const {newBft} = createDummyBFT(groupName);
+        const msg = newBft._createBlockRejectMessage(groupName);
+        assert.isOk(msg.isWitnessBlockVote());
+        assert.isOk(msg.blockHash.equals(Buffer.from('reject')));
+    });
+
+    it('should fail to get signatures (no block)', async () => {
+        const {newBft} = createDummyBFT(groupName);
+        assert.throws(() => newBft._getSignaturesForBlock());
+    });
+
+    it('should fail to get signatures (voted for different blocks)', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
+
+        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
+        const fakeBlockHash2 = Buffer.from(factory.Crypto.randomBytes(32));
+
+        newBft._resetState();
+        newBft._block = {
+            hash: () => fakeBlockHash.toString('hex')
+        };
+
+        const createBlockAckMessage = (groupName, privateKey, blockHash) => {
+            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupName, blockHash});
+            msgBlockAck.sign(privateKey);
+            return msgBlockAck;
+        };
+
+        // Message received from party
+        const msgParty = createBlockAckMessage(groupName, keyPair2.privateKey, fakeBlockHash);
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        // My message
+        const msgMy = createBlockAckMessage(groupName, keyPair1.privateKey, fakeBlockHash2);
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // My message returned by party
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // Party message exposed by me
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        const arrSignatures = newBft._getSignaturesForBlock();
+        assert.isNotOk(arrSignatures);
+    });
+
+    it('should get signatures', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT(groupName);
+        const [keyPair1, keyPair2] = arrKeyPairs;
+
+        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
+
+        newBft._resetState();
+        newBft._block = {
+            hash: () => fakeBlockHash.toString('hex')
+        };
+
+        const createBlockAckMessage = (groupName, privateKey, blockHash) => {
+            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupName, blockHash: fakeBlockHash});
+            msgBlockAck.sign(privateKey);
+            return msgBlockAck;
+        };
+
+        // Message received from party
+        const msgParty = createBlockAckMessage(groupName, keyPair2.privateKey);
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        // My message
+        const msgMy = createBlockAckMessage(groupName, keyPair1.privateKey);
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // My message returned by party
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // Party message exposed by me
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        const arrSignatures = newBft._getSignaturesForBlock();
+        assert.isOk(arrSignatures);
+        assert.equal(arrSignatures.length, 2);
+
+        // it depends on sorting
+        assert.isOk(arrSignatures[0].equals(msgMy.hashSignature) || arrSignatures[1].equals(msgMy.hashSignature));
+        assert.isOk(arrSignatures[0].equals(msgParty.hashSignature) || arrSignatures[1].equals(msgParty.hashSignature));
     });
 
 });

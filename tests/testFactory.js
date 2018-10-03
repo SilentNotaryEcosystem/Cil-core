@@ -72,16 +72,18 @@ class Factory {
                     ...prototypes.enumInventory.values
                 };
 
+                // prototypes
+                this._coinsImplementation = CoinsWrapper(this);
                 this._transactionImplementation =
                     TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
-                this._coinsImplementation = CoinsWrapper(this);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
 
+                //
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = TransportWrapper(this);
@@ -244,6 +246,7 @@ class Factory {
             // Witness messages
             witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
             witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
+            witnessBlockVoteProto: protoWitness.lookup("witness.BlockVote"),
 
             enumServices: protoNetwork.lookup("network.Services"),
             enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
@@ -254,7 +257,7 @@ class Factory {
             transactionPayloadProto: protoStructures.lookupType("structures.TransactionPayload"),
 
             blockProto: protoStructures.lookupType("structures.Block"),
-            blockPayloadProto: protoStructures.lookupType("structures.BlockPayload"),
+            blockHeaderProto: protoStructures.lookupType("structures.BlockHeader"),
 
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 
