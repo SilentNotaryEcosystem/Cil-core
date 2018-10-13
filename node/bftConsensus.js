@@ -307,8 +307,6 @@ module.exports = (factory) => {
                     this._blockStateHandler(false);
                     break;
                 case States.VOTE_BLOCK:
-
-                    // TODO: add signatures (of hash) of voted witnesses to block
                     this._voteStateHandler(isConsensus, consensusValue);
                     break;
                 case States.COMMIT:

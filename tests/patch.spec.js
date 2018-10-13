@@ -107,39 +107,23 @@ describe('PatchDB', () => {
 
     it('should MERGE patches (same outputs same spending TX)', async () => {
         const patch = new factory.PatchDB();
-        const utxo = createUtxo([12, 0, 431]);
-        const buffUtxo = utxo.encode();
-        const spendingTx = pseudoRandomBuffer();
-
-        // simulate retrieving UTXO from DB
-        {
-            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
-            patch.spendCoins(utxoFromDB, 12, spendingTx);
-        }
         const patch2 = new factory.PatchDB();
-        {
-            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
-            patch2.spendCoins(utxoFromDB, 12, spendingTx);
-        }
+
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer();
+        patch.spendCoins(utxo.clone(), 12, spendingTx);
+        patch2.spendCoins(utxo.clone(), 12, spendingTx);
 
         patch.merge(patch2);
     });
 
     it('should fail MERGE patches (same outputs different spending TX)', async () => {
         const patch = new factory.PatchDB();
-        const utxo = createUtxo([12, 0, 431]);
-        const buffUtxo = utxo.encode();
-
-        // simulate retrieving UTXO from DB
-        {
-            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
-            patch.spendCoins(utxoFromDB, 12, pseudoRandomBuffer());
-        }
         const patch2 = new factory.PatchDB();
-        {
-            const utxoFromDB = new factory.UTXO({txHash: utxo.getTxHash(), data: buffUtxo});
-            patch2.spendCoins(utxoFromDB, 12, pseudoRandomBuffer());
-        }
+        const utxo = createUtxo([12, 0, 431]);
+
+        patch.spendCoins(utxo.clone(), 12, pseudoRandomBuffer());
+        patch2.spendCoins(utxo.clone(), 12, pseudoRandomBuffer());
 
         try {
             patch.merge(patch2);

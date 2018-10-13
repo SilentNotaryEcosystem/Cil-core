@@ -98,4 +98,12 @@ module.exports = ({Coins}, {utxoProto}) =>
         getIndexes() {
             return this._data.arrIndexes;
         }
+
+        /**
+         *
+         * @returns {UTXO} - cloned instance
+         */
+        clone() {
+            return new UTXO({txHash: this.getTxHash(), data: this.encode()});
+        }
     };

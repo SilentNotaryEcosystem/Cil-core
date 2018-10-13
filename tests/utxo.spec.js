@@ -127,4 +127,25 @@ describe('PatchDB', () => {
         assert.isOk(arrayEquals(utxo.getIndexes(), [12, 431]));
     });
 
+    it('should clone UTXO', async () => {
+        const txHash = pseudoRandomBuffer().toString('hex');
+        const utxo = new factory.UTXO({txHash});
+        const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
+
+        utxo.addCoins(12, coins);
+        utxo.addCoins(0, coins);
+        utxo.addCoins(431, coins);
+
+        const clone = utxo.clone();
+
+        // spend coins in original
+        utxo.spendCoins(0);
+        assert.isOk(arrayEquals(utxo.getIndexes(), [12, 431]));
+
+        // it shouldn't affect copy
+        assert.isOk(arrayEquals(clone.getIndexes(), [12, 0, 431]));
+        assert.isOk(clone.coinsAtIndex(0));
+
+    });
+
 });
