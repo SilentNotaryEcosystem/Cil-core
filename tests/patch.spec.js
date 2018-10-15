@@ -87,6 +87,36 @@ describe('PatchDB', () => {
         assert.throws(() => utxo2Patched.coinsAtIndex(12));
     });
 
+    it('should MERGE patches (source is empty)', async () => {
+        const patch = new factory.PatchDB();
+        const utxo = createUtxo([12, 0, 431]);
+
+        const patch2 = new factory.PatchDB();
+        const strHash = pseudoRandomBuffer().toString('hex');
+        patch2.createCoins(strHash, 17, utxo.coinsAtIndex(12));
+        patch2.spendCoins(utxo, 0, pseudoRandomBuffer());
+
+        const resultPatch = patch.merge(patch2);
+
+        assert.isOk(resultPatch.getUtxo(utxo.getTxHash()));
+        assert.isOk(resultPatch.getUtxo(strHash));
+    });
+
+    it('should MERGE patches (param is empty)', async () => {
+        const patch = new factory.PatchDB();
+        const utxo = createUtxo([12, 0, 431]);
+
+        const strHash = pseudoRandomBuffer().toString('hex');
+        patch.createCoins(strHash, 17, utxo.coinsAtIndex(12));
+        patch.spendCoins(utxo, 0, pseudoRandomBuffer());
+
+        const resultPatch = patch.merge(new factory.PatchDB());
+
+        assert.isOk(resultPatch.getUtxo(utxo.getTxHash()));
+        assert.isOk(resultPatch.getUtxo(strHash));
+        assert.isOk(resultPatch.getUtxo(strHash) instanceof factory.UTXO);
+    });
+
     it('should MERGE patches (different outputs same spending TX)', async () => {
         const patch = new factory.PatchDB();
         const utxo = createUtxo([12, 0, 431]);
@@ -103,6 +133,11 @@ describe('PatchDB', () => {
         assert.isOk(mapSpentOutputs);
         assert.isOk(arrayEquals(Array.from(mapSpentOutputs.keys()), [0, 12]));
 
+        const resultUtxo = mergedPatch.getUtxo(utxo.getTxHash());
+        assert.isOk(resultUtxo);
+        assert.isOk(resultUtxo.coinsAtIndex(431));
+        assert.throws(() => resultUtxo.coinsAtIndex(0));
+        assert.throws(() => resultUtxo.coinsAtIndex(12));
     });
 
     it('should MERGE patches (same outputs same spending TX)', async () => {
@@ -132,4 +167,39 @@ describe('PatchDB', () => {
         }
         throw ('Unexpected success');
     });
+
+    it('should PURGE patch (complete removal, since equal)', async () => {
+        const patch = new factory.PatchDB();
+
+        const utxo = createUtxo([12, 0, 431]);
+        const creatingTx = pseudoRandomBuffer().toString('hex');
+        patch.createCoins(creatingTx, 17, utxo.coinsAtIndex(12));
+        const spendingTx = pseudoRandomBuffer().toString('hex');
+        patch.spendCoins(utxo, 12, spendingTx);
+
+        const mergedPatch = patch.merge(new factory.PatchDB());
+        mergedPatch.purge(patch);
+
+        assert.isNotOk(mergedPatch.getUtxo(utxo.getTxHash()));
+        assert.isNotOk(mergedPatch.getUtxo(creatingTx));
+        assert.isNotOk(mergedPatch.getCoins().size);
+    });
+
+    it('should PURGE patch (no changes, since UTXO modified)', async () => {
+        const patch = new factory.PatchDB();
+
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer().toString('hex');
+        patch.spendCoins(utxo, 12, spendingTx);
+
+        const mergedPatch = patch.merge(new factory.PatchDB());
+        mergedPatch.spendCoins(utxo, 0, spendingTx);
+
+        const level3Patch = mergedPatch.merge(new factory.PatchDB());
+        const level3PatchSize = level3Patch.getCoins().size;
+        level3Patch.purge(patch);
+
+        assert.isOk(level3Patch.getCoins().size === level3PatchSize);
+    });
+
 });

@@ -144,7 +144,7 @@ module.exports = (factory) => {
          */
         async applyPatch(statePatch) {
 
-            // TODO: implement creating/midification of definitions (groups|templates)
+            // TODO: implement creating/modification of definitions (groups|templates)
             // TODO: add mutex here!
             for (let [txHash, utxo] of statePatch.getCoins()) {
                 const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;

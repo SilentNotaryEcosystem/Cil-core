@@ -27,4 +27,13 @@ module.exports = () =>
         getRawData() {
             return this._data;
         }
+
+        /**
+         *
+         * @param {Coins} coin
+         * @returns {boolean|*}
+         */
+        equals(coin) {
+            return this.getAmount() === coin.getAmount() && this.getCodeClaim().equals(coin.getCodeClaim());
+        }
     };

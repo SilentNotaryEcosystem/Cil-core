@@ -20,10 +20,8 @@ module.exports = ({UTXO, Coins}) =>
         }
 
         /**
-         * it WILL MODIFY utxo!!
-         * because this will allow us to modify UTXO and then just rewrite it in DB.
-         * another approach: store only modifications, get UTXO from Storage, apply modifications, write back to Storage
-         * TODO: lock DB for all UTXO with mutex right after forming mapUtxos and release it after applying patch or UTXO DB could be corrupted!
+         * TODO: reminder. lock DB for all UTXO with mutex right after forming mapUtxos
+         * TODO: and release it after applying patch or UTXO DB could be corrupted!
          *
          * @param {UTXO} utxo
          * @param {Number} nTxOutput - index in UTXO that we spend
@@ -35,25 +33,26 @@ module.exports = ({UTXO, Coins}) =>
 
             if (typeof txHashSpent === 'string') txHashSpent = Buffer.from(txHashSpent, 'hex');
 
-            // no need to get in from this._data.coins, because it store just ref to object that passed as param
-            // just modify it and store in map. it will really store in for first time
             const strHash = utxo.getTxHash();
-            utxo.spendCoins(nTxOutput);
+            const utxoCopy = this.getUtxo(strHash) || utxo.clone();
+            utxoCopy.spendCoins(nTxOutput);
 
             // rewrite reference
-            this._data.coins.set(strHash, utxo);
+            this._data.coins.set(strHash, utxoCopy);
 
             this._setSpentOutput(utxo.getTxHash(), nTxOutput, txHashSpent);
         }
 
         /**
          *
-         * @param {String} txHash
+         * @param {String | Buffer} txHash
          * @param {Number} idx
          * @param {Coins} coins
          */
         createCoins(txHash, idx, coins) {
-            typeforce(typeforce.tuple(types.Str64, 'Number'), [txHash, idx]);
+            typeforce(typeforce.tuple(types.Hash256bit, 'Number'), [txHash, idx]);
+
+            if (Buffer.isBuffer(txHash)) txHash = txHash.toString('hex');
 
             const utxo = this._data.coins.get(txHash) || new UTXO({txHash});
             utxo.addCoins(idx, coins);
@@ -91,8 +90,12 @@ module.exports = ({UTXO, Coins}) =>
                     (!this._data.coins.has(coinHash) && patch._data.coins.has(coinHash))) {
 
                     // only one patch have this utxo -> put it in result
-                    const utxo = this._data.coins.has(coinHash) || patch._data.coins.has(coinHash);
-                    resultPatch._data.coins.set(coinHash, utxo);
+                    const utxo = this._data.coins.get(coinHash) || patch._data.coins.get(coinHash);
+                    const mapSpentOutputs = this._getSpentOutputs(coinHash) || patch._getSpentOutputs(coinHash);
+
+                    resultPatch._data.coins.set(coinHash, utxo.clone());
+                    for (let [idx, hash] of mapSpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
+
                 } else {
 
                     // both has (if both doesn't have some, there will be no that hash in setUnionHases)
@@ -136,6 +139,26 @@ module.exports = ({UTXO, Coins}) =>
             }
 
             return resultPatch;
+        }
+
+        /**
+         * We need it to prevent patch growth.
+         * When block becomes stable - we apply it to storage and purge those UTXOs from derived patches
+         *
+         * @param {PatchDB} patch - another instance, that we remove from current.
+         */
+        purge(patch) {
+            const arrAnotherCoinsHashes = Array.from(patch._data.coins.keys());
+            for (let hash of arrAnotherCoinsHashes) {
+
+                // keep UTXO if it was changed
+                const utxo = this.getUtxo(hash);
+                if (!utxo.equals(patch.getUtxo(hash))) continue;
+
+                // remove it, if unchanged since (patch)
+                this._data.coins.delete(utxo.getTxHash());
+                this._mapSpentUtxos.delete(utxo.getTxHash());
+            }
         }
 
         _setSpentOutput(strUtxoHash, nTxOutput, buffTxHashSpent) {

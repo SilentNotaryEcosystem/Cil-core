@@ -1,6 +1,8 @@
 const typeforce = require('typeforce');
 const types = require('../types');
 
+const {arrayEquals} = require('../utils');
+
 module.exports = ({Coins}, {utxoProto}) =>
     class UTXO {
         /**
@@ -105,5 +107,15 @@ module.exports = ({Coins}, {utxoProto}) =>
          */
         clone() {
             return new UTXO({txHash: this.getTxHash(), data: this.encode()});
+        }
+
+        /**
+         *
+         * @param {UTXO} utxo
+         * @returns {*|boolean}
+         */
+        equals(utxo) {
+            return arrayEquals(this.getIndexes(), utxo.getIndexes()) &&
+                   this.getIndexes().every(idx => this.coinsAtIndex(idx).equals(utxo.coinsAtIndex(idx)));
         }
     };
