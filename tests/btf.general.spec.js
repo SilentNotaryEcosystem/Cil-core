@@ -783,6 +783,8 @@ describe('BFT general tests', () => {
         // Party message exposed by me
         newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
 
+        // emulate workflow, state will be reset and _getSignaturesForBlock will use stored _prevViews
+        newBft._resetState();
         const arrSignatures = newBft._getSignaturesForBlock();
         assert.isOk(arrSignatures);
         assert.equal(arrSignatures.length, 2);
