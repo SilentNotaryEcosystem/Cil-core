@@ -14,7 +14,7 @@ let msgCommon;
 
 const port = 8223;
 
-describe('TestTransport', () => {
+describe('Transport', () => {
     before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -29,20 +29,20 @@ describe('TestTransport', () => {
 
     it('should get addresses from dns', async function () {
         const name = 'ya.ru';
-        const addresses = await factory.Transport.resolveName(name);
+        const addresses = await factory.Ipv6Transport.resolveName(name);
         assert.isOk(addresses);
         assert.isOk(Array.isArray(addresses));
     });
 
     it('should get real ipv6 address', async () => {
-        const endpoint = new factory.Transport();
+        const endpoint = new factory.Ipv6Transport();
 
         assert.isOk(endpoint.myAddress);
     });
 
     it('should communicate each other (real address)', async () => {
-        const endpoint1 = new factory.Transport();
-        const endpoint2 = new factory.Transport();
+        const endpoint1 = new factory.Ipv6Transport();
+        const endpoint2 = new factory.Ipv6Transport();
 
         const [connection1, connection2] = await Promise.all([
             endpoint1.listenSync(),
@@ -61,8 +61,8 @@ describe('TestTransport', () => {
 
     it('should communicate each other (ipv6)', async () => {
         const address = '::1'
-        const endpoint1 = new factory.Transport({ listenAddr: address });
-        const endpoint2 = new factory.Transport();
+        const endpoint1 = new factory.Ipv6Transport({ listenAddr: address });
+        const endpoint2 = new factory.Ipv6Transport();
 
         const [connection1, connection2] = await Promise.all([
             endpoint1.listenSync(),
@@ -81,8 +81,8 @@ describe('TestTransport', () => {
 
     it('should communicate each other (ipv4)', async () => {
         const address = '127.0.0.1'
-        const endpoint1 = new factory.Transport({ listenAddr: address });
-        const endpoint2 = new factory.Transport();
+        const endpoint1 = new factory.Ipv6Transport({ listenAddr: address });
+        const endpoint2 = new factory.Ipv6Transport();
 
         const [connection1, connection2] = await Promise.all([
             endpoint1.listenSync(),

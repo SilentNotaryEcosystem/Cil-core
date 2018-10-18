@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const debug = require('debug')('peer:');
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
 
 /**
  * Хранит информацию о Peer'е
@@ -10,12 +10,12 @@ const {sleep} = require('../utils');
  */
 
 module.exports = (factory) => {
-    const {Messages, Transport, Constants} = factory;
-    const {PeerInfo} = Messages;
+    const { Messages, Transport, Constants } = factory;
+    const { PeerInfo } = Messages;
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {connection, peerInfo, lastActionTimestamp, transport} = options;
+            const { connection, peerInfo, lastActionTimestamp, transport } = options;
 
             this._nonce = parseInt(Math.random() * 100000);
 
@@ -71,7 +71,7 @@ module.exports = (factory) => {
 
         get isWitness() {
             return Array.isArray(this._peerInfo.capabilities) &&
-                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
         get lastActionTimestamp() {
@@ -126,6 +126,19 @@ module.exports = (factory) => {
 
         set witnessLoadDone(trueVal) {
             this._witnessLoadDone = true;
+        }
+
+        get filter() {
+            return this._bloomFilter;
+        }
+
+        addFilter(value) {
+            if (!this._bloomFilter)
+                this._bloomFilter = new new BloomFilter(
+                    32 * 256, // number of bits to allocate.
+                    16        // number of hash functions.
+                );
+            this._bloomFilter.add(value);
         }
 
         addTag(tag) {

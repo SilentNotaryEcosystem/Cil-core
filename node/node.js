@@ -1,7 +1,7 @@
 const assert = require('assert');
 
 const debugLib = require('debug');
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
 
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
@@ -21,15 +21,16 @@ module.exports = (factory) => {
         Application,
         Transaction,
         Block,
+        SPVBlock,
         PatchDB,
         Coins
     } = factory;
-    const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData} = Messages;
-    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
+    const { MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData } = Messages;
+    const { MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT } = Constants.messageTypes;
 
     return class Node {
         constructor(options) {
-            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout} = options;
+            const { arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout } = options;
 
             this._storage = new Storage(options);
 
@@ -50,7 +51,7 @@ module.exports = (factory) => {
 
             this._myPeerInfo = new PeerInfo({
                 capabilities: [
-                    {service: Constants.NODE}
+                    { service: Constants.NODE }
                 ],
                 address: this._transport.myAddress,
                 port: this._transport.port
@@ -59,7 +60,7 @@ module.exports = (factory) => {
             // used only for debugging purpose. Feel free to remove
             this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
 
-            this._peerManager = new PeerManager({transport: this._transport});
+            this._peerManager = new PeerManager({ transport: this._transport });
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
@@ -93,7 +94,7 @@ module.exports = (factory) => {
             for (let strAddr of this._arrSeedAddresses) {
                 const peer = new PeerInfo({
                     address: Transport.strToAddress(strAddr),
-                    capabilities: [{service: Constants.NODE}]
+                    capabilities: [{ service: Constants.NODE }]
                 });
                 this._peerManager.addPeer(peer);
             }
@@ -131,11 +132,11 @@ module.exports = (factory) => {
 
             // we prefer witness nodes
             // TODO: REWORK! it's not good idea to overload witnesses!
-            const arrWitnessNodes = this._peerManager.filterPeers({service: Constants.WITNESS});
+            const arrWitnessNodes = this._peerManager.filterPeers({ service: Constants.WITNESS });
             if (arrWitnessNodes.length) return arrWitnessNodes;
 
             // but if there is no such - use any nodes
-            return this._peerManager.filterPeers({service: Constants.NODE});
+            return this._peerManager.filterPeers({ service: Constants.NODE });
         }
 
         /**
@@ -177,7 +178,7 @@ module.exports = (factory) => {
         async _incomingConnection(connection) {
             try {
                 debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
-                const newPeer = new Peer({connection, transport: this._transport});
+                const newPeer = new Peer({ connection, transport: this._transport });
 
                 const result = this._peerManager.addPeer(newPeer);
                 if (result instanceof Peer) return;
@@ -375,6 +376,10 @@ module.exports = (factory) => {
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         const block = await this._storage.getBlock(objVector.hash);
                         msg = new MsgBlock(block);
+                    } else if (objVector.type === Constants.INV_SPV_BLOCK) {
+                        const fullBlock = await this._storage.getBlock(objVector.hash);
+                        const spvBlock = new SPVBlock(block, peer.filter);
+                        msg = new MsgBlock(block);
                     } else {
                         throw new Error(`Unknown inventory type: ${objVector.type}`);
                     }
@@ -475,7 +480,7 @@ module.exports = (factory) => {
                 logger.error('Its time to implement multiple addr messages');
             }
             debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeers.length} items`);
-            await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
+            await peer.pushMessage(new MsgAddr({ count: arrPeers.length, peers: arrPeers }));
         }
 
         /**
@@ -515,7 +520,7 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          * @private
          */
-        async _rpcHandler({event, content}) {
+        async _rpcHandler({ event, content }) {
             switch (event) {
                 case 'tx':
                     await this._processReceivedTx(content).catch(err => logger.error('RPC error:', err));
@@ -529,7 +534,7 @@ module.exports = (factory) => {
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
             const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
-            const {fee} = await this._app.processTx(tx, mapUtxos);
+            const { fee } = await this._app.processTx(tx, mapUtxos);
             if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
             this._mempool.addTx(tx);
@@ -577,7 +582,7 @@ module.exports = (factory) => {
                 const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
 
                 // TODO: consider using a cache patch from mempool?
-                const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
+                const { fee } = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
                 blockFees += fee;
             }
 

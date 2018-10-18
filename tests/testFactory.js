@@ -28,8 +28,8 @@ global.logger.debug = console.log;
 const config = require('../config/test.conf');
 
 const Crypto = require('../crypto/crypto');
-// const TransportWrapper = require('../network/testTransport');
-const TransportWrapper = require('../network/ipv6Transport');
+const TransportWrapper = require('../network/testTransport');
+const Ipv6TransportWrapper = require('../network/ipv6Transport');
 const SerializerWrapper = require('../network/serializer');
 const MessageAssemblerWrapper = require('../network/messageAssembler');
 const PeerWrapper = require('../network/peer');
@@ -50,6 +50,7 @@ const PatchWrapper = require('../storage/patch');
 
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
+const SPVBlockWrapper = require('../structures/spvBlock');
 const InventoryWrapper = require('../structures/inventory');
 const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
@@ -77,6 +78,7 @@ class Factory {
                 this._transactionImplementation =
                     TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
+                this._spvBlockImplementation = SPVBlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
                 this._messagesImplementation =
                     MessagesWrapper(this, prototypes);
@@ -87,6 +89,7 @@ class Factory {
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = TransportWrapper(this);
+                this._ipv6TransportImplemetation = Ipv6TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
                 this._storageImplementation = StorageWrapper(this);
@@ -154,6 +157,10 @@ class Factory {
         return this._transportImplemetation;
     }
 
+    get Ipv6Transport() {
+        return this._ipv6TransportImplemetation;
+    }
+
     get Serializer() {
         return this._serializerImplementation;
     }
@@ -210,6 +217,10 @@ class Factory {
         return this._blockImplementation;
     }
 
+    get SPVBlock() {
+        return this._spvBlockImplementation;
+    }
+
     get Inventory() {
         return this._inventoryImplementation;
     }
@@ -258,6 +269,7 @@ class Factory {
 
             blockProto: protoStructures.lookupType("structures.Block"),
             blockHeaderProto: protoStructures.lookupType("structures.BlockHeader"),
+            spvBlockProto: protoStructures.lookupType("structures.SPVBlock"),
 
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 
