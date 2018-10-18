@@ -202,4 +202,16 @@ describe('PatchDB', () => {
         assert.isOk(level3Patch.getCoins().size === level3PatchSize);
     });
 
+    it('should get patch COMPLEXITY', async () => {
+        const patch = new factory.PatchDB();
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer().toString('hex');
+        patch.spendCoins(utxo, 12, spendingTx);
+
+        const mergedPatch = patch.merge(new factory.PatchDB());
+        mergedPatch.spendCoins(utxo, 0, spendingTx);
+
+        assert.isOk(patch.getComplexity() === 1);
+        assert.isOk(mergedPatch.getComplexity() === 2);
+    });
 });

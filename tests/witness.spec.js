@@ -8,6 +8,7 @@ const debug = require('debug')('witness:');
 const factory = require('./testFactory');
 
 const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {arrayEquals} = require('../utils');
 
 let wallet;
 
@@ -109,6 +110,8 @@ describe('Witness tests', () => {
     });
 
     it('should create block', async () => {
+        factory.Constants.GENEZIS_BLOCK = pseudoRandomBuffer().toString('hex');
+
         const {witness, groupDefinition} = createDummyWitness();
 
         const patch = new factory.PatchDB();
@@ -135,5 +138,182 @@ describe('Witness tests', () => {
         assert.equal(block.txns.length, 3);
     });
 
+    describe('Tips selection', async () => {
+
+        it('should test _getVertexWitnessNum', async () => {
+            const node = new factory.Node({});
+
+            node._dagPendingBlocks.add('hash3', 'hash1');
+            node._dagPendingBlocks.add('hash2', 'hash1');
+            node._dagPendingBlocks.add('hash4', 'hash2');
+
+            node._dagPendingBlocks.saveObj('hash1', {blockHeader: {witnessGroupId: 0}, patch: new factory.PatchDB()});
+            node._dagPendingBlocks.saveObj('hash3', {blockHeader: {witnessGroupId: 0}, patch: new factory.PatchDB()});
+            node._dagPendingBlocks.saveObj('hash2', {blockHeader: {witnessGroupId: 2}, patch: new factory.PatchDB()});
+            node._dagPendingBlocks.saveObj('hash4', {blockHeader: {witnessGroupId: 3}, patch: new factory.PatchDB()});
+
+            assert.isOk(node._getVertexWitnessNum('hash1') === 1);
+            assert.isOk(node._getVertexWitnessNum('hash3') === 1);
+            assert.isOk(node._getVertexWitnessNum('hash2') === 2);
+            assert.isOk(node._getVertexWitnessNum('hash4') === 3);
+        });
+
+        it('should select all 3 tips', async () => {
+            const {witness} = createDummyWitness();
+
+            witness._dagPendingBlocks.addVertex('hash1');
+            witness._dagPendingBlocks.addVertex('hash2');
+            witness._dagPendingBlocks.addVertex('hash3');
+
+            const arrTips = witness._getTips();
+            assert.isOk(arrTips.length, 3);
+            assert.isOk(arrayEquals(arrTips, ['hash1', 'hash2', 'hash3']));
+        });
+
+        it('should select 2 tips', async () => {
+            const {witness} = createDummyWitness();
+
+            witness._dagPendingBlocks.addVertex('hash1');
+            witness._dagPendingBlocks.addVertex('hash2');
+            witness._dagPendingBlocks.addVertex('hash3');
+
+            witness._dagPendingBlocks.add('hash3', 'hash2');
+
+            const arrTips = witness._getTips();
+            assert.isOk(arrTips.length, 2);
+            assert.isOk(arrayEquals(arrTips, ['hash1', 'hash3']));
+        });
+
+        it('should select all 3 parents (no conflicts) and set mci', async () => {
+            const {witness} = createDummyWitness();
+
+            witness._dagPendingBlocks.addVertex('hash1');
+            witness._dagPendingBlocks.addVertex('hash2');
+            witness._dagPendingBlocks.addVertex('hash3');
+
+            witness._dagPendingBlocks.saveObj('hash1',
+                {blockHeader: {witnessGroupId: 1, mci: 2}, patch: new factory.PatchDB()}
+            );
+            witness._dagPendingBlocks.saveObj('hash2',
+                {blockHeader: {witnessGroupId: 2, mci: 3}, patch: new factory.PatchDB()}
+            );
+            witness._dagPendingBlocks.saveObj('hash3',
+                {blockHeader: {witnessGroupId: 3, mci: 100}, patch: new factory.PatchDB()}
+            );
+
+            const {arrParents, mci} = await witness._getBestParents(['hash1', 'hash2', 'hash3']);
+            assert.isOk(arrParents.length, 3);
+            assert.isOk(arrayEquals(arrParents, ['hash1', 'hash2', 'hash3']));
+            assert.isOk(mci === 101);
+        });
+
+        it('should select only 1 parent (conflict)', async () => {
+            const {witness} = createDummyWitness();
+
+            witness._dagPendingBlocks.addVertex('hash1');
+            witness._dagPendingBlocks.addVertex('hash2');
+
+            const patch = new factory.PatchDB();
+            patch.merge = sinon.fake.throws();
+
+            witness._dagPendingBlocks.saveObj('hash1',
+                {blockHeader: {witnessGroupId: 1, mci: 10}, patch}
+            );
+            witness._dagPendingBlocks.saveObj('hash2',
+                {blockHeader: {witnessGroupId: 2, mci: 20}, patch}
+            );
+
+            const {arrParents, mci} = await witness._getBestParents(['hash1', 'hash2']);
+            assert.isOk(arrParents.length, 1);
+            assert.isOk(arrayEquals(arrParents, ['hash1']));
+            assert.isOk(mci === 11);
+        });
+
+        it('should select longest chain 3->2 (3 & 1 conflicts)', async () => {
+            const {witness} = createDummyWitness();
+
+            witness._dagPendingBlocks.addVertex('hash1');
+            witness._dagPendingBlocks.addVertex('hash2');
+            witness._dagPendingBlocks.addVertex('hash3');
+
+            witness._dagPendingBlocks.add('hash3', 'hash2');
+
+            const patch = new factory.PatchDB();
+            patch.merge = sinon.fake.throws();
+
+            witness._dagPendingBlocks.saveObj('hash1',
+                {blockHeader: {witnessGroupId: 1, mci: 10}, patch}
+            );
+            witness._dagPendingBlocks.saveObj('hash2',
+                {blockHeader: {witnessGroupId: 2, mci: 20}, patch}
+            );
+            witness._dagPendingBlocks.saveObj('hash3',
+                {blockHeader: {witnessGroupId: 1, mci: 30}, patch}
+            );
+
+            const {arrParents, mci} = await witness._getBestParents(['hash1', 'hash3']);
+            assert.isOk(arrParents.length, 1);
+            assert.isOk(arrayEquals(arrParents, ['hash3']));
+            assert.isOk(mci === 31);
+        });
+
+        it('should call merge 9 times', async () => {
+
+            // because first not merged
+            const {witness} = createDummyWitness();
+
+            const patch = new factory.PatchDB();
+            patch.merge = sinon.fake.returns(patch);
+
+            for (let i = 1; i < 11; i++) {
+                witness._dagPendingBlocks.addVertex(`hash${i}`);
+                witness._dagPendingBlocks.saveObj(`hash${i}`, {blockHeader: {witnessGroupId: i, mci: i}, patch});
+            }
+
+            await witness._getBestParents(witness._dagPendingBlocks.V);
+            assert.isOk(patch.merge.callCount === 9);
+        });
+
+        it('should select 2 from 3  (has conflicts)', async () => {
+            const {witness} = createDummyWitness();
+
+            witness._dagPendingBlocks.addVertex('hash1');
+            witness._dagPendingBlocks.addVertex('hash2');
+            witness._dagPendingBlocks.addVertex('hash3');
+            witness._dagPendingBlocks.addVertex('hash4');
+
+            witness._dagPendingBlocks.add('hash3', 'hash2');
+
+            let callCount = 0;
+            const patch = new factory.PatchDB();
+            patch.merge = () => {
+
+                // really it's a second merge. first merge with self made by assignment
+                if (++callCount === 1) {
+                    throw new Error('Conflict');
+                }
+            };
+
+            witness._dagPendingBlocks.saveObj('hash1',
+                {blockHeader: {witnessGroupId: 1, mci: 10}, patch}
+            );
+            witness._dagPendingBlocks.saveObj('hash2',
+                {blockHeader: {witnessGroupId: 2, mci: 20}, patch}
+            );
+            witness._dagPendingBlocks.saveObj('hash3',
+                {blockHeader: {witnessGroupId: 1, mci: 30}, patch}
+            );
+            witness._dagPendingBlocks.saveObj('hash4',
+                {blockHeader: {witnessGroupId: 1, mci: 40}, patch}
+            );
+
+            const {arrParents, mci} = await witness._getBestParents(['hash1', 'hash3', 'hash4']);
+            assert.isOk(arrParents.length === 2);
+
+            // 'hash1' - conflicts
+            assert.isOk(arrayEquals(arrParents, ['hash3', 'hash4']));
+            assert.isOk(mci === 41);
+        });
+    });
 
 });

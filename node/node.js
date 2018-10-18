@@ -1,4 +1,5 @@
 const assert = require('assert');
+const {Dag} = require('dagjs');
 
 const debugLib = require('debug');
 const {sleep} = require('../utils');
@@ -76,6 +77,8 @@ module.exports = (factory) => {
             this._rpc.on('rpc', this._rpcHandler.bind(this));
 
             this._app = new Application(options);
+
+            this._dagPendingBlocks = new Dag();
         }
 
         get rpc() {
@@ -661,6 +664,26 @@ module.exports = (factory) => {
                     `Bad signature for block ${block.hash()}!`
                 );
             }
+        }
+
+        /**
+         *
+         * @param {String} vertex - block hash as vertex name
+         * @returns {number} - Max number of unique witnesses in all paths from this vertex
+         * @private
+         */
+        _getVertexWitnessNum(vertex) {
+            if (!vertex) return -1;
+            const arrPaths = [...this._dagPendingBlocks.findPathsDown(vertex)];
+            return arrPaths.reduce((maxNum, path) => {
+                const setWitnessGroupIds = new Set();
+                path.forEach(vertex => {
+                    const {blockHeader} = this._dagPendingBlocks.readObj(vertex) || {};
+                    if (!blockHeader) return;
+                    setWitnessGroupIds.add(blockHeader.witnessGroupId);
+                });
+                return maxNum > setWitnessGroupIds.size ? maxNum : setWitnessGroupIds.size;
+            }, 0);
         }
     };
 };

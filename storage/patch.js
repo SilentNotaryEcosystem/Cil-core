@@ -171,4 +171,16 @@ module.exports = ({UTXO, Coins}) =>
         _getSpentOutputs(strUtxoHash) {
             return this._mapSpentUtxos.get(strUtxoHash) || new Map();
         }
+
+        /**
+         * return how complex to build this patch.
+         * now we use numbers of spent outputs
+         * in case of conflict we'll keep more complex (if more important metrics are equal)
+         *
+         * @returns {Number}
+         */
+        getComplexity() {
+            return [...this._mapSpentUtxos.keys()]
+                .reduce((result, strUtxoHash) => result + this._mapSpentUtxos.get(strUtxoHash).size, 0);
+        }
     };

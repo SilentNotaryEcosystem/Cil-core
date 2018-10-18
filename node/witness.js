@@ -1,3 +1,4 @@
+const assert = require('assert');
 const {sleep} = require('../utils');
 const debugLib = require('debug');
 
@@ -354,17 +355,19 @@ module.exports = (factory) => {
          */
         async _createBlock(groupId) {
 
-            // TODO: get tips for parents
             const block = new Block(groupId);
+            const arrTips = this._getTips();
+            const {arrParents, patchMerged, mci} = await this._getBestParents(arrTips);
+            assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
+            block.parentHashes = arrParents;
+            block.mci = mci;
 
-            // TODO: replace it for patch for current level
-            const patch = new PatchDB();
             const arrBadHashes = [];
             let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
                 const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
                 try {
-                    const {fee} = await this._app.processTx(tx, mapUtxos, patch, false);
+                    const {fee} = await this._app.processTx(tx, mapUtxos, patchMerged, false);
                     if (fee < Constants.MIN_TX_FEE) throw new Error(`Fee of ${fee} too small in "${tx.hash()}"`);
                     totalFee += fee;
                     block.addTx(tx);
@@ -381,7 +384,76 @@ module.exports = (factory) => {
             block.finish(totalFee, this._wallet.publicKey);
             debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} ready`);
 
-            return {block, patch};
+            return {block, patch: patchMerged};
+        }
+
+        /**
+         *
+         * @returns {Array} of tips (free vertexes in graph)
+         * @private
+         */
+        _getTips() {
+            const arrTips = this._dagPendingBlocks.tips;
+
+            // TODO: it's A STUB! maintain graph of pending blocks (store it + load it)
+            return !arrTips.length ? [Constants.GENEZIS_BLOCK] : arrTips;
+        }
+
+        /**
+         * It will check "compatibility" of tips (ability to merge patches)
+         *
+         * @param {Array} arrTips - of vertices (string hashes of respective pending block) in pending blocks DAG
+         * @returns {arrParents, mci} - mci for new block
+         * @private
+         */
+        async _getBestParents(arrTips) {
+
+            // TODO: consider using process.nextTick() (this could be time consuming)
+            // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
+            const arrParents = [];
+            let mci = 1;
+
+            // get max witnessed path for all tips
+            const arrWitnessNums = arrTips.map(vertex => this._getVertexWitnessNum(vertex));
+
+            // sort it descending
+            const sortedDownTipIndexes = arrTips
+                .map((e, i) => i)
+                .sort((i1, i2) => arrWitnessNums[i2] - arrWitnessNums[i1]);
+
+            let patchMerged = null;
+            for (let i of sortedDownTipIndexes) {
+                const vertex = arrTips[i];
+
+                // merge tips with max witnessed paths first
+                const {patch, blockHeader} = this._dagPendingBlocks.readObj(vertex) || {};
+
+                // this patch (block) already finial applied to storage, and removed from DAG
+                if (!patch) continue;
+
+                try {
+                    if (!patchMerged) {
+
+                        // no need to merge first patch with empty. just store it
+                        patchMerged = patch;
+                    } else {
+                        patchMerged = patchMerged.merge(patch);
+                    }
+                    arrParents.push(vertex);
+                    mci = blockHeader.mci !== undefined && mci > blockHeader.mci ? mci : blockHeader.mci + 1;
+                } catch (e) {
+
+                    // TODO: rework it. this implementation (merging most witnessed vertex with other) could be non optimal
+                }
+            }
+
+            return {
+
+                // TODO: review this condition
+                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
+                mci,
+                patchMerged
+            };
         }
 
     };

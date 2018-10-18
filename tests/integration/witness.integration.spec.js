@@ -123,6 +123,8 @@ describe('Witness integration tests', () => {
 
     it('should NOT commit block (empty mempool)', async function() {
         this.timeout(maxConnections * 60000);
+        factory.Constants.GENEZIS_BLOCK = pseudoRandomBuffer().toString('hex');
+
 
         const seedAddress = factory.Transport.strToAddress('w seed node 2');
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});

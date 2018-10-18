@@ -24,6 +24,14 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             }
         }
 
+        get parentHashes() {
+            return this._data.header.parentHashes;
+        }
+
+        set parentHashes(arrStrHashes) {
+            this._data.header.parentHashes = arrStrHashes.map(strHash => Buffer.from(strHash, 'hex'));
+        }
+
         get merkleRoot() {
             return this._data.header.merkleRoot;
         }
@@ -46,6 +54,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
         set mci(value) {
             return this._data.header.mci = value;
+        }
+
+        get header() {
+            return this._data.header;
         }
 
         /**
