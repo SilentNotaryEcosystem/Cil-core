@@ -1,5 +1,4 @@
 const assert = require('assert');
-const {Dag} = require('dagjs');
 
 const debugLib = require('debug');
 const {sleep} = require('../utils');
@@ -23,7 +22,8 @@ module.exports = (factory) => {
         Transaction,
         Block,
         PatchDB,
-        Coins
+        Coins,
+        PendingBlocksManager
     } = factory;
     const {MsgCommon, MsgVersion, PeerInfo, MsgAddr, MsgReject, MsgTx, MsgBlock, MsgInv, MsgGetData} = Messages;
     const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
@@ -78,7 +78,7 @@ module.exports = (factory) => {
 
             this._app = new Application(options);
 
-            this._dagPendingBlocks = new Dag();
+            this._pendingBlocks = new PendingBlocksManager();
         }
 
         get rpc() {
@@ -566,7 +566,7 @@ module.exports = (factory) => {
          */
         async _processBlock(block) {
 
-            const patchState = new PatchDB();
+            const patchState = this._pendingBlocks.mergePatches(block.parentHashes);
             const isGenezis = this.isGenezisBlock(block);
 
             let blockFees = 0;
@@ -599,13 +599,19 @@ module.exports = (factory) => {
 
         async _acceptBlock(block, patchState) {
 
-            // write raw block to storage
+            // save block to graph of pending blocks
+            this._pendingBlocks.addBlock(block, patchState);
+
+            // write raw block to storage (we store similar all blocks including pending)
             await this._storage.saveBlock(block);
+
+            // TODO: store _dagPendingBlocks with ref to that block as pending
 
             this._mempool.removeForBlock(block.getTxHashes());
 
             // TODO: implement check for finality here!! Store patches, until we decide block is final, and apply it one by one to storage
-            await this._storage.applyPatch(patchState);
+//            await this._storage.applyPatch(patchState);
+            await this._checkFinality(block);
 
             this._informNeighbors(block);
         }
@@ -639,11 +645,22 @@ module.exports = (factory) => {
          */
         async _verifyBlock(block, checkSignatures = true) {
 
-            // TODO: validate block parents
+            // parents
+            // check in pending
+            const arrMissedHashes = this._pendingBlocks.finalParentsForBlock(block);
+
+            // check in final
+            const arrPromises = arrMissedHashes.map(hash => this._storage.hasBlock(hash));
+            const arrParentOk = await Promise.all(arrPromises);
+            assert(arrParentOk.every(v => v), `Bad parents for ${block.hash()}`);
+
+            // signatures
             if (checkSignatures && !this.isGenezisBlock(block)) await this._verifyBlockSignatures(block);
 
+            // merkleRoot
             assert(block.hash() !== block.merkleRoot.toString('hex'), `Bad merkle root for ${block.hash()}`);
 
+            // TX collision
             await this._storage.checkTxCollision(block.getTxHashes());
         }
 
@@ -666,24 +683,8 @@ module.exports = (factory) => {
             }
         }
 
-        /**
-         *
-         * @param {String} vertex - block hash as vertex name
-         * @returns {number} - Max number of unique witnesses in all paths from this vertex
-         * @private
-         */
-        _getVertexWitnessNum(vertex) {
-            if (!vertex) return -1;
-            const arrPaths = [...this._dagPendingBlocks.findPathsDown(vertex)];
-            return arrPaths.reduce((maxNum, path) => {
-                const setWitnessGroupIds = new Set();
-                path.forEach(vertex => {
-                    const {blockHeader} = this._dagPendingBlocks.readObj(vertex) || {};
-                    if (!blockHeader) return;
-                    setWitnessGroupIds.add(blockHeader.witnessGroupId);
-                });
-                return maxNum > setWitnessGroupIds.size ? maxNum : setWitnessGroupIds.size;
-            }, 0);
+        _checkFinality(block) {
+
         }
     };
 };

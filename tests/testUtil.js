@@ -13,12 +13,12 @@ module.exports = {
         });
     },
 
-    createDummyTx: (hash) => {
+    createDummyTx: (hash, witnessGroupId) => {
         return {
             payload: {
                 ins: [{txHash: hash ? hash : pseudoRandomBuffer(), nTxOutput: parseInt(Math.random() * 1000) + 1}],
                 outs: [{amount: parseInt(Math.random() * 1000) + 1, codeClaim: pseudoRandomBuffer()}],
-                witnessGroupId: 0
+                witnessGroupId: witnessGroupId !== undefined ? witnessGroupId : 0
             },
             claimProofs: [pseudoRandomBuffer()]
         };
@@ -33,8 +33,9 @@ module.exports = {
         }
     }),
 
-    createDummyBlock: (factory) => {
-        const block = new factory.Block(0);
+    createDummyBlock: (factory, witnessId = 0, mci = 15) => {
+        const block = new factory.Block(witnessId);
+        block.mci = mci;
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
         return block;
     },

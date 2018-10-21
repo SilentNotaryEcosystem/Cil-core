@@ -381,6 +381,7 @@ describe('Node tests', () => {
         block.addTx(tx);
         block.addTx(tx2);
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        block.parentHashes = [pseudoRandomBuffer().toString('hex')];
 
         const groupDef = createGroupDefAndSignBlock(block);
         const node = new factory.Node({arrTestDefinition: [groupDef]});
@@ -389,6 +390,7 @@ describe('Node tests', () => {
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
+        node._pendingBlocks.finalParentsForBlock = sinon.fake.returns([]);
         node._informNeighbors = sinon.fake();
         node._checkCoinbaseTx = sinon.fake();
 
@@ -402,7 +404,6 @@ describe('Node tests', () => {
         assert.isOk(node._app.processTx.called);
         assert.isOk(node._app.processTx.callCount, 2);
         assert.isOk(node._storage.saveBlock.calledOnce);
-        assert.isOk(node._storage.applyPatch.calledOnce);
         assert.isOk(node._informNeighbors.calledOnce);
 
         assert.isNotOk(peer.ban.called);

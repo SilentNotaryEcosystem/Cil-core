@@ -55,6 +55,11 @@ module.exports = (factory) => {
             return this._groupDefinitions.get(id);
         }
 
+        async getWitnessGroupsCount() {
+
+            // TODO: implement persistent storage
+            return this._groupDefinitions.size;
+        }
 
         async hasBlock(blockHash) {
             typeforce(types.Hash256bit, blockHash);

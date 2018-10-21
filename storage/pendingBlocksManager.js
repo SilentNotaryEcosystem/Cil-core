@@ -1,0 +1,313 @@
+'use strict';
+
+const assert = require('assert');
+const {Dag} = require('dagjs');
+const typeforce = require('typeforce');
+const debugLib = require('debug');
+
+const types = require('../types');
+const {mergeSets} = require('../utils');
+
+const debug = debugLib('pendingBlocksManager:');
+
+// IMPORTANT
+const majority = (nGroup) => parseInt(nGroup / 2) + 1;
+
+module.exports = (factory) => {
+    const {Constants, PatchDB} = factory;
+    assert(Constants);
+    assert(PatchDB);
+
+    return class PendingBlocksManager {
+        constructor() {
+            this._dag = new Dag();
+
+            // TODO: maintain graph of pending blocks (store it + load it)!
+        }
+
+        getDag() {
+            return this._dag;
+        }
+
+        addBlock(block, patchState) {
+            typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
+
+            this._dag.addVertex(block.getHash());
+            for (let strHash of block.parentHashes) {
+                this._dag.add(block.getHash(), strHash);
+            }
+            this._dag.saveObj(block.getHash(), {patch: patchState, blockHeader: block.header});
+        }
+
+        /**
+         *
+         * @param {Block} block
+         * @returns {Array} - array of final parents (i.e. we don't have patches for it)
+         */
+        finalParentsForBlock(block) {
+            typeforce(types.Block, block);
+
+            const arrMissedHashes = [];
+            for (let parentHash of block.parentHashes) {
+                if (!this._dag.hasVertex(parentHash)) arrMissedHashes.push(parentHash);
+            }
+            return arrMissedHashes;
+        }
+
+        /**
+         *
+         * @param {String} vertex - block hash as vertex name
+         * @returns {number} - Max number of unique witnesses in all paths from this vertex
+         * @private
+         */
+        getVertexWitnessBelow(vertex) {
+            typeforce(types.Str64, vertex);
+
+            if (!vertex) return -1;
+            const arrPaths = [...this._dag.findPathsDown(vertex)];
+            return arrPaths.reduce((maxNum, path) => {
+                const setWitnessGroupIds = new Set();
+                path.forEach(vertex => {
+                    const {blockHeader} = this._dag.readObj(vertex) || {};
+                    if (!blockHeader) return;
+                    setWitnessGroupIds.add(blockHeader.witnessGroupId);
+                });
+                return maxNum > setWitnessGroupIds.size ? maxNum : setWitnessGroupIds.size;
+            }, 0);
+        }
+
+        /**
+         *
+         * @returns {Array} of tips (free vertexes in graph)
+         */
+        getTips() {
+            return this._dag.tips;
+        }
+
+        /**
+         * It will check "compatibility" of tips (ability to merge patches)
+         *
+         * @returns {arrParents, mci} - mci for new block
+         * @private
+         */
+        async getBestParents() {
+            const arrTips = this.getTips();
+
+            // TODO: review it. it's good only at very beginning. No tips == Error!
+            if (!arrTips.length) arrTips.push(Constants.GENEZIS_BLOCK);
+
+            // TODO: consider using process.nextTick() (this could be time consuming)
+            // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
+            const arrParents = [];
+            let mci = 1;
+
+            // get max witnessed path for all tips
+            const arrWitnessNums = arrTips.map(vertex => this.getVertexWitnessBelow(vertex));
+
+            // sort it descending
+            const sortedDownTipIndexes = arrTips
+                .map((e, i) => i)
+                .sort((i1, i2) => arrWitnessNums[i2] - arrWitnessNums[i1]);
+
+            let patchMerged = null;
+            for (let i of sortedDownTipIndexes) {
+                const vertex = arrTips[i];
+
+                // merge tips with max witnessed paths first
+                const {patch, blockHeader} = this._dag.readObj(vertex) || {};
+
+                // this patch (block) already finial applied to storage, and removed from DAG
+                if (!patch) continue;
+
+                try {
+                    if (!patchMerged) {
+
+                        // no need to merge first patch with empty. just store it
+                        patchMerged = patch;
+                    } else {
+                        patchMerged = patchMerged.merge(patch);
+                    }
+                    arrParents.push(vertex);
+                    mci = blockHeader.mci !== undefined && mci > blockHeader.mci ? mci : blockHeader.mci + 1;
+                } catch (e) {
+
+                    // TODO: rework it. this implementation (merging most witnessed vertex with other) could be non optimal
+                }
+            }
+
+            return {
+
+                // TODO: review this condition
+                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
+                mci,
+                patchMerged
+            };
+        }
+
+        /**
+         * Throws error if unable to merge
+         *
+         * @param {Array} arrHashes - @see block.parentHashes
+         * @returns {PatchDB} merged patches for pending parent blocks. If there is no patch for parent
+         *                      - this means it's final and applyed to storage
+         */
+        mergePatches(arrHashes) {
+            let patchMerged = null;
+            for (let vertex of arrHashes) {
+                const {patch} = this._dag.readObj(vertex) || {};
+
+                // this patch (block) already finial applied to storage, and removed from DAG
+                if (!patch) continue;
+                if (!patchMerged) {
+
+                    // no need to merge first patch with empty. just store it
+                    patchMerged = patch;
+                } else {
+                    patchMerged = patchMerged.merge(patch);
+                }
+            }
+
+            return patchMerged ? patchMerged : new PatchDB();
+        }
+
+        checkFinality(newVertex, nGroupCount) {
+            typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
+
+            // find all path from this vertex
+            const arrTopStable = this._findTopStable(newVertex, majority(nGroupCount));
+
+            // no stable yet - stop here
+            if (!arrTopStable.length) return;
+
+            debug(`Found ${arrTopStable.length} top stables`);
+
+            // merge all "new stable blocks" patches
+            // WE CHOOSE ONLY TOP PATCH BECAUSE IT'S MOST CONSISTENT
+            const patchToApply = this.mergePatches(arrTopStable);
+
+            // form set of all vertices that become stable and just remove them
+            const setAlsoStableVertices = this._findAlsoStable(arrTopStable);
+            this._removeBlocks(setAlsoStableVertices);
+
+            debug(`Removed ${setAlsoStableVertices.size} alsoStables`);
+
+            // remove bad chains (their tips will conflict with patchToApply)
+            const setBlocksToRollback = this._removeConflictingBranches(patchToApply);
+
+            debug(`Removed ${setBlocksToRollback.size} blocks from conflicting branches`);
+            debug(`Remaining DAG order ${this._dag.order}.`);
+
+            // purge pending patches to save memory
+            for (let vertex of this._dag.V) {
+                const {patch} = this._dag.readObj(vertex);
+                patch.purge(patchToApply);
+            }
+
+            // apply patchToApply to storage, undo all setBlocksToRollback
+            return {patchToApply, setStableBlocks: setAlsoStableVertices, setBlocksToRollback};
+        }
+
+        /**
+         *
+         * @param {String} newVertex
+         * @param {Number} nMajority  nMajority how many witness required to mark as final (how many of them "saw" block)
+         * @returns {Array} of "top stable vertices"
+         * @private
+         */
+        _findTopStable(newVertex, nMajority) {
+            typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
+
+            const arrTopStable = [];
+
+            const arrPaths = this._dag.findPathsDown(newVertex);
+            for (let path of arrPaths) {
+                const vertex = this._findTopStableForPath(path, nMajority);
+                if (vertex) arrTopStable.push(vertex);
+            }
+            return arrTopStable;
+        }
+
+        /**
+         *
+         * @param {Path} path in DAG
+         * @param {Number} nMajority how many witness required to mark as final (how many of them "saw" block)
+         * @returns {String} "top stable vertex" (block hash)
+         * @private
+         */
+        _findTopStableForPath(path, nMajority) {
+            const setWitnessGroupIds = new Set();
+
+            for (let vertex of path) {
+                const {blockHeader} = this._dag.readObj(vertex) || {};
+                if (!blockHeader) continue;
+                setWitnessGroupIds.add(blockHeader.witnessGroupId);
+
+                if (setWitnessGroupIds.size >= nMajority) return vertex;
+            }
+
+            // no stable - return undefined!
+        }
+
+        /**
+         * Form set of vertices that become stable (this SET will include "top stable")
+         *
+         * @param {Array} arrTopStable - of vertices (block hashes)
+         * @returns {Set}
+         * @private
+         */
+        _findAlsoStable(arrTopStable) {
+            typeforce('Array', arrTopStable);
+
+            let setAlsoStableVertices = new Set();
+            for (let vertexTopStable of arrTopStable) {
+                const pathsAlsoStable = this._dag.findPathsDown(vertexTopStable);
+                setAlsoStableVertices = mergeSets(setAlsoStableVertices, new Set(pathsAlsoStable.vertices()));
+            }
+
+            return setAlsoStableVertices;
+        }
+
+        /**
+         *
+         * @param {PatchDB} patchToApply - merged patch that we'll apply to storage
+         * @returns {Set} of hashes block to unroll to mempool
+         * @private
+         */
+        _removeConflictingBranches(patchToApply) {
+            typeforce(types.Patch, patchToApply);
+
+            // TODO: improve it by searching WHICH vertex contain conflict, and remove only vertices above.
+            //      Now we rollback whole branch
+
+            let setBlocksToRollback = new Set();
+            for (let tip of this.getTips()) {
+                const {patch} = this._dag.readObj(tip);
+                try {
+                    patch.merge(patchToApply);
+                } catch (e) {
+
+                    // merge failed! this means that tip is on top of incompatible branch
+                    setBlocksToRollback = mergeSets(
+                        new Set(this._dag.findPathsDown(tip).vertices()),
+                        setBlocksToRollback
+                    );
+                }
+
+            }
+            this._removeBlocks(setBlocksToRollback);
+
+            return setBlocksToRollback;
+        }
+
+        /**
+         *
+         * @param {Set} setBlocks - hashes of blocks (vertices) that we'll remove from DAG
+         * @private
+         */
+        _removeBlocks(setBlocks) {
+            for (let vertex of setBlocks.values()) {
+                this._dag.removeVertex(vertex);
+            }
+        }
+    };
+};

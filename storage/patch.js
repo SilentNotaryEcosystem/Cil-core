@@ -143,12 +143,15 @@ module.exports = ({UTXO, Coins}) =>
 
         /**
          * We need it to prevent patch growth.
-         * When block becomes stable - we apply it to storage and purge those UTXOs from derived patches
+         * When block becomes stable - we apply it to storage and purge those UTXOs from derived patches.
+         * Now it's quite rough: remove only equal UTXO
          *
          * @param {PatchDB} patch - another instance, that we remove from current.
          */
         purge(patch) {
             const arrAnotherCoinsHashes = Array.from(patch._data.coins.keys());
+
+            // TODO: use intersection of UTXOs to make it faster
             for (let hash of arrAnotherCoinsHashes) {
 
                 // keep UTXO if it was changed

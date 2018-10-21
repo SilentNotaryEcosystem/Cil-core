@@ -24,11 +24,16 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             }
         }
 
+        /**
+         *
+         * @returns {Array} of strings!
+         */
         get parentHashes() {
-            return this._data.header.parentHashes;
+            return this._data.header.parentHashes.map(hash => hash.toString('hex'));
         }
 
         set parentHashes(arrStrHashes) {
+            this._hashCache = undefined;
             this._data.header.parentHashes = arrStrHashes.map(strHash => Buffer.from(strHash, 'hex'));
         }
 
@@ -53,6 +58,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         set mci(value) {
+            this._hashCache = undefined;
             return this._data.header.mci = value;
         }
 
@@ -71,6 +77,15 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
                 this._hashCache = Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
             }
             return this._hashCache;
+        }
+
+        /**
+         * Alias for hash()
+         *
+         * @returns {String}
+         */
+        getHash() {
+            return this.hash();
         }
 
         /**
