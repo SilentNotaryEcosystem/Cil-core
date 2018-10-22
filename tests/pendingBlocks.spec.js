@@ -7,7 +7,7 @@ const debug = require('debug')('pendingBlocksManager:');
 
 const factory = require('./testFactory');
 
-const {pseudoRandomBuffer, createDummyBlock, createDummyTx} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock, createDummyTx, createNonMergeablePatch} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 
 const createBlockWithTx = (witnessId = 0, mci = 15) => {
@@ -271,71 +271,98 @@ describe('Pending block manager', async () => {
             assert.isOk(arrayEquals(pbm.getTips(), [block4.getHash()]));
         });
 
-//        it('should reach the FINALITY (3 groups)', async () => {
-//            const numOfWitnessGroup=3;
-//
-//            // see illustration
-//            const block1 = createDummyBlock(factory, 0, 0);
-//            const block2 = createDummyBlock(factory, 1, 0);
-//            const block3 = createDummyBlock(factory, 2, 0);
-//
-//            pbm.addBlock(block2, new factory.PatchDB());
-//
-//            const patchThatWouldntMerge = new factory.PatchDB();
-//
-//            // this will cause an exception if we try to merge it
-//            patchThatWouldntMerge._data = undefined;
-//            pbm.addBlock(block3, patchThatWouldntMerge);
-//
-//            let block5;
-//            {
-//                const {arrParents, mci} = await pbm.getBestParents();
-//
-//                // block 3 (or 2) will fail to merge
-//                assert.equal(arrParents.length, 1);
-//                assert.equal(mci, 1);
-//
-//                block5 = createDummyBlock(factory, 1, mci);
-//                block5.parentHashes = arrParents;
-//                pbm.addBlock(block5, patchThatWouldntMerge);
-//            }
-//
-//            {
-//                const {arrParents, mci} = await pbm.getBestParents();
-//                assert.equal(arrParents.length, 1);
-//                assert.equal(mci, 2);
-//
-//                const block6 = createDummyBlock(factory, 1, mci);
-//                block6.parentHashes = arrParents;
-//                pbm.addBlock(block6, patchThatWouldntMerge);
-//                const result = pbm.checkFinality(block6.getHash(), numOfWitnessGroup);
-//
-//                // no finality
-//                assert.notOk(result);
-//            }
-//
-//            // connection to group0 restored
-//            pbm.addBlock(block1, new factory.PatchDB());
-//            {
-//                const result = pbm.checkFinality(block1.getHash(), numOfWitnessGroup);
-//
-//                // no finality
-//                assert.notOk(result);
-//            }
-//
-//            const block7 = createDummyBlock(factory, 0, 2);
-//            {
-//                block7.parentHashes = [block1.getHash(), block5.getHash()];
-//                pbm.addBlock(block7, new factory.PatchDB());
-//                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfWitnessGroup);
-//
-//                // finality!
-//                assert.equal(setBlocksToRollback.size, 0);
-//
-//                // it's block 5 & 2 (or 3)
-//                assert.equal(setStableBlocks.size, 2);
-//            }
-//
-//        });
+        it('should reach the FINALITY (3 groups. conflicting branches)', async () => {
+
+            const numOfWitnessGroup = 3;
+
+            // see illustration page "rejected block consensus"
+            const block1 = createDummyBlock(factory, 0, 0);
+            const block2 = createDummyBlock(factory, 1, 0);
+            const block3 = createDummyBlock(factory, 2, 0);
+
+            pbm.addBlock(block2, new factory.PatchDB());
+
+            const patchThatWouldntMerge = createNonMergeablePatch(factory);
+
+            // this will cause an exception if we try to merge it
+            patchThatWouldntMerge._data = undefined;
+            pbm.addBlock(block3, patchThatWouldntMerge);
+
+            let block5;
+            {
+                const {arrParents, mci} = await pbm.getBestParents();
+
+                // block 3 (or 2) will fail to merge
+                assert.equal(arrParents.length, 1);
+                assert.equal(mci, 1);
+
+                block5 = createDummyBlock(factory, 1, mci);
+                block5.parentHashes = arrParents;
+                pbm.addBlock(block5, new factory.PatchDB());
+            }
+
+            let block6;
+            {
+                const {arrParents, mci} = await pbm.getBestParents();
+                assert.equal(arrParents.length, 1);
+                assert.equal(mci, 2);
+
+                block6 = createDummyBlock(factory, 1, mci);
+                block6.parentHashes = arrParents;
+                pbm.addBlock(block6, new factory.PatchDB());
+                const result = pbm.checkFinality(block6.getHash(), numOfWitnessGroup);
+
+                // no finality
+                assert.notOk(result);
+            }
+
+            // connection to group0 restored
+            pbm.addBlock(block1, new factory.PatchDB());
+            {
+                const result = pbm.checkFinality(block1.getHash(), numOfWitnessGroup);
+
+                // no finality
+                assert.notOk(result);
+            }
+
+            const block7 = createDummyBlock(factory, 0, 2);
+            {
+                block7.parentHashes = [block1.getHash(), block5.getHash()];
+                pbm.addBlock(block7, new factory.PatchDB());
+
+                // finality!
+                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfWitnessGroup);
+
+                assert.equal(setBlocksToRollback.size, 1);
+                assert.isOk(setBlocksToRollback.has(block3.getHash()));
+
+                // it's block 5 & 2 (or 3)
+                assert.equal(setStableBlocks.size, 2);
+            }
+
+            const block8 = createDummyBlock(factory, 1, 3);
+            {
+                const {arrParents, mci} = await pbm.getBestParents();
+                assert.equal(arrParents.length, 2);
+                assert.equal(mci, 3);
+
+                // chain through 7->1 (vs 6) will be more witnessed
+                assert.equal(arrParents[0], block7.getHash());
+                assert.equal(arrParents[1], block6.getHash());
+
+                block8.parentHashes = arrParents;
+                pbm.addBlock(block8, new factory.PatchDB());
+
+                // finality!
+                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block8.getHash(), numOfWitnessGroup);
+
+                // block 3 is already deleted
+                assert.equal(setBlocksToRollback.size, 0);
+
+                // it's block 7 & 1
+                assert.equal(setStableBlocks.size, 2);
+            }
+
+        });
     });
 });

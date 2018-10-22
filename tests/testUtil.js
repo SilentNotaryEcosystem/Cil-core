@@ -40,5 +40,12 @@ module.exports = {
         return block;
     },
 
-    pseudoRandomBuffer
+    pseudoRandomBuffer,
+
+    createNonMergeablePatch: (factory) => {
+        const patch = new factory.PatchDB();
+        const patchThatWouldntMerge = new factory.PatchDB();
+        patchThatWouldntMerge._data = undefined;
+        return patchThatWouldntMerge;
+    }
 };

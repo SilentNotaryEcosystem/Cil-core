@@ -6,7 +6,7 @@ const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, createNonMergeablePatch} = require('./testUtil');
 
 const createUtxo = (arrIndexes) => {
     const txHash = pseudoRandomBuffer(32).toString('hex');
@@ -213,5 +213,13 @@ describe('PatchDB', () => {
 
         assert.isOk(patch.getComplexity() === 1);
         assert.isOk(mergedPatch.getComplexity() === 2);
+    });
+
+    it('should create patch that woldn\'t merge', async () => {
+        const patch = new factory.PatchDB();
+        const patchThatWouldntMerge = createNonMergeablePatch(factory);
+
+        assert.throws(() => patch.merge(patchThatWouldntMerge));
+        assert.throws(() => patchThatWouldntMerge.merge(patch));
     });
 });

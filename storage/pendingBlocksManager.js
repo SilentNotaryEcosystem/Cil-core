@@ -101,13 +101,7 @@ module.exports = (factory) => {
             const arrParents = [];
             let mci = 1;
 
-            // get max witnessed path for all tips
-            const arrWitnessNums = arrTips.map(vertex => this.getVertexWitnessBelow(vertex));
-
-            // sort it descending
-            const sortedDownTipIndexes = arrTips
-                .map((e, i) => i)
-                .sort((i1, i2) => arrWitnessNums[i2] - arrWitnessNums[i1]);
+            const sortedDownTipIndexes = this._sortTips(arrTips);
 
             let patchMerged = null;
             for (let i of sortedDownTipIndexes) {
@@ -138,10 +132,42 @@ module.exports = (factory) => {
             return {
 
                 // TODO: review this condition
-                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
+//                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
+                arrParents: arrParents,
                 mci,
                 patchMerged
             };
+        }
+
+        /**
+         * In a case of conflict of tips we should prefer those path, that consumed more network resources.
+         * So we start from path, that:
+         * - had seen most of witness
+         * - if they are equal - we'll leave longest one
+         *
+         * @param {Array} arrTips
+         * @returns {Array} sorted array of tips indexes
+         * @private
+         */
+        _sortTips(arrTips) {
+
+            // get max witnessed path for all tips
+            const arrWitnessNums = arrTips.map(vertex => this.getVertexWitnessBelow(vertex));
+
+            // sort it descending
+            return arrTips
+                .map((e, i) => i)
+                .sort((i1, i2) => {
+                    const diff = arrWitnessNums[i2] - arrWitnessNums[i1];
+
+                    // equal WitnessNum
+                    if (!diff) {
+                        return this._dag.findPathsDown(arrWitnessNums[i2]).getLongestPathLength() -
+                               this._dag.findPathsDown(arrWitnessNums[i1]).getLongestPathLength();
+                    } else {
+                        return diff;
+                    }
+                });
         }
 
         /**
@@ -189,12 +215,12 @@ module.exports = (factory) => {
             const setAlsoStableVertices = this._findAlsoStable(arrTopStable);
             this._removeBlocks(setAlsoStableVertices);
 
-            debug(`Removed ${setAlsoStableVertices.size} alsoStables`);
+            debug(`Removed total ${setAlsoStableVertices.size} stable`);
 
             // remove bad chains (their tips will conflict with patchToApply)
             const setBlocksToRollback = this._removeConflictingBranches(patchToApply);
 
-            debug(`Removed ${setBlocksToRollback.size} blocks from conflicting branches`);
+            if (setBlocksToRollback.size) debug(`Removed ${setBlocksToRollback.size} blocks from conflicting branches`);
             debug(`Remaining DAG order ${this._dag.order}.`);
 
             // purge pending patches to save memory
