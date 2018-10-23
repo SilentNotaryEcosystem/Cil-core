@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('block:test');
 
 const factory = require('./testFactory');
-const {createDummyTx} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 
 describe('Block tests', () => {
     before(async function() {
@@ -29,6 +29,40 @@ describe('Block tests', () => {
     it('should create block for specified group', async () => {
         const block = new factory.Block(3);
         assert.equal(block.witnessGroupId, 3);
+    });
+
+    it('should test block header fields', async () => {
+        const block = new factory.Block(7);
+
+        const keyPair = factory.Crypto.createKeyPair();
+        const tx = new factory.Transaction(createDummyTx());
+        tx.sign(0, keyPair.privateKey);
+
+        block.parentHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+
+        block.addTx(tx);
+        block.finish(factory.Constants.MIN_TX_FEE, keyPair.publicKey);
+
+        assert.isOk(block.header.timestamp);
+        assert.equal(block.header.version, 1);
+        assert.equal(block.header.witnessGroupId, 7);
+
+        assert.isOk(Array.isArray(block.header.parentHashes));
+        assert.equal(block.header.parentHashes.length, 2);
+        assert.isOk(Buffer.isBuffer(block.header.parentHashes[0]));
+
+        assert.isOk(block.getHash());
+        assert.isOk(Buffer.isBuffer(block.header.merkleRoot));
+    });
+
+    it('should test getter/setters', async () => {
+        const block = new factory.Block(0);
+
+        block.parentHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+        assert.isOk(Array.isArray(block.parentHashes));
+        assert.isOk(block.parentHashes.length, 2);
+        assert.isOk(typeof block.parentHashes[0] === 'string');
+
     });
 
     it('should calc hash', async () => {

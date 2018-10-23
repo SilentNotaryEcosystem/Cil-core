@@ -356,10 +356,9 @@ module.exports = (factory) => {
         async _createBlock(groupId) {
 
             const block = new Block(groupId);
-            const {arrParents, patchMerged, mci} = await this._pendingBlocks.getBestParents();
+            const {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
             assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
             block.parentHashes = arrParents;
-            block.mci = mci;
 
             const arrBadHashes = [];
             let totalFee = 0;

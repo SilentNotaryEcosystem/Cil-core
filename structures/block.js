@@ -3,13 +3,14 @@ const MerkleTree = require('merkletreejs');
 const types = require('../types');
 
 module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProto}) =>
+
     class Block {
         constructor(data) {
             typeforce(typeforce.oneOf('Object', 'Buffer', 'Number'), data);
 
             this._final = false;
             if (typeof data === 'number') {
-                data = {header: blockHeaderProto.create({witnessGroupId: data, mci: 0})};
+                data = {header: blockHeaderProto.create({witnessGroupId: data})};
             }
 
             if (Buffer.isBuffer(data)) {
@@ -22,6 +23,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             } else {
                 throw new Error('witnessGroupId mandatory for block creation');
             }
+
+            if (!this._data.header.version) this._data.header.version = Constants.BLOCK_VERSION || 1;
         }
 
         /**
@@ -51,15 +54,6 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
         get signatures() {
             return this._data.signatures;
-        }
-
-        get mci() {
-            return this._data.header.mci;
-        }
-
-        set mci(value) {
-            this._hashCache = undefined;
-            return this._data.header.mci = value;
         }
 
         get header() {
@@ -143,10 +137,13 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             coinbase.witnessGroupId = this.witnessGroupId;
             coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
 
-            // to make coinbase hash unique
+            // to make coinbase hash unique add one more random output with 0 coins
             coinbase.addReceiver(0, Crypto.randomBytes(20));
 
             this._data.txns.unshift(coinbase.rawData);
+
+            this._data.header.timestamp = parseInt(Date.now() / 1000);
+
             this._final = true;
         }
 

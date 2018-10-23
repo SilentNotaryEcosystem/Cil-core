@@ -33,9 +33,8 @@ module.exports = {
         }
     }),
 
-    createDummyBlock: (factory, witnessId = 0, mci = 15) => {
+    createDummyBlock: (factory, witnessId = 0) => {
         const block = new factory.Block(witnessId);
-        block.mci = mci;
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
         return block;
     },

@@ -632,7 +632,7 @@ module.exports = (factory) => {
         }
 
         isGenezisBlock(block) {
-            return block.hash() === Constants.GENEZIS_BLOCK && block.mci === 0;
+            return block.hash() === Constants.GENEZIS_BLOCK;
         }
 
         /**

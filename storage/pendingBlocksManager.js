@@ -87,7 +87,7 @@ module.exports = (factory) => {
         /**
          * It will check "compatibility" of tips (ability to merge patches)
          *
-         * @returns {arrParents, mci} - mci for new block
+         * @returns {arrParents}
          * @private
          */
         async getBestParents() {
@@ -99,7 +99,6 @@ module.exports = (factory) => {
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
             const arrParents = [];
-            let mci = 1;
 
             const sortedDownTipIndexes = this._sortTips(arrTips);
 
@@ -122,7 +121,6 @@ module.exports = (factory) => {
                         patchMerged = patchMerged.merge(patch);
                     }
                     arrParents.push(vertex);
-                    mci = blockHeader.mci !== undefined && mci > blockHeader.mci ? mci : blockHeader.mci + 1;
                 } catch (e) {
 
                     // TODO: rework it. this implementation (merging most witnessed vertex with other) could be non optimal
@@ -132,9 +130,8 @@ module.exports = (factory) => {
             return {
 
                 // TODO: review this condition
-//                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
-                arrParents: arrParents,
-                mci,
+                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
+//                arrParents: arrParents,
                 patchMerged
             };
         }

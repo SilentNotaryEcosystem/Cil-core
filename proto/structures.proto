@@ -39,7 +39,8 @@ message BlockHeader{
     repeated bytes parentHashes=1;
     bytes merkleRoot =2;
     uint32 witnessGroupId=3;
-    uint32 mci=4;
+    uint32 timestamp=6;
+    uint32 version=7;
 }
 
 message Block{
