@@ -9,7 +9,7 @@ const debug = debugLib('mempool:');
 
 // TODO: add tx expiration (14 days?)
 
-module.exports = ({Transaction}) =>
+module.exports = ({Constants, Transaction}) =>
     class Mempool {
         constructor(options) {
             this._mapTxns = new Map();
@@ -37,6 +37,26 @@ module.exports = ({Transaction}) =>
             }
         }
 
+        purgeTxns() {
+            const _now = Date.now()
+            const _mapArray = [...this._mapTxns]
+            let oldestTxHashes = []
+            if (_mapArray.length > Constants.MEMPOOL_TX_QTY) {
+                oldestTxHashes = _mapArray
+                    .sort((a, b) => a[1].arrived - b[1].arrived)
+                    .slice(0, _mapArray.length - Constants.MEMPOOL_TX_QTY)
+                    .map((e) => e[0])
+            }
+            for (let [hash, tx] of this._mapTxns) {
+                if (tx.arrived < _now - Constants.MEMPOOL_TX_LIFETIME && !oldestTxHashes.includes(hash)) {
+                    oldestTxHashes.push(hash)
+                }
+            }
+            for (let delHash of oldestTxHashes) {
+                this._mapTxns.delete(delHash)
+            }
+        }
+        
         hasTx(txHash) {
             typeforce(types.Hash256bit, txHash);
 
