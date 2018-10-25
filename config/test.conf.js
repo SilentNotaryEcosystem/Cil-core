@@ -61,6 +61,8 @@ module.exports = {
         // how much we suppress creating empty blocks
         WITNESS_HOLDOFF: 15 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
-        MIN_TX_FEE: 1000
+        MIN_TX_FEE: 1000,
+        MEMPOOL_TX_QTY: 2,
+        MEMPOOL_TX_LIFETIME: 5000
     }
 };
