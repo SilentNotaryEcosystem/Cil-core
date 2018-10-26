@@ -1,6 +1,7 @@
 const typeforce = require('typeforce');
 const MerkleTree = require('merkletreejs');
 const types = require('../types');
+const {timestamp} = require('../utils');
 
 module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProto}) =>
 
@@ -97,13 +98,18 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             });
             const tree = new MerkleTree(leaves, Crypto.createHashBuffer.bind(Crypto), {isBitcoinTree: true});
 
-            // tree.getRoot() returns buffer
-            this._data.header.merkleRoot = tree.getRoot();
+            // tree.getRoot() returns buffer, BUT return string if has only one leaf (coinbase)!!
+            this._data.header.merkleRoot = Buffer.from(tree.getRoot(), 'hex');
         }
 
         encode() {
             if (!this._final) throw new Error('Call finish() before encoding');
             return blockProto.encode(this._data).finish();
+        }
+
+        encodeHeader() {
+            if (!this._final) throw new Error('Call finish() before encoding');
+            return blockHeaderProto.encode(this._data.header).finish();
         }
 
         /**
@@ -141,9 +147,9 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             coinbase.addReceiver(0, Crypto.randomBytes(20));
 
             this._data.txns.unshift(coinbase.rawData);
+            this._buildTxTree();
 
-            this._data.header.timestamp = parseInt(Date.now() / 1000);
-
+            this._data.header.timestamp = timestamp();
             this._final = true;
         }
 

@@ -80,3 +80,10 @@ message WitnessGroupDefinition{
     uint32 groupId=3;
     uint32 quorum=4;
 }
+
+//--------------- Block summary info (for storage) -----
+
+message BlockInfo{
+    BlockHeader header=1;
+    uint32 isBad=2;
+}

@@ -54,6 +54,7 @@ const InventoryWrapper = require('../structures/inventory');
 const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
 const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
+const BlockInfoWrapper = require('../structures/blockInfo');
 
 const pack = require('../package');
 
@@ -74,14 +75,13 @@ class Factory {
 
                 // prototypes
                 this._coinsImplementation = CoinsWrapper(this);
-                this._transactionImplementation =
-                    TransactionWrapper(this, prototypes);
+                this._transactionImplementation = TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
-                this._messagesImplementation =
-                    MessagesWrapper(this, prototypes);
+                this._messagesImplementation = MessagesWrapper(this, prototypes);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
+                this._blockInfo = BlockInfoWrapper(this, prototypes);
 
                 //
                 this._serializerImplementation = SerializerWrapper(this.Messages);
@@ -215,6 +215,10 @@ class Factory {
         return this._blockImplementation;
     }
 
+    get BlockInfo() {
+        return this._blockInfo;
+    }
+
     get Inventory() {
         return this._inventoryImplementation;
     }
@@ -263,6 +267,7 @@ class Factory {
 
             blockProto: protoStructures.lookupType("structures.Block"),
             blockHeaderProto: protoStructures.lookupType("structures.BlockHeader"),
+            blockInfoProto: protoStructures.lookupType("structures.BlockInfo"),
 
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 

@@ -115,5 +115,4 @@ describe('Block tests', () => {
         const restoredTx = new factory.Transaction(restoredBlock.txns[1]);
         assert.isOk(restoredTx.equals(tx));
     });
-
 });
