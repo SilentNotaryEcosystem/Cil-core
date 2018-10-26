@@ -7,16 +7,8 @@ const debug = require('debug')('pendingBlocksManager:');
 
 const factory = require('./testFactory');
 
-const {pseudoRandomBuffer, createDummyBlock, createDummyTx, createNonMergeablePatch} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch} = require('./testUtil');
 const {arrayEquals} = require('../utils');
-
-const createBlockWithTx = (witnessId = 0) => {
-    const block = new factory.Block(witnessId);
-    const tx = createDummyTx(undefined, witnessId);
-    block.addTx(tx);
-    block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
-    return block;
-};
 
 /**
  * Duplicate block, but change witnessGroupId & change tx
@@ -47,11 +39,7 @@ describe('Pending block manager', async () => {
         ];
         pbm.addBlock(block, new factory.PatchDB());
 
-        // 4 vertices: block hash + 3 parents
-        assert.equal(pbm.getDag().order, 4);
-
-        // 3 edges to parents
-        assert.equal(pbm.getDag().size, 3);
+        assert.equal(pbm.getDag().order, 1);
     });
 
     it('should test "finalParentsForBlock"', async () => {
@@ -213,7 +201,7 @@ describe('Pending block manager', async () => {
         it('should reach the FINALITY (majority of 1)', async function() {
             this.timeout(15000);
 
-            const block1 = createDummyBlock(factory, 1, 10);
+            const block1 = createDummyBlock(factory, 1);
             pbm.addBlock(block1, new factory.PatchDB());
 
             const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block1.getHash(), 1);
@@ -225,8 +213,8 @@ describe('Pending block manager', async () => {
         });
 
         it('should reach the FINALITY (simple chain produced by 2 witnesses)', async () => {
-            const block1 = createDummyBlock(factory, 1, 10);
-            const block2 = createDummyBlock(factory, 2, 11);
+            const block1 = createDummyBlock(factory, 1);
+            const block2 = createDummyBlock(factory, 2);
             block2.parentHashes = [
                 block1.getHash()
             ];
@@ -243,10 +231,10 @@ describe('Pending block manager', async () => {
         });
 
         it('should reach the FINALITY (chain produced by 2 witnesses, one long by one)', async () => {
-            const block1 = createDummyBlock(factory, 1, 10);
-            const block2 = createDummyBlock(factory, 1, 11);
-            const block3 = createDummyBlock(factory, 1, 12);
-            const block4 = createDummyBlock(factory, 2, 11);
+            const block1 = createDummyBlock(factory, 1);
+            const block2 = createDummyBlock(factory, 1);
+            const block3 = createDummyBlock(factory, 1);
+            const block4 = createDummyBlock(factory, 2);
 
             block2.parentHashes = [block1.getHash()];
             block3.parentHashes = [block2.getHash()];

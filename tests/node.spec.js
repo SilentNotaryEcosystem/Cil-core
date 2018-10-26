@@ -7,7 +7,13 @@ const {sleep} = require('../utils');
 const debug = require('debug')('node:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, createDummyPeer, createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
+const {
+    createDummyTx,
+    createDummyPeer,
+    createDummyBlock,
+    createDummyBlockWithTx,
+    pseudoRandomBuffer
+} = require('./testUtil');
 
 let seedAddress;
 let seedNode;
@@ -411,18 +417,17 @@ describe('Node tests', () => {
     });
 
     it('should process BAD block from MsgBlock', async () => {
-        const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block(0);
-        block.addTx(tx);
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        const block = createDummyBlockWithTx(factory);
 
         const groupDef = createGroupDefAndSignBlock(block);
         const node = new factory.Node({arrTestDefinition: [groupDef]});
 
+        // make this block BAD
         node._app.processTx = sinon.fake.throws('error');
-        node._storage.saveBlock = sinon.fake();
+
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
+        node._verifyBlock = sinon.fake.returns(true);
         node._informNeighbors = sinon.fake();
 
         const peer = new factory.Peer(createDummyPeer(factory));

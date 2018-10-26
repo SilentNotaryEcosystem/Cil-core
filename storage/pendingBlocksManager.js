@@ -34,7 +34,7 @@ module.exports = (factory) => {
 
             this._dag.addVertex(block.getHash());
             for (let strHash of block.parentHashes) {
-                this._dag.add(block.getHash(), strHash);
+                if (this._dag.hasVertex(strHash)) this._dag.add(block.getHash(), strHash);
             }
             this._dag.saveObj(block.getHash(), {patch: patchState, blockHeader: block.header});
         }
@@ -227,7 +227,12 @@ module.exports = (factory) => {
             }
 
             // apply patchToApply to storage, undo all setBlocksToRollback
-            return {patchToApply, setStableBlocks: setAlsoStableVertices, setBlocksToRollback};
+            return {
+                patchToApply,
+                setStableBlocks: setAlsoStableVertices,
+                setBlocksToRollback,
+                arrTopStable
+            };
         }
 
         /**
