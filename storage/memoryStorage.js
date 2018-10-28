@@ -11,10 +11,12 @@ const debug = debugLib('storage:');
 // TODO: use mutex to get|put|patch records !!!
 
 const UTXO_PREFIX = 'c';
-const BLOCK_PREFIX = 'B';
+const BLOCK_PREFIX = 'b';
+const BLOCK_INFO_PREFIX = 'H';
+const LAST_APPLIED_BLOCKS = 'FINAL';
 
 module.exports = (factory) => {
-    const {Constants, Block, UTXO} = factory;
+    const {Constants, Block, BlockInfo, UTXO} = factory;
     return class Storage {
         constructor(options) {
 
@@ -26,6 +28,11 @@ module.exports = (factory) => {
             }
 
             this._db = new Map();
+
+            // possibly it's a good idea to keep blocks separately from UTXO DB
+            // it will allow erase UTXO DB, and rebuild it from block DB
+            // it could be levelDB also, but in different dir
+            this._blockStorage = new Map();
         }
 
         /**
@@ -61,16 +68,44 @@ module.exports = (factory) => {
             return this._groupDefinitions.size;
         }
 
+        async saveBlock(block) {
+            const hash = block.hash();
+
+//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
+            const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
+
+            // save entire block
+            const key = BLOCK_PREFIX + strHash;
+            if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${strHash} already saved!`);
+            this._blockStorage.set(key, block.encode());
+
+            // save blockInfo
+            await this.saveBlockInfo(strHash, new BlockInfo(block.header));
+        }
+
+        /**
+         * Do we have that block? We'll check BlockInfo storage (not block)!
+         *
+         * @param {String | Buffer} blockHash
+         * @return {Promise<boolean>}
+         */
         async hasBlock(blockHash) {
             typeforce(types.Hash256bit, blockHash);
 
-//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
-            const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
-
-            const key = BLOCK_PREFIX + strHash;
-            return !!this._db.get(key);
+            try {
+                await this.getBlockInfo(blockHash);
+                return true;
+            } catch (e) {
+                return false;
+            }
         }
 
+        /**
+         * Return entire block!
+         *
+         * @param {String | Buffer} blockHash
+         * @return {Promise<Block>}
+         */
         async getBlock(blockHash) {
             typeforce(types.Hash256bit, blockHash);
 
@@ -78,9 +113,43 @@ module.exports = (factory) => {
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const key = BLOCK_PREFIX + strHash;
-            const block = this._db.get(key);
+            const block = this._blockStorage.get(key);
             if (!block) throw new Error(`Storage: No block found by hash ${strHash}`);
             return new Block(block);
+        }
+
+        /**
+         * Get BlockInfo @see proto/structures.proto
+         *
+         * @param {String | Buffer} blockHash
+         * @return {Promise<BlockInfo>}
+         */
+        async getBlockInfo(blockHash) {
+            typeforce(types.Hash256bit, blockHash);
+
+//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+            const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
+
+            const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
+            const buffInfo = this._db.get(blockInfoKey);
+            if (!buffInfo) throw new Error(`Storage: No block found by hash ${strHash}`);
+            return new BlockInfo(buffInfo);
+        }
+
+        /**
+         * Get BlockInfo @see proto/structures.proto
+
+         * @param {String | Buffer} blockHash
+         * @param {BlockInfo} blockInfo
+         */
+        async saveBlockInfo(blockHash, blockInfo) {
+            typeforce(types.Hash256bit, blockHash);
+
+//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+            const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
+
+            const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
+            this._db.set(blockInfoKey, blockInfo.encode());
         }
 
         /**
@@ -130,18 +199,6 @@ module.exports = (factory) => {
             return new UTXO({txHash: hash, data: utxo});
         }
 
-        async saveBlock(block) {
-            const hash = block.hash();
-
-//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
-            const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
-            const key = BLOCK_PREFIX + strHash;
-            if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${strHash} already saved!`);
-
-            // TODO: replace to persistent store
-            this._db.set(key, block.encode());
-        }
-
         /**
          *
          * @param {PatchDB} statePatch
@@ -160,6 +217,41 @@ module.exports = (factory) => {
                     this._db.set(key, utxo.encode());
                 }
             }
+        }
+
+        /**
+         * the block hashes up to which the database represents the unspent transaction outputs.
+         *
+         * @return {Promise<Array>} of buffers. each is hash of last stable block
+         */
+        async getLastAppliedBlocks() {
+
+            // TODO: storage of array in levelDB not so simple. i think we need serialization
+            const result = this._db.get(LAST_APPLIED_BLOCKS);
+            return Array.isArray(result) ? result : [];
+        }
+
+        /**
+         * the block hashes up to which the database represents the unspent transaction outputs.
+         *
+         * @param {Array} arrBlockHashes
+         * @return {Promise<void>}
+         */
+        async updateLastAppliedBlocks(arrBlockHashes) {
+            typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
+
+            const mapBlockInfo = new Map();
+            const arrFinalBlocks = await this.getLastAppliedBlocks();
+
+            // Get ALL BlockInfos. First for current LAST_APPLIED_BLOCKS, then for replacement
+            const arrConcatedHashes = arrFinalBlocks.concat(arrBlockHashes);
+            for (let buffHash of arrConcatedHashes) {
+                const blockInfo = await this.getBlockInfo(buffHash);
+                mapBlockInfo.set(blockInfo.getWitnessId(), buffHash);
+            }
+
+            // TODO: storage of array in levelDB not so simple. i think we need serialization
+            this._db.set(LAST_APPLIED_BLOCKS, [...mapBlockInfo.values()]);
         }
     };
 };

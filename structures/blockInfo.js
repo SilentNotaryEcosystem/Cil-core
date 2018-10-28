@@ -26,6 +26,10 @@ module.exports = ({Constants}, {blockInfoProto, blockHeaderProto}) =>
             }
         }
 
+        getWitnessId() {
+            return this._data.header.witnessGroupId;
+        }
+
         getHeader() {
             return this._data.header;
         }
