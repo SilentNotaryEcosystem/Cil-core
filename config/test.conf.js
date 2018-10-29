@@ -63,6 +63,8 @@ module.exports = {
         MAX_BLOCK_SIZE: 1024,
         MIN_TX_FEE: 1000,
         MEMPOOL_TX_QTY: 2,
-        MEMPOOL_TX_LIFETIME: 5000
+        MEMPOOL_TX_LIFETIME: 5000,
+        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000
+
     }
 };
