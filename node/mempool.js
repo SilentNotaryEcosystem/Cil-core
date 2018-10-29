@@ -2,17 +2,21 @@
 
 const typeforce = require('typeforce');
 const debugLib = require('debug');
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
 const types = require('../types');
+const Tick = require('tick-tock');
 
 const debug = debugLib('mempool:');
 
 // TODO: add tx expiration (14 days?)
 
-module.exports = ({Constants, Transaction}) =>
+module.exports = ({ Constants, Transaction }) =>
     class Mempool {
         constructor(options) {
             this._mapTxns = new Map();
+            this._tock = new Tick(this);
+            this._tock.setInterval('outdatedTimer', this.purgeOutdated.bind(this), Constants.MEMPOOL_OUTDATED_INTERVAL);
+
         }
 
         /**
@@ -37,26 +41,13 @@ module.exports = ({Constants, Transaction}) =>
             }
         }
 
-        purgeTxns() {
-            const _now = Date.now()
-            const _mapArray = [...this._mapTxns]
-            let oldestTxHashes = []
-            if (_mapArray.length > Constants.MEMPOOL_TX_QTY) {
-                oldestTxHashes = _mapArray
-                    .sort((a, b) => a[1].arrived - b[1].arrived)
-                    .slice(0, _mapArray.length - Constants.MEMPOOL_TX_QTY)
-                    .map((e) => e[0])
-            }
-            for (let [hash, tx] of this._mapTxns) {
-                if (tx.arrived < _now - Constants.MEMPOOL_TX_LIFETIME && !oldestTxHashes.includes(hash)) {
-                    oldestTxHashes.push(hash)
+        purgeOutdated() {
+            this._mapTxns.forEach((tx, hash) => {
+                if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
+                    this._mapTxns.delete(hash)
                 }
-            }
-            for (let delHash of oldestTxHashes) {
-                this._mapTxns.delete(delHash)
-            }
+            })
         }
-        
         hasTx(txHash) {
             typeforce(types.Hash256bit, txHash);
 
@@ -77,7 +68,7 @@ module.exports = ({Constants, Transaction}) =>
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
             // TODO: implement check for double spend by different witness group
-            this._mapTxns.set(strHash, {tx, arrived: Date.now()});
+            this._mapTxns.set(strHash, { tx, arrived: Date.now() });
             debug(`TX ${strHash} added`);
         }
 
