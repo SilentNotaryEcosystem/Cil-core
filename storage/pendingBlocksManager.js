@@ -107,7 +107,7 @@ module.exports = (factory) => {
                 const vertex = arrTips[i];
 
                 // merge tips with max witnessed paths first
-                const {patch, blockHeader} = this._dag.readObj(vertex) || {};
+                const {patch} = this._dag.readObj(vertex) || {};
 
                 // this patch (block) already finial applied to storage, and removed from DAG
                 if (!patch) continue;
@@ -193,6 +193,12 @@ module.exports = (factory) => {
             return patchMerged ? patchMerged : new PatchDB();
         }
 
+        /**
+         *
+         * @param {String} newVertex - blockHash of processed block
+         * @param {Number} nGroupCount - how many groups definition existed now
+         * @return {{patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
+         */
         checkFinality(newVertex, nGroupCount) {
             typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
 

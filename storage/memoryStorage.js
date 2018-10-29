@@ -84,7 +84,7 @@ module.exports = (factory) => {
         }
 
         /**
-         * Do we have that block? We'll check BlockInfo storage (not block)!
+         * Did we ever received that block? We'll check BlockInfo storage (not block)!
          *
          * @param {String | Buffer} blockHash
          * @return {Promise<boolean>}
@@ -98,6 +98,23 @@ module.exports = (factory) => {
             } catch (e) {
                 return false;
             }
+        }
+
+        /**
+         * Remove entire block from storage.
+         * It will keep it's BlockInfo!
+         *
+         * @param {String | Buffer} blockHash
+         * @return {Promise<void>}
+         */
+        async removeBlock(blockHash) {
+            typeforce(types.Hash256bit, blockHash);
+
+//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+            const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
+
+            const key = BLOCK_PREFIX + strHash;
+            await this._blockStorage.delete(key);
         }
 
         /**
@@ -150,6 +167,23 @@ module.exports = (factory) => {
 
             const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
             this._db.set(blockInfoKey, blockInfo.encode());
+        }
+
+        /**
+         * Set BlockInfo.isBad for specified hash
+         * Remove from block storage, to save space
+         *
+         * @param {Set} setBlockHashes - keys are hashes
+         * @return {Promise<void>}
+         */
+        async removeBadBlocks(setBlockHashes) {
+            for (let blockHash of setBlockHashes) {
+                const bi = await this.getBlockInfo(blockHash);
+                bi.markAsBad();
+                await this.saveBlockInfo(blockHash, bi);
+
+                await this.removeBlock(blockHash);
+            }
         }
 
         /**

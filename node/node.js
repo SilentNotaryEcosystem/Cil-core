@@ -308,6 +308,7 @@ module.exports = (factory) => {
                     return;
                 }
 
+                // TODO: check parents, and process only if we have them!
                 await this._verifyBlock(block);
                 const patchState = await this._processBlock(block);
                 await this._acceptBlock(block, patchState);
@@ -579,7 +580,6 @@ module.exports = (factory) => {
 
                 const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
 
-                // TODO: consider using a cache patch from mempool?
                 const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
                 blockFees += fee;
             }
@@ -599,21 +599,36 @@ module.exports = (factory) => {
 
         async _acceptBlock(block, patchState) {
 
-            // save block to graph of pending blocks
-            this._pendingBlocks.addBlock(block, patchState);
-
             // write raw block to storage (we store similar all blocks including pending)
             await this._storage.saveBlock(block);
 
-            // TODO: store _dagPendingBlocks with ref to that block as pending
+            // save block to graph of pending blocks
+            this._pendingBlocks.addBlock(block, patchState);
 
             this._mempool.removeForBlock(block.getTxHashes());
 
-            // TODO: implement check for finality here!! Store patches, until we decide block is final, and apply it one by one to storage
-//            await this._storage.applyPatch(patchState);
-            await this._checkFinality(block);
+            // check for finality
+            await this._processFinialityResults(
+                await this._pendingBlocks.checkFinality(block.getHash(), await this._storage.getWitnessGroupsCount())
+            );
 
             this._informNeighbors(block);
+        }
+
+        async _processFinialityResults(result) {
+            if (!result) return;
+            const {
+                patchToApply,
+                setAlsoStableVertices,
+                setBlocksToRollback,
+                arrTopStable
+            } = result;
+
+            await this._storage.applyPatch(patchToApply);
+            await this._storage.updateLastAppliedBlocks(arrTopStable);
+            await this._storage.removeBadBlocks(setBlocksToRollback);
+
+            // TODO: use setAlsoStableVertices to process blocksInFlight
         }
 
         /**
@@ -681,10 +696,6 @@ module.exports = (factory) => {
                     `Bad signature for block ${block.hash()}!`
                 );
             }
-        }
-
-        _checkFinality(block) {
-
         }
     };
 };

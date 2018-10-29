@@ -288,4 +288,32 @@ describe('Storage tests', () => {
         assert.isOk(arrayEquals(await storage.getLastAppliedBlocks(), arrExpected));
     });
 
+    it('should removeBadBlocks', async () => {
+        const storage = new factory.Storage({});
+        const block1 = createDummyBlock(factory, 0);
+        const block2 = createDummyBlock(factory, 1);
+        const block3 = createDummyBlock(factory, 10);
+
+        // save them
+        await storage.saveBlock(block1);
+        await storage.saveBlock(block2);
+        await storage.saveBlock(block3);
+
+        // remove it
+        await storage.removeBadBlocks(new Set([block1.getHash(), block3.getHash()]));
+
+        const bi1 = await storage.getBlockInfo(block1.getHash());
+        assert.isOk(bi1.isBad());
+        assert.isOk(await await storage.hasBlock(block1.getHash()));
+
+        const bi2 = await storage.getBlockInfo(block2.getHash());
+        assert.isNotOk(bi2.isBad());
+        assert.isOk(await await storage.hasBlock(block2.getHash()));
+        await storage.getBlock(block2.getHash());
+
+        const bi3 = await storage.getBlockInfo(block3.getHash());
+        assert.isOk(bi3.isBad());
+        assert.isOk(await await storage.hasBlock(block3.getHash()));
+    });
+
 });

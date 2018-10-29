@@ -383,17 +383,19 @@ describe('Node tests', () => {
     it('should process good block from MsgBlock', async () => {
         const tx = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
+        const parentBlock = createDummyBlock(factory);
         const block = new factory.Block(0);
         block.addTx(tx);
         block.addTx(tx2);
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
-        block.parentHashes = [pseudoRandomBuffer().toString('hex')];
+        block.parentHashes = [parentBlock.getHash()];
 
         const groupDef = createGroupDefAndSignBlock(block);
         const node = new factory.Node({arrTestDefinition: [groupDef]});
 
+        node._storage.saveBlock(parentBlock);
+
         node._app.processTx = sinon.fake.returns({});
-        node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
         node._pendingBlocks.finalParentsForBlock = sinon.fake.returns([]);
@@ -409,7 +411,8 @@ describe('Node tests', () => {
 
         assert.isOk(node._app.processTx.called);
         assert.isOk(node._app.processTx.callCount, 2);
-        assert.isOk(node._storage.saveBlock.calledOnce);
+        assert.isOk(await node._storage.getBlock(block.getHash()));
+        assert.isOk(await node._storage.getBlock(parentBlock.getHash()));
         assert.isOk(node._informNeighbors.calledOnce);
 
         assert.isNotOk(peer.ban.called);
