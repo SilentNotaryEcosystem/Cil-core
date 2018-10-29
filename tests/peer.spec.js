@@ -162,4 +162,17 @@ describe('Peer tests', () => {
         assert.isOk(witnessMessageSpy.calledOnce);
         assert.isNotOk(messageSpy.called);
     });
+
+    it('should unban peer after BAN_PEER_TIME', async function()  {
+        this.timeout(6000)
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: () => 0,
+                on: () => {}, close: () => {}
+            }
+        });
+        newPeer.ban()
+        await sleep(5500)
+         assert.isNotOk(newPeer.banned);
+    });
 });
