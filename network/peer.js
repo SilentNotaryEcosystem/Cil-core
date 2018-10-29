@@ -1,6 +1,7 @@
 const EventEmitter = require('events');
 const debug = require('debug')('peer:');
 const {sleep} = require('../utils');
+const Tick = require('tick-tock');
 
 /**
  * Хранит информацию о Peer'е
@@ -12,6 +13,7 @@ const {sleep} = require('../utils');
 module.exports = (factory) => {
     const {Messages, Transport, Constants} = factory;
     const {PeerInfo} = Messages;
+    const PEER_TIMER_NAME = 'peerTimer';
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
@@ -43,6 +45,8 @@ module.exports = (factory) => {
             }
 
             // TODO: add watchdog to unban peers
+            this._tock = new Tick(this);
+            this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
         }
 
         get peerInfo() {
@@ -234,6 +238,11 @@ module.exports = (factory) => {
             debug(`Closing connection to "${this._connection.remoteAddress}"`);
             this._connection.close();
         }
-
+        
+        _tick() {
+            if(this._bBanned && this._bannedTill.getTime() < Date.now()) {
+                this._bBanned = false
+            }
+        }
     };
 };
