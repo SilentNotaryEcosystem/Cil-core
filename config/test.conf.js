@@ -21,7 +21,7 @@ module.exports = {
 
         // 1 day
         BAN_PEER_SCORE: 100,
-        BAN_PEER_TIME: 24 * 60 * 60 * 1000,
+        BAN_PEER_TIME: 5000,// 24 * 60 * 60 * 1000,
 
         messageTypes: {
             MSG_VERSION: 'version',
