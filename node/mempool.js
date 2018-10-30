@@ -48,6 +48,16 @@ module.exports = ({ Constants, Transaction }) =>
                 }
             })
         }
+
+        limitConstraints() {
+            if (this._mapTxns.size < Constants.MEMPOOL_TX_QTY) return
+            let i = Math.floor(this._mapTxns.size / 3)
+            for (let [hash, tx] of this._mapTxns) {
+                this._mapTxns.delete(hash)
+                if (--i == 0) break
+            }
+        }
+
         hasTx(txHash) {
             typeforce(types.Hash256bit, txHash);
 
@@ -62,7 +72,7 @@ module.exports = ({ Constants, Transaction }) =>
          * @param {Transaction} tx - transaction to add
          */
         addTx(tx) {
-
+            this.limitConstraints()
             // TODO: check and forbid for duplicated TX hashes (@see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
             const strHash = tx.hash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
