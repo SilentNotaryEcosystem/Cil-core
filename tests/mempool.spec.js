@@ -142,4 +142,30 @@ describe('Mempool tests', () => {
         assert.isOk(mempool.hasTx(tx1.hash()));
         assert.isOk(mempool.hasTx(tx2.hash()));
     });
+
+    it('should remove oldest txns if tx qty > MEMPOOL_TX_QTY(5)', async () => {
+        const mempool = new factory.Mempool();
+        const tx1 = new factory.Transaction(createDummyTx());
+        const tx2 = new factory.Transaction(createDummyTx());
+        const tx3 = new factory.Transaction(createDummyTx());
+        const tx4 = new factory.Transaction(createDummyTx());
+        const tx5 = new factory.Transaction(createDummyTx());
+        const tx6 = new factory.Transaction(createDummyTx());
+
+        mempool.addTx(tx1)
+        mempool.addTx(tx2)
+        mempool.addTx(tx3)
+        mempool.addTx(tx4)
+        mempool.addTx(tx5)
+        mempool.addTx(tx6)
+
+        assert.isNotOk(mempool.hasTx(tx1.hash()));
+        assert.isOk(mempool.hasTx(tx2.hash()));
+        assert.isOk(mempool.hasTx(tx3.hash()));
+        assert.isOk(mempool.hasTx(tx4.hash()));
+        assert.isOk(mempool.hasTx(tx5.hash()));
+        assert.isOk(mempool.hasTx(tx6.hash()));
+
+    });
+
 });
