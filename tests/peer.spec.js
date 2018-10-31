@@ -1,9 +1,9 @@
-const {describe, it} = require('mocha');
-const {assert} = require('chai');
+const { describe, it } = require('mocha');
+const { assert } = require('chai');
 const sinon = require('sinon');
 const debug = require('debug')('peer:');
 
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
 
 factory = require('./testFactory');
 
@@ -13,7 +13,7 @@ let fakeNode;
 let newPeer;
 
 describe('Peer tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
         address = factory.Transport.generateAddress();
@@ -22,18 +22,18 @@ describe('Peer tests', () => {
 
         peerInfo = new factory.Messages.PeerInfo({
             capabilities: [
-                {service: factory.Constants.NODE, data: null},
-                {service: factory.Constants.WITNESS, data: Buffer.from(keyPair.getPublic(false), 'hex')}
+                { service: factory.Constants.NODE, data: null },
+                { service: factory.Constants.WITNESS, data: Buffer.from(keyPair.getPublic(false), 'hex') }
             ],
             address: factory.Transport.strToAddress(address),
             port: 12345
         });
 
-        fakeNode = new factory.Transport({delay: 0, listenAddr: address});
+        fakeNode = new factory.Transport({ delay: 0, listenAddr: address });
         fakeNode.listen();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -45,8 +45,9 @@ describe('Peer tests', () => {
     it('should create from connection', async () => {
         const newPeer = new factory.Peer({
             connection: {
-                on: () => {},
-                listenerCount: () => 0
+                on: () => { },
+                listenerCount: () => 0,
+                close: () => { }
             }
         });
         assert.isOk(newPeer);
@@ -54,12 +55,12 @@ describe('Peer tests', () => {
     });
 
     it('should create from peerInfo', async () => {
-        const newPeer = new factory.Peer({peerInfo});
+        const newPeer = new factory.Peer({ peerInfo });
         assert.isOk(newPeer);
     });
 
     it('should connect', async () => {
-        newPeer = new factory.Peer({peerInfo});
+        newPeer = new factory.Peer({ peerInfo });
         assert.isOk(newPeer);
 
         await newPeer.connect();
@@ -68,7 +69,7 @@ describe('Peer tests', () => {
     });
 
     it('should emit message upon incoming connection', (done) => {
-        newPeer = new factory.Peer({peerInfo});
+        newPeer = new factory.Peer({ peerInfo });
         assert.isOk(newPeer);
 
         newPeer.connect().then(() => {
@@ -77,7 +78,7 @@ describe('Peer tests', () => {
         });
     });
 
-    it('should queue and send messages', async function() {
+    it('should queue and send messages', async function () {
         this.timeout(5000);
         let nSendMessages = 0;
         const delay = 200;
@@ -85,17 +86,18 @@ describe('Peer tests', () => {
             connection: {
                 remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
                 listenerCount: () => 0,
-                on: () => {},
+                on: () => { },
                 sendMessage: async () => {
 
                     // emulate network latency
                     await sleep(delay);
                     nSendMessages++;
-                }
+                },
+                close: () => { }
             }
         });
         for (let i = 0; i < 5; i++) {
-            newPeer.pushMessage({message: `testMessage${i}`});
+            newPeer.pushMessage({ message: `testMessage${i}` });
         }
         await sleep(delay * 6);
         assert.equal(nSendMessages, 5);
@@ -105,7 +107,8 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
-                on: () => {}
+                on: () => { },
+                close: () => { }
             }
         });
         assert.isOk(newPeer);
@@ -119,7 +122,7 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
-                on: () => {}, close: () => {}
+                on: () => { }, close: () => { }
             }
         });
         assert.isOk(newPeer);
@@ -133,9 +136,9 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             peerInfo: {
                 capabilities: [
-                    {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
+                    { service: factory.Constants.WITNESS, data: Buffer.from('1111') }
                 ],
-                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
+                address: { addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5 }
             }
         });
         assert.isOk(newPeer);
@@ -147,13 +150,13 @@ describe('Peer tests', () => {
         const keyPair = factory.Crypto.createKeyPair();
 
         // create message and sign it with key that doesn't belong to our group
-        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        const msg = new factory.Messages.MsgWitnessCommon({ groupName: 'test' });
         msg.handshakeMessage = true;
         msg.sign(keyPair.getPrivate());
 
         const witnessMessageSpy = sinon.fake();
         const messageSpy = sinon.fake();
-        const newPeer = new factory.Peer({peerInfo});
+        const newPeer = new factory.Peer({ peerInfo });
         await newPeer.connect();
         newPeer.on('witnessMessage', witnessMessageSpy);
         newPeer.on('message', messageSpy);
@@ -163,30 +166,36 @@ describe('Peer tests', () => {
         assert.isNotOk(messageSpy.called);
     });
 
-    it('should unban peer after BAN_PEER_TIME', async function()  {
-        this.timeout(6000)
-        const newPeer = new factory.Peer({
-            connection: {
-                listenerCount: () => 0,
-                on: () => {}, close: () => {}
-            }
-        });
+    it('should unban peer after BAN_PEER_TIME', async function () {
+        this.timeout(7000)
+        const newPeer = new factory.Peer({ peerInfo });
         newPeer.ban()
         await sleep(5500)
-         assert.isNotOk(newPeer.banned);
+        assert.isNotOk(newPeer.banned);
     });
 
-    it('should not unban peer before BAN_PEER_TIME', async function()  {
+    it('should not unban peer before BAN_PEER_TIME', async function () {
         this.timeout(3000)
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
-                on: () => {}, close: () => {}
+                on: () => { }, close: () => { }
             }
         });
         newPeer.ban()
         await sleep(2500)
-         assert.isOk(newPeer.banned);
+        assert.isOk(newPeer.banned);
     });
 
+    it('should disconnect after PEER_CONNECTION_LIFETIME', async function () {
+        this.timeout(10000);
+        const newPeer = new factory.Peer({ peerInfo });
+
+        await newPeer.connect()
+        await sleep(6500)
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+
+    });
 });
