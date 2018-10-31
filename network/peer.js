@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const debug = require('debug')('peer:');
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
 const Tick = require('tick-tock');
 
 /**
@@ -11,13 +11,13 @@ const Tick = require('tick-tock');
  */
 
 module.exports = (factory) => {
-    const {Messages, Transport, Constants} = factory;
-    const {PeerInfo} = Messages;
+    const { Messages, Transport, Constants } = factory;
+    const { PeerInfo } = Messages;
     const PEER_TIMER_NAME = 'peerTimer';
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {connection, peerInfo, lastActionTimestamp, transport} = options;
+            const { connection, peerInfo, lastActionTimestamp, transport } = options;
 
             this._nonce = parseInt(Math.random() * 100000);
 
@@ -38,6 +38,7 @@ module.exports = (factory) => {
                 this._peerInfo = new PeerInfo({
                     address: connection.remoteAddress
                 });
+                this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             } else if (peerInfo) {
                 this.peerInfo = peerInfo;
             } else {
@@ -75,7 +76,7 @@ module.exports = (factory) => {
 
         get isWitness() {
             return Array.isArray(this._peerInfo.capabilities) &&
-                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
         get lastActionTimestamp() {
@@ -166,6 +167,7 @@ module.exports = (factory) => {
                 return;
             }
             this._connection = await this._transport.connect(this.address, this.port);
+            this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
         }
 
@@ -238,10 +240,14 @@ module.exports = (factory) => {
             debug(`Closing connection to "${this._connection.remoteAddress}"`);
             this._connection.close();
         }
-        
+
         _tick() {
-            if(this._bBanned && this._bannedTill.getTime() < Date.now()) {
+            if (this._bBanned && this._bannedTill.getTime() < Date.now()) {
                 this._bBanned = false
+            }
+            if (!this.disconnected && this._connectedTill.getTime() < Date.now()) {
+                this.disconnect()
+                this._connection = undefined
             }
         }
     };
