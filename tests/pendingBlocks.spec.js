@@ -42,19 +42,6 @@ describe('Pending block manager', async () => {
         assert.equal(pbm.getDag().order, 1);
     });
 
-    it('should test "finalParentsForBlock"', async () => {
-        const pbm = new factory.PendingBlocksManager();
-        const block = createDummyBlock(factory);
-        block.parentHashes = [
-            pseudoRandomBuffer().toString('hex'),
-            pseudoRandomBuffer().toString('hex'),
-            pseudoRandomBuffer().toString('hex')
-        ];
-        const arrMissedPatches = pbm.finalParentsForBlock(block);
-        assert.isOk(Array.isArray(arrMissedPatches));
-        assert.equal(arrMissedPatches.length, 3);
-    });
-
     it('should test "getVertexWitnessBelow"', async () => {
         const pbm = new factory.PendingBlocksManager();
 

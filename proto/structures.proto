@@ -85,5 +85,5 @@ message WitnessGroupDefinition{
 
 message BlockInfo{
     BlockHeader header=1;
-    uint32 isBad=2;
+    uint32 flags=2;
 }

@@ -209,10 +209,14 @@ module.exports = (factory) => {
 
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
-                    const patchState = await this._processBlock(block);
+                    if (await this._canExecuteBlock(block)) {
+                        const patchState = await this._execBlock(block);
+                        consensus.processValidBlock(block, patchState);
+                    } else {
+                        throw new Error(`Block ${block.hash()} couldn't be executed right now!`);
+                    }
 
                     // no _accept here, because this block should be voted before
-                    consensus.processValidBlock(block, patchState);
                 } catch (e) {
                     logger.error(e);
                     consensus.invalidBlock();
@@ -356,7 +360,8 @@ module.exports = (factory) => {
         async _createBlock(groupId) {
 
             const block = new Block(groupId);
-            const {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
+            let {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
+            patchMerged = patchMerged ? patchMerged : new PatchDB();
             assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
             block.parentHashes = arrParents;
 

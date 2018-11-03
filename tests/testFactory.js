@@ -80,11 +80,12 @@ class Factory {
                 this._transactionImplementation = TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
-                this._messagesImplementation = MessagesWrapper(this, prototypes);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
                 this._arrayOfHashes = ArrayOfHashesWrapper(this);
+
+                this._messagesImplementation = MessagesWrapper(this, prototypes);
 
                 //
                 this._serializerImplementation = SerializerWrapper(this.Messages);
@@ -260,6 +261,7 @@ class Factory {
             versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
             rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
+            getBlocksPayloadProto: protoNetwork.lookupType("network.GetBlocksPayload"),
 
             // part of messages
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),

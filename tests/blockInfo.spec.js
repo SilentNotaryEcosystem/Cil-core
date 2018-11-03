@@ -9,13 +9,14 @@ const {createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
 
 describe('BlockInfo tests', () => {
     let blockInfo;
+    let block;
 
     before(async function() {
         await factory.asyncLoad();
     });
 
     beforeEach(async function() {
-        const block = createDummyBlock(factory);
+        block = createDummyBlock(factory);
         blockInfo = new factory.BlockInfo(block.header);
     });
 
@@ -25,6 +26,10 @@ describe('BlockInfo tests', () => {
 
     it('should CREATE from block header', async () => {
         assert.isNotOk(blockInfo.isBad());
+    });
+
+    it('should calculate hash', async () => {
+        assert.equal(blockInfo.getHash(), block.getHash());
     });
 
     it('should mark as BAD', async () => {

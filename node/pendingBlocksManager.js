@@ -29,6 +29,12 @@ module.exports = (factory) => {
             return this._dag;
         }
 
+        hasBlock(hash) {
+            typeforce(types.Str64, hash);
+
+            return this._dag.hasVertex(hash);
+        }
+
         addBlock(block, patchState) {
             typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
 
@@ -39,20 +45,6 @@ module.exports = (factory) => {
             this._dag.saveObj(block.getHash(), {patch: patchState, blockHeader: block.header});
         }
 
-        /**
-         *
-         * @param {Block} block
-         * @returns {Array} - array of final parents (i.e. we don't have patches for it)
-         */
-        finalParentsForBlock(block) {
-            typeforce(types.Block, block);
-
-            const arrMissedHashes = [];
-            for (let parentHash of block.parentHashes) {
-                if (!this._dag.hasVertex(parentHash)) arrMissedHashes.push(parentHash);
-            }
-            return arrMissedHashes;
-        }
 
         /**
          *
@@ -342,6 +334,15 @@ module.exports = (factory) => {
             for (let vertex of setBlocks.values()) {
                 this._dag.removeVertex(vertex);
             }
+        }
+
+        /**
+         * Return all block hashes that are pending
+         *
+         * @return {Array}
+         */
+        getAllHashes() {
+            return this._dag.V;
         }
     };
 };
