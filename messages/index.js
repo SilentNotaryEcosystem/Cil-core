@@ -7,6 +7,7 @@ const MsgBlockWrapper = require('./node/msgBlock');
 const MsgTxWrapper = require('./node/msgTx');
 const MsgInvWrapper = require('./node/msgInv');
 const MsgGetDataWrapper = require('./node/msgGetData');
+const MsgGetBlocksWrapper = require('./node/msgGetBlocks');
 
 const PeerInfoWrapper = require('./includes/peerInfo');
 
@@ -18,8 +19,14 @@ const MsgWitnessBlockVoteWrapper = require('./witness/msgWitnessBlockVote.js');
 
 module.exports = (factory, objPrototypes) => {
 
-    const {Constants, Crypto, Block, Transaction, Inventory} = factory;
-    const {messageProto, versionPayloadProto, addrPayloadProto, rejectPayloadProto} = objPrototypes;
+    const {Constants, Crypto, Block, Transaction, Inventory, ArrayOfHashes} = factory;
+    const {
+        messageProto,
+        versionPayloadProto,
+        addrPayloadProto,
+        rejectPayloadProto,
+        getBlocksPayloadProto
+    } = objPrototypes;
     const {witnessMessageProto, witnessNextRoundProto, witnessBlockVoteProto} = objPrototypes;
     const {peerInfoProto} = objPrototypes;
 
@@ -37,6 +44,7 @@ module.exports = (factory, objPrototypes) => {
         MsgTx: MsgTxWrapper(Constants, Crypto, MsgCommon, Transaction),
         MsgInv,
         MsgGetData: MsgGetDataWrapper(Constants, Crypto, MsgInv),
+        MsgGetBlocks: MsgGetBlocksWrapper(Constants, ArrayOfHashes, MsgCommon, getBlocksPayloadProto),
 
         PeerInfo: PeerInfoWrapper(Constants, peerInfoProto),
 

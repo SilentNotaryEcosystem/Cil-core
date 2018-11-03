@@ -15,7 +15,8 @@ module.exports = (Constants, Crypto, MessageProto) => {
         MSG_BLOCK,
         MSG_TX,
         MSG_INV,
-        MSG_GET_DATA
+        MSG_GET_DATA,
+        MSG_GET_BLOCKS
     } = Constants.messageTypes;
 
     return class MessageCommon {
@@ -161,6 +162,10 @@ module.exports = (Constants, Crypto, MessageProto) => {
 
         isGetData() {
             return this.message === MSG_GET_DATA;
+        }
+
+        isGetBlocks() {
+            return this.message === MSG_GET_BLOCKS;
         }
 
     };
