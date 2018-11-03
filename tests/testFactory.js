@@ -46,7 +46,8 @@ const AppWrapper = require('../node/app');
 
 const StorageWrapper = require('../storage/memoryStorage');
 const PatchWrapper = require('../storage/patch');
-const PendingBlocksManagerWrapper = require('../storage/pendingBlocksManager');
+const PendingBlocksManagerWrapper = require('../node/pendingBlocksManager');
+const MainDagWrapper = require('../node/mainDag');
 
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
@@ -55,6 +56,7 @@ const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
 const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
 const BlockInfoWrapper = require('../structures/blockInfo');
+const ArrayOfHashesWrapper = require('../structures/arrayOfHashes');
 
 const pack = require('../package');
 
@@ -82,6 +84,7 @@ class Factory {
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
+                this._arrayOfHashes = ArrayOfHashesWrapper(this);
 
                 //
                 this._serializerImplementation = SerializerWrapper(this.Messages);
@@ -96,6 +99,7 @@ class Factory {
                 this._patchImplementation = PatchWrapper(this);
                 this._appImplementation = AppWrapper(this);
                 this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
+                this._mainDagImplementation = MainDagWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);
@@ -121,6 +125,14 @@ class Factory {
 
     get WitnessGroupDefinition() {
         return this._witnessGroupDefinition;
+    }
+
+    get ArrayOfHashes() {
+        return this._arrayOfHashes;
+    }
+
+    get MainDag() {
+        return this._mainDagImplementation;
     }
 
     get UTXO() {

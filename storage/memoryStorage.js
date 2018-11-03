@@ -14,9 +14,10 @@ const UTXO_PREFIX = 'c';
 const BLOCK_PREFIX = 'b';
 const BLOCK_INFO_PREFIX = 'H';
 const LAST_APPLIED_BLOCKS = 'FINAL';
+const PENDING_BLOCKS = 'PENDING';
 
 module.exports = (factory) => {
-    const {Constants, Block, BlockInfo, UTXO} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes} = factory;
     return class Storage {
         constructor(options) {
 
@@ -68,7 +69,7 @@ module.exports = (factory) => {
             return this._groupDefinitions.size;
         }
 
-        async saveBlock(block) {
+        async saveBlock(block, blockInfo) {
             const hash = block.hash();
 
 //            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
@@ -80,7 +81,8 @@ module.exports = (factory) => {
             this._blockStorage.set(key, block.encode());
 
             // save blockInfo
-            await this.saveBlockInfo(strHash, new BlockInfo(block.header));
+            if (!blockInfo) blockInfo = new BlockInfo(block.header);
+            await this.saveBlockInfo(blockInfo);
         }
 
         /**
@@ -156,12 +158,12 @@ module.exports = (factory) => {
         /**
          * Get BlockInfo @see proto/structures.proto
 
-         * @param {String | Buffer} blockHash
          * @param {BlockInfo} blockInfo
          */
-        async saveBlockInfo(blockHash, blockInfo) {
-            typeforce(types.Hash256bit, blockHash);
+        async saveBlockInfo(blockInfo) {
+            typeforce(types.BlockInfo, blockInfo);
 
+            const blockHash = blockInfo.getHash();
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
@@ -180,7 +182,7 @@ module.exports = (factory) => {
             for (let blockHash of setBlockHashes) {
                 const bi = await this.getBlockInfo(blockHash);
                 bi.markAsBad();
-                await this.saveBlockInfo(blockHash, bi);
+                await this.saveBlockInfo(bi);
 
                 await this.removeBlock(blockHash);
             }
@@ -258,11 +260,10 @@ module.exports = (factory) => {
          *
          * @return {Promise<Array>} of buffers. each is hash of last stable block
          */
-        async getLastAppliedBlocks() {
+        async getLastAppliedBlockHashes() {
 
-            // TODO: storage of array in levelDB not so simple. i think we need serialization
             const result = this._db.get(LAST_APPLIED_BLOCKS);
-            return Array.isArray(result) ? result : [];
+            return Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : [];
         }
 
         /**
@@ -275,17 +276,32 @@ module.exports = (factory) => {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
             const mapBlockInfo = new Map();
-            const arrFinalBlocks = await this.getLastAppliedBlocks();
 
-            // Get ALL BlockInfos. First for current LAST_APPLIED_BLOCKS, then for replacement
+            // get previous values.
+            const arrFinalBlocks = await this.getLastAppliedBlockHashes();
+
+            // replace old values for getWitnessId with new ones
             const arrConcatedHashes = arrFinalBlocks.concat(arrBlockHashes);
             for (let buffHash of arrConcatedHashes) {
                 const blockInfo = await this.getBlockInfo(buffHash);
                 mapBlockInfo.set(blockInfo.getWitnessId(), buffHash);
             }
 
-            // TODO: storage of array in levelDB not so simple. i think we need serialization
-            this._db.set(LAST_APPLIED_BLOCKS, [...mapBlockInfo.values()]);
+            // serialize and store
+            const cArr = new ArrayOfHashes([...mapBlockInfo.values()]);
+            this._db.set(LAST_APPLIED_BLOCKS, cArr.encode());
+        }
+
+        async getPendingBlockHashes() {
+
+            const result = this._db.get(PENDING_BLOCKS);
+            return Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : [];
+        }
+
+        async updatePendingBlocks(arrBlockHashes) {
+            typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
+
+            this._db.set(PENDING_BLOCKS, (new ArrayOfHashes(arrBlockHashes)).encode());
         }
     };
 };

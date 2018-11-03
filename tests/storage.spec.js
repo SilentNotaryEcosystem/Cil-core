@@ -232,9 +232,8 @@ describe('Storage tests', () => {
     it('should SET/GET BlockInfo', async () => {
         const storage = new factory.Storage({});
         const blockInfo = createBlockInfo();
-        const hash = pseudoRandomBuffer();
-        await storage.saveBlockInfo(hash, blockInfo);
-        const result = await storage.getBlockInfo(hash);
+        await storage.saveBlockInfo(blockInfo);
+        const result = await storage.getBlockInfo(blockInfo.getHash());
 
         // just check
         assert.isOk(blockInfo.getHeader().merkleRoot.equals(result.getHeader().merkleRoot));
@@ -253,7 +252,7 @@ describe('Storage tests', () => {
         const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
         await storage.updateLastAppliedBlocks(arrLastBlocks);
 
-        assert.isOk(arrayEquals(await storage.getLastAppliedBlocks(), arrLastBlocks));
+        assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrLastBlocks));
     });
 
     it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
@@ -285,7 +284,7 @@ describe('Storage tests', () => {
         await storage.updateLastAppliedBlocks([block4.getHash(), block5.getHash(), block6.getHash()]);
 
         const arrExpected = [block1.getHash(), block4.getHash(), block5.getHash(), block6.getHash()];
-        assert.isOk(arrayEquals(await storage.getLastAppliedBlocks(), arrExpected));
+        assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrExpected));
     });
 
     it('should removeBadBlocks', async () => {
@@ -314,6 +313,22 @@ describe('Storage tests', () => {
         const bi3 = await storage.getBlockInfo(block3.getHash());
         assert.isOk(bi3.isBad());
         assert.isOk(await await storage.hasBlock(block3.getHash()));
+    });
+
+    it('should set/get PendingBlockHashes', async () => {
+        const storage = new factory.Storage({});
+
+        const emptyArr = await storage.getPendingBlockHashes();
+        assert.isOk(Array.isArray(emptyArr));
+        assert.equal(emptyArr.length, 0);
+
+        const newArr = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+        await storage.updatePendingBlocks(newArr);
+
+        const gotArr = await storage.getPendingBlockHashes();
+        assert.isOk(Array.isArray(gotArr));
+        assert.equal(gotArr.length, 2);
+        assert.isOk(arrayEquals(newArr, gotArr));
     });
 
 });
