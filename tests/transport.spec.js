@@ -34,10 +34,11 @@ describe('Transport', () => {
         assert.isOk(Array.isArray(addresses));
     });
 
-    it('should get real ipv6 address', async () => {
+    it('should get addresses', async () => {
         const endpoint = new factory.Ipv6Transport();
-
-        assert.isOk(endpoint.myAddress);
+        await endpoint.setAddresses();
+        assert.isOk(endpoint.publicAddress);
+        assert.isOk(endpoint.privateAddress);
     });
 
     it('should communicate each other (real address)', async () => {

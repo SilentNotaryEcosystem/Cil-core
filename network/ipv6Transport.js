@@ -5,6 +5,7 @@ const os = require('os');
 const ipaddr = require('ipaddr.js');
 const dns = require('dns');
 const util = require('util');
+const natUpnp = require('nat-upnp');
 
 const pathPrefix = os.platform() === 'win32' ? '\\\\?\\pipe' : '';
 
@@ -33,34 +34,52 @@ module.exports = (factory) => {
 
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
 
-            this._address = this.constructor.parseAddress(options.listenAddr);
+            this._address = options.listenAddr;
             this._port = options.listenPort || Constants.port;
         }
 
-        get myAddress() {
-            return this._address;
+        get publicAddress() {
+            return this._publicAddress;
+        }
+
+        get privateAddress() {
+            return this._privateAddress;
         }
 
         get port() {
             return this._port;
         }
 
-        /**
-         *
-         * @return {string}
-         */
-        static parseAddress(address) {
-            if (!ipaddr.isValid(address)) {
-                return this._getRealAddress();
-            }
-            const addr = ipaddr.parse(address);
-
-            return addr.kind() === 'ipv6'
-                ? address
-                : addr.toIPv4MappedAddress().toString();
+        get portMappings() {
+            return this._upnpClient ?
+                new Promise((resolve, reject) => {
+                    this._upnpClient.getMappings(function (err, results) {
+                        if (err) { reject(err); }
+                        resolve(results);
+                    });
+                })
+                : undefined;
         }
 
-        static _getRealAddress() {
+        /**
+         * Get real IP address via uPnP
+         */
+        async _getPublicAddress() {
+            if (!this._upnpClient) {
+                this._upnpClient = natUpnp.createClient();
+            }
+            return new Promise((resolve, reject) => {
+                this._upnpClient.externalIp(function (err, ip) {
+                    if (err) { reject(err); }
+                    resolve(ip);
+                });
+            });
+        }
+
+        /**
+         * Get local IP address from interfaces
+         */
+        _getPrivateAddress() {
             const interfaces = os.networkInterfaces();
             for (let interfaceName in interfaces) {
                 const addresses = interfaces[interfaceName].filter(iface => {
@@ -70,6 +89,65 @@ module.exports = (factory) => {
                     return addresses[0].address;
             }
             return null;
+        }
+
+        /**
+         * Check IP address belongs to local interfaces
+         * @param {string} ip 
+         */
+        _checkLocalInterfacesIp(ip) {
+            const interfaces = os.networkInterfaces();
+            for (let interfaceName in interfaces) {
+                if ((interfaces[interfaceName].filter(iface => {
+                    return iface.address === ip;
+                })).length > 0) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        /**
+         * Сheck and set addresses which listen
+         */
+        async setAddresses() {
+            if (!ipaddr.isValid(this._address)) {
+                try {
+                    this._address = await this._getPublicAddress();
+                }
+                catch (err) {
+                    debug(`Error determining external IP address: ${err}`);
+                }
+                if (ipaddr.isValid(this._address)) {
+                    //if you have white ip address
+                    if (this._checkLocalInterfacesIp(this._address)) {
+                        this._privateAddress = this._address;
+                        this._publicAddress = this._address;
+                    }
+                    else {
+                        let mappings = await this.portMappings;
+                        if (!mappings || mappings.length === 0){
+                            this.portMapping();
+                            mappings = await this.portMappings;
+                        }
+                        if (mappings && mappings.length > 0) {
+                            this._privateAddress = mappings[0].private.host;
+                            this._publicAddress = this._address;
+                        }
+                    }
+                }
+                else {
+                    debug(`Listen local IP address: ${err}`);
+                    this._privateAddress = this._getPrivateAddress();
+                    this._publicAddress = this._getPrivateAddress();
+                }
+            }
+            else {
+                debug(`Listen input parameter IP address: ${err}`);
+                this._privateAddress = this._address;;
+                this._publicAddress = this._address;;
+            }
         }
 
         /**
@@ -87,13 +165,25 @@ module.exports = (factory) => {
             }
         }
 
+        portMapping() {
+            if (!this._upnpClient) {
+                this._upnpClient = natUpnp.createClient();
+            }
+            this._upnpClient.portMapping({
+                public: this._port,
+                private: this._port,
+                ttl: 0
+            }, function (err) {
+                if (err) { debug(`portMapping error`, err); }
+            });
+        }
+
         /**
          * @param {String} address - IP address
          * @return {Promise<Ipv6Connection>} new connection
          */
         connect(address, port) {
             return new Promise((resolve, reject) => {
-                const addr = ipaddr.parse(address);
                 const socket = net.createConnection(port, address,
                     async (err) => {
                         if (err) return reject(err);
@@ -114,7 +204,7 @@ module.exports = (factory) => {
                     new Ipv6Connection({ socket, timeout: this._timeout })
                 );
             });
-            server.listen({ port: this.port, host: this.myAddress });
+            server.listen({ port: this.port, host: this.privateAddress });
         }
 
         /**
