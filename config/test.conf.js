@@ -64,6 +64,6 @@ module.exports = {
         WITNESS_HOLDOFF: 15 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
         MIN_TX_FEE: 1000,
-        PEER_CONNECTION_LIFETIME: 5000
+        PEER_CONNECTION_LIFETIME: 2555000
     }
 };
