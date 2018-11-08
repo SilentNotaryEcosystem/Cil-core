@@ -68,3 +68,12 @@ message RejectPayload {
     RejectCodes code = 1;
     string reason = 2;
 }
+
+// ------------------------- getblocks -------------
+
+message GetBlocksPayload {
+
+    // it's serialized to buffer
+    bytes arrHashes=1;
+    bytes hashStop=2;
+}

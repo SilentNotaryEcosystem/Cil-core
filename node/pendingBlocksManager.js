@@ -29,30 +29,22 @@ module.exports = (factory) => {
             return this._dag;
         }
 
+        hasBlock(hash) {
+            typeforce(types.Str64, hash);
+
+            return this._dag.hasVertex(hash);
+        }
+
         addBlock(block, patchState) {
             typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
 
             this._dag.addVertex(block.getHash());
             for (let strHash of block.parentHashes) {
-                this._dag.add(block.getHash(), strHash);
+                if (this._dag.hasVertex(strHash)) this._dag.add(block.getHash(), strHash);
             }
             this._dag.saveObj(block.getHash(), {patch: patchState, blockHeader: block.header});
         }
 
-        /**
-         *
-         * @param {Block} block
-         * @returns {Array} - array of final parents (i.e. we don't have patches for it)
-         */
-        finalParentsForBlock(block) {
-            typeforce(types.Block, block);
-
-            const arrMissedHashes = [];
-            for (let parentHash of block.parentHashes) {
-                if (!this._dag.hasVertex(parentHash)) arrMissedHashes.push(parentHash);
-            }
-            return arrMissedHashes;
-        }
 
         /**
          *
@@ -87,7 +79,7 @@ module.exports = (factory) => {
         /**
          * It will check "compatibility" of tips (ability to merge patches)
          *
-         * @returns {arrParents, mci} - mci for new block
+         * @returns {arrParents}
          * @private
          */
         async getBestParents() {
@@ -99,7 +91,6 @@ module.exports = (factory) => {
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
             const arrParents = [];
-            let mci = 1;
 
             const sortedDownTipIndexes = this._sortTips(arrTips);
 
@@ -108,7 +99,7 @@ module.exports = (factory) => {
                 const vertex = arrTips[i];
 
                 // merge tips with max witnessed paths first
-                const {patch, blockHeader} = this._dag.readObj(vertex) || {};
+                const {patch} = this._dag.readObj(vertex) || {};
 
                 // this patch (block) already finial applied to storage, and removed from DAG
                 if (!patch) continue;
@@ -122,7 +113,6 @@ module.exports = (factory) => {
                         patchMerged = patchMerged.merge(patch);
                     }
                     arrParents.push(vertex);
-                    mci = blockHeader.mci !== undefined && mci > blockHeader.mci ? mci : blockHeader.mci + 1;
                 } catch (e) {
 
                     // TODO: rework it. this implementation (merging most witnessed vertex with other) could be non optimal
@@ -132,9 +122,8 @@ module.exports = (factory) => {
             return {
 
                 // TODO: review this condition
-//                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
-                arrParents: arrParents,
-                mci,
+                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
+//                arrParents: arrParents,
                 patchMerged
             };
         }
@@ -196,6 +185,12 @@ module.exports = (factory) => {
             return patchMerged ? patchMerged : new PatchDB();
         }
 
+        /**
+         *
+         * @param {String} newVertex - blockHash of processed block
+         * @param {Number} nGroupCount - how many groups definition existed now
+         * @return {{patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
+         */
         checkFinality(newVertex, nGroupCount) {
             typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
 
@@ -230,7 +225,12 @@ module.exports = (factory) => {
             }
 
             // apply patchToApply to storage, undo all setBlocksToRollback
-            return {patchToApply, setStableBlocks: setAlsoStableVertices, setBlocksToRollback};
+            return {
+                patchToApply,
+                setStableBlocks: setAlsoStableVertices,
+                setBlocksToRollback,
+                arrTopStable
+            };
         }
 
         /**
@@ -334,6 +334,15 @@ module.exports = (factory) => {
             for (let vertex of setBlocks.values()) {
                 this._dag.removeVertex(vertex);
             }
+        }
+
+        /**
+         * Return all block hashes that are pending
+         *
+         * @return {Array}
+         */
+        getAllHashes() {
+            return this._dag.V;
         }
     };
 };

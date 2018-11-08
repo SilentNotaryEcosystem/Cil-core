@@ -202,6 +202,7 @@ module.exports = (factory) => {
         // TODO: for MsgGetData - make a cache for already requested hashes!
         // TODO: count sent data for period
         async pushMessage(msg) {
+
             // we have pending messages
             if (Array.isArray(this._queue)) {
                 debug(`Queue message "${msg.message}" to "${Transport.addressToString(this.address)}"`);

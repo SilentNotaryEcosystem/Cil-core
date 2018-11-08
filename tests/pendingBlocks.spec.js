@@ -7,28 +7,18 @@ const debug = require('debug')('pendingBlocksManager:');
 
 const factory = require('./testFactory');
 
-const {pseudoRandomBuffer, createDummyBlock, createDummyTx, createNonMergeablePatch} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch} = require('./testUtil');
 const {arrayEquals} = require('../utils');
-
-const createBlockWithTx = (witnessId = 0, mci = 15) => {
-    const block = new factory.Block(witnessId);
-    const tx = createDummyTx(undefined, witnessId);
-    block.mci = mci;
-    block.addTx(tx);
-    block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
-    return block;
-};
 
 /**
  * Duplicate block, but change witnessGroupId & change tx
  */
-const makeDoubleSpend = (block, newWitnessId, mci) => {
+const makeDoubleSpend = (block, newWitnessId) => {
     const newBlock = new factory.Block(newWitnessId);
 
     // first is coinbase
     const tx = new factory.Transaction(block.txns[1]);
     tx.witnessGroupId = newWitnessId;
-    newBlock.mci = mci;
     newBlock.addTx(tx);
     newBlock.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
     return newBlock;
@@ -49,24 +39,7 @@ describe('Pending block manager', async () => {
         ];
         pbm.addBlock(block, new factory.PatchDB());
 
-        // 4 vertices: block hash + 3 parents
-        assert.equal(pbm.getDag().order, 4);
-
-        // 3 edges to parents
-        assert.equal(pbm.getDag().size, 3);
-    });
-
-    it('should test "finalParentsForBlock"', async () => {
-        const pbm = new factory.PendingBlocksManager();
-        const block = createDummyBlock(factory);
-        block.parentHashes = [
-            pseudoRandomBuffer().toString('hex'),
-            pseudoRandomBuffer().toString('hex'),
-            pseudoRandomBuffer().toString('hex')
-        ];
-        const arrMissedPatches = pbm.finalParentsForBlock(block);
-        assert.isOk(Array.isArray(arrMissedPatches));
-        assert.equal(arrMissedPatches.length, 3);
+        assert.equal(pbm.getDag().order, 1);
     });
 
     it('should test "getVertexWitnessBelow"', async () => {
@@ -92,28 +65,27 @@ describe('Pending block manager', async () => {
         assert.equal(pbm.getVertexWitnessBelow(block4.getHash()), 3);
     });
 
-    it('should select all 3 parents (no conflicts) and set mci', async () => {
+    it('should select all 3 parents (no conflicts)', async () => {
         const pbm = new factory.PendingBlocksManager();
 
-        const block1 = createDummyBlock(factory, 1, 2);
-        const block2 = createDummyBlock(factory, 2, 3);
-        const block3 = createDummyBlock(factory, 3, 100);
+        const block1 = createDummyBlock(factory, 1);
+        const block2 = createDummyBlock(factory, 2);
+        const block3 = createDummyBlock(factory, 3);
 
         pbm.addBlock(block1, new factory.PatchDB());
         pbm.addBlock(block2, new factory.PatchDB());
         pbm.addBlock(block3, new factory.PatchDB());
 
-        const {arrParents, mci} = await pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 3);
         assert.isOk(arrayEquals(arrParents, [block1.getHash(), block2.getHash(), block3.getHash()]));
-        assert.equal(mci, 101);
     });
 
     it('should select only 1 parent (conflict)', async () => {
         const pbm = new factory.PendingBlocksManager();
 
-        const block1 = createDummyBlock(factory, 1, 10);
-        const block2 = createDummyBlock(factory, 2, 20);
+        const block1 = createDummyBlock(factory, 1);
+        const block2 = createDummyBlock(factory, 2);
 
         const patch = new factory.PatchDB();
         patch.merge = sinon.fake.throws();
@@ -121,18 +93,17 @@ describe('Pending block manager', async () => {
         pbm.addBlock(block1, patch);
         pbm.addBlock(block2, patch);
 
-        const {arrParents, mci} = await pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 1);
         assert.isOk(arrayEquals(arrParents, [block1.getHash()]));
-        assert.equal(mci, 11);
     });
 
     it('should select longest chain 3->2 (3 & 1 conflicts)', async () => {
         const pbm = new factory.PendingBlocksManager();
 
-        const block1 = createDummyBlock(factory, 1, 10);
-        const block2 = createDummyBlock(factory, 2, 20);
-        const block3 = createDummyBlock(factory, 3, 30);
+        const block1 = createDummyBlock(factory, 1);
+        const block2 = createDummyBlock(factory, 2);
+        const block3 = createDummyBlock(factory, 3);
 
         block3.parentHashes = [block2.getHash()];
 
@@ -143,10 +114,9 @@ describe('Pending block manager', async () => {
         pbm.addBlock(block2, patch);
         pbm.addBlock(block3, patch);
 
-        const {arrParents, mci} = await pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 1);
         assert.isOk(arrayEquals(arrParents, [block3.getHash()]));
-        assert.isOk(mci === 31);
     });
 
     it('should call merge 9 times', async () => {
@@ -169,10 +139,10 @@ describe('Pending block manager', async () => {
     it('should select 2 from 3  (has conflicts)', async () => {
         const pbm = new factory.PendingBlocksManager();
 
-        const block1 = createDummyBlock(factory, 1, 10);
-        const block2 = createDummyBlock(factory, 2, 20);
-        const block3 = createDummyBlock(factory, 3, 30);
-        const block4 = createDummyBlock(factory, 4, 40);
+        const block1 = createDummyBlock(factory, 1);
+        const block2 = createDummyBlock(factory, 2);
+        const block3 = createDummyBlock(factory, 3);
+        const block4 = createDummyBlock(factory, 4);
 
         block3.parentHashes = [block2.getHash()];
 
@@ -191,13 +161,12 @@ describe('Pending block manager', async () => {
         pbm.addBlock(block3, patch);
         pbm.addBlock(block4, patch);
 
-        const {arrParents, mci} = await pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
 
         assert.isOk(arrParents.length === 2);
 
         // 'hash1' - conflicts
         assert.isOk(arrayEquals(arrParents, [block3.getHash(), block4.getHash()]));
-        assert.isOk(mci === 41);
     });
 
     describe('FINALITY', async () => {
@@ -219,7 +188,7 @@ describe('Pending block manager', async () => {
         it('should reach the FINALITY (majority of 1)', async function() {
             this.timeout(15000);
 
-            const block1 = createDummyBlock(factory, 1, 10);
+            const block1 = createDummyBlock(factory, 1);
             pbm.addBlock(block1, new factory.PatchDB());
 
             const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block1.getHash(), 1);
@@ -231,8 +200,8 @@ describe('Pending block manager', async () => {
         });
 
         it('should reach the FINALITY (simple chain produced by 2 witnesses)', async () => {
-            const block1 = createDummyBlock(factory, 1, 10);
-            const block2 = createDummyBlock(factory, 2, 11);
+            const block1 = createDummyBlock(factory, 1);
+            const block2 = createDummyBlock(factory, 2);
             block2.parentHashes = [
                 block1.getHash()
             ];
@@ -249,10 +218,10 @@ describe('Pending block manager', async () => {
         });
 
         it('should reach the FINALITY (chain produced by 2 witnesses, one long by one)', async () => {
-            const block1 = createDummyBlock(factory, 1, 10);
-            const block2 = createDummyBlock(factory, 1, 11);
-            const block3 = createDummyBlock(factory, 1, 12);
-            const block4 = createDummyBlock(factory, 2, 11);
+            const block1 = createDummyBlock(factory, 1);
+            const block2 = createDummyBlock(factory, 1);
+            const block3 = createDummyBlock(factory, 1);
+            const block4 = createDummyBlock(factory, 2);
 
             block2.parentHashes = [block1.getHash()];
             block3.parentHashes = [block2.getHash()];
@@ -276,9 +245,9 @@ describe('Pending block manager', async () => {
             const numOfWitnessGroup = 3;
 
             // see illustration page "rejected block consensus"
-            const block1 = createDummyBlock(factory, 0, 0);
-            const block2 = createDummyBlock(factory, 1, 0);
-            const block3 = createDummyBlock(factory, 2, 0);
+            const block1 = createDummyBlock(factory, 0);
+            const block2 = createDummyBlock(factory, 1);
+            const block3 = createDummyBlock(factory, 2);
 
             pbm.addBlock(block2, new factory.PatchDB());
 
@@ -290,24 +259,22 @@ describe('Pending block manager', async () => {
 
             let block5;
             {
-                const {arrParents, mci} = await pbm.getBestParents();
+                const {arrParents} = await pbm.getBestParents();
 
                 // block 3 (or 2) will fail to merge
                 assert.equal(arrParents.length, 1);
-                assert.equal(mci, 1);
 
-                block5 = createDummyBlock(factory, 1, mci);
+                block5 = createDummyBlock(factory, 1);
                 block5.parentHashes = arrParents;
                 pbm.addBlock(block5, new factory.PatchDB());
             }
 
             let block6;
             {
-                const {arrParents, mci} = await pbm.getBestParents();
+                const {arrParents} = await pbm.getBestParents();
                 assert.equal(arrParents.length, 1);
-                assert.equal(mci, 2);
 
-                block6 = createDummyBlock(factory, 1, mci);
+                block6 = createDummyBlock(factory, 1);
                 block6.parentHashes = arrParents;
                 pbm.addBlock(block6, new factory.PatchDB());
                 const result = pbm.checkFinality(block6.getHash(), numOfWitnessGroup);
@@ -325,7 +292,7 @@ describe('Pending block manager', async () => {
                 assert.notOk(result);
             }
 
-            const block7 = createDummyBlock(factory, 0, 2);
+            const block7 = createDummyBlock(factory, 0);
             {
                 block7.parentHashes = [block1.getHash(), block5.getHash()];
                 pbm.addBlock(block7, new factory.PatchDB());
@@ -340,11 +307,10 @@ describe('Pending block manager', async () => {
                 assert.equal(setStableBlocks.size, 2);
             }
 
-            const block8 = createDummyBlock(factory, 1, 3);
+            const block8 = createDummyBlock(factory, 1);
             {
-                const {arrParents, mci} = await pbm.getBestParents();
+                const {arrParents} = await pbm.getBestParents();
                 assert.equal(arrParents.length, 2);
-                assert.equal(mci, 3);
 
                 // chain through 7->1 (vs 6) will be more witnessed
                 assert.equal(arrParents[0], block7.getHash());

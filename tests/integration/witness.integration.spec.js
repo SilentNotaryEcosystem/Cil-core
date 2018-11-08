@@ -186,10 +186,12 @@ describe('Witness integration tests', () => {
             arrBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._postAccepBlock = resolve;
             }));
+            arrWitnesses[i]._canExecuteBlock = sinon.fake.returns(true);
         }
         arrBlocksPromises.push(new Promise(resolve => {
             seedNode._postAccepBlock = resolve;
         }));
+        seedNode._canExecuteBlock = sinon.fake.returns(true);
 
         // run
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));

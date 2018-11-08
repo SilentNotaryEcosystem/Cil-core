@@ -39,7 +39,8 @@ message BlockHeader{
     repeated bytes parentHashes=1;
     bytes merkleRoot =2;
     uint32 witnessGroupId=3;
-    uint32 mci=4;
+    uint32 timestamp=6;
+    uint32 version=7;
 }
 
 message Block{
@@ -78,4 +79,11 @@ message WitnessGroupDefinition{
     string groupName=2;
     uint32 groupId=3;
     uint32 quorum=4;
+}
+
+//--------------- Block summary info (for storage) -----
+
+message BlockInfo{
+    BlockHeader header=1;
+    uint32 flags=2;
 }

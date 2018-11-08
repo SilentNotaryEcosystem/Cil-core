@@ -3,11 +3,12 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const os = require('os');
+const sinon = require('sinon');
 const debugLib = require('debug');
 const util = require('util');
 
 const factory = require('../testFactory');
-const {createDummyTx, pseudoRandomBuffer} = require('../testUtil');
+const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('../testUtil');
 
 const debugNode = debugLib('node:app');
 
@@ -191,7 +192,7 @@ describe('Node integration tests', () => {
         await Promise.all(arrBootrapPromises);
 
         // inject block to seed node
-        const patch = await seedNode._processBlock(block);
+        const patch = await seedNode._execBlock(block);
         await seedNode._acceptBlock(block, patch);
 
         await Promise.all(arrTxPromises);
