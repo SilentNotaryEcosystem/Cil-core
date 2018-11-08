@@ -6,6 +6,17 @@ const debug = require('debug')('storage:test');
 
 const factory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
+const {timestamp, arrayEquals} = require('../utils');
+
+const createBlockInfo = () => {
+    return new factory.BlockInfo({
+        parentHashes: [],
+        merkleRoot: pseudoRandomBuffer(),
+        witnessGroupId: 0,
+        timestamp: timestamp(),
+        version: 1
+    });
+};
 
 describe('Storage tests', () => {
     before(async function() {
@@ -184,6 +195,8 @@ describe('Storage tests', () => {
         assert.isOk(mapUtxos[txHash3.toString('hex')]);
     });
 
+    // if we find UTXO with same hash
+    // @see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
     it('should find TX COLLISION', async () => {
         const storage = new factory.Storage({});
 
@@ -214,6 +227,108 @@ describe('Storage tests', () => {
 
         await storage.applyPatch(patch);
         await storage.checkTxCollision([pseudoRandomBuffer().toString('hex')]);
+    });
+
+    it('should SET/GET BlockInfo', async () => {
+        const storage = new factory.Storage({});
+        const blockInfo = createBlockInfo();
+        await storage.saveBlockInfo(blockInfo);
+        const result = await storage.getBlockInfo(blockInfo.getHash());
+
+        // just check
+        assert.isOk(blockInfo.getHeader().merkleRoot.equals(result.getHeader().merkleRoot));
+    });
+
+    it('should store LAST_APPLIED_BLOCKS', async () => {
+        const storage = new factory.Storage({});
+        const block1 = createDummyBlock(factory, 0);
+        const block2 = createDummyBlock(factory, 1);
+        const block3 = createDummyBlock(factory, 10);
+
+        await storage.saveBlock(block1);
+        await storage.saveBlock(block2);
+        await storage.saveBlock(block3);
+
+        const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
+        await storage.updateLastAppliedBlocks(arrLastBlocks);
+
+        assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrLastBlocks));
+    });
+
+    it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
+        const storage = new factory.Storage({});
+        const block1 = createDummyBlock(factory, 0);
+        const block2 = createDummyBlock(factory, 1);
+        const block3 = createDummyBlock(factory, 10);
+
+        // save them
+        await storage.saveBlock(block1);
+        await storage.saveBlock(block2);
+        await storage.saveBlock(block3);
+
+        const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
+        await storage.updateLastAppliedBlocks(arrLastBlocks);
+
+        // replace group 1 & 10 with new blocks
+        const block4 = createDummyBlock(factory, 1);
+        const block5 = createDummyBlock(factory, 10);
+
+        // and add new for group 5
+        const block6 = createDummyBlock(factory, 5);
+
+        // save them
+        await storage.saveBlock(block4);
+        await storage.saveBlock(block5);
+        await storage.saveBlock(block6);
+
+        await storage.updateLastAppliedBlocks([block4.getHash(), block5.getHash(), block6.getHash()]);
+
+        const arrExpected = [block1.getHash(), block4.getHash(), block5.getHash(), block6.getHash()];
+        assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrExpected));
+    });
+
+    it('should removeBadBlocks', async () => {
+        const storage = new factory.Storage({});
+        const block1 = createDummyBlock(factory, 0);
+        const block2 = createDummyBlock(factory, 1);
+        const block3 = createDummyBlock(factory, 10);
+
+        // save them
+        await storage.saveBlock(block1);
+        await storage.saveBlock(block2);
+        await storage.saveBlock(block3);
+
+        // remove it
+        await storage.removeBadBlocks(new Set([block1.getHash(), block3.getHash()]));
+
+        const bi1 = await storage.getBlockInfo(block1.getHash());
+        assert.isOk(bi1.isBad());
+        assert.isOk(await await storage.hasBlock(block1.getHash()));
+
+        const bi2 = await storage.getBlockInfo(block2.getHash());
+        assert.isNotOk(bi2.isBad());
+        assert.isOk(await await storage.hasBlock(block2.getHash()));
+        await storage.getBlock(block2.getHash());
+
+        const bi3 = await storage.getBlockInfo(block3.getHash());
+        assert.isOk(bi3.isBad());
+        assert.isOk(await await storage.hasBlock(block3.getHash()));
+    });
+
+    it('should set/get PendingBlockHashes', async () => {
+        const storage = new factory.Storage({});
+
+        const emptyArr = await storage.getPendingBlockHashes();
+        assert.isOk(Array.isArray(emptyArr));
+        assert.equal(emptyArr.length, 0);
+
+        const newArr = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+        await storage.updatePendingBlocks(newArr);
+
+        const gotArr = await storage.getPendingBlockHashes();
+        assert.isOk(Array.isArray(gotArr));
+        assert.equal(gotArr.length, 2);
+        assert.isOk(arrayEquals(newArr, gotArr));
     });
 
 });

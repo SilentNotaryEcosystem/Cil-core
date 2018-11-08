@@ -23,6 +23,9 @@ module.exports = {
         BAN_PEER_SCORE: 100,
         BAN_PEER_TIME: 24 * 60 * 60 * 1000,
 
+        // maximum block hashes in MSG_INV
+        MAX_BLOCKS_INV: 500,
+
         messageTypes: {
             MSG_VERSION: 'version',
             MSG_VERACK: 'verack',
@@ -33,6 +36,7 @@ module.exports = {
             MSG_TX: 'tx',
             MSG_INV: 'inv',
             MSG_GET_DATA: 'getdata',
+            MSG_GET_BLOCKS: 'getblocks',
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',

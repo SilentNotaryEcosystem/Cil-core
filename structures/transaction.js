@@ -7,6 +7,8 @@ const types = require('../types');
     TODO: implement codeClaim
  */
 
+// TODO: calculate tx size for proper fee calculating
+
 const CURRENT_TX_VERSION = 1;
 
 module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayloadProto}) =>
@@ -83,6 +85,12 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             if (!inputs) throw new Error('Unexpected: empty inputs!');
 
             return inputs.map(_in => _in.txHash);
+        }
+
+        static createCoinbase() {
+            const coinbase = new this();
+            coinbase.addInput(Buffer.alloc(32), 0);
+            return coinbase;
         }
 
         /**
@@ -196,12 +204,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             assert(outsValid, 'Errors in outputs');
 
             assert(this._data.claimProofs.length === this._data.payload.ins.length, 'Errors in clamProofs');
-        }
-
-        static createCoinbase() {
-            const coinbase = new this();
-            coinbase.addInput(Buffer.alloc(32), 0);
-            return coinbase;
         }
 
         /**

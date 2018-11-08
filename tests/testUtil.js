@@ -6,24 +6,24 @@ const pseudoRandomBuffer = (length = 32) => {
     return pseudoRandomBytes;
 };
 
+const createDummyTx = (hash, witnessGroupId) => {
+    return {
+        payload: {
+            ins: [{txHash: hash ? hash : pseudoRandomBuffer(), nTxOutput: parseInt(Math.random() * 1000) + 1}],
+            outs: [{amount: parseInt(Math.random() * 1000) + 1, codeClaim: pseudoRandomBuffer()}],
+            witnessGroupId: witnessGroupId !== undefined ? witnessGroupId : 0
+        },
+        claimProofs: [pseudoRandomBuffer()]
+    };
+};
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
             setTimeout(() => resolve(), delay);
         });
     },
-
-    createDummyTx: (hash, witnessGroupId) => {
-        return {
-            payload: {
-                ins: [{txHash: hash ? hash : pseudoRandomBuffer(), nTxOutput: parseInt(Math.random() * 1000) + 1}],
-                outs: [{amount: parseInt(Math.random() * 1000) + 1, codeClaim: pseudoRandomBuffer()}],
-                witnessGroupId: witnessGroupId !== undefined ? witnessGroupId : 0
-            },
-            claimProofs: [pseudoRandomBuffer()]
-        };
-    },
-
+    createDummyTx,
     createDummyPeer: (factory) => ({
         peerInfo: {
             capabilities: [
@@ -33,9 +33,18 @@ module.exports = {
         }
     }),
 
-    createDummyBlock: (factory, witnessId = 0, mci = 15) => {
+    createDummyBlock: (factory, witnessId = 0) => {
         const block = new factory.Block(witnessId);
-        block.mci = mci;
+        block.parentHashes = [pseudoRandomBuffer().toString('hex')];
+        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        return block;
+    },
+
+    createDummyBlockWithTx: (factory, witnessId = 0) => {
+        const block = new factory.Block(witnessId);
+        const tx = new factory.Transaction(createDummyTx());
+        block.addTx(tx);
+        block.parentHashes = [pseudoRandomBuffer().toString('hex')];
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
         return block;
     },
