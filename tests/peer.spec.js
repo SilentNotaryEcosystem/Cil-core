@@ -188,11 +188,13 @@ describe('Peer tests', () => {
     });
 
     it('should disconnect after PEER_CONNECTION_LIFETIME', async function () {
-        this.timeout(10000);
+        this.timeout(3000);
         const newPeer = new factory.Peer({ peerInfo });
 
         await newPeer.connect()
-        await sleep(6500)
+        newPeer._connectedTill.setHours(newPeer._connectedTill.getHours() - 1);
+
+        await sleep(1500)
 
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
