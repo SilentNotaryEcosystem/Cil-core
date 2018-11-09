@@ -244,11 +244,11 @@ module.exports = (factory) => {
 
         _tick() {
             if (this._bBanned && this._bannedTill.getTime() < Date.now()) {
-                this._bBanned = false
+                this._bBanned = false;
             }
             if (!this.disconnected && this._connectedTill.getTime() < Date.now()) {
-                this.disconnect()
-                this._connection = undefined
+                this.disconnect();
+                this._connection = undefined;
             }
         }
     };
