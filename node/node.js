@@ -93,6 +93,8 @@ module.exports = (factory) => {
             this._pendingBlocks = new PendingBlocksManager();
             this._mainDag = new MainDag();
             this._setUnknownBlocks = new Set();
+            this._timeoffset = 0
+
         }
 
         get rpc() {
@@ -544,11 +546,26 @@ module.exports = (factory) => {
                     debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
                     await peer.pushMessage(this._createMsgVersion());
                 }
-
-                const msgVerack = new MsgCommon();
-                msgVerack.verAckMessage = true;
-                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
-                await peer.pushMessage(msgVerack);
+                const _now = parseInt(Date.now() / 1000)
+                let _offset = (message._data.timeStamp + _now + this._timeoffset) / 2 - _now
+                if (2*_offset < Constants.networkTimeDiff) {
+                    this._timeoffset = _offset
+                    const msgVerack = new MsgCommon();
+                    msgVerack.verAckMessage = true;
+                    debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
+                    await peer.pushMessage(msgVerack);
+                }
+                else {
+                    const reason =   'Time offset very large';
+                    const message = new MsgReject({
+                        code: Constants.REJECT_TIMEOFFSET,
+                        reason
+                    });
+                    debugMsg(
+                        `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
+                    await peer.pushMessage(message);
+    
+                }
             } else {
                 debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
                 peer.disconnect();
