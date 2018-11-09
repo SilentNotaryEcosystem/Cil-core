@@ -1,15 +1,17 @@
 const typeforce = require('typeforce');
 const MerkleTree = require('merkletreejs');
 const types = require('../types');
+const {timestamp} = require('../utils');
 
 module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProto}) =>
+
     class Block {
         constructor(data) {
             typeforce(typeforce.oneOf('Object', 'Buffer', 'Number'), data);
 
             this._final = false;
             if (typeof data === 'number') {
-                data = {header: blockHeaderProto.create({witnessGroupId: data, mci: 0})};
+                data = {header: blockHeaderProto.create({witnessGroupId: data})};
             }
 
             if (Buffer.isBuffer(data)) {
@@ -22,6 +24,21 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             } else {
                 throw new Error('witnessGroupId mandatory for block creation');
             }
+
+            if (!this._data.header.version) this._data.header.version = Constants.BLOCK_VERSION || 1;
+        }
+
+        /**
+         *
+         * @returns {Array} of strings!
+         */
+        get parentHashes() {
+            return this._data.header.parentHashes.map(hash => hash.toString('hex'));
+        }
+
+        set parentHashes(arrStrHashes) {
+            this._hashCache = undefined;
+            this._data.header.parentHashes = arrStrHashes.map(strHash => Buffer.from(strHash, 'hex'));
         }
 
         get merkleRoot() {
@@ -40,12 +57,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this._data.signatures;
         }
 
-        get mci() {
-            return this._data.header.mci;
-        }
-
-        set mci(value) {
-            return this._data.header.mci = value;
+        get header() {
+            return this._data.header;
         }
 
         /**
@@ -59,6 +72,15 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
                 this._hashCache = Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
             }
             return this._hashCache;
+        }
+
+        /**
+         * Alias for hash()
+         *
+         * @returns {String}
+         */
+        getHash() {
+            return this.hash();
         }
 
         /**
@@ -76,13 +98,18 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             });
             const tree = new MerkleTree(leaves, Crypto.createHashBuffer.bind(Crypto), {isBitcoinTree: true});
 
-            // tree.getRoot() returns buffer
-            this._data.header.merkleRoot = tree.getRoot();
+            // tree.getRoot() returns buffer, BUT return string if has only one leaf (coinbase)!!
+            this._data.header.merkleRoot = Buffer.from(tree.getRoot(), 'hex');
         }
 
         encode() {
             if (!this._final) throw new Error('Call finish() before encoding');
             return blockProto.encode(this._data).finish();
+        }
+
+        encodeHeader() {
+            if (!this._final) throw new Error('Call finish() before encoding');
+            return blockHeaderProto.encode(this._data.header).finish();
         }
 
         /**
@@ -116,10 +143,13 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             coinbase.witnessGroupId = this.witnessGroupId;
             coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
 
-            // to make coinbase hash unique
+            // to make coinbase hash unique add one more random output with 0 coins
             coinbase.addReceiver(0, Crypto.randomBytes(20));
 
             this._data.txns.unshift(coinbase.rawData);
+            this._buildTxTree();
+
+            this._data.header.timestamp = timestamp();
             this._final = true;
         }
 

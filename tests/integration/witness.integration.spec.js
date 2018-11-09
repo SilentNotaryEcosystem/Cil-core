@@ -5,7 +5,7 @@ const debugLib = require('debug');
 const sinon = require('sinon');
 
 const factory = require('../testFactory');
-const {pseudoRandomBuffer} = require('../testUtil');
+const {pseudoRandomBuffer, createDummyTx} = require('../testUtil');
 
 const debugWitness = debugLib('witness:app');
 
@@ -50,6 +50,16 @@ const createWitnesses = (num, seedAddress) => {
     witnesNo += num;
 
     return arrWitnesses;
+};
+
+const createGenezisBlock = () => {
+    const tx = new factory.Transaction(createDummyTx());
+    const block = new factory.Block(0);
+    block.addTx(tx);
+    block.finish(0, pseudoRandomBuffer(33));
+    factory.Constants.GENEZIS_BLOCK = block.hash();
+
+    return block;
 };
 
 const createGenezisPatchAndSpendingTx = (witnessGroupId = 0) => {
@@ -123,9 +133,11 @@ describe('Witness integration tests', () => {
 
     it('should NOT commit block (empty mempool)', async function() {
         this.timeout(maxConnections * 60000);
+        const block = createGenezisBlock();
 
         const seedAddress = factory.Transport.strToAddress('w seed node 2');
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        seedNode._storage.saveBlock(block);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
@@ -134,6 +146,7 @@ describe('Witness integration tests', () => {
 
         const arrSuppressedBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
+            arrWitnesses[i]._storage.saveBlock(block);
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
                 arrWitnesses[i]._acceptBlock = createBlockFake;
@@ -152,25 +165,33 @@ describe('Witness integration tests', () => {
         this.timeout(maxConnections * 60000);
 
         const {patch, tx} = createGenezisPatchAndSpendingTx();
+        const block = createGenezisBlock();
 
         const seedAddress = factory.Transport.strToAddress('w seed node 3');
         const seedNode = new factory.Node({listenAddr: seedAddress, delay, arrTestDefinition: [groupDefinition]});
         seedNode._storage.applyPatch(patch);
+        seedNode._storage.saveBlock(block);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
-        for (let witness of arrWitnesses) witness._storage.applyPatch(patch);
 
         // prepare Done handlers for all witnesses & seedNode
         const arrBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
+
+            // store patch and genezis
+            arrWitnesses[i]._storage.applyPatch(patch);
+            arrWitnesses[i]._storage.saveBlock(block);
+
             arrBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._postAccepBlock = resolve;
             }));
+            arrWitnesses[i]._canExecuteBlock = sinon.fake.returns(true);
         }
         arrBlocksPromises.push(new Promise(resolve => {
             seedNode._postAccepBlock = resolve;
         }));
+        seedNode._canExecuteBlock = sinon.fake.returns(true);
 
         // run
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));

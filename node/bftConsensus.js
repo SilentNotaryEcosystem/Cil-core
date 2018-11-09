@@ -1,4 +1,5 @@
 'use strict';
+const assert = require('assert');
 const typeforce = require('typeforce');
 const EventEmitter = require('events');
 const Tick = require('tick-tock');
@@ -113,8 +114,8 @@ module.exports = (factory) => {
             debug(`BFT "${this._nonce}" consensus REACHED! State: "${this._state}"`);
 
             // TODO: add mutex here?
-            this._stateChange(true, value);
             this._resetState();
+            this._stateChange(true, value);
         }
 
         /**
@@ -123,6 +124,7 @@ module.exports = (factory) => {
          * @private
          */
         _resetState() {
+            this._prevViews = this._views;
             this._views = {};
             this._arrPublicKeys.forEach(publicKey => {
 
@@ -169,11 +171,14 @@ module.exports = (factory) => {
          * Get all data we received from witness with pubKeyI @see _addViewOfNodeWithPubKey
          *
          * @param {String} pubKeyI
+         * @param {Boolean} usingCurrentView - do we using current view, or previous (used for signatures gathering) on VOTE stage
          * @private
          */
-        _witnessData(pubKeyI) {
+        _witnessData(pubKeyI, usingCurrentView = true) {
+            const views = usingCurrentView ? this._views : this._prevViews;
+            assert(views, 'Unexpected views error');
             return this._arrPublicKeys.map(pubKeyJ => {
-                return this._views[pubKeyJ][pubKeyI];
+                return views[pubKeyJ][pubKeyI];
             });
         }
 
@@ -307,8 +312,6 @@ module.exports = (factory) => {
                     this._blockStateHandler(false);
                     break;
                 case States.VOTE_BLOCK:
-
-                    // TODO: add signatures (of hash) of voted witnesses to block
                     this._voteStateHandler(isConsensus, consensusValue);
                     break;
                 case States.COMMIT:
@@ -520,7 +523,7 @@ module.exports = (factory) => {
 
             const arrSignatures = [];
             this._arrPublicKeys.forEach(pubKeyI => {
-                const arrDataWitnessI = this._witnessData(pubKeyI);
+                const arrDataWitnessI = this._witnessData(pubKeyI, false);
                 const votedValue = this._majority(arrDataWitnessI);
                 if (votedValue
                     && Buffer.isBuffer(votedValue.blockHash)

@@ -44,7 +44,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
 
                     const coins = utxo.coinsAtIndex(input.nTxOutput);
                     this._verifyClaim(coins.getCodeClaim(), claimProofs[i], buffInputHash);
-                    patch.spendCoins(utxo, input.nTxOutput);
+                    patch.spendCoins(utxo, input.nTxOutput, txHash);
                     totalHas += coins.getAmount();
                 }
             }
@@ -61,7 +61,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
 
         _verifyClaim(codeClaim, claimProofs, buffHash) {
 
-            // TODO: immplement custom code exec here. Now only pay2address
+            // TODO: implement custom code exec here. Now only pay2address
             this._verifyPayToAddr(codeClaim, claimProofs, buffHash);
         }
 

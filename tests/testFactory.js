@@ -47,6 +47,8 @@ const AppWrapper = require('../node/app');
 
 const StorageWrapper = require('../storage/memoryStorage');
 const PatchWrapper = require('../storage/patch');
+const PendingBlocksManagerWrapper = require('../node/pendingBlocksManager');
+const MainDagWrapper = require('../node/mainDag');
 
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
@@ -55,6 +57,8 @@ const InventoryWrapper = require('../structures/inventory');
 const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
 const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
+const BlockInfoWrapper = require('../structures/blockInfo');
+const ArrayOfHashesWrapper = require('../structures/arrayOfHashes');
 
 const pack = require('../package');
 
@@ -75,15 +79,16 @@ class Factory {
 
                 // prototypes
                 this._coinsImplementation = CoinsWrapper(this);
-                this._transactionImplementation =
-                    TransactionWrapper(this, prototypes);
+                this._transactionImplementation = TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._spvBlockImplementation = SPVBlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
-                this._messagesImplementation =
-                    MessagesWrapper(this, prototypes);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
+                this._blockInfo = BlockInfoWrapper(this, prototypes);
+                this._arrayOfHashes = ArrayOfHashesWrapper(this);
+
+                this._messagesImplementation = MessagesWrapper(this, prototypes);
 
                 //
                 this._serializerImplementation = SerializerWrapper(this.Messages);
@@ -98,6 +103,8 @@ class Factory {
                 this._rpcImplementation = RpcWrapper(this);
                 this._patchImplementation = PatchWrapper(this);
                 this._appImplementation = AppWrapper(this);
+                this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
+                this._mainDagImplementation = MainDagWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);
@@ -123,6 +130,14 @@ class Factory {
 
     get WitnessGroupDefinition() {
         return this._witnessGroupDefinition;
+    }
+
+    get ArrayOfHashes() {
+        return this._arrayOfHashes;
+    }
+
+    get MainDag() {
+        return this._mainDagImplementation;
     }
 
     get UTXO() {
@@ -205,6 +220,10 @@ class Factory {
         return this._storageImplementation;
     }
 
+    get PendingBlocksManager() {
+        return this._pendingBlocksManagerImplementation;
+    }
+
     get MessageAssembler() {
         return this._messageAssemblerImplementation;
     }
@@ -216,6 +235,9 @@ class Factory {
     get Block() {
         return this._blockImplementation;
     }
+
+    get BlockInfo() {
+        return this._blockInfo;
 
     get SPVBlock() {
         return this._spvBlockImplementation;
@@ -250,6 +272,7 @@ class Factory {
             versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
             addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
             rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
+            getBlocksPayloadProto: protoNetwork.lookupType("network.GetBlocksPayload"),
 
             // part of messages
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
@@ -270,6 +293,7 @@ class Factory {
             blockProto: protoStructures.lookupType("structures.Block"),
             blockHeaderProto: protoStructures.lookupType("structures.BlockHeader"),
             spvBlockProto: protoStructures.lookupType("structures.SPVBlock"),
+            blockInfoProto: protoStructures.lookupType("structures.BlockInfo"),
 
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 

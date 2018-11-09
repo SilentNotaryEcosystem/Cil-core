@@ -8,6 +8,7 @@ const debug = require('debug')('witness:');
 const factory = require('./testFactory');
 
 const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {arrayEquals} = require('../utils');
 
 let wallet;
 
@@ -109,6 +110,8 @@ describe('Witness tests', () => {
     });
 
     it('should create block', async () => {
+        factory.Constants.GENEZIS_BLOCK = pseudoRandomBuffer().toString('hex');
+
         const {witness, groupDefinition} = createDummyWitness();
 
         const patch = new factory.PatchDB();
@@ -134,6 +137,4 @@ describe('Witness tests', () => {
         const {block} = await witness._createBlock(groupDefinition.getGroupId());
         assert.equal(block.txns.length, 3);
     });
-
-
 });

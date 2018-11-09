@@ -1,3 +1,4 @@
+const assert = require('assert');
 const {sleep} = require('../utils');
 const debugLib = require('debug');
 
@@ -208,10 +209,14 @@ module.exports = (factory) => {
 
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
-                    const patchState = await this._processBlock(block);
+                    if (await this._canExecuteBlock(block)) {
+                        const patchState = await this._execBlock(block);
+                        consensus.processValidBlock(block, patchState);
+                    } else {
+                        throw new Error(`Block ${block.hash()} couldn't be executed right now!`);
+                    }
 
                     // no _accept here, because this block should be voted before
-                    consensus.processValidBlock(block, patchState);
                 } catch (e) {
                     logger.error(e);
                     consensus.invalidBlock();
@@ -220,7 +225,7 @@ module.exports = (factory) => {
 
                 // we still wait for block from designated proposer or timer for BLOCK state will expire
                 debugWitness(
-                    `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not it's turn!`);
+                    `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not his turn!`);
             }
         }
 
@@ -320,7 +325,7 @@ module.exports = (factory) => {
         }
 
         /**
-         * Create block, and it it's not empty broadcast MSG_WITNESS_BLOCK to other witnesses
+         * broadcast MSG_WITNESS_BLOCK to other witnesses
          *
          * @param {String} groupName
          * @param {Block} block
@@ -354,17 +359,18 @@ module.exports = (factory) => {
          */
         async _createBlock(groupId) {
 
-            // TODO: get tips for parents
             const block = new Block(groupId);
+            let {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
+            patchMerged = patchMerged ? patchMerged : new PatchDB();
+            assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
+            block.parentHashes = arrParents;
 
-            // TODO: replace it for patch for current level
-            const patch = new PatchDB();
             const arrBadHashes = [];
             let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
                 const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
                 try {
-                    const {fee} = await this._app.processTx(tx, mapUtxos, patch, false);
+                    const {fee} = await this._app.processTx(tx, mapUtxos, patchMerged, false);
                     if (fee < Constants.MIN_TX_FEE) throw new Error(`Fee of ${fee} too small in "${tx.hash()}"`);
                     totalFee += fee;
                     block.addTx(tx);
@@ -381,7 +387,7 @@ module.exports = (factory) => {
             block.finish(totalFee, this._wallet.publicKey);
             debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} ready`);
 
-            return {block, patch};
+            return {block, patch: patchMerged};
         }
 
     };
