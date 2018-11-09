@@ -22,6 +22,7 @@ module.exports = {
         // 1 day
         BAN_PEER_SCORE: 100,
         BAN_PEER_TIME: 24 * 60 * 60 * 1000,
+        PEER_TICK_TIMEOUT: 60 * 60 * 1000,
 
         messageTypes: {
             MSG_VERSION: 'version',
@@ -57,6 +58,7 @@ module.exports = {
         // maximum time offset for nodes we tolerate
         networkTimeDiff: 60 * 60 * 1000,
 
-        MAX_BLOCK_SIZE: 2 * 1024 * 1024
+        MAX_BLOCK_SIZE: 2 * 1024 * 1024,
+        PEER_CONNECTION_LIFETIME: 24 * 60 * 60 * 1000
     }
 };
