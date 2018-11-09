@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
-const {sleep} = require('../utils');
+const {sleep, arrayEquals} = require('../utils');
 const debug = require('debug')('node:test');
 
 const factory = require('./testFactory');
@@ -51,6 +51,41 @@ const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
     }
     block.addWitnessSignatures(arrSignatures);
     return factory.WitnessGroupDefinition.create('test', block.witnessGroupId, arrPubKeys);
+};
+
+const createSimpleChain = async (callback) => {
+    const arrHashes = [];
+
+    let prevBlock = null;
+    for (let i = 0; i < 10; i++) {
+        const block = createDummyBlock(factory);
+        if (prevBlock) {
+            block.parentHashes = [prevBlock.getHash()];
+        } else {
+            factory.Constants.GENEZIS_BLOCK = block.getHash();
+        }
+        prevBlock = block;
+        await callback(block);
+        arrHashes.push(block.getHash());
+    }
+    return arrHashes;
+};
+
+const createSimpleFork = async (callback) => {
+    const genezis = createDummyBlock(factory);
+    factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+
+    const block1 = createDummyBlock(factory);
+    block1.parentHashes = [genezis.getHash()];
+    const block2 = createDummyBlock(factory);
+    block2.parentHashes = [genezis.getHash()];
+    const block3 = createDummyBlock(factory);
+    block3.parentHashes = [block1.getHash(), block2.getHash()];
+
+    await callback(genezis);
+    await callback(block1);
+    await callback(block2);
+    await callback(block3);
 };
 
 describe('Node tests', () => {
@@ -646,18 +681,8 @@ describe('Node tests', () => {
     it('should build MainDag from chainlike', async () => {
         const node = new factory.Node({});
 
-        let prevBlock = null;
-        for (let i = 0; i < 10; i++) {
-            const block = createDummyBlock(factory);
-            if (prevBlock) {
-                block.parentHashes = [prevBlock.getHash()];
-            } else {
-                factory.Constants.GENEZIS_BLOCK = block.getHash();
-            }
-            prevBlock = block;
-            await node._storage.saveBlock(block);
-        }
-        await node._storage.updateLastAppliedBlocks([prevBlock.getHash()]);
+        const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
+        await node._storage.updateLastAppliedBlocks([arrHashes[9]]);
 
         await node.buildMainDag();
         assert.equal(node._mainDag.order, 10);
@@ -666,47 +691,32 @@ describe('Node tests', () => {
 
     it('should build MainDag from simple fork', async () => {
         const node = new factory.Node({});
+        const arrBlocks = [];
 
-        const genezis = createDummyBlock(factory);
-        factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+        await createSimpleFork(async block => {
+            await node._storage.saveBlock(block);
+            arrBlocks.push(block);
+        });
 
-        const block1 = createDummyBlock(factory);
-        block1.parentHashes = [genezis.getHash()];
-        const block2 = createDummyBlock(factory);
-        block2.parentHashes = [genezis.getHash()];
-        const block3 = createDummyBlock(factory);
-        block3.parentHashes = [block1.getHash(), block2.getHash()];
-
-        await node._storage.saveBlock(genezis);
-        await node._storage.saveBlock(block1);
-        await node._storage.saveBlock(block2);
-        await node._storage.saveBlock(block3);
-        await node._storage.updateLastAppliedBlocks([block3.getHash()]);
+        await node._storage.updateLastAppliedBlocks([arrBlocks[3].getHash()]);
 
         await node.buildMainDag();
         assert.equal(node._mainDag.order, 4);
         assert.equal(node._mainDag.size, 4);
 
-        assert.deepEqual(node._mainDag.getParents(block3.getHash()), [block1.getHash(), block2.getHash()]);
-        assert.deepEqual(node._mainDag.getChildren(genezis.getHash()), [block1.getHash(), block2.getHash()]);
+        assert.deepEqual(
+            node._mainDag.getParents(arrBlocks[3].getHash()),
+            [arrBlocks[1].getHash(), arrBlocks[2].getHash()]
+        );
+        assert.deepEqual(
+            node._mainDag.getChildren(arrBlocks[0].getHash()),
+            [arrBlocks[1].getHash(), arrBlocks[2].getHash()]
+        );
     });
 
     it('should build PendingBlocks upon startup (from simple chain)', async () => {
         const node = new factory.Node({});
-        const arrHashes = [];
-
-        let prevBlock = null;
-        for (let i = 0; i < 10; i++) {
-            const block = createDummyBlock(factory);
-            if (prevBlock) {
-                block.parentHashes = [prevBlock.getHash()];
-            } else {
-                factory.Constants.GENEZIS_BLOCK = block.getHash();
-            }
-            prevBlock = block;
-            await node._storage.saveBlock(block);
-            arrHashes.push(block.getHash());
-        }
+        const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
 
         //
         await node._storage.updatePendingBlocks(arrHashes);
@@ -719,25 +729,16 @@ describe('Node tests', () => {
 
     it('should build PendingBlocks upon startup (from simple fork)', async () => {
         const node = new factory.Node({});
+        const arrBlocks = [];
 
-        const genezis = createDummyBlock(factory);
-        factory.Constants.GENEZIS_BLOCK = genezis.getHash();
-
-        const block1 = createDummyBlock(factory);
-        block1.parentHashes = [genezis.getHash()];
-        const block2 = createDummyBlock(factory);
-        block2.parentHashes = [genezis.getHash()];
-        const block3 = createDummyBlock(factory);
-        block3.parentHashes = [block1.getHash(), block2.getHash()];
-
-        await node._storage.saveBlock(genezis);
-        await node._storage.saveBlock(block1);
-        await node._storage.saveBlock(block2);
-        await node._storage.saveBlock(block3);
+        await createSimpleFork(async block => {
+            await node._storage.saveBlock(block);
+            arrBlocks.push(block);
+        });
 
         //
         await node._storage.updatePendingBlocks(
-            [genezis.getHash(), block1.getHash(), block2.getHash(), block3.getHash()]
+            [arrBlocks[0].getHash(), arrBlocks[1].getHash(), arrBlocks[2].getHash(), arrBlocks[3].getHash()]
         );
         node._checkCoinbaseTx = sinon.fake();
 
@@ -760,5 +761,165 @@ describe('Node tests', () => {
         assert.isOk(node._setUnknownBlocks.has(block.parentHashes[0]));
     });
 
+    it('should process MSG_GET_BLOCKS (simple chain)', async () => {
+        const node = new factory.Node({});
+
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        // we expect receive INV message with all hashes except Genezis
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [factory.Constants.GENEZIS_BLOCK];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+        assert.equal(vector.length, 9);
+        assert.isOk(
+            vector.every(v =>
+                Buffer.isBuffer(v.hash) &&
+                v.hash.length === 32 &&
+                v.type === factory.Constants.INV_BLOCK
+                && arrHashes.includes(v.hash.toString('hex'))
+            )
+        );
+    });
+
+    it('should process MSG_GET_BLOCKS (simple fork)', async () => {
+        const node = new factory.Node({});
+
+        const arrHashes = [];
+        await createSimpleFork(block => {
+            node._mainDag.addBlock(new factory.BlockInfo(block.header));
+            arrHashes.push(block.getHash());
+        });
+
+        // we expect receive INV message with all hashes except Genezis
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [factory.Constants.GENEZIS_BLOCK];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+        assert.equal(vector.length, 3);
+        assert.isOk(
+            vector.every(v =>
+                Buffer.isBuffer(v.hash) &&
+                v.hash.length === 32 &&
+                v.type === factory.Constants.INV_BLOCK
+                && arrHashes.includes(v.hash.toString('hex'))
+            )
+        );
+    });
+
+    it('should process 2 good hashed from chain', async () => {
+        const node = new factory.Node({});
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [arrHashes[3], arrHashes[7]];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+
+        // we should have all starting from 3d hash (including 7)
+        assert.equal(vector.length, 6);
+        assert.isOk(
+            vector.every(v =>
+                Buffer.isBuffer(v.hash) &&
+                v.hash.length === 32 &&
+                v.type === factory.Constants.INV_BLOCK
+                && arrHashes.includes(v.hash.toString('hex'))
+            )
+        );
+
+    });
+
+    it('should process 2 good hashed from fork', async () => {
+        const node = new factory.Node({});
+
+        const arrHashes = [];
+        await createSimpleFork(block => {
+            node._mainDag.addBlock(new factory.BlockInfo(block.header));
+            arrHashes.push(block.getHash());
+        });
+
+        // we expect receive INV message with tip only
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [arrHashes[1], arrHashes[2]];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+        assert.equal(vector.length, 1);
+        const [{hash}] = vector;
+        assert.equal(hash.toString('hex'), arrHashes[3]);
+    });
+
+    it('should return full DAG (empty hash array received)', async () => {
+        const node = new factory.Node({});
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+
+        assert.equal(vector.length, 10);
+        assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
+    });
+
+    it('should return full DAG (bad hashes received)', async () => {
+        const node = new factory.Node({});
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [arrHashes[3], pseudoRandomBuffer()];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+
+        assert.equal(vector.length, 10);
+        assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
+    });
 
 });
