@@ -60,7 +60,7 @@ module.exports = {
         },
 
         // maximum time offset for nodes we tolerate
-        networkTimeDiff: 60 * 60 * 1000,
+        networkTimeDiff: 60 * 60,
 
         // how much we suppress creating empty blocks
         WITNESS_HOLDOFF: 15 * 60 * 1000,
