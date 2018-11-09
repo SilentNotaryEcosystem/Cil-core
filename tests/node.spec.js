@@ -760,5 +760,35 @@ describe('Node tests', () => {
         assert.isOk(node._setUnknownBlocks.has(block.parentHashes[0]));
     });
 
+    it('should send Reject message if time offset very large', async () => {
+        const node = new factory.Node({});
+        const inMsg = new factory.Messages.MsgVersion({
+            nonce: 12,
+            peerInfo: {
+                capabilities: [
+                    {service: factory.Constants.NODE, data: null},
+                    {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                ],
+                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            }
+        });
+        inMsg._data.timeStamp = parseInt(Date.now() / 1000) + 3601
+        const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: sinon.fake(),
+                remoteAddress: factory.Transport.generateAddress(),
+                on: sinon.fake(),
+                sendMessage
+            }
+        });
+        await node._handleVersionMessage(newPeer, msgCommon);
+        assert.equal(sendMessage.callCount, 2);
+
+        const [msg] = sendMessage.args[1];
+        assert.isTrue(msg.isReject())
+
+    });
 
 });
