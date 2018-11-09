@@ -2,17 +2,21 @@
 
 const typeforce = require('typeforce');
 const debugLib = require('debug');
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
 const types = require('../types');
+const Tick = require('tick-tock');
 
 const debug = debugLib('mempool:');
 
 // TODO: add tx expiration (14 days?)
 
-module.exports = ({Transaction}) =>
+module.exports = ({ Constants, Transaction }) =>
     class Mempool {
         constructor(options) {
             this._mapTxns = new Map();
+            this._tock = new Tick(this);
+            this._tock.setInterval('outdatedTimer', this.purgeOutdated.bind(this), Constants.MEMPOOL_OUTDATED_INTERVAL);
+
         }
 
         /**
@@ -37,6 +41,23 @@ module.exports = ({Transaction}) =>
             }
         }
 
+        purgeOutdated() {
+            this._mapTxns.forEach((tx, hash) => {
+                if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
+                    this._mapTxns.delete(hash);
+                }
+            })
+        }
+
+        limitConstraints() {
+            if (this._mapTxns.size < Constants.MEMPOOL_TX_QTY) return;
+            let i = Math.floor(this._mapTxns.size / 3);
+            for (let [hash, tx] of this._mapTxns) {
+                this._mapTxns.delete(hash);
+                if (--i == 0) break;
+            }
+        }
+
         hasTx(txHash) {
             typeforce(types.Hash256bit, txHash);
 
@@ -51,13 +72,13 @@ module.exports = ({Transaction}) =>
          * @param {Transaction} tx - transaction to add
          */
         addTx(tx) {
-
+            this.limitConstraints();
             // TODO: check and forbid for duplicated TX hashes (@see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
             const strHash = tx.hash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
             // TODO: implement check for double spend by different witness group
-            this._mapTxns.set(strHash, {tx, arrived: Date.now()});
+            this._mapTxns.set(strHash, { tx, arrived: Date.now() });
             debug(`TX ${strHash} added`);
         }
 
