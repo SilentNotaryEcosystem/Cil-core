@@ -768,6 +768,10 @@ module.exports = (factory) => {
 
             await this._storage.applyPatch(patchToApply);
             await this._storage.updateLastAppliedBlocks(arrTopStable);
+
+            for (let blockHash of setBlocksToRollback) {
+                await this._unwindBlock(await this._storage.getBlock(blockHash));
+            }
             await this._storage.removeBadBlocks(setBlocksToRollback);
 
             for (let hash of setStableBlocks) {
@@ -984,5 +988,17 @@ module.exports = (factory) => {
             return result;
         }
 
+        /**
+         * Block failed to become FINAL, let's unwind it
+         *
+         * @param {Block} block
+         * @private
+         */
+        async _unwindBlock(block) {
+            debugNode(`(address: "${this._debugAddress}") Unwinding txns from block: "${block.getHash()}"`);
+            for (let objTx of block.txns) {
+                this._mempool.addTx(new Transaction(objTx));
+            }
+        }
     };
 };
