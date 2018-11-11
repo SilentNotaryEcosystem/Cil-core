@@ -438,29 +438,44 @@ module.exports = (factory) => {
             }
         }
 
+        /**
+         * Handler for MSG_GET_BLOCKS message.
+         * Send MSG_INV for further blocks (if we have it)
+         *
+         * @param {Peer} peer - peer that send message
+         * @param {MessageCommon} message - it contains hashes of LAST FINAL blocks!
+         * @return {Promise<void>}
+         * @private
+         */
         async _handleGetBlocksMessage(peer, message) {
 
             // TODO: implement better algo
             const msg = new MsgGetBlocks(message);
-            const arrHashes = msg.arrHashes;
+            let arrHashes = msg.arrHashes;
             const inventory = new Inventory();
-            if (arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
-                let currentLevel = [];
-                arrHashes.map(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
-                do {
-                    const nextLevel = [];
-                    for (let hash of currentLevel) {
-                        inventory.addVector({
-                            type: Constants.INV_BLOCK,
-                            hash
-                        });
-                        this._mainDag.getChildren(hash).forEach(child => nextLevel.push(child));
-                        if (inventory.vector.length > Constants.MAX_BLOCKS_INV) break;
-                    }
-                    currentLevel = nextLevel;
 
-                } while (inventory.vector.length < Constants.MAX_BLOCKS_INV);
+            if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
+
+                // we missed at least one of those hashes! so we think peer is at wrong DAG
+                // sent our version of DAG starting from Genezis
+                arrHashes = [Constants.GENEZIS_BLOCK];
+
+                // Genezis wouldn't be included, so add it here
+                inventory.addBlockHash(Constants.GENEZIS_BLOCK);
             }
+
+            let currentLevel = [];
+            arrHashes.map(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
+            do {
+                const nextLevel = [];
+                for (let hash of currentLevel) {
+                    inventory.addBlockHash(hash);
+                    this._mainDag.getChildren(hash).forEach(child => nextLevel.push(child));
+                    if (inventory.vector.length > Constants.MAX_BLOCKS_INV) break;
+                }
+                currentLevel = nextLevel;
+
+            } while (currentLevel.length && inventory.vector.length < Constants.MAX_BLOCKS_INV);
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;

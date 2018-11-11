@@ -16,6 +16,8 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
 
                 this._data = inventoryProto.create(data);
             }
+
+            this._setHashes = new Set();
         }
 
         encode() {
@@ -27,10 +29,11 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
          * @param {Transaction} tx
          */
         addTx(tx) {
-            const vector = {type: Constants.INV_TX, hash: Buffer.from(tx.hash(), 'hex')};
-            typeforce(types.InvVector, vector);
+            if (this._wasAlreadyAdded(tx.hash())) return;
 
+            const vector = {type: Constants.INV_TX, hash: Buffer.from(tx.hash(), 'hex')};
             this._data.invVector.push(vector);
+            this._markAsAdded(tx.hash());
         }
 
         /**
@@ -38,10 +41,27 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
          * @param {Block} block
          */
         addBlock(block) {
-            const vector = {type: Constants.INV_BLOCK, hash: Buffer.from(block.hash(), 'hex')};
-            typeforce(types.InvVector, vector);
+            if (this._wasAlreadyAdded(block.hash())) return;
 
+            const vector = {type: Constants.INV_BLOCK, hash: Buffer.from(block.hash(), 'hex')};
             this._data.invVector.push(vector);
+            this._markAsAdded(block.hash());
+        }
+
+        /**
+         *
+         * @param {String | Buffer} hash
+         */
+        addBlockHash(hash) {
+            typeforce(types.Hash256bit, hash);
+            hash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
+            const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
+
+            if (this._wasAlreadyAdded(strHash)) return;
+
+            const vector = {type: Constants.INV_BLOCK, hash};
+            this._data.invVector.push(vector);
+            this._markAsAdded(strHash);
         }
 
         get vector() {
@@ -52,5 +72,13 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
             typeforce(types.InvVector, vector);
 
             this._data.invVector.push(vector);
+        }
+
+        _wasAlreadyAdded(strHash) {
+            return this._setHashes.has(strHash);
+        }
+
+        _markAsAdded(strHash) {
+            this._setHashes.add(strHash);
         }
     };
