@@ -2,7 +2,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 
 const debugLib = require('debug');
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
 const types = require('../types');
 
 const debugNode = debugLib('node:app');
@@ -41,11 +41,11 @@ module.exports = (factory) => {
         MsgGetData,
         MsgGetBlocks
     } = Messages;
-    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
+    const { MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT } = Constants.messageTypes;
 
     return class Node {
         constructor(options) {
-            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout} = options;
+            const { arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout } = options;
 
             this._storage = new Storage(options);
 
@@ -63,7 +63,7 @@ module.exports = (factory) => {
 
             this._myPeerInfo = new PeerInfo({
                 capabilities: [
-                    {service: Constants.NODE}
+                    { service: Constants.NODE }
                 ],
                 address: this._transport.myAddress,
                 port: this._transport.port
@@ -72,7 +72,7 @@ module.exports = (factory) => {
             // used only for debugging purpose. Feel free to remove
             this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
 
-            this._peerManager = new PeerManager({transport: this._transport});
+            this._peerManager = new PeerManager({ transport: this._transport });
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
@@ -93,7 +93,7 @@ module.exports = (factory) => {
             this._pendingBlocks = new PendingBlocksManager();
             this._mainDag = new MainDag();
             this._setUnknownBlocks = new Set();
-            this._timeoffset = 0
+            this._msecOffset = 0;
 
         }
 
@@ -105,6 +105,10 @@ module.exports = (factory) => {
             return this._nonce;
         }
 
+        get networkTime() {
+            return Date.now() + this._msecOffset;
+        }
+
         async bootstrap() {
             await this._mergeSeedPeers();
 
@@ -112,7 +116,7 @@ module.exports = (factory) => {
             for (let strAddr of this._arrSeedAddresses) {
                 const peer = new PeerInfo({
                     address: Transport.strToAddress(strAddr),
-                    capabilities: [{service: Constants.NODE}]
+                    capabilities: [{ service: Constants.NODE }]
                 });
                 this._peerManager.addPeer(peer);
             }
@@ -150,11 +154,11 @@ module.exports = (factory) => {
 
             // we prefer witness nodes
             // TODO: REWORK! it's not good idea to overload witnesses!
-            const arrWitnessNodes = this._peerManager.filterPeers({service: Constants.WITNESS});
+            const arrWitnessNodes = this._peerManager.filterPeers({ service: Constants.WITNESS });
             if (arrWitnessNodes.length) return arrWitnessNodes;
 
             // but if there is no such - use any nodes
-            return this._peerManager.filterPeers({service: Constants.NODE});
+            return this._peerManager.filterPeers({ service: Constants.NODE });
         }
 
         /**
@@ -196,7 +200,7 @@ module.exports = (factory) => {
         async _incomingConnection(connection) {
             try {
                 debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
-                const newPeer = new Peer({connection, transport: this._transport});
+                const newPeer = new Peer({ connection, transport: this._transport });
 
                 const result = this._peerManager.addPeer(newPeer);
                 if (result instanceof Peer) return;
@@ -330,7 +334,7 @@ module.exports = (factory) => {
 
                 // since we building DAG, it's faster
                 if (await this._mainDag.getBlockInfo(block.hash())) {
-//                if (await this._storage.hasBlock(block.hash())) {
+                    //                if (await this._storage.hasBlock(block.hash())) {
                     logger.error(`Block ${block.hash()} already known!`);
                     return;
                 }
@@ -530,7 +534,18 @@ module.exports = (factory) => {
          */
         async _handleVersionMessage(peer, message) {
             message = new MsgVersion(message);
-
+            const _offset = message.msecTime - this.networkTime;
+            if (Math.abs(_offset) > Constants.TOLERATED_TIME_DIFF) {
+                const reason = `Check your clocks! network time is: ${this.networkTime}`;
+                const message = new MsgReject({
+                    code: Constants.REJECT_TIMEOFFSET,
+                    reason
+                });
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
+                await peer.pushMessage(message);
+                return;
+            }
             // we connected to self
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
@@ -561,26 +576,12 @@ module.exports = (factory) => {
                     debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
                     await peer.pushMessage(this._createMsgVersion());
                 }
-                const _now = parseInt(Date.now() / 1000)
-                let _offset = (message._data.timeStamp + _now + this._timeoffset) / 2 - _now
-                if (2*_offset < Constants.networkTimeDiff) {
-                    this._timeoffset = _offset
-                    const msgVerack = new MsgCommon();
-                    msgVerack.verAckMessage = true;
-                    debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
-                    await peer.pushMessage(msgVerack);
-                }
-                else {
-                    const reason =   'Time offset very large';
-                    const message = new MsgReject({
-                        code: Constants.REJECT_TIMEOFFSET,
-                        reason
-                    });
-                    debugMsg(
-                        `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
-                    await peer.pushMessage(message);
-    
-                }
+                this._msecOffset = (this._msecOffset + _offset) / 2;
+                const msgVerack = new MsgCommon();
+                msgVerack.verAckMessage = true;
+                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
+                await peer.pushMessage(msgVerack);
+
             } else {
                 debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
                 peer.disconnect();
@@ -623,7 +624,7 @@ module.exports = (factory) => {
                 logger.error('Its time to implement multiple addr messages');
             }
             debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeers.length} items`);
-            await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
+            await peer.pushMessage(new MsgAddr({ count: arrPeers.length, peers: arrPeers }));
         }
 
         /**
@@ -669,7 +670,7 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          * @private
          */
-        async _rpcHandler({event, content}) {
+        async _rpcHandler({ event, content }) {
             switch (event) {
                 case 'tx':
                     await this._processReceivedTx(content).catch(err => logger.error('RPC error:', err));
@@ -683,7 +684,7 @@ module.exports = (factory) => {
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
             const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
-            const {fee} = await this._app.processTx(tx, mapUtxos);
+            const { fee } = await this._app.processTx(tx, mapUtxos);
             if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
             this._mempool.addTx(tx);
@@ -730,7 +731,7 @@ module.exports = (factory) => {
 
                 const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
 
-                const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
+                const { fee } = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
                 blockFees += fee;
             }
 
