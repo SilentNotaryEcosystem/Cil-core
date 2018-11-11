@@ -29,6 +29,7 @@ const config = require('../config/test.conf');
 
 const Crypto = require('../crypto/crypto');
 const TransportWrapper = require('../network/testTransport');
+const Ipv6TransportWrapper = require('../network/ipv6Transport');
 const SerializerWrapper = require('../network/serializer');
 const MessageAssemblerWrapper = require('../network/messageAssembler');
 const PeerWrapper = require('../network/peer');
@@ -91,6 +92,7 @@ class Factory {
                 this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = TransportWrapper(this);
+                this._ipv6TransportImplemetation = Ipv6TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
                 this._storageImplementation = StorageWrapper(this);
@@ -166,6 +168,10 @@ class Factory {
 
     get Transport() {
         return this._transportImplemetation;
+    }
+
+    get Ipv6Transport() {
+        return this._ipv6TransportImplemetation;
     }
 
     get Serializer() {
