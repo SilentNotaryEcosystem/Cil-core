@@ -68,6 +68,12 @@ module.exports = {
         WITNESS_HOLDOFF: 15 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
         MIN_TX_FEE: 1000,
-        PEER_CONNECTION_LIFETIME: 60 * 60 * 1000
+
+        PEER_CONNECTION_LIFETIME: 60 * 60 * 1000,
+
+        MEMPOOL_TX_QTY: 5,
+        MEMPOOL_TX_LIFETIME: 5000,
+        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000
+
     }
 };
