@@ -55,7 +55,7 @@ module.exports = {
         },
 
         // maximum time offset for nodes we tolerate
-        networkTimeDiff: 60 * 60 * 1000,
+        TOLERATED_TIME_DIFF: 60 * 60 * 1000,
 
         MAX_BLOCK_SIZE: 2 * 1024 * 1024,
         MEMPOOL_TX_QTY: 200 * 1000,
