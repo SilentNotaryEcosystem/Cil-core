@@ -576,7 +576,7 @@ module.exports = (factory) => {
                     debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
                     await peer.pushMessage(this._createMsgVersion());
                 }
-                this._msecOffset = (this._msecOffset + _offset) / 2;
+                this._msecOffset +=  _offset / 2;
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
