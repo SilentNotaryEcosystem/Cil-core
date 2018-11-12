@@ -922,6 +922,7 @@ describe('Node tests', () => {
         assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
     });
 
+
     it('should send Reject message if time offset very large', async () => {
         const node = new factory.Node({});
         const inMsg = new factory.Messages.MsgVersion({
@@ -947,12 +948,18 @@ describe('Node tests', () => {
         });
         await node._handleVersionMessage(newPeer, msgCommon);
         assert.equal(sendMessage.callCount, 1);
-        //assert.equal(peer.pushMessage.callCount, 2);
-
-        //const [msgVer] = sendMessage.args[0];
+     
         const [msg] = sendMessage.args[0];
         //console.log(msgVer)
         assert.isTrue(msg.isReject())
+
+    it('should unwind block to mempool', async () => {
+        const node = new factory.Node({});
+        const block = createDummyBlock(factory);
+        const tx = new factory.Transaction(block.txns[0]);
+
+        await node._unwindBlock(block);
+        assert.isOk(node._mempool.hasTx(tx.hash()));
 
     });
 });
