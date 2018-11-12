@@ -54,7 +54,7 @@ module.exports = (factory) => {
          * 
          * @return {Promise<Object[]>}
          */
-        async getPortMappings() {
+        async _getPortMappings() {
             return this._upnpClient ?
                 new Promise((resolve, reject) => {
                     this._upnpClient.getMappings(function (err, results) {
@@ -110,50 +110,7 @@ module.exports = (factory) => {
                     return true;
                 }
             }
-            
             return false;
-        }
-
-        /**
-         * Сheck and set addresses which listen
-         */
-        async setAddresses() {
-            if (!ipaddr.isValid(this._address)) {
-                try {
-                    this._address = await this._getPublicAddress();
-                }
-                catch (err) {
-                    debug(`Error determining external IP address: ${err}`);
-                }
-                if (ipaddr.isValid(this._address)) {
-                    //if you have white ip address
-                    if (this._checkLocalInterfacesIp(this._address)) {
-                        this._privateAddress = this._address;
-                        this._publicAddress = this._address;
-                    }
-                    else {
-                        let mappings = await this.portMappings;
-                        if (!mappings || mappings.length === 0){
-                            this.portMapping();
-                            mappings = await this.portMappings;
-                        }
-                        if (mappings && mappings.length > 0) {
-                            this._privateAddress = mappings[0].private.host;
-                            this._publicAddress = this._address;
-                        }
-                    }
-                }
-                else {
-                    debug(`Listen local IP address: ${err}`);
-                    this._privateAddress = this._getPrivateAddress();
-                    this._publicAddress = this._getPrivateAddress();
-                }
-            }
-            else {
-                debug(`Listen input parameter IP address: ${err}`);
-                this._privateAddress = this._address;;
-                this._publicAddress = this._address;;
-            }
         }
 
         /**
@@ -171,7 +128,7 @@ module.exports = (factory) => {
             }
         }
 
-        portMapping() {
+        _portMapping() {
             if (!this._upnpClient) {
                 this._upnpClient = natUpnp.createClient();
             }
@@ -182,6 +139,17 @@ module.exports = (factory) => {
             }, function (err) {
                 if (err) { debug(`portMapping error`, err); }
             });
+        }
+
+        /**
+         * For tests
+         */
+        portUnmapping() {
+            if (this._upnpClient) {
+                this._upnpClient.portUnmapping({
+                    public: this._port
+                });
+            }
         }
 
         /**
@@ -201,16 +169,77 @@ module.exports = (factory) => {
         }
 
         /**
+         * uPnP port mapping, set result addresses
+         */
+        async _getMappingAddress() {
+            let mappings = await this._getPortMappings();
+            if (!mappings || mappings.length === 0) {
+                this._portMapping();
+                mappings = await this._getPortMappings();
+            }
+            if (mappings && mappings.length > 0) {
+                return { privateAddress: mappings[0].private.host };
+            }
+        }
+
+        _setAddresses({ privateAddress, publicAddress }) {
+            this._privateAddress = !this.privateAddress ? privateAddress || undefined : this.privateAddress;
+            this._publicAddress = !this._publicAddress ? publicAddress || undefined : this._publicAddress;
+        }
+
+        /**
+         * 
+         * @return {boolean} exists private & public addresses
+         */
+        _existsAddresses() {
+            return ipaddr.isValid(this._privateAddress) && ipaddr.isValid(this._publicAddress);
+        }
+
+        async _getRealAddress() {
+            if (ipaddr.isValid(this._address))
+                return;
+            let addr;
+            try {
+                addr = await this._getPublicAddress();
+            }
+            catch (err) {
+                debug(`Error determining external IP address: ${err}`);
+            }
+            if (!addr)
+                return;
+            if (this._checkLocalInterfacesIp(addr)) {
+                return { privateAddress: addr, publicAddress: addr };
+            }
+            return { publicAddress: addr };
+        }
+
+        /**
          * Emit 'connect' with new Connection
          *
          */
-        listen() {
+        async listen() {
+            if (ipaddr.isValid(this._address)) {
+                this._setAddresses({ privateAddress: this._address, publicAddress: this._address });
+            }
+            if (!this._existsAddresses()) {
+                this._setAddresses(await this._getRealAddress());
+            }
+            if (!this._existsAddresses()) {
+                this._setAddresses(await this._getMappingAddress());
+            }
+            if (!this._existsAddresses()) {
+                this._setAddresses({ privateAddress: this._getPrivateAddress(), publicAddress: this._getPrivateAddress() });
+            }
+
+            if (!this._existsAddresses()) {
+                throw new Error("Error determining listen address");
+            }
             const server = net.createServer(async (socket) => {
                 this.emit('connect',
                     new Ipv6Connection({ socket, timeout: this._timeout })
                 );
             });
-            server.listen({ port: this.port, host: this.privateAddress });
+            server.listen({ port: this.port, host: this._privateAddress });
         }
 
         /**
@@ -228,7 +257,7 @@ module.exports = (factory) => {
         }
 
         cleanUp() {
-            EventBus.removeAllListeners(this._address);
+            EventBus.removeAllListeners(this._privateAddress);
         }
     };
 };

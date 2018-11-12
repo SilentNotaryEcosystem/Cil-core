@@ -36,58 +36,19 @@ describe('Transport', () => {
 
     it('should get addresses', async () => {
         const endpoint = new factory.Ipv6Transport();
-        await endpoint.setAddresses();
+        await endpoint.listen();
         assert.isOk(endpoint.publicAddress);
         assert.isOk(endpoint.privateAddress);
     });
 
-    it('should communicate each other (real address)', async () => {
-        const endpoint1 = new factory.Ipv6Transport();
-        const endpoint2 = new factory.Ipv6Transport();
-
-        const [connection1, connection2] = await Promise.all([
-            endpoint1.listenSync(),
-            endpoint2.connect(endpoint1.myAddress, endpoint1.port)
-        ]);
-
-        assert.isOk(connection1);
-        assert.isOk(connection2);
-
-        const msgPromise = connection2.receiveSync();
-        await connection1.sendMessage(msgCommon);
-
-        const result = await msgPromise;
-        assert.isOk(result.message);
-    });
-
-    it('should communicate each other (ipv6)', async () => {
+    it('should communicate each other', async () => {
         const address = '::1'
         const endpoint1 = new factory.Ipv6Transport({ listenAddr: address });
         const endpoint2 = new factory.Ipv6Transport();
 
         const [connection1, connection2] = await Promise.all([
             endpoint1.listenSync(),
-            endpoint2.connect(endpoint1.myAddress, endpoint1.port)
-        ]);
-
-        assert.isOk(connection1);
-        assert.isOk(connection2);
-
-        const msgPromise = connection2.receiveSync();
-        await connection1.sendMessage(msgCommon);
-
-        const result = await msgPromise;
-        assert.isOk(result.message);
-    });
-
-    it('should communicate each other (ipv4)', async () => {
-        const address = '127.0.0.1'
-        const endpoint1 = new factory.Ipv6Transport({ listenAddr: address });
-        const endpoint2 = new factory.Ipv6Transport();
-
-        const [connection1, connection2] = await Promise.all([
-            endpoint1.listenSync(),
-            endpoint2.connect(endpoint1.myAddress, endpoint1.port)
+            endpoint2.connect(endpoint1.publicAddress, endpoint1.port)
         ]);
 
         assert.isOk(connection1);
