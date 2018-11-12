@@ -200,4 +200,49 @@ describe('Peer tests', () => {
         assert.isNotOk(newPeer._connection);
 
     });
+
+    it('should disconnect peer when very many bytes received', async () => {
+        newPeer = new factory.Peer({ peerInfo });
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(6 * 1024 * 1024);
+        await newPeer.connect()
+        newPeer._connection.emit('message', msg);
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+        assert.isOk(newPeer._bytesCount);
+
+        newPeer._connection.emit('message', msg);
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+        assert.isNotOk(newPeer._bytesCount);
+
+    });
+
+    it('should disconnect peer when very many bytes transmitted', async () => {
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(6 * 1024 * 1024 );
+
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                listenerCount: () => 0,
+                on: () => { },
+                sendMessage: async () => {},
+                close: () => { newPeer._connection = undefined }
+            }
+        });
+        newPeer.pushMessage(msg);
+        await sleep(200)
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+
+        newPeer.pushMessage(msg);
+        await sleep(200)
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+    });
 });
