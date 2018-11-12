@@ -922,4 +922,12 @@ describe('Node tests', () => {
         assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
     });
 
+    it('should unwind block to mempool', async () => {
+        const node = new factory.Node({});
+        const block = createDummyBlock(factory);
+        const tx = new factory.Transaction(block.txns[0]);
+
+        await node._unwindBlock(block);
+        assert.isOk(node._mempool.hasTx(tx.hash()));
+    });
 });
