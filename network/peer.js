@@ -29,7 +29,7 @@ module.exports = (factory) => {
             this._lastActionTimestamp = lastActionTimestamp ? lastActionTimestamp : Date.now();
 
             this._tags = [];
-
+            this._bytesCount = 0;
             // this means that we have incoming connection
             if (connection) {
                 this._connection = connection;
@@ -166,6 +166,7 @@ module.exports = (factory) => {
                 debug(`Peer ${this.address} already connected`);
                 return;
             }
+            this._bytesCount = 0;
             this._connection = await this._transport.connect(this.address, this.port);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
@@ -174,7 +175,10 @@ module.exports = (factory) => {
         _setConnectionHandlers() {
             if (!this._connection.listenerCount('message')) {
                 this._connection.on('message', msg => {
-
+                    if(msg.payload && Buffer.isBuffer(msg.payload)) {
+                        this._bytesCount += msg.payload.length;
+                        if(this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
+                    }
                     // TODO: update counters/timers here
                     this._lastActionTimestamp = Date.now();
                     if (msg.signature) {
@@ -195,6 +199,7 @@ module.exports = (factory) => {
                     this._bInbound = false;
                     this.loadDone = true;
                     this._connection = undefined;
+                    this._bytesCount = 0;
                 });
             }
         }
@@ -213,8 +218,12 @@ module.exports = (factory) => {
                 while ((nextMsg = this._queue.shift())) {
                     debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
                     await this._connection.sendMessage(nextMsg);
+                    if(nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
+                        this._bytesCount += nextMsg.payload.length;
+                    }
                 }
                 this._queue = undefined;
+                if(this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
             }
         }
 
