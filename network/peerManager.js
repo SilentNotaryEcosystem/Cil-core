@@ -73,6 +73,7 @@ module.exports = (factory) => {
             if (peer.isWitness && !peer.listenerCount('witnessMessage')) {
                 peer.on('witnessMessage', this._incomingMessage.bind(this));
             }
+            if (!peer.listenerCount('disconnect')) peer.on('disconnect', this._peerDisconnect.bind(this));
         }
 
         /**
@@ -91,6 +92,9 @@ module.exports = (factory) => {
             }
         }
 
+        _peerDisconnect(thisPeer) {
+            this.emit('disconnect', thisPeer, undefined);
+        }
         /**
          *
          * @param {Number} service - @see Constants
