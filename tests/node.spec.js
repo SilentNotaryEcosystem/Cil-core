@@ -89,7 +89,7 @@ const createSimpleFork = async (callback) => {
 };
 
 describe('Node tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -124,11 +124,11 @@ describe('Node tests', () => {
 
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         sinon.restore();
     });
 
@@ -935,7 +935,7 @@ describe('Node tests', () => {
                 address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
             }
         });
-        inMsg._data.timeStamp = parseInt(Date.now()/1000) + 3700 
+        inMsg._data.timeStamp = parseInt(Date.now() / 1000) + 3700
         const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
         const sendMessage = sinon.fake.returns(Promise.resolve(null));
         const newPeer = new factory.Peer({
@@ -948,10 +948,11 @@ describe('Node tests', () => {
         });
         await node._handleVersionMessage(newPeer, msgCommon);
         assert.equal(sendMessage.callCount, 1);
-     
+
         const [msg] = sendMessage.args[0];
         //console.log(msgVer)
         assert.isTrue(msg.isReject())
+    });
 
     it('should unwind block to mempool', async () => {
         const node = new factory.Node({});
@@ -960,6 +961,28 @@ describe('Node tests', () => {
 
         await node._unwindBlock(block);
         assert.isOk(node._mempool.hasTx(tx.hash()));
+
+    });
+
+    it('should handle peer disconnect event', async () => {
+        const node = new factory.Node({});
+        const handlePeerDisconnect =  sinon.spy(node, '_peerDisconnect');
+        node._peerManager.on('disconnect', handlePeerDisconnect);
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                listenerCount: () => 0,
+                on: () => {},
+                sendMessage: async () => {},
+                close: () => {}
+            }
+        });
+        const peer = node._peerManager.addPeer(newPeer);
+        
+        newPeer.disconnect();
+
+        assert.isOk(node._peerDisconnect.calledOnce);
+        assert(node._peerDisconnect.calledWith(peer));
 
     });
 });
