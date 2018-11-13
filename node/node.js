@@ -76,8 +76,9 @@ module.exports = (factory) => {
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
-
             debugNode(`(address: "${this._debugAddress}") start listening`);
+            this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
+
             this._transport.listen();
             this._transport.on('connect', this._incomingConnection.bind(this));
 
@@ -220,6 +221,9 @@ module.exports = (factory) => {
             }
         }
 
+        _peerDisconnect(peer) {
+           
+        }
         /**
          *
          * @param {Peer} peer
