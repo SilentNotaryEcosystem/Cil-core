@@ -234,6 +234,7 @@ module.exports = (factory) => {
         disconnect() {
             debug(`Closing connection to "${this._connection.remoteAddress}"`);
             this._connection.close();
+            this.emit('disconnect', this, undefined);
         }
 
     };
