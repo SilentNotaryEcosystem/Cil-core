@@ -9,7 +9,7 @@ const natUpnp = require('nat-upnp');
 
 const pathPrefix = os.platform() === 'win32' ? '\\\\?\\pipe' : '';
 
-const { sleep } = require('../utils');
+const {sleep} = require('../utils');
 const ConnectionWrapper = require('./ipv6Connection');
 
 /**
@@ -19,7 +19,7 @@ const ConnectionWrapper = require('./ipv6Connection');
 const EventBus = new EventEmitter();
 
 module.exports = (factory) => {
-    const { Serializer, MessageAssembler, Constants } = factory;
+    const {Serializer, MessageAssembler, Constants} = factory;
     const Ipv6Connection = ConnectionWrapper(Serializer, MessageAssembler, Constants);
 
     return class Ipv6Transport extends EventEmitter {
@@ -58,7 +58,7 @@ module.exports = (factory) => {
             return this._upnpClient ?
                 new Promise((resolve, reject) => {
                     this._upnpClient.getMappings(function (err, results) {
-                        if (err) { reject(err); }
+                        if (err) {reject(err);}
                         resolve(results);
                     });
                 })
@@ -75,7 +75,7 @@ module.exports = (factory) => {
             }
             return new Promise((resolve, reject) => {
                 this._upnpClient.externalIp(function (err, ip) {
-                    if (err) { reject(err); }
+                    if (err) {reject(err);}
                     resolve(ip);
                 });
             });
@@ -137,7 +137,7 @@ module.exports = (factory) => {
                 private: this._port,
                 ttl: 0
             }, function (err) {
-                if (err) { debug(`portMapping error`, err); }
+                if (err) {debug(`portMapping error`, err);}
             });
         }
 
@@ -161,7 +161,7 @@ module.exports = (factory) => {
                 const socket = net.createConnection(port, address,
                     async (err) => {
                         if (err) return reject(err);
-                        resolve(new Ipv6Connection({ socket, timeout: this._timeout }));
+                        resolve(new Ipv6Connection({socket, timeout: this._timeout}));
                     }
                 );
                 socket.on('error', err => reject(err));
@@ -178,11 +178,11 @@ module.exports = (factory) => {
                 mappings = await this._getPortMappings();
             }
             if (mappings && mappings.length > 0) {
-                return { privateAddress: mappings[0].private.host };
+                return {privateAddress: mappings[0].private.host};
             }
         }
 
-        _setAddresses({ privateAddress, publicAddress }) {
+        _setAddresses({privateAddress, publicAddress}) {
             this._privateAddress = !this.privateAddress ? privateAddress || undefined : this.privateAddress;
             this._publicAddress = !this._publicAddress ? publicAddress || undefined : this._publicAddress;
         }
@@ -208,9 +208,9 @@ module.exports = (factory) => {
             if (!addr)
                 return;
             if (this._checkLocalInterfacesIp(addr)) {
-                return { privateAddress: addr, publicAddress: addr };
+                return {privateAddress: addr, publicAddress: addr};
             }
-            return { publicAddress: addr };
+            return {publicAddress: addr};
         }
 
         /**
@@ -219,7 +219,7 @@ module.exports = (factory) => {
          */
         async listen() {
             if (ipaddr.isValid(this._address)) {
-                this._setAddresses({ privateAddress: this._address, publicAddress: this._address });
+                this._setAddresses({privateAddress: this._address, publicAddress: this._address});
             }
             if (!this._existsAddresses()) {
                 this._setAddresses(await this._getRealAddress());
@@ -228,7 +228,7 @@ module.exports = (factory) => {
                 this._setAddresses(await this._getMappingAddress());
             }
             if (!this._existsAddresses()) {
-                this._setAddresses({ privateAddress: this._getPrivateAddress(), publicAddress: this._getPrivateAddress() });
+                this._setAddresses({privateAddress: this._getPrivateAddress(), publicAddress: this._getPrivateAddress()});
             }
 
             if (!this._existsAddresses()) {
@@ -236,10 +236,10 @@ module.exports = (factory) => {
             }
             const server = net.createServer(async (socket) => {
                 this.emit('connect',
-                    new Ipv6Connection({ socket, timeout: this._timeout })
+                    new Ipv6Connection({socket, timeout: this._timeout})
                 );
             });
-            server.listen({ port: this.port, host: this._privateAddress });
+            server.listen({port: this.port, host: this._privateAddress});
         }
 
         /**

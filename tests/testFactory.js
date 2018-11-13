@@ -67,47 +67,47 @@ class Factory {
         this._donePromise = this._asyncLoader();
         this._donePromise.then((prototypes) => {
 
-                // Order is mandatory!
-                // For example if Utxo depends on Coins implementation, you should implement Coins first
-                this._constants = {
-                    ...this._constants,
-                    ...prototypes.enumServices.values,
-                    ...prototypes.enumRejectCodes.values,
-                    ...prototypes.enumInventory.values
-                };
+            // Order is mandatory!
+            // For example if Utxo depends on Coins implementation, you should implement Coins first
+            this._constants = {
+                ...this._constants,
+                ...prototypes.enumServices.values,
+                ...prototypes.enumRejectCodes.values,
+                ...prototypes.enumInventory.values
+            };
 
-                // prototypes
-                this._coinsImplementation = CoinsWrapper(this);
-                this._transactionImplementation = TransactionWrapper(this, prototypes);
-                this._blockImplementation = BlockWrapper(this, prototypes);
-                this._inventoryImplementation = InventoryWrapper(this, prototypes);
-                this._utxoImplementation = UtxoWrapper(this, prototypes);
-                this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
-                this._blockInfo = BlockInfoWrapper(this, prototypes);
-                this._arrayOfHashes = ArrayOfHashesWrapper(this);
+            // prototypes
+            this._coinsImplementation = CoinsWrapper(this);
+            this._transactionImplementation = TransactionWrapper(this, prototypes);
+            this._blockImplementation = BlockWrapper(this, prototypes);
+            this._inventoryImplementation = InventoryWrapper(this, prototypes);
+            this._utxoImplementation = UtxoWrapper(this, prototypes);
+            this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
+            this._blockInfo = BlockInfoWrapper(this, prototypes);
+            this._arrayOfHashes = ArrayOfHashesWrapper(this);
 
-                this._messagesImplementation = MessagesWrapper(this, prototypes);
+            this._messagesImplementation = MessagesWrapper(this, prototypes);
 
-                //
-                this._serializerImplementation = SerializerWrapper(this.Messages);
-                this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
-                this._transportImplemetation = TransportWrapper(this);
-                this._ipv6TransportImplemetation = Ipv6TransportWrapper(this);
-                this._peerImplementation = PeerWrapper(this);
-                this._peerManagerImplemetation = PeerManagerWrapper(this);
-                this._storageImplementation = StorageWrapper(this);
-                this._bftImplementation = BftWrapper(this);
-                this._mempoolImplementation = MempoolWrapper(this);
-                this._rpcImplementation = RpcWrapper(this);
-                this._patchImplementation = PatchWrapper(this);
-                this._appImplementation = AppWrapper(this);
-                this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
-                this._mainDagImplementation = MainDagWrapper(this);
+            //
+            this._serializerImplementation = SerializerWrapper(this.Messages);
+            this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
+            this._transportImplemetation = TransportWrapper(this);
+            this._ipv6TransportImplemetation = Ipv6TransportWrapper(this);
+            this._peerImplementation = PeerWrapper(this);
+            this._peerManagerImplemetation = PeerManagerWrapper(this);
+            this._storageImplementation = StorageWrapper(this);
+            this._bftImplementation = BftWrapper(this);
+            this._mempoolImplementation = MempoolWrapper(this);
+            this._rpcImplementation = RpcWrapper(this);
+            this._patchImplementation = PatchWrapper(this);
+            this._appImplementation = AppWrapper(this);
+            this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
+            this._mainDagImplementation = MainDagWrapper(this);
 
-                // all componenst should be declared above
-                this._nodeImplementation = NodeWrapper(this);
-                this._witnessImplementation = WitnessWrapper(this);
-            })
+            // all componenst should be declared above
+            this._nodeImplementation = NodeWrapper(this);
+            this._witnessImplementation = WitnessWrapper(this);
+        })
             .catch(err => {
                 logger.error(err);
                 process.exit(10);
@@ -122,8 +122,8 @@ class Factory {
     get version() {
         const arrSubversions = pack.version.split('.');
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
-               parseInt(arrSubversions[1]) * Math.pow(2, 10) +
-               parseInt(arrSubversions[2]);
+            parseInt(arrSubversions[1]) * Math.pow(2, 10) +
+            parseInt(arrSubversions[2]);
     }
 
     get WitnessGroupDefinition() {

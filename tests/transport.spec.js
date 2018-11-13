@@ -1,9 +1,9 @@
-const { describe, it } = require('mocha');
-const { assert } = require('chai');
+const {describe, it} = require('mocha');
+const {assert} = require('chai');
 const debug = require('debug')('transport:');
 
 const factory = require('./testFactory');
-const { sleep } = require('../utils');
+const {sleep} = require('../utils');
 const dns = require('dns');
 const util = require('util');
 const net = require('net');
@@ -43,7 +43,7 @@ describe('Transport', () => {
 
     it('should communicate each other', async () => {
         const address = '::1'
-        const endpoint1 = new factory.Ipv6Transport({ listenAddr: address });
+        const endpoint1 = new factory.Ipv6Transport({listenAddr: address});
         const endpoint2 = new factory.Ipv6Transport();
 
         const [connection1, connection2] = await Promise.all([
