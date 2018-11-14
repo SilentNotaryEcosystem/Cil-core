@@ -1,6 +1,7 @@
 const EventEmitter = require('events');
 const debug = require('debug')('peer:');
-const {sleep} = require('../utils');
+const { sleep } = require('../utils');
+const Tick = require('tick-tock');
 
 /**
  * Хранит информацию о Peer'е
@@ -10,12 +11,13 @@ const {sleep} = require('../utils');
  */
 
 module.exports = (factory) => {
-    const {Messages, Transport, Constants} = factory;
-    const {PeerInfo} = Messages;
+    const { Messages, Transport, Constants } = factory;
+    const { PeerInfo } = Messages;
+    const PEER_TIMER_NAME = 'peerTimer';
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {connection, peerInfo, lastActionTimestamp, transport} = options;
+            const { connection, peerInfo, lastActionTimestamp, transport } = options;
 
             this._nonce = parseInt(Math.random() * 100000);
 
@@ -27,7 +29,7 @@ module.exports = (factory) => {
             this._lastActionTimestamp = lastActionTimestamp ? lastActionTimestamp : Date.now();
 
             this._tags = [];
-
+            this._bytesCount = 0;
             // this means that we have incoming connection
             if (connection) {
                 this._connection = connection;
@@ -36,6 +38,7 @@ module.exports = (factory) => {
                 this._peerInfo = new PeerInfo({
                     address: connection.remoteAddress
                 });
+                this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             } else if (peerInfo) {
                 this.peerInfo = peerInfo;
             } else {
@@ -43,6 +46,8 @@ module.exports = (factory) => {
             }
 
             // TODO: add watchdog to unban peers
+            this._tock = new Tick(this);
+            this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
         }
 
         get peerInfo() {
@@ -71,7 +76,7 @@ module.exports = (factory) => {
 
         get isWitness() {
             return Array.isArray(this._peerInfo.capabilities) &&
-                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
         get lastActionTimestamp() {
@@ -161,14 +166,19 @@ module.exports = (factory) => {
                 debug(`Peer ${this.address} already connected`);
                 return;
             }
+            this._bytesCount = 0;
             this._connection = await this._transport.connect(this.address, this.port);
+            this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
         }
 
         _setConnectionHandlers() {
             if (!this._connection.listenerCount('message')) {
                 this._connection.on('message', msg => {
-
+                    if(msg.payload && Buffer.isBuffer(msg.payload)) {
+                        this._bytesCount += msg.payload.length;
+                        if(this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
+                    }
                     // TODO: update counters/timers here
                     this._lastActionTimestamp = Date.now();
                     if (msg.signature) {
@@ -189,6 +199,7 @@ module.exports = (factory) => {
                     this._bInbound = false;
                     this.loadDone = true;
                     this._connection = undefined;
+                    this._bytesCount = 0;
                 });
             }
         }
@@ -207,8 +218,12 @@ module.exports = (factory) => {
                 while ((nextMsg = this._queue.shift())) {
                     debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
                     await this._connection.sendMessage(nextMsg);
+                    if(nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
+                        this._bytesCount += nextMsg.payload.length;
+                    }
                 }
                 this._queue = undefined;
+                if(this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
             }
         }
 
@@ -237,5 +252,14 @@ module.exports = (factory) => {
             this.emit('disconnect', this, undefined);
         }
 
+        _tick() {
+            if (this._bBanned && this._bannedTill.getTime() < Date.now()) {
+                this._bBanned = false;
+            }
+            if (!this.disconnected && this._connectedTill.getTime() < Date.now()) {
+                this.disconnect();
+                this._connection = undefined;
+            }
+        }
     };
 };

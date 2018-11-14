@@ -21,7 +21,9 @@ module.exports = {
 
         // 1 day
         BAN_PEER_SCORE: 100,
-        BAN_PEER_TIME: 24 * 60 * 60 * 1000,
+        BAN_PEER_TIME: 5000,// 24 * 60 * 60 * 1000,
+        PEER_TICK_TIMEOUT: 1000,
+
 
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 500,
@@ -66,9 +68,13 @@ module.exports = {
         WITNESS_HOLDOFF: 15 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
         MIN_TX_FEE: 1000,
+
+        PEER_CONNECTION_LIFETIME: 60 * 60 * 1000,
+
         MEMPOOL_TX_QTY: 5,
         MEMPOOL_TX_LIFETIME: 5000,
-        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000
+        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
 
+        PEER_MAX_BYTESCOUNT: 10 * 1024 * 1024
     }
 };
