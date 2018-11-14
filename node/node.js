@@ -548,6 +548,7 @@ module.exports = (factory) => {
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
+                peer.disconnect();
                 return;
             }
             // we connected to self
@@ -581,6 +582,7 @@ module.exports = (factory) => {
                     await peer.pushMessage(this._createMsgVersion());
                 }
                 this._msecOffset += _offset / 2;
+                peer.offsetDelta = _offset / 2;
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
