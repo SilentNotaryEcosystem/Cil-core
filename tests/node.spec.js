@@ -946,12 +946,13 @@ describe('Node tests', () => {
                 sendMessage
             }
         });
+        newPeer.disconnect = sinon.fake();
         await node._handleVersionMessage(newPeer, msgCommon);
         assert.equal(sendMessage.callCount, 1);
 
         const [msg] = sendMessage.args[0];
-        //console.log(msgVer)
-        assert.isTrue(msg.isReject())
+        assert.isTrue(msg.isReject());
+        assert.equal(newPeer.disconnect.callCount, 1);
     });
 
     it('should unwind block to mempool', async () => {
