@@ -30,6 +30,7 @@ module.exports = (factory) => {
 
             this._tags = [];
             this._bytesCount = 0;
+            this._msecOffsetDelta = 0;
             // this means that we have incoming connection
             if (connection) {
                 this._connection = connection;
@@ -131,6 +132,14 @@ module.exports = (factory) => {
 
         set witnessLoadDone(trueVal) {
             this._witnessLoadDone = true;
+        }
+
+        get offsetDelta() {
+            return this._msecOffsetDelta;
+        }
+
+        set offsetDelta(delta) {
+            this._msecOffsetDelta = delta;
         }
 
         addTag(tag) {
