@@ -89,7 +89,7 @@ const createSimpleFork = async (callback) => {
 };
 
 describe('Node tests', () => {
-    before(async function () {
+    before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -124,11 +124,11 @@ describe('Node tests', () => {
 
     });
 
-    after(async function () {
+    after(async function() {
         this.timeout(15000);
     });
 
-    afterEach(function () {
+    afterEach(function() {
         sinon.restore();
     });
 
@@ -966,7 +966,7 @@ describe('Node tests', () => {
 
     it('should handle peer disconnect event', async () => {
         const node = new factory.Node({});
-        const handlePeerDisconnect =  sinon.spy(node, '_peerDisconnect');
+        const handlePeerDisconnect = sinon.spy(node, '_peerDisconnect');
         node._peerManager.on('disconnect', handlePeerDisconnect);
         const newPeer = new factory.Peer({
             connection: {
@@ -978,7 +978,7 @@ describe('Node tests', () => {
             }
         });
         const peer = node._peerManager.addPeer(newPeer);
-        
+
         newPeer.disconnect();
 
         assert.isOk(node._peerDisconnect.calledOnce);
