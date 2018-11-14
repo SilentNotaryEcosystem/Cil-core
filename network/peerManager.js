@@ -93,7 +93,7 @@ module.exports = (factory) => {
         }
 
         _peerDisconnect(thisPeer) {
-            this.emit('disconnect', thisPeer, undefined);
+            this.emit('disconnect', thisPeer);
         }
         /**
          *
