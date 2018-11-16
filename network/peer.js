@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const debug = require('debug')('peer:');
-const { sleep } = require('../utils');
+const {sleep} = require('../utils');
 const Tick = require('tick-tock');
 
 /**
@@ -11,13 +11,13 @@ const Tick = require('tick-tock');
  */
 
 module.exports = (factory) => {
-    const { Messages, Transport, Constants } = factory;
-    const { PeerInfo } = Messages;
+    const {Messages, Transport, Constants} = factory;
+    const {PeerInfo} = Messages;
     const PEER_TIMER_NAME = 'peerTimer';
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const { connection, peerInfo, lastActionTimestamp, transport } = options;
+            const {connection, peerInfo, lastActionTimestamp, transport} = options;
 
             this._nonce = parseInt(Math.random() * 100000);
 
@@ -31,6 +31,8 @@ module.exports = (factory) => {
             this._tags = [];
             this._bytesCount = 0;
             this._msecOffsetDelta = 0;
+            this._lastDisconnectedAddress = undefined;
+            this._lastDiconnectionTime = undefined;
             // this means that we have incoming connection
             if (connection) {
                 this._connection = connection;
@@ -49,6 +51,12 @@ module.exports = (factory) => {
             // TODO: add watchdog to unban peers
             this._tock = new Tick(this);
             this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
+        }
+
+        get tempBannedAddress() {
+            return !!this._lastDisconnectedAddress
+                && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
+                && Date.now() - this._lastDiconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
         get peerInfo() {
@@ -171,6 +179,11 @@ module.exports = (factory) => {
                 logger.error('Trying to connect to banned peer!');
                 return;
             }
+            if (this.tempBannedAddress) {
+                console.log('---')
+                debug('Trying to connect to banned address!');
+                return;
+            }
             if (!this.disconnected) {
                 debug(`Peer ${this.address} already connected`);
                 return;
@@ -184,9 +197,9 @@ module.exports = (factory) => {
         _setConnectionHandlers() {
             if (!this._connection.listenerCount('message')) {
                 this._connection.on('message', msg => {
-                    if(msg.payload && Buffer.isBuffer(msg.payload)) {
+                    if (msg.payload && Buffer.isBuffer(msg.payload)) {
                         this._bytesCount += msg.payload.length;
-                        if(this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
+                        if (this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
                     }
                     // TODO: update counters/timers here
                     this._lastActionTimestamp = Date.now();
@@ -227,12 +240,12 @@ module.exports = (factory) => {
                 while ((nextMsg = this._queue.shift())) {
                     debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
                     await this._connection.sendMessage(nextMsg);
-                    if(nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
+                    if (nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
                         this._bytesCount += nextMsg.payload.length;
                     }
                 }
                 this._queue = undefined;
-                if(this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
+                if (this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
             }
         }
 
@@ -257,6 +270,8 @@ module.exports = (factory) => {
 
         disconnect() {
             debug(`Closing connection to "${this._connection.remoteAddress}"`);
+            this._lastDisconnectedAddress = this._connection.remoteAddress;
+            this._lastDiconnectionTime = Date.now()
             this._connection.close();
             this.emit('disconnect', this);
         }
