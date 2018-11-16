@@ -57,6 +57,7 @@ module.exports = (factory) => {
                 return Constants.REJECT_DUPLICATE;
             }
 
+            if (existingPeer && existingPeer.tempBannedAddress) return Constants.REJECT_BANNEDADDRESS;
             // we connected to that peer so we believe that this info more correct
             if (existingPeer && (existingPeer.version || !existingPeer.disconnected)) return existingPeer;
 
