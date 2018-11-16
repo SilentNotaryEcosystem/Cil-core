@@ -207,7 +207,11 @@ module.exports = (factory) => {
                 if (result instanceof Peer) return;
 
                 // peer already connected or banned
-                const reason = result === Constants.REJECT_BANNED ? 'You are banned' : 'Duplicate connection';
+                let reason;
+                if (result === Constants.REJECT_BANNED) reason = 'You are banned';
+                else if (result === Constants.REJECT_DUPLICATE) reason = 'Duplicate connection';
+                else if (result === Constants.REJECT_BANNEDADDRESS) reason = 'Address temporary banned';
+
                 const message = new MsgReject({
                     code: result,
                     reason
@@ -222,7 +226,7 @@ module.exports = (factory) => {
         }
 
         _peerDisconnect(peer) {
-           
+
         }
         /**
          *
