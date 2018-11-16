@@ -245,4 +245,13 @@ describe('Peer tests', () => {
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
     });
+
+    it('should not connect peer if address temporary banned', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect()
+        newPeer.disconnect()
+        await newPeer.connect()
+        assert.isOk(newPeer.tempBannedAddress);
+        assert.isOk(newPeer.disconnected);
+    });
 });

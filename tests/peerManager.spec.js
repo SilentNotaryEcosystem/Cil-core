@@ -249,13 +249,30 @@ describe('Peer manager', () => {
 
         const result = pm.addPeer(peer);
         assert.isOk(result instanceof factory.Peer);
-
         {
             peer.ban();
             const result = pm.addPeer(peer);
             assert.isNotOk(result instanceof factory.Peer);
             assert.equal(result, factory.Constants.REJECT_BANNED);
         }
+    });
+    it('should NOT add peer with banned address (REJECT_BANNEDADDRESS)', async () => {
+        const address = factory.Transport.generateAddress();
+        const pm = new factory.PeerManager();
+        const peer = new factory.Peer(createDummyPeer(factory));
+        peer._peerInfo.address = address;
+
+        let result = pm.addPeer(peer);
+
+        assert.isOk(result instanceof factory.Peer);
+
+        peer._lastDisconnectedAddress = address;
+        peer._lastDiconnectionTime = Date.now();
+
+        result = pm.addPeer(peer);
+
+        assert.isNotOk(result instanceof factory.Peer);
+        assert.equal(result, factory.Constants.REJECT_BANNEDADDRESS);
     });
 
 });
