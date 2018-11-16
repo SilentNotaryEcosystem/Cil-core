@@ -66,7 +66,8 @@ module.exports = {
         MEMPOOL_TX_LIFETIME: 14 * 24 * 60 * 60 * 1000,
         MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
 
-        PEER_MAX_BYTESCOUNT: 10 * 1024 * 1024
+        PEER_MAX_BYTESCOUNT: 10 * 1024 * 1024,
+        PEER_BANADDRESS_TIME : 60 * 60 * 1000
 
     }
 };
