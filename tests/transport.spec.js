@@ -9,6 +9,7 @@ const util = require('util');
 const net = require('net');
 const os = require('os');
 const ipaddr = require('ipaddr.js');
+const sinon = require('sinon').createSandbox();
 
 let msgCommon;
 
@@ -34,12 +35,71 @@ describe('Transport', () => {
         assert.isOk(Array.isArray(addresses));
     });
 
+    it('should get ipv6 address', async function () {
+        assert.isOk(factory.Ipv6Transport.getIpv6MappedAddress('192.168.1.2'));
+        assert.isOk(factory.Ipv6Transport.getIpv6MappedAddress('87.250.250.242'));
+        assert.isOk(factory.Ipv6Transport.getIpv6MappedAddress('::ffff:c0a8:102'));
+    });
+
     it('should get addresses', async () => {
         const endpoint = new factory.Ipv6Transport();
         await endpoint.listen();
-        assert.isOk(endpoint.publicAddress);
+        assert.isOk(endpoint.routableAddress);
         assert.isOk(endpoint.privateAddress);
+        endpoint.cleanUp();
+        endpoint.stopServer();
     });
+
+    it('should not get port mappings', async () => {
+        const endpoint = new factory.Ipv6Transport();
+        const portMappings = await endpoint._getPortMappings();
+        assert.isNotOk(portMappings);
+    });
+
+    it('should get port mappings', async () => {
+        const endpoint = new factory.Ipv6Transport();
+        await endpoint._mapPort();
+        const portMappings = await endpoint._getPortMappings();
+        assert.isOk(portMappings);
+        assert.isOk(Array.isArray(portMappings));
+    });
+
+    it('should listen on the passed ipv4 address', async () => {
+        const ipv4Address = '127.0.0.1';
+        const ipv6Address = factory.Ipv6Transport.getIpv6MappedAddress(ipv4Address);
+        const endpoint = new factory.Ipv6Transport({listenAddr: ipv4Address});
+        await endpoint.listen();
+        assert.isOk(endpoint.privateAddress);
+        assert.isOk(endpoint.routableAddress);
+        assert.equal(endpoint.privateAddress, endpoint.routableAddress);
+        assert.equal(endpoint.privateAddress, ipv6Address);
+        endpoint.cleanUp();
+        endpoint.stopServer();
+    });
+
+    it('should listen on the passed ipv6 address', async () => {
+        const ipv6Address = '::1';
+        const endpoint = new factory.Ipv6Transport({listenAddr: ipv6Address});
+        await endpoint.listen();
+        assert.isOk(endpoint.privateAddress);
+        assert.isOk(endpoint.routableAddress);
+        assert.equal(endpoint.privateAddress, endpoint.routableAddress);
+        assert.equal(endpoint.privateAddress, ipv6Address);
+        endpoint.cleanUp();
+        endpoint.stopServer();
+    });
+
+    // it('should define real address as local', async () => {
+    //     const endpoint = new factory.Ipv6Transport();
+    //     endpoint._isInterfaceAddress = sinon.fake.returns(true);
+    //     await endpoint.listen();
+
+    //     assert.isOk(endpoint.privateAddress);
+    //     assert.isOk(endpoint.routableAddress);
+    //     assert.equal(endpoint.privateAddress, endpoint.routableAddress);
+    //     endpoint.cleanUp();
+    //     endpoint.stopServer();
+    // });
 
     it('should communicate each other', async () => {
         const address = '::1'
@@ -48,7 +108,7 @@ describe('Transport', () => {
 
         const [connection1, connection2] = await Promise.all([
             endpoint1.listenSync(),
-            endpoint2.connect(endpoint1.publicAddress, endpoint1.port)
+            endpoint2.connect(endpoint1.routableAddress, endpoint1.port)
         ]);
 
         assert.isOk(connection1);
@@ -59,5 +119,7 @@ describe('Transport', () => {
 
         const result = await msgPromise;
         assert.isOk(result.message);
+        endpoint1.cleanUp();
+        endpoint1.stopServer();
     });
 });
