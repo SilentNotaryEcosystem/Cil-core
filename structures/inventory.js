@@ -43,7 +43,7 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
         addBlock(block) {
             if (this._wasAlreadyAdded(block.hash())) return;
 
-            const vector = {type: Constants.INV_BLOCK, hash: Buffer.from(block.hash(), 'hex')};
+            const vector = {type: Constants.INV_BLOCK, hash: Buffer.from(block.getHash(), 'hex')};
             this._data.invVector.push(vector);
             this._markAsAdded(block.hash());
         }

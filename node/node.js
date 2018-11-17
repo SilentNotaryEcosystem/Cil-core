@@ -389,10 +389,7 @@ module.exports = (factory) => {
             const invToRequest = new Inventory();
 
             for (let hash of this._setUnknownBlocks) {
-                invToRequest.addVector({
-                    type: Constants.INV_BLOCK,
-                    hash
-                });
+                invToRequest.addBlockHash(hash);
             }
 
             msgGetData.inventory = invToRequest;
