@@ -37,13 +37,18 @@ const createGenezisPatchAndSpendingTx = (factory) => {
     return {patch, tx};
 };
 
-const createNet = () => {
+const createNet = async (onlySeed = false) => {
+    const genezis = createDummyBlock(factory);
+    factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+
     const seedAddress = factory.Transport.generateAddress();
     const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+    await seedNode._processBlock(genezis);
 
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factory.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
+        if (!onlySeed) await node._processBlock(genezis);
         arrNodes.push(node);
     }
     return {seedNode, arrNodes};
@@ -74,6 +79,8 @@ describe('Node integration tests', () => {
 
         const seedAddress = factory.Transport.strToAddress('Seed node');
         const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+        seedNode._handleGetBlocksMessage = sinon.fake();
+
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
@@ -119,7 +126,7 @@ describe('Node integration tests', () => {
 
     it('should create nodes and get all of them connected and advertised to seed', async function() {
         this.timeout(60000);
-        const {seedNode, arrNodes} = createNet();
+        const {seedNode, arrNodes} = await createNet();
         const arrPromises = [];
 
         for (let i = 0; i < maxConnections; i++) {
@@ -144,7 +151,7 @@ describe('Node integration tests', () => {
 
     it('should propagate TX over all nodes', async function() {
         this.timeout(60000);
-        const {seedNode, arrNodes} = createNet();
+        const {seedNode, arrNodes} = await createNet();
         const {patch, tx} = createGenezisPatchAndSpendingTx(factory);
 
         // make all nodes aware of utxo
@@ -170,31 +177,19 @@ describe('Node integration tests', () => {
     });
 
     it('should propagate GENEZIS block over all nodes', async function() {
-        const tx = new factory.Transaction(createDummyTx());
-        const block = new factory.Block(0);
-        block.addTx(tx);
-        block.finish(0, pseudoRandomBuffer(33));
-        factory.Constants.GENEZIS_BLOCK = block.hash();
-
         this.timeout(60000);
-        const {seedNode, arrNodes} = createNet();
-        const arrBootrapPromises = [];
-        const arrTxPromises = [];
+        const {arrNodes} = await createNet(true);
+        const arrBootstrapPromises = [];
+        const arrBlockPromises = [];
 
         for (let i = 0; i < maxConnections; i++) {
 
-            // set fakes for _storage.saveBlock that means: node processed block
-            arrTxPromises.push(new Promise(resolve => {
+            arrBlockPromises.push(new Promise(resolve => {
                 arrNodes[i]._acceptBlock = resolve;
             }));
-            arrBootrapPromises.push(arrNodes[i].bootstrap());
+            arrBootstrapPromises.push(arrNodes[i].bootstrap());
         }
-        await Promise.all(arrBootrapPromises);
-
-        // inject block to seed node
-        const patch = await seedNode._execBlock(block);
-        await seedNode._acceptBlock(block, patch);
-
-        await Promise.all(arrTxPromises);
+        await Promise.all(arrBootstrapPromises);
+        await Promise.all(arrBlockPromises);
     });
 });
