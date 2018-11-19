@@ -39,6 +39,8 @@ module.exports = {
             MSG_INV: 'inv',
             MSG_GET_DATA: 'getdata',
             MSG_GET_BLOCKS: 'getblocks',
+            MSD_PING: 'ping',
+            MSG_PONG: 'pong',
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',

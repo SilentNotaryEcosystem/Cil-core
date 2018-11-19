@@ -32,6 +32,8 @@ module.exports = {
             MSG_REJECT: 'reject',
             MSG_BLOCK: 'block',
             MSG_TX: 'tx',
+            MSD_PING: 'ping',
+            MSG_PONG: 'pong',
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',
