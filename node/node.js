@@ -553,6 +553,7 @@ module.exports = (factory) => {
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
+                peer.offsetDelta -= _offset / 2;
                 peer.disconnect();
                 return;
             }
@@ -672,7 +673,7 @@ module.exports = (factory) => {
             msgPong.pongMessage = true;
             await peer.pushMessage(msgPong);
         }
-        
+
         _createMsgVersion() {
             return new MsgVersion({
                 nonce: this._nonce,
