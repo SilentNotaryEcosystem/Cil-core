@@ -922,7 +922,6 @@ describe('Node tests', () => {
         assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
     });
 
-
     it('should send Reject message if time offset very large', async () => {
         const node = new factory.Node({});
         const inMsg = new factory.Messages.MsgVersion({
@@ -985,5 +984,28 @@ describe('Node tests', () => {
         assert.isOk(node._peerDisconnect.calledOnce);
         assert(node._peerDisconnect.calledWith(peer));
 
+    });
+
+    it('should send pong message if ping message is received', async () => {
+        const node = new factory.Node({});
+        const msg = new factory.Messages.MsgCommon();
+        msg.pingMessage = true;
+
+
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: sinon.fake(),
+                remoteAddress: factory.Transport.generateAddress(),
+                on: sinon.fake(),
+                sendMessage
+            }
+        });
+
+        await node._handlePingMessage(newPeer, msg);
+
+        assert.equal(sendMessage.callCount, 1);
+        const [pongMsg] = sendMessage.args[0];
+        assert.isTrue(pongMsg.isPong());
     });
 });

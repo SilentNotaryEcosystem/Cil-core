@@ -201,7 +201,7 @@ describe('Peer tests', () => {
 
     });
 
-    it('should disconnect peer when very many bytes received', async () => {
+    it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
         newPeer = new factory.Peer({peerInfo});
         const msg = new factory.Messages.MsgCommon();
         msg.payload = new Buffer(6 * 1024 * 1024);
@@ -220,7 +220,7 @@ describe('Peer tests', () => {
 
     });
 
-    it('should disconnect peer when very many bytes transmitted', async () => {
+    it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
         const msg = new factory.Messages.MsgCommon();
         msg.payload = new Buffer(6 * 1024 * 1024);
 
@@ -253,5 +253,16 @@ describe('Peer tests', () => {
         await newPeer.connect()
         assert.isOk(newPeer.tempBannedAddress);
         assert.isOk(newPeer.disconnected);
+    });
+
+    it('should emit ping message', (done) => {
+        newPeer = new factory.Peer({peerInfo});
+        const msg = new factory.Messages.MsgCommon();
+        msg.pingMessage = true;
+
+        newPeer.connect().then(() => {
+            newPeer.on('message', (peer, msg) => msg.isPing() ? done() : done('Message corrupted'));
+            newPeer._connection.emit('message', msg);
+        });
     });
 });
