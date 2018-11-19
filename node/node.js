@@ -385,7 +385,7 @@ module.exports = (factory) => {
             await this._verifyBlock(block);
 
             // it will check readiness of parents
-            if (await this._canExecuteBlock(block)) {
+            if (this.isGenezisBlock(block) || await this._canExecuteBlock(block)) {
 
                 // we'r ready to execute this block right now
                 const patchState = await this._execBlock(block);
@@ -403,10 +403,7 @@ module.exports = (factory) => {
             const invToRequest = new Inventory();
 
             for (let hash of this._setUnknownBlocks) {
-                invToRequest.addVector({
-                    type: Constants.INV_BLOCK,
-                    hash
-                });
+                invToRequest.addBlockHash(hash);
             }
 
             msgGetData.inventory = invToRequest;
@@ -528,6 +525,8 @@ module.exports = (factory) => {
                 } catch (e) {
                     logger.error(e);
                     peer.misbehave(5);
+
+                    // break loop
                     if (peer.banned) return;
                 }
             }
@@ -737,7 +736,7 @@ module.exports = (factory) => {
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                tx.verify();
+                if (!isGenezis) tx.verify();
 
                 const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
 
@@ -1030,3 +1029,4 @@ module.exports = (factory) => {
         }
     };
 };
+

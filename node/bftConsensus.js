@@ -444,7 +444,7 @@ module.exports = (factory) => {
          */
         _roundFromNetworkTime() {
             const networkNow = this._getNetworkTime();
-            this._roundNo = parseInt(networkNow / Constants.networkTimeDiff);
+            this._roundNo = parseInt(networkNow / Constants.TOLERATED_TIME_DIFF);
         }
 
         /**
