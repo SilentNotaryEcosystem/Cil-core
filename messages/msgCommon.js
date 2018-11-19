@@ -16,7 +16,9 @@ module.exports = (Constants, Crypto, MessageProto) => {
         MSG_TX,
         MSG_INV,
         MSG_GET_DATA,
-        MSG_GET_BLOCKS
+        MSG_GET_BLOCKS,
+        MSG_PING,
+        MSG_PONG
     } = Constants.messageTypes;
 
     return class MessageCommon {
@@ -90,6 +92,13 @@ module.exports = (Constants, Crypto, MessageProto) => {
             this.message = MSG_GET_ADDR;
         }
 
+        set pingMessage(unused) {
+            this.message = MSG_PING;
+        }
+
+        set pongMessage(unused) {
+            this.message = MSG_PONG;
+        }
         /**
          * ATTENTION! encodeDelimited will prefix buffer with length!
          *
@@ -166,6 +175,14 @@ module.exports = (Constants, Crypto, MessageProto) => {
 
         isGetBlocks() {
             return this.message === MSG_GET_BLOCKS;
+        }
+
+        isPing() {
+            return this.message === MSG_PING;
+        }
+
+        isPong() {
+            return this.message === MSG_PONG;
         }
 
     };
