@@ -180,7 +180,6 @@ module.exports = (factory) => {
                 return;
             }
             if (this.tempBannedAddress) {
-                console.log('---')
                 debug('Trying to connect to banned address!');
                 return;
             }
@@ -199,7 +198,9 @@ module.exports = (factory) => {
                 this._connection.on('message', msg => {
                     if (msg.payload && Buffer.isBuffer(msg.payload)) {
                         this._bytesCount += msg.payload.length;
-                        if (this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) this.disconnect();
+                        if (this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
+                            this.disconnect();
+                        }
                     }
                     // TODO: update counters/timers here
                     this._lastActionTimestamp = Date.now();

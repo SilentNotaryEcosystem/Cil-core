@@ -288,7 +288,9 @@ module.exports = (factory) => {
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
-
+                if (message.isPing()) {
+                    return await this._handlePingMessage(peer, message);
+                }
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(err, `Peer ${peer.address}`);
@@ -665,6 +667,12 @@ module.exports = (factory) => {
             peer.loadDone = true;
         }
 
+        async _handlePingMessage(peer, message) {
+            const msgPong = new MsgCommon();
+            msgPong.pongMessage = true;
+            await peer.pushMessage(msgPong);
+        }
+        
         _createMsgVersion() {
             return new MsgVersion({
                 nonce: this._nonce,
