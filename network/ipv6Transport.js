@@ -52,15 +52,22 @@ module.exports = (factory) => {
          * 
          * @return {Promise<Object[]>}
          */
-        _getPortMappings() {
+        _getPortMappings(routableAddress, privateAddress) {
             return this._upnpClient ?
                 new Promise((resolve, reject) => {
                     const self = this;
                     this._upnpClient.getMappings(function (err, results) {
                         if (err) return reject(err);
-                        const mappings = results.filter(mapping => mapping.public.port === self._port && mapping.private.port === self._port);
-                        if (mappings.length > 0)
-                            resolve(results);
+                        const mappings = results.filter(mapping => {
+                            let res = mapping.public.port === self._port && mapping.private.port === self._port
+                            if (routableAddress) res = res && mapping.public.host === routableAddress;
+                            if (privateAddress) res = res && mapping.private.host === privateAddress;
+                            return res;
+                        });
+                        if (mappings.length > 0) {
+                            resolve(mappings);
+                            return;
+                        }
                         resolve();
                     });
                 })
@@ -71,7 +78,7 @@ module.exports = (factory) => {
          * Get real IP address via uPnP
          * @return {Promise<string>}
          */
-        _getUpnpRealAddress() {
+        _getUpnpRoutableAddress() {
             if (!this._upnpClient) {
                 this._upnpClient = natUpnp.createClient();
             }
@@ -87,7 +94,7 @@ module.exports = (factory) => {
          * Get local IP address from interfaces
          * @return {string}
          */
-        _getLocalAddress() {
+        _getPrivateAddress() {
             const interfaces = os.networkInterfaces();
             for (let interfaceName in interfaces) {
                 const addresses = interfaces[interfaceName].filter(iface => {
@@ -125,15 +132,29 @@ module.exports = (factory) => {
             }
         }
 
-        _mapPort() {
+        /**
+         * Exists address in range "private"
+         * @param {String} address - IP address
+         * @return {boolean} 
+         */
+        static isPrivateIpAddress(address) {
+            const addr = ipaddr.parse(address);
+            // TODO: May be need to check other ranges
+            return addr.range() === 'private';
+        }
+
+        _mapPort(routableAddress, privateAddress) {
             if (!this._upnpClient) {
                 this._upnpClient = natUpnp.createClient();
             }
+            let mappingOptions = {
+                public: {port: this._port},
+                private: {port: this._port}
+            };
             return new Promise((resolve, reject) => {
                 this._upnpClient.portMapping({
-                    public: this._port,
-                    private: this._port,
-                    ttl: 0
+                    public: {port: this._port, host: routableAddress},
+                    private: {port: this._port, host: privateAddress}
                 }, (err) => {
                     if (err) {
                         debug(`portMapping error`, err);
@@ -142,17 +163,6 @@ module.exports = (factory) => {
                     resolve();
                 });
             });
-        }
-
-        /**
-         * For tests
-         */
-        unmapPort() {
-            if (this._upnpClient) {
-                this._upnpClient.portUnmapping({
-                    public: this._port
-                });
-            }
         }
 
         /**
@@ -181,7 +191,7 @@ module.exports = (factory) => {
                 mappings = await this._getPortMappings();
             }
             if (mappings && mappings.length > 0) {
-                return {privateAddress: mappings[0].private.host};
+                return {privateAddress: mappings[0].private.host, routableAddress: mappings[0].public.host || this._routableAddress};
             }
             return {};
         }
@@ -210,10 +220,10 @@ module.exports = (factory) => {
             return ipaddr.isValid(this._privateAddress) && ipaddr.isValid(this._routableAddress);
         }
 
-        async _getRealAddress() {
+        async _getRoutableAddress() {
             let addr;
             try {
-                addr = await this._getUpnpRealAddress();
+                addr = await this._getUpnpRoutableAddress();
             }
             catch (err) {
                 debug(`Error determining external IP address: ${err}`);
@@ -225,36 +235,59 @@ module.exports = (factory) => {
             return {routableAddress: addr};
         }
 
+        _listen() {
+            const server = net.createServer(async (socket) => {
+                this.emit('connect',
+                    new Ipv6Connection({socket, timeout: this._timeout})
+                );
+            });
+
+            server.listen({port: this.port, host: this._privateAddress});
+        }
+
         /**
          * Emit 'connect' with new Connection
          *
          */
         async listen() {
-            if (ipaddr.isValid(this._address)) {
-                this._address = this.constructor.getIpv6MappedAddress(this._address);
-                this._setAddresses({privateAddress: this._address, routableAddress: this._address});
-            }
-            if (!this._areAddressOk()) {
-                this._setAddresses(await this._getRealAddress());
-            }
-            if (!this._areAddressOk()) {
-                this._setAddresses(await this._forceMappingAddress());
-            }
-            if (!this._areAddressOk()) {
-                const addr = this._getLocalAddress();
-                this._setAddresses({privateAddress: addr, routableAddress: addr});
-            }
+            if (this._address) {
+                if (!ipaddr.isValid(this._address)) throw new Error('Invalid IP address');
 
-            if (!this._areAddressOk()) {
-                throw new Error("Error determining listen address");
+                let addr = ipaddr.parse(this._address);
+                //If IPv6 and not IPv4 mapped OR 
+                //IPv4 mapped and not private address
+                if (ipaddr.IPv6.isIPv6(this._address) && !addr.isIPv4MappedAddress()
+                    || ipaddr.IPv6.isIPv6(this._address) && addr.isIPv4MappedAddress() && !this.constructor.isPrivateIpAddress(addr.toIPv4Address().toString())) {
+                    this._setAddresses({privateAddress: this._address, routableAddress: this._address});
+                    this._listen();
+                    return;
+                }
+                //Listening address isn't routable
+                //Map port
+                await this._mapPort(this._address);
+                const portMappings = await this._getPortMappings(this._address);
+                if (portMappings && Array.isArray(portMappings)) {
+                    //TODO: May be need map address to ipv6
+                    this._setAddresses({privateAddress: portMappings[0].private.host, routableAddress: portMappings[0].public.host});
+                    this._listen();
+                    return;
+                }
+                else throw new Error('Failed port mapping');
             }
-            this.server = net.createServer(async (socket) => {
-                this.emit('connect',
-                    new Ipv6Connection({socket, timeout: this._timeout})
-                );
-            });
-            
-            this.server.listen({port: this.port, host: this._privateAddress});
+            else {
+                this._setAddresses(await this._getRoutableAddress());
+                //User has routable ip address in interfaces
+                if (this._areAddressOk()) {
+                    this._listen();
+                    return;
+                }
+                this._setAddresses(await this._forceMappingAddress());
+                if (this._areAddressOk()) {
+                    this._listen();
+                    return;
+                }
+                else throw new Error('Error determining listen address');
+            }
         }
 
         /**
@@ -269,13 +302,6 @@ module.exports = (factory) => {
                 this.once('connect', connection => resolve(connection));
             });
             return Promise.race([prom, sleep(this._timeout)]);
-        }
-
-        /**
-         * For tests
-         */
-        stopServer() {
-            if (this.server) this.server.close();
         }
 
         cleanUp() {

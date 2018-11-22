@@ -28,6 +28,31 @@ describe('Transport', () => {
         this.timeout(15000);
     });
 
+    // it('experiment', async () => {
+    //     const addr = factory.Ipv6Transport.getIpv6MappedAddress('87.250.250.242');
+    //     const endpoint = new factory.Ipv6Transport({listenAddr: addr});
+    //     endpoint._listen = sinon.fake.returns();
+    //     await endpoint.listen();
+    //     assert.isOk(endpoint.routableAddress);
+    //     assert.isOk(endpoint.privateAddress);
+    // });
+    // it('experiment 2', async () => {
+    //     const addr = factory.Ipv6Transport.getIpv6MappedAddress('192.168.1.2');
+    //     const endpoint = new factory.Ipv6Transport({listenAddr: addr});
+    //     endpoint._listen = sinon.fake.returns();
+    //     await endpoint.listen();
+    //     assert.isOk(endpoint.routableAddress);
+    //     assert.isOk(endpoint.privateAddress);
+    // });
+    // it('experiment 3', async () => {
+    //     const addr = '192.168.1.2';
+    //     const endpoint = new factory.Ipv6Transport({listenAddr: addr});
+    //     endpoint._listen = sinon.fake.returns();
+    //     await endpoint.listen();
+    //     assert.isOk(endpoint.routableAddress);
+    //     assert.isOk(endpoint.privateAddress);
+    // });
+
     it('should get addresses from dns', async function () {
         const name = 'ya.ru';
         const addresses = await factory.Ipv6Transport.resolveName(name);
@@ -46,8 +71,6 @@ describe('Transport', () => {
         await endpoint.listen();
         assert.isOk(endpoint.routableAddress);
         assert.isOk(endpoint.privateAddress);
-        endpoint.cleanUp();
-        endpoint.stopServer();
     });
 
     it('should not get port mappings', async () => {
@@ -64,29 +87,28 @@ describe('Transport', () => {
         assert.isOk(Array.isArray(portMappings));
     });
 
-    it('should listen on the passed ipv4 address', async () => {
-        const ipv4Address = '127.0.0.1';
-        const ipv6Address = factory.Ipv6Transport.getIpv6MappedAddress(ipv4Address);
-        const endpoint = new factory.Ipv6Transport({listenAddr: ipv4Address});
+    it('should set the passed routable ipv6 address', async () => {
+        const endpoint = new factory.Ipv6Transport({listenAddr: factory.Ipv6Transport.getIpv6MappedAddress('87.250.250.242')});
+        endpoint._listen = sinon.fake.returns();
         await endpoint.listen();
         assert.isOk(endpoint.privateAddress);
         assert.isOk(endpoint.routableAddress);
-        assert.equal(endpoint.privateAddress, endpoint.routableAddress);
-        assert.equal(endpoint.privateAddress, ipv6Address);
-        endpoint.cleanUp();
-        endpoint.stopServer();
+    });
+
+    it('should listen on the passed ipv4 address', async () => {
+        const ipv4Address = '127.0.0.1';
+        const endpoint = new factory.Ipv6Transport({listenPort: 1234, listenAddr: ipv4Address});
+        await endpoint.listen();
+        assert.isOk(endpoint.privateAddress);
+        assert.isOk(endpoint.routableAddress);
     });
 
     it('should listen on the passed ipv6 address', async () => {
         const ipv6Address = '::1';
-        const endpoint = new factory.Ipv6Transport({listenAddr: ipv6Address});
+        const endpoint = new factory.Ipv6Transport({listenPort: 1235, listenAddr: ipv6Address});
         await endpoint.listen();
         assert.isOk(endpoint.privateAddress);
         assert.isOk(endpoint.routableAddress);
-        assert.equal(endpoint.privateAddress, endpoint.routableAddress);
-        assert.equal(endpoint.privateAddress, ipv6Address);
-        endpoint.cleanUp();
-        endpoint.stopServer();
     });
 
     // it('should define real address as local', async () => {
@@ -103,7 +125,7 @@ describe('Transport', () => {
 
     it('should communicate each other', async () => {
         const address = '::1'
-        const endpoint1 = new factory.Ipv6Transport({listenAddr: address});
+        const endpoint1 = new factory.Ipv6Transport({listenPort: 1236, listenAddr: address});
         const endpoint2 = new factory.Ipv6Transport();
 
         const [connection1, connection2] = await Promise.all([
@@ -119,7 +141,5 @@ describe('Transport', () => {
 
         const result = await msgPromise;
         assert.isOk(result.message);
-        endpoint1.cleanUp();
-        endpoint1.stopServer();
     });
 });
