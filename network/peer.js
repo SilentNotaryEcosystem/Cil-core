@@ -12,7 +12,19 @@ const Tick = require('tick-tock');
 
 module.exports = (factory) => {
     const {Messages, Transport, Constants} = factory;
-    const {PeerInfo} = Messages;
+    const {
+        MsgCommon,
+        MsgVersion,
+        PeerInfo,
+        MsgAddr,
+        MsgReject,
+        MsgTx,
+        MsgBlock,
+        MsgInv,
+        MsgGetData,
+        MsgGetBlocks
+    } = Messages;
+    //const {PeerInfo} = Messages;
     const PEER_TIMER_NAME = 'peerTimer';
     return class Peer extends EventEmitter {
         constructor(options = {}) {
@@ -32,7 +44,7 @@ module.exports = (factory) => {
             this._bytesCount = 0;
             this._msecOffsetDelta = 0;
             this._lastDisconnectedAddress = undefined;
-            this._lastDiconnectionTime = undefined;
+            this._lastDisconnectionTime = undefined;
             // this means that we have incoming connection
             if (connection) {
                 this._connection = connection;
@@ -51,12 +63,20 @@ module.exports = (factory) => {
             // TODO: add watchdog to unban peers
             this._tock = new Tick(this);
             this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
+
+            this._deadTimer = new Tick(this);
+            this._deadTimer.setInterval(Constants.PEER_DEAD_TIMER_NAME, this._deadTick.bind(this), Constants.PEER_DEAD_TIMEOUT);
+
+            this._pingTimer = new Tick(this);
+            this._pingTimer.setInterval(Constants.PEER_PING_TIMER_NAME, this._pingTick.bind(this), Constants.PEER_PING_TIMEOUT);
+
+
         }
 
         get tempBannedAddress() {
             return !!this._lastDisconnectedAddress
                 && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
-                && Date.now() - this._lastDiconnectionTime < Constants.PEER_BANADDRESS_TIME;
+                && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
         get peerInfo() {
@@ -195,7 +215,7 @@ module.exports = (factory) => {
 
         _setConnectionHandlers() {
             if (!this._connection.listenerCount('message')) {
-                this._connection.on('message', msg => {
+                this._connection.on('message', async (msg) => {
                     if (msg.payload && Buffer.isBuffer(msg.payload)) {
                         this._bytesCount += msg.payload.length;
                         if (this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
@@ -204,6 +224,7 @@ module.exports = (factory) => {
                     }
                     // TODO: update counters/timers here
                     this._lastActionTimestamp = Date.now();
+
                     if (msg.signature) {
 
                         // if message signed: check signature
@@ -212,6 +233,10 @@ module.exports = (factory) => {
                         } else {
                             this.emit('witnessMessage', this, undefined);
                         }
+                    } else if (new MsgCommon(msg).isPing()) {
+                        const msgPong = new MsgCommon();
+                        msgPong.pongMessage = true;
+                        await this.pushMessage(msgPong);
                     } else {
                         this.emit('message', this, msg);
                     }
@@ -219,10 +244,8 @@ module.exports = (factory) => {
 
                 this._connection.on('close', () => {
                     debug(`Connection to "${this.address}" closed`);
-                    this._bInbound = false;
-                    this.loadDone = true;
-                    this._connection = undefined;
-                    this._bytesCount = 0;
+                    this._cleanup();
+                    this.emit('disconnect', this);
                 });
             }
         }
@@ -271,10 +294,21 @@ module.exports = (factory) => {
 
         disconnect() {
             debug(`Closing connection to "${this._connection.remoteAddress}"`);
-            this._lastDisconnectedAddress = this._connection.remoteAddress;
-            this._lastDiconnectionTime = Date.now()
+            // this._lastDisconnectedAddress = this._connection.remoteAddress;
+            // this._lastDisconnectionTime = Date.now()
             this._connection.close();
-            this.emit('disconnect', this);
+
+            //this.emit('disconnect', this);
+        }
+
+        _cleanup() {
+            this._lastDisconnectedAddress = this._connection.remoteAddress;
+            this._lastDisconnectionTime = Date.now()
+            this._bInbound = false;
+            this.loadDone = true;
+            this._connection = undefined;
+            this._bytesCount = 0;
+            this._msecOffsetDelta = 0;
         }
 
         _tick() {
@@ -285,6 +319,17 @@ module.exports = (factory) => {
                 this.disconnect();
                 this._connection = undefined;
             }
+        }
+
+        _deadTick() {
+            if (Date.now() - this._lastActionTimestamp > Constants.PEER_DEAD_TIME)
+                this.disconnect();
+        }
+
+        async _pingTick() {
+            const msgPing = new MsgCommon();
+            msgPing.pingMessage = true;
+            await this.pushMessage(msgPing);
         }
     };
 };
