@@ -69,7 +69,12 @@ module.exports = {
         MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
 
         PEER_MAX_BYTESCOUNT: 10 * 1024 * 1024,
-        PEER_BANADDRESS_TIME : 60 * 60 * 1000
+        PEER_BANADDRESS_TIME: 60 * 60 * 1000,
+        PEER_DEAD_TIMER_NAME: 'peerDeadTimer',
+        PEER_DEAD_TIMEOUT: 60 * 1000,
+        PEER_DEAD_TIME: 5 * 60 * 1000,
+        PEER_PING_TIMER_NAME: 'peerPingTimer',
+        PEER_PING_TIMEOUT: 4 * 60 * 1000
 
     }
 };
