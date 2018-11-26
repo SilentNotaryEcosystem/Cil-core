@@ -226,7 +226,7 @@ module.exports = (factory) => {
         }
 
         _peerDisconnect(peer) {
-
+            this._msecOffset -= peer.offsetDelta;
         }
         /**
          *
@@ -287,9 +287,6 @@ module.exports = (factory) => {
                 }
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
-                }
-                if (message.isPing()) {
-                    return await this._handlePingMessage(peer, message);
                 }
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
@@ -553,7 +550,7 @@ module.exports = (factory) => {
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
-                peer.offsetDelta -= _offset / 2;
+                peer.offsetDelta = _offset / 2;
                 peer.disconnect();
                 return;
             }
@@ -588,7 +585,7 @@ module.exports = (factory) => {
                     await peer.pushMessage(this._createMsgVersion());
                 }
                 this._msecOffset += _offset / 2;
-                peer.offsetDelta = _offset / 2;
+                peer.offsetDelta = 0;
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
@@ -666,12 +663,6 @@ module.exports = (factory) => {
 
             // TODO: move loadDone after we got all we need from peer
             peer.loadDone = true;
-        }
-
-        async _handlePingMessage(peer, message) {
-            const msgPong = new MsgCommon();
-            msgPong.pongMessage = true;
-            await peer.pushMessage(msgPong);
         }
 
         _createMsgVersion() {
