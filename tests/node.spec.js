@@ -942,16 +942,18 @@ describe('Node tests', () => {
                 listenerCount: sinon.fake(),
                 remoteAddress: factory.Transport.generateAddress(),
                 on: sinon.fake(),
-                sendMessage
+                sendMessage,
+                close: () => {}
             }
         });
-        newPeer.disconnect = sinon.fake();
+        const peer = node._peerManager.addPeer(newPeer);
+
         await node._handleVersionMessage(newPeer, msgCommon);
         assert.equal(sendMessage.callCount, 1);
 
         const [msg] = sendMessage.args[0];
         assert.isTrue(msg.isReject());
-        assert.equal(newPeer.disconnect.callCount, 1);
+
     });
 
     it('should unwind block to mempool', async () => {
@@ -968,44 +970,20 @@ describe('Node tests', () => {
         const node = new factory.Node({});
         const handlePeerDisconnect = sinon.spy(node, '_peerDisconnect');
         node._peerManager.on('disconnect', handlePeerDisconnect);
+
         const newPeer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
                 listenerCount: () => 0,
                 on: () => {},
                 sendMessage: async () => {},
-                close: () => {}
+                close: () => {newPeer.emit('disconnect', newPeer);}
             }
         });
         const peer = node._peerManager.addPeer(newPeer);
-
         newPeer.disconnect();
 
         assert.isOk(node._peerDisconnect.calledOnce);
         assert(node._peerDisconnect.calledWith(peer));
-
-    });
-
-    it('should send pong message if ping message is received', async () => {
-        const node = new factory.Node({});
-        const msg = new factory.Messages.MsgCommon();
-        msg.pingMessage = true;
-
-
-        const sendMessage = sinon.fake.returns(Promise.resolve(null));
-        const newPeer = new factory.Peer({
-            connection: {
-                listenerCount: sinon.fake(),
-                remoteAddress: factory.Transport.generateAddress(),
-                on: sinon.fake(),
-                sendMessage
-            }
-        });
-
-        await node._handlePingMessage(newPeer, msg);
-
-        assert.equal(sendMessage.callCount, 1);
-        const [pongMsg] = sendMessage.args[0];
-        assert.isTrue(pongMsg.isPong());
     });
 });
