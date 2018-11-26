@@ -255,14 +255,52 @@ describe('Peer tests', () => {
         assert.isOk(newPeer.disconnected);
     });
 
-    it('should emit ping message', (done) => {
-        newPeer = new factory.Peer({peerInfo});
+    it('should send pong message if ping message is received', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        const pushMessage = sinon.fake();
+        newPeer.pushMessage = pushMessage;
         const msg = new factory.Messages.MsgCommon();
         msg.pingMessage = true;
 
-        newPeer.connect().then(() => {
-            newPeer.on('message', (peer, msg) => msg.isPing() ? done() : done('Message corrupted'));
-            newPeer._connection.emit('message', msg);
-        });
+        await newPeer.connect();
+        newPeer._connection.emit('message', msg);
+        assert.equal(pushMessage.callCount, 1);
+        const [pongMsg] = pushMessage.args[0];
+        assert.isTrue(pongMsg.isPong());
+    });
+
+    it('should disconnect if peer dead', async function() {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect()
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+        newPeer._deadTick();
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+    });
+
+    it('should not disconnect if message received', async function() {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect()
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+
+        newPeer._connection.emit('message', 'test');
+        newPeer._deadTick();
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+    });
+
+    it('should send ping message by inactivity timer', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        const pushMessage = sinon.fake();
+        newPeer.pushMessage = pushMessage;
+
+        await newPeer.connect();
+        newPeer._pingTick();
+
+        assert.equal(pushMessage.callCount, 1);
+        const [pingMsg] = pushMessage.args[0];
+        assert.isTrue(pingMsg.isPing());
     });
 });
