@@ -966,24 +966,25 @@ describe('Node tests', () => {
 
     });
 
-    it('should handle peer disconnect event', async () => {
-        const node = new factory.Node({});
-        const handlePeerDisconnect = sinon.spy(node, '_peerDisconnect');
-        node._peerManager.on('disconnect', handlePeerDisconnect);
+    it('should reconnect peers', async function() {
+        this.timeout(3000);
+        const pushMessage = sinon.fake.returns(Promise.resolve(null));
+        const loaded = sinon.fake.returns(Promise.resolve(null));
+        const connectToPeer = sinon.fake.returns(Promise.resolve(null));
+        seedNode._connectToPeer = connectToPeer;
 
-        const newPeer = new factory.Peer({
-            connection: {
-                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
-                listenerCount: () => 0,
-                on: () => {},
-                sendMessage: async () => {},
-                close: () => {newPeer.emit('disconnect', newPeer);}
-            }
-        });
-        const peer = node._peerManager.addPeer(newPeer);
-        newPeer.disconnect();
+        let peers = seedNode._peerManager.filterPeers();
 
-        assert.isOk(node._peerDisconnect.calledOnce);
-        assert(node._peerDisconnect.calledWith(peer));
+        for (let peer of peers) {
+            peer.pushMessage = pushMessage;
+            peer.loaded = loaded;
+        }
+
+        let peer = peers[0];
+        peer.emit('disconnect', peer)
+        await sleep(1500);
+
+        assert.equal(connectToPeer.callCount, 2);
+        assert.equal(pushMessage.callCount, 2);
     });
 });
