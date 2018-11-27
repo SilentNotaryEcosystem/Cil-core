@@ -227,10 +227,11 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                address: factory.Transport.strToAddress(factory.Transport.generateAddress()),
                 listenerCount: () => 0,
                 on: () => {},
                 sendMessage: async () => {},
-                close: () => {newPeer._connection = undefined}
+                close: () => {}
             }
         });
         newPeer.pushMessage(msg);
