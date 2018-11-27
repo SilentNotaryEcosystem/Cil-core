@@ -11,6 +11,9 @@ module.exports = {
 
         // maximum connected peers
         MAX_PEERS: 10,
+        
+        // minimum connected peers
+        MIN_PEERS: 3,
 
         // milliseconds
         PEER_QUERY_TIMEOUT: 30000,
