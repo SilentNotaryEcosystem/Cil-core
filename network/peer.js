@@ -245,6 +245,9 @@ module.exports = (factory) => {
                 this._connection.on('close', () => {
                     debug(`Connection to "${this.address}" closed`);
                     this._cleanup();
+                    this._lastDisconnectedAddress = this.address;
+                    this._lastDisconnectionTime = Date.now()
+                    this._connection = undefined;
                     this.emit('disconnect', this);
                 });
             }
@@ -294,19 +297,18 @@ module.exports = (factory) => {
 
         disconnect() {
             debug(`Closing connection to "${this._connection.remoteAddress}"`);
-            // this._lastDisconnectedAddress = this._connection.remoteAddress;
-            // this._lastDisconnectionTime = Date.now()
-            this._connection.close();
+            this._cleanup();
+            this._lastDisconnectedAddress = this._connection.remoteAddress;
+            this._lastDisconnectionTime = Date.now()
 
-            //this.emit('disconnect', this);
+            this._connection.close();
+            this._connection = undefined;
+            this.emit('disconnect', this);
         }
 
         _cleanup() {
-            this._lastDisconnectedAddress = this._connection.remoteAddress;
-            this._lastDisconnectionTime = Date.now()
             this._bInbound = false;
             this.loadDone = true;
-            this._connection = undefined;
             this._bytesCount = 0;
             this._msecOffsetDelta = 0;
         }
@@ -322,14 +324,16 @@ module.exports = (factory) => {
         }
 
         _deadTick() {
-            if (Date.now() - this._lastActionTimestamp > Constants.PEER_DEAD_TIME)
+            if (!this.disconnected && Date.now() - this._lastActionTimestamp > Constants.PEER_DEAD_TIME)
                 this.disconnect();
         }
 
         async _pingTick() {
-            const msgPing = new MsgCommon();
-            msgPing.pingMessage = true;
-            await this.pushMessage(msgPing);
+            if (!this.disconnected) {
+                const msgPing = new MsgCommon();
+                msgPing.pingMessage = true;
+                await this.pushMessage(msgPing);
+            }
         }
     };
 };
