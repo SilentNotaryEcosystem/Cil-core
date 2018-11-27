@@ -267,7 +267,7 @@ describe('Peer manager', () => {
         assert.isOk(result instanceof factory.Peer);
 
         peer._lastDisconnectedAddress = address;
-        peer._lastDiconnectionTime = Date.now();
+        peer._lastDisconnectionTime = Date.now();
 
         result = pm.addPeer(peer);
 
