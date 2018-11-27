@@ -225,9 +225,19 @@ module.exports = (factory) => {
             }
         }
 
-        _peerDisconnect(peer) {
+        async _peerDisconnect(peer) {
             this._msecOffset -= peer.offsetDelta;
+
+            let bestPeers = this._findBestPeers();
+            let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
+                .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            for (let p of peers) {
+                await this._connectToPeer(p);
+                await p.pushMessage(this._createMsgVersion());
+                await p.loaded();
+            }
         }
+        
         /**
          *
          * @param {Peer} peer
