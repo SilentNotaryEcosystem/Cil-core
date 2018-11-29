@@ -934,7 +934,8 @@ describe('Node tests', () => {
                 address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
             }
         });
-        inMsg._data.timeStamp = parseInt(Date.now() / 1000) + 3700
+        inMsg._data.timeStamp =
+            parseInt(Date.now() + factory.Constants.TOLERATED_TIME_DIFF) / 1000 + 100;
         const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
         const sendMessage = sinon.fake.returns(Promise.resolve(null));
         const newPeer = new factory.Peer({
@@ -968,18 +969,52 @@ describe('Node tests', () => {
 
     it('should reconnect peers', async function() {
         this.timeout(3000);
+        const node = new factory.Node({});
         const pushMessage = sinon.fake.returns(Promise.resolve(null));
         const loaded = sinon.fake.returns(Promise.resolve(null));
         const connectToPeer = sinon.fake.returns(Promise.resolve(null));
-        seedNode._connectToPeer = connectToPeer;
+        node._connectToPeer = connectToPeer;
 
-        let peers = seedNode._peerManager.filterPeers();
-
-        for (let peer of peers) {
+        const peers = [
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.NODE, data: null},
+                        {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.NODE, data: null}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
+                }
+            })
+        ];
+        peers.forEach((peer) => {
             peer.pushMessage = pushMessage;
             peer.loaded = loaded;
-        }
-
+            node._peerManager.addPeer(peer);
+        });
         let peer = peers[0];
         peer.emit('disconnect', peer)
         await sleep(1500);
