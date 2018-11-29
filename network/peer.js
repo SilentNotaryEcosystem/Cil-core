@@ -246,7 +246,7 @@ module.exports = (factory) => {
                     debug(`Connection to "${this.address}" closed`);
                     this._cleanup();
                     this._lastDisconnectedAddress = this.address;
-                    this._lastDisconnectionTime = Date.now()
+                    this._lastDisconnectionTime = Date.now();
                     this._connection = undefined;
                     this.emit('disconnect', this);
                 });
@@ -299,7 +299,7 @@ module.exports = (factory) => {
             debug(`Closing connection to "${this._connection.remoteAddress}"`);
             this._cleanup();
             this._lastDisconnectedAddress = this._connection.remoteAddress;
-            this._lastDisconnectionTime = Date.now()
+            this._lastDisconnectionTime = Date.now();
 
             this._connection.close();
             this._connection = undefined;
