@@ -167,15 +167,15 @@ describe('Peer tests', () => {
     });
 
     it('should unban peer after BAN_PEER_TIME', async function() {
-        this.timeout(7000)
+        this.timeout(factory.Constants.BAN_PEER_TIME + 1000)
         const newPeer = new factory.Peer({peerInfo});
         newPeer.ban()
-        await sleep(5500)
+        await sleep(factory.Constants.BAN_PEER_TIME + 100)
         assert.isNotOk(newPeer.banned);
     });
 
     it('should not unban peer before BAN_PEER_TIME', async function() {
-        this.timeout(3000)
+        this.timeout(factory.Constants.BAN_PEER_TIME / 2 + 500)
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
@@ -183,7 +183,7 @@ describe('Peer tests', () => {
             }
         });
         newPeer.ban()
-        await sleep(2500)
+        await sleep(factory.Constants.BAN_PEER_TIME / 2)
         assert.isOk(newPeer.banned);
     });
 
@@ -191,8 +191,9 @@ describe('Peer tests', () => {
         this.timeout(3000);
         const newPeer = new factory.Peer({peerInfo});
 
-        await newPeer.connect()
-        newPeer._connectedTill.setHours(newPeer._connectedTill.getHours() - 1);
+        await newPeer.connect();
+        newPeer._connectedTill = 
+            new Date(newPeer._connectedTill.getTime() - factory.Constants.PEER_CONNECTION_LIFETIME);
 
         await sleep(1500)
 
@@ -204,7 +205,7 @@ describe('Peer tests', () => {
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
         newPeer = new factory.Peer({peerInfo});
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(6 * 1024 * 1024);
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
         await newPeer.connect()
         newPeer._connection.emit('message', msg);
 
@@ -222,7 +223,7 @@ describe('Peer tests', () => {
 
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(6 * 1024 * 1024);
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
 
         const newPeer = new factory.Peer({
             connection: {
