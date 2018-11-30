@@ -167,23 +167,23 @@ describe('Peer tests', () => {
     });
 
     it('should unban peer after BAN_PEER_TIME', async function() {
-        this.timeout(factory.Constants.BAN_PEER_TIME + 1000)
+        this.timeout(factory.Constants.BAN_PEER_TIME + 1000);
         const newPeer = new factory.Peer({peerInfo});
-        newPeer.ban()
-        await sleep(factory.Constants.BAN_PEER_TIME + 100)
+        newPeer.ban();
+        await sleep(factory.Constants.BAN_PEER_TIME + 100);
         assert.isNotOk(newPeer.banned);
     });
 
     it('should not unban peer before BAN_PEER_TIME', async function() {
-        this.timeout(factory.Constants.BAN_PEER_TIME / 2 + 500)
+        this.timeout(factory.Constants.BAN_PEER_TIME / 2 + 500);
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
                 on: () => {}, close: () => {}
             }
         });
-        newPeer.ban()
-        await sleep(factory.Constants.BAN_PEER_TIME / 2)
+        newPeer.ban();
+        await sleep(factory.Constants.BAN_PEER_TIME / 2);
         assert.isOk(newPeer.banned);
     });
 
@@ -195,7 +195,7 @@ describe('Peer tests', () => {
         newPeer._connectedTill = 
             new Date(newPeer._connectedTill.getTime() - factory.Constants.PEER_CONNECTION_LIFETIME);
 
-        await sleep(1500)
+        await sleep(1500);
 
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
@@ -206,7 +206,7 @@ describe('Peer tests', () => {
         newPeer = new factory.Peer({peerInfo});
         const msg = new factory.Messages.MsgCommon();
         msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
-        await newPeer.connect()
+        await newPeer.connect();
         newPeer._connection.emit('message', msg);
 
         assert.isNotOk(newPeer.disconnected);
@@ -236,13 +236,13 @@ describe('Peer tests', () => {
             }
         });
         newPeer.pushMessage(msg);
-        await sleep(200)
+        await sleep(200);
 
         assert.isNotOk(newPeer.disconnected);
         assert.isOk(newPeer._connection);
 
         newPeer.pushMessage(msg);
-        await sleep(200)
+        await sleep(200);
 
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
@@ -250,9 +250,9 @@ describe('Peer tests', () => {
 
     it('should not connect peer if address temporary banned', async () => {
         const newPeer = new factory.Peer({peerInfo});
-        await newPeer.connect()
-        newPeer.disconnect()
-        await newPeer.connect()
+        await newPeer.connect();
+        newPeer.disconnect();
+        await newPeer.connect();
         assert.isOk(newPeer.tempBannedAddress);
         assert.isOk(newPeer.disconnected);
     });
@@ -273,7 +273,7 @@ describe('Peer tests', () => {
 
     it('should disconnect if peer dead', async function() {
         const newPeer = new factory.Peer({peerInfo});
-        await newPeer.connect()
+        await newPeer.connect();
         newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
         newPeer._deadTick();
 
@@ -283,7 +283,7 @@ describe('Peer tests', () => {
 
     it('should not disconnect if message received', async function() {
         const newPeer = new factory.Peer({peerInfo});
-        await newPeer.connect()
+        await newPeer.connect();
         newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
 
         newPeer._connection.emit('message', 'test');

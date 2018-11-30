@@ -65,18 +65,20 @@ module.exports = (factory) => {
             this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
 
             this._deadTimer = new Tick(this);
-            this._deadTimer.setInterval(Constants.PEER_DEAD_TIMER_NAME, this._deadTick.bind(this), Constants.PEER_DEAD_TIMEOUT);
+            this._deadTimer.setInterval(Constants.PEER_DEAD_TIMER_NAME, this._deadTick.bind(this),
+                Constants.PEER_DEAD_TIMEOUT);
 
             this._pingTimer = new Tick(this);
-            this._pingTimer.setInterval(Constants.PEER_PING_TIMER_NAME, this._pingTick.bind(this), Constants.PEER_PING_TIMEOUT);
+            this._pingTimer.setInterval(Constants.PEER_PING_TIMER_NAME, this._pingTick.bind(this),
+                Constants.PEER_PING_TIMEOUT);
 
 
         }
 
         get tempBannedAddress() {
             return !!this._lastDisconnectedAddress
-                && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
-                && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
+                   && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
+                   && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
         get peerInfo() {
@@ -105,7 +107,7 @@ module.exports = (factory) => {
 
         get isWitness() {
             return Array.isArray(this._peerInfo.capabilities) &&
-                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
         get lastActionTimestamp() {
@@ -319,7 +321,6 @@ module.exports = (factory) => {
             }
             if (!this.disconnected && this._connectedTill.getTime() < Date.now()) {
                 this.disconnect();
-                this._connection = undefined;
             }
         }
 

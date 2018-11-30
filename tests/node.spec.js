@@ -1016,7 +1016,7 @@ describe('Node tests', () => {
             node._peerManager.addPeer(peer);
         });
         let peer = peers[0];
-        peer.emit('disconnect', peer)
+        peer.emit('disconnect', peer);
         await sleep(1500);
 
         assert.equal(connectToPeer.callCount, 2);
