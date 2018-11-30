@@ -55,9 +55,6 @@ module.exports = (factory) => {
             this._arrSeedAddresses = arrSeedAddresses;
             this._arrDnsSeeds = arrDnsSeeds;
 
-            this._nMaxPeers = nMaxPeers || Constants.MAX_PEERS;
-
-            // TODO: add minPeers to maintain connection
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
             this._transport = new Transport(options);
 
@@ -126,8 +123,6 @@ module.exports = (factory) => {
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
             await this._connectToPeers(arrBestPeers);
-
-            // TODO: add watchdog to mantain MIN connections (send pings cleanup failed connections, query new peers ... see above)
         }
 
         /**
@@ -274,8 +269,6 @@ module.exports = (factory) => {
                     peer.misbehave(1);
                     return;
                 }
-
-                // TODO: check number of bytes sent to each node (except witness?)
 
                 if (message.isGetAddr()) {
                     return await this._handlePeerRequest(peer);

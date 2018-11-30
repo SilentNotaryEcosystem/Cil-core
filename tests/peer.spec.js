@@ -192,7 +192,7 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({peerInfo});
 
         await newPeer.connect();
-        newPeer._connectedTill = 
+        newPeer._connectedTill =
             new Date(newPeer._connectedTill.getTime() - factory.Constants.PEER_CONNECTION_LIFETIME);
 
         await sleep(1500);
@@ -200,6 +200,20 @@ describe('Peer tests', () => {
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
 
+    });
+
+    it('should NOT disconnect PERSISTENT after PEER_CONNECTION_LIFETIME', async function() {
+        this.timeout(3000);
+        const newPeer = new factory.Peer({peerInfo});
+
+        await newPeer.connect();
+        newPeer.markAsPersistent();
+        newPeer._connectedTill =
+            new Date(newPeer._connectedTill.getTime() - factory.Constants.PEER_CONNECTION_LIFETIME);
+
+        await sleep(1500);
+
+        assert.isNotOk(newPeer.disconnected);
     });
 
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
@@ -219,6 +233,23 @@ describe('Peer tests', () => {
         assert.isNotOk(newPeer._connection);
         assert.isNotOk(newPeer._bytesCount);
 
+    });
+
+    it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
+        newPeer = new factory.Peer({peerInfo});
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
+        await newPeer.connect();
+        newPeer.markAsPersistent();
+        newPeer._connection.emit('message', msg);
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+        assert.isOk(newPeer._bytesCount);
+
+        newPeer._connection.emit('message', msg);
+
+        assert.isNotOk(newPeer.disconnected);
     });
 
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
@@ -246,6 +277,33 @@ describe('Peer tests', () => {
 
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
+    });
+
+    it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
+
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                address: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                listenerCount: () => 0,
+                on: () => {},
+                sendMessage: async () => {},
+                close: () => {}
+            }
+        });
+        newPeer.markAsPersistent();
+        newPeer.pushMessage(msg);
+        await sleep(200);
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+
+        newPeer.pushMessage(msg);
+        await sleep(200);
+
+        assert.isNotOk(newPeer.disconnected);
     });
 
     it('should not connect peer if address temporary banned', async () => {

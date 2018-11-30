@@ -75,6 +75,9 @@ module.exports = (factory) => {
                         // mark it for broadcast
                         peer.addTag(groupDefinition.getGroupName());
 
+                        // prevent witness disconnect by timer or bytes threshold
+                        peer.markAsPersistent();
+
                         // overwrite this peer definition with freshest data
                         this._peerManager.addPeer(peer);
                         debugWitness(`----- "${this._debugAddress}" WITNESS handshake with "${peer.address}" DONE ---`);
@@ -173,6 +176,9 @@ module.exports = (factory) => {
             }
 
             if (peer.inbound) {
+
+                // prevent witness disconnect by timer or bytes threshold
+                peer.markAsPersistent();
 
                 // we don't check version & self connection because it's done on previous step (node connection)
                 const response = this._createHandshakeMessage(messageWitness.groupName);
