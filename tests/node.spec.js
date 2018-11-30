@@ -922,6 +922,41 @@ describe('Node tests', () => {
         assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
     });
 
+    it('should send Reject message if time offset very large', async () => {
+        const node = new factory.Node({});
+        const inMsg = new factory.Messages.MsgVersion({
+            nonce: 12,
+            peerInfo: {
+                capabilities: [
+                    {service: factory.Constants.NODE, data: null},
+                    {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                ],
+                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            }
+        });
+        inMsg._data.timeStamp =
+            parseInt(Date.now() + factory.Constants.TOLERATED_TIME_DIFF) / 1000 + 100;
+        const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: sinon.fake(),
+                remoteAddress: factory.Transport.generateAddress(),
+                on: sinon.fake(),
+                sendMessage,
+                close: () => {}
+            }
+        });
+        const peer = node._peerManager.addPeer(newPeer);
+
+        await node._handleVersionMessage(newPeer, msgCommon);
+        assert.equal(sendMessage.callCount, 1);
+
+        const [msg] = sendMessage.args[0];
+        assert.isTrue(msg.isReject());
+
+    });
+
     it('should unwind block to mempool', async () => {
         const node = new factory.Node({});
         const block = createDummyBlock(factory);
@@ -929,5 +964,62 @@ describe('Node tests', () => {
 
         await node._unwindBlock(block);
         assert.isOk(node._mempool.hasTx(tx.hash()));
+
+    });
+
+    it('should reconnect peers', async function() {
+        this.timeout(3000);
+        const node = new factory.Node({});
+        const pushMessage = sinon.fake.returns(Promise.resolve(null));
+        const loaded = sinon.fake.returns(Promise.resolve(null));
+        const connectToPeer = sinon.fake.returns(Promise.resolve(null));
+        node._connectToPeer = connectToPeer;
+
+        const peers = [
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.NODE, data: null},
+                        {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.NODE, data: null}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
+                }
+            })
+        ];
+        peers.forEach((peer) => {
+            peer.pushMessage = pushMessage;
+            peer.loaded = loaded;
+            node._peerManager.addPeer(peer);
+        });
+        let peer = peers[0];
+        peer.emit('disconnect', peer);
+        await sleep(1500);
+
+        assert.equal(connectToPeer.callCount, 2);
+        assert.equal(pushMessage.callCount, 2);
     });
 });

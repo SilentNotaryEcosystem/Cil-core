@@ -62,6 +62,8 @@ enum RejectCodes {
     REJECT_DUPLICATE = 1;
     REJECT_BAD_WITNESS = 2;
     REJECT_BANNED = 3;
+    REJECT_TIMEOFFSET = 4;
+    REJECT_BANNEDADDRESS = 5;
 }
 
 message RejectPayload {

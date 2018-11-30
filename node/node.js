@@ -76,8 +76,9 @@ module.exports = (factory) => {
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
-
             debugNode(`(address: "${this._debugAddress}") start listening`);
+            this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
+
             this._transport.listen();
             this._transport.on('connect', this._incomingConnection.bind(this));
 
@@ -93,6 +94,8 @@ module.exports = (factory) => {
             this._pendingBlocks = new PendingBlocksManager();
             this._mainDag = new MainDag();
             this._setUnknownBlocks = new Set();
+            this._msecOffset = 0;
+
         }
 
         get rpc() {
@@ -101,6 +104,10 @@ module.exports = (factory) => {
 
         get nonce() {
             return this._nonce;
+        }
+
+        get networkTime() {
+            return Date.now() + this._msecOffset;
         }
 
         async bootstrap() {
@@ -118,11 +125,7 @@ module.exports = (factory) => {
             // start connecting to peers
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
-            for (let peer of arrBestPeers) {
-                if (peer.disconnected) await this._connectToPeer(peer);
-                await peer.pushMessage(this._createMsgVersion());
-                await peer.loaded();
-            }
+            await this._connectToPeers(arrBestPeers);
 
             // TODO: add watchdog to mantain MIN connections (send pings cleanup failed connections, query new peers ... see above)
         }
@@ -200,7 +203,11 @@ module.exports = (factory) => {
                 if (result instanceof Peer) return;
 
                 // peer already connected or banned
-                const reason = result === Constants.REJECT_BANNED ? 'You are banned' : 'Duplicate connection';
+                let reason;
+                if (result === Constants.REJECT_BANNED) reason = 'You are banned';
+                else if (result === Constants.REJECT_DUPLICATE) reason = 'Duplicate connection';
+                else if (result === Constants.REJECT_BANNEDADDRESS) reason = 'Address temporary banned';
+
                 const message = new MsgReject({
                     code: result,
                     reason
@@ -211,6 +218,23 @@ module.exports = (factory) => {
                 newPeer.disconnect();
             } catch (err) {
                 logger.error(err);
+            }
+        }
+
+        async _peerDisconnect(peer) {
+            this._msecOffset -= peer.offsetDelta;
+
+            let bestPeers = this._findBestPeers();
+            let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
+                .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            await this._connectToPeers(peers);
+        }
+
+        async _connectToPeers(peers) {
+            for (let peer of peers) {
+                if (peer.disconnected) await this._connectToPeer(peer);
+                await peer.pushMessage(this._createMsgVersion());
+                await peer.loaded();
             }
         }
 
@@ -274,7 +298,6 @@ module.exports = (factory) => {
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
-
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(err, `Peer ${peer.address}`);
@@ -328,7 +351,7 @@ module.exports = (factory) => {
 
                 // since we building DAG, it's faster
                 if (await this._mainDag.getBlockInfo(block.hash())) {
-//                if (await this._storage.hasBlock(block.hash())) {
+                    //                if (await this._storage.hasBlock(block.hash())) {
                     logger.error(`Block ${block.hash()} already known!`);
                     return;
                 }
@@ -527,7 +550,20 @@ module.exports = (factory) => {
          */
         async _handleVersionMessage(peer, message) {
             message = new MsgVersion(message);
-
+            const _offset = message.msecTime - this.networkTime;
+            if (Math.abs(_offset) > Constants.TOLERATED_TIME_DIFF) {
+                const reason = `Check your clocks! network time is: ${this.networkTime}`;
+                const message = new MsgReject({
+                    code: Constants.REJECT_TIMEOFFSET,
+                    reason
+                });
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
+                await peer.pushMessage(message);
+                peer.offsetDelta = _offset / 2;
+                peer.disconnect();
+                return;
+            }
             // we connected to self
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
@@ -558,11 +594,13 @@ module.exports = (factory) => {
                     debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
                     await peer.pushMessage(this._createMsgVersion());
                 }
-
+                this._msecOffset += _offset / 2;
+                peer.offsetDelta = 0;
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
                 await peer.pushMessage(msgVerack);
+
             } else {
                 debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
                 peer.disconnect();
