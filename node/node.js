@@ -125,7 +125,7 @@ module.exports = (factory) => {
             // start connecting to peers
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
-            this._connectToPeers(arrBestPeers);
+            await this._connectToPeers(arrBestPeers);
 
             // TODO: add watchdog to mantain MIN connections (send pings cleanup failed connections, query new peers ... see above)
         }
@@ -227,7 +227,7 @@ module.exports = (factory) => {
             let bestPeers = this._findBestPeers();
             let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
                 .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
-            this._connectToPeers(peers);
+            await this._connectToPeers(peers);
         }
 
         async _connectToPeers(peers) {
