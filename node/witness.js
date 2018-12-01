@@ -262,6 +262,14 @@ module.exports = (factory) => {
             return messageWitness;
         }
 
+        _adjustNetworkTime(offset) {
+            super._adjustNetworkTime(offset);
+
+            for (let [, consensus] of this._consensuses) {
+                consensus.updateNetworkTime(this._msecOffset);
+            }
+        }
+
         _setConsensusHandlers(consensus) {
             consensus.on('message', message => {
                 debugWitness(`Witness: "${this._debugAddress}" message "${message.message}" from CONSENSUS engine`);

@@ -29,7 +29,6 @@ module.exports = (factory) => {
             super();
             const {groupDefinition, wallet} = options;
 
-            // TODO: implement network time (localtime + average network offset, calculated during handshake) it should be updated by Node?
             this._networkOffset = 0;
 
             this._nonce = parseInt(Math.random() * 100000);
@@ -60,6 +59,10 @@ module.exports = (factory) => {
 
         get groupId() {
             return this._groupDefinition.getGroupId();
+        }
+
+        updateNetworkTime(nNewOffset) {
+            this._networkOffset = nNewOffset;
         }
 
 //        get quorum() {
@@ -444,7 +447,7 @@ module.exports = (factory) => {
          */
         _roundFromNetworkTime() {
             const networkNow = this._getNetworkTime();
-            this._roundNo = parseInt(networkNow / Constants.TOLERATED_TIME_DIFF);
+            this._roundNo = parseInt(networkNow / Constants.TOLERATED_TIME_DIFF * 3);
         }
 
         /**

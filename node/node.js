@@ -544,7 +544,11 @@ module.exports = (factory) => {
         async _handleVersionMessage(peer, message) {
             message = new MsgVersion(message);
             const _offset = message.msecTime - this.networkTime;
+
+            // check time difference for us and connected peer
             if (Math.abs(_offset) > Constants.TOLERATED_TIME_DIFF) {
+
+                // send REJECT & disconnect
                 const reason = `Check your clocks! network time is: ${this.networkTime}`;
                 const message = new MsgReject({
                     code: Constants.REJECT_TIMEOFFSET,
@@ -553,10 +557,11 @@ module.exports = (factory) => {
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
-                peer.offsetDelta = _offset / 2;
+
                 peer.disconnect();
                 return;
             }
+
             // we connected to self
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
@@ -587,8 +592,10 @@ module.exports = (factory) => {
                     debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
                     await peer.pushMessage(this._createMsgVersion());
                 }
-                this._msecOffset += _offset / 2;
-                peer.offsetDelta = 0;
+
+                this._adjustNetworkTime(_offset);
+                peer.offsetDelta = _offset / 2;
+
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
@@ -598,6 +605,10 @@ module.exports = (factory) => {
                 debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
                 peer.disconnect();
             }
+        }
+
+        _adjustNetworkTime(offset) {
+            this._msecOffset += offset / 2;
         }
 
         /**
