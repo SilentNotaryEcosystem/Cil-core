@@ -2,10 +2,6 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 const types = require('../types');
 
-/*
-    implementation for pay2addr.
-    TODO: implement codeClaim
- */
 
 // TODO: calculate tx size for proper fee calculating
 
@@ -101,7 +97,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             const outputs = this.outputs;
             if (!outputs) throw new Error('Unexpected: empty outputs!');
 
-            return outputs.map(out => new Coins(out.amount, out.codeClaim));
+            return outputs.map(out => new Coins(out.amount, out.receiverAddr));
         }
 
         /**
@@ -126,7 +122,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             typeforce(typeforce.tuple('Number', types.Address), arguments);
 
             this._checkDone();
-            this._data.payload.outs.push({amount, codeClaim: Buffer.from(addr, 'hex')});
+            this._data.payload.outs.push({amount, receiverAddr: Buffer.from(addr, 'hex')});
         }
 
         /**

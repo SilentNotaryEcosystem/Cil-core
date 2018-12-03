@@ -13,8 +13,8 @@ message output{
     // possibly here should be uint64 or bytes (BN)
     uint32 amount=1;
 
-    // code to be executed in App with claimProofs as parameters
-    bytes codeClaim=2;
+    // payment receiver
+    bytes receiverAddr=2;
 }
 
 message TransactionPayload {

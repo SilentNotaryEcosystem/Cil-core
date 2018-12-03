@@ -43,7 +43,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
                     if (!utxo) throw new Error(`UTXO not found for ${strInputTxHash} neither in patch nor in mapUtxos`);
 
                     const coins = utxo.coinsAtIndex(input.nTxOutput);
-                    this._verifyClaim(coins.getCodeClaim(), claimProofs[i], buffInputHash);
+                    this._verifyPayToAddr(coins.getReceiverAddr(), claimProofs[i], buffInputHash);
                     patch.spendCoins(utxo, input.nTxOutput, txHash);
                     totalHas += coins.getAmount();
                 }
@@ -59,16 +59,17 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
             return {patch, fee};
         }
 
-        _verifyClaim(codeClaim, claimProofs, buffHash) {
-
-            // TODO: implement custom code exec here. Now only pay2address
-            this._verifyPayToAddr(codeClaim, claimProofs, buffHash);
-        }
-
-        _verifyPayToAddr(address, signature, buffHash) {
+        /**
+         *
+         * @param {Buffer} address - receiver address
+         * @param {Buffer} signature - provided by receiver to prove ownership
+         * @param {Buffer} buffSignedData - data that was signed (need to verify or recover signature)
+         * @private
+         */
+        _verifyPayToAddr(address, signature, buffSignedData) {
             typeforce(typeforce.tuple(types.Address, types.Signature, types.Hash256bit), arguments);
 
-            const pubKey = Crypto.recoverPubKey(buffHash, signature);
+            const pubKey = Crypto.recoverPubKey(buffSignedData, signature);
             if (!address.equals(Crypto.getAddress(pubKey, true))) throw new Error('Claim failed!');
         }
     };
