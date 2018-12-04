@@ -873,7 +873,7 @@ module.exports = (factory) => {
 
             const witnessGroupDefinition = await this._storage.getWitnessGroupById(block.witnessGroupId);
             assert(witnessGroupDefinition, `Unknown witnessGroupId: ${block.witnessGroupId}`);
-            const arrPubKeys = witnessGroupDefinition.getPublicKeys();
+            const arrPubKeys = witnessGroupDefinition.getDelegatesPublicKeys();
             assert(
                 block.signatures.length === witnessGroupDefinition.getQuorum(),
                 `Expected ${witnessGroupDefinition.getQuorum()} signatures, got ${block.signatures.length}`

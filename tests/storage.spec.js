@@ -29,8 +29,9 @@ describe('Storage tests', () => {
     });
 
     it('should store group definitions', async () => {
-        const def1 = factory.WitnessGroupDefinition.create('test', 0, [Buffer.from('public1'), Buffer.from('public2')]);
-        const def2 = factory.WitnessGroupDefinition.create('test2', 1,
+        const def1 = factory.WitnessGroupDefinition.create(0, [Buffer.from('public1'), Buffer.from('public2')]);
+        const def2 = factory.WitnessGroupDefinition.create(
+            1,
             [Buffer.from('public2'), Buffer.from('public3')]
         );
 

@@ -18,19 +18,24 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
                         data.publicKeys[i] = Buffer.from(data.publicKeys[i], 'hex');
                     }
                 }
+                for (let i in data.delegatesPublicKeys) {
+                    if (!Buffer.isBuffer(data.delegatesPublicKeys[i])) {
+                        data.delegatesPublicKeys[i] = Buffer.from(data.delegatesPublicKeys[i], 'hex');
+                    }
+                }
                 this._data = witnessGroupDefinitionProto.create(data);
             } else {
-                throw new Error('Contsruct from Buffer|Object');
+                throw new Error('Construct from Buffer|Object');
             }
         }
 
-        static create(groupName, groupId, arrPublicKeys) {
-            typeforce(typeforce.tuple('String', 'Number', 'Array'), arguments);
+        static create(groupId, arrPublicKeys, delegatesPublicKeys) {
+            typeforce(typeforce.tuple('Number', 'Array'), arguments);
 
             return new this({
                 publicKeys: arrPublicKeys,
-                groupName,
-                groupId
+                groupId,
+                delegatesPublicKeys: delegatesPublicKeys || arrPublicKeys
             });
         }
 
@@ -38,8 +43,12 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
             return this._data.publicKeys;
         }
 
-        getGroupName() {
-            return this._data.groupName;
+        getDelegatesPublicKeys() {
+            return this._data.delegatesPublicKeys;
+        }
+
+        getGroupContractAddress() {
+            return this._data.groupContractAddress;
         }
 
         getGroupId() {
@@ -47,6 +56,8 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
         }
 
         getQuorum() {
-            return !this._data.quorum ? parseInt(this._data.publicKeys.length / 2) + 1 : this._data.quorum;
+            if (this._data.quorum) return this._data.quorum;
+            const arr = this._data.delegatesPublicKeys || this._data.publicKeys;
+            return parseInt(arr.length / 2) + 1;
         }
     };

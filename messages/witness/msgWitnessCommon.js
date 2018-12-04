@@ -5,7 +5,7 @@ const typeforce = require('typeforce');
  * - Decode MessageCommon from wire
  * - Detect signature
  * - Decode WitnessMessageCommon from MessageCommon
- * - Get groupName from WitnessMessageCommon and pass it to respective BFT
+ * - Get groupId from WitnessMessageCommon and pass it to respective BFT
  * - Decode specific Witness msg from WitnessMessageCommon
  *
  * @param {Object} Constants
@@ -46,17 +46,17 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
                 super();
 
                 // constructing it manually
-                if (!data.groupName) {
-                    throw new Error('Specify "groupName"');
+                if (data.groupId === undefined) {
+                    throw new Error('Specify "groupId"');
                 }
                 this._msgData = {
-                    groupName: data.groupName
+                    groupId: data.groupId
                 };
             }
         }
 
-        get groupName() {
-            return this._msgData.groupName;
+        get groupId() {
+            return this._msgData.groupId;
         }
 
         get content() {
@@ -77,7 +77,6 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
 
         set handshakeMessage(unused) {
             this.message = MSG_WITNESS_HANDSHAKE;
-            this.content = Buffer.from(this.groupName);
         }
 
         encode() {
@@ -86,9 +85,6 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
         }
 
         isHandshake() {
-            if (this.message === MSG_WITNESS_HANDSHAKE && this.groupName !== '' + this.content) {
-                throw new TypeError(`Malformed "${MSG_WITNESS_HANDSHAKE}"`);
-            }
             return this.message === MSG_WITNESS_HANDSHAKE;
         }
 

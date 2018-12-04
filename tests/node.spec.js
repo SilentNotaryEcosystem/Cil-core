@@ -50,7 +50,7 @@ const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
         arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
     }
     block.addWitnessSignatures(arrSignatures);
-    return factory.WitnessGroupDefinition.create('test', block.witnessGroupId, arrPubKeys);
+    return factory.WitnessGroupDefinition.create(block.witnessGroupId, arrPubKeys);
 };
 
 const createSimpleChain = async (callback) => {

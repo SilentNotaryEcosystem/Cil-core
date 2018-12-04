@@ -4,7 +4,7 @@ package witness;
 
 //TODO: replace  bytes content to oneof
 message WitnessMessage {
-    string groupName=1;
+    uint32 groupId=1;
     bytes content=2;
 }
 
