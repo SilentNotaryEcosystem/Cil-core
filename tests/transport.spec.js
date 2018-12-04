@@ -53,6 +53,18 @@ describe('Transport', () => {
     //     assert.isOk(endpoint.privateAddress);
     // });
 
+    it('should check routable address', async function () {
+        let address = '2001:4860:4860::8888';
+        const result = await factory.Ipv6Transport.isRoutableIpv6Address(address);
+        assert.isOk(result);
+    });
+
+    it('should fail to check routable address', async function () {
+        let address = factory.Ipv6Transport.getIpv6MappedAddress('192.168.1.2');
+        const result = await factory.Ipv6Transport.isRoutableIpv6Address(address);
+        assert.isNotOk(result);
+    });
+
     it('should get addresses from dns', async function () {
         const name = 'ya.ru';
         const addresses = await factory.Ipv6Transport.resolveName(name);
@@ -89,7 +101,7 @@ describe('Transport', () => {
 
     it('should set the passed routable ipv6 address', async () => {
         const endpoint = new factory.Ipv6Transport({listenAddr: factory.Ipv6Transport.getIpv6MappedAddress('87.250.250.242')});
-        endpoint._listen = sinon.fake.returns();
+        endpoint._startListen = sinon.fake.returns();
         await endpoint.listen();
         assert.isOk(endpoint.privateAddress);
         assert.isOk(endpoint.routableAddress);

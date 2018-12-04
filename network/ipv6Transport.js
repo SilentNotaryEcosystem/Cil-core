@@ -9,6 +9,7 @@ const natUpnp = require('nat-upnp');
 
 const {sleep} = require('../utils');
 const ConnectionWrapper = require('./ipv6Connection');
+const publicAddressesRange = require('./publicAddresses');
 
 /**
 
@@ -91,18 +92,26 @@ module.exports = (factory) => {
         }
 
         /**
-         * Get local IP address from interfaces
-         * @return {string}
+         * Get local IP addresses from interfaces
+         * @return {string[]}
          */
-        _getPrivateAddress() {
+        _getInterfacesAddresses() {
+            let addresses = [];
             const interfaces = os.networkInterfaces();
             for (let interfaceName in interfaces) {
-                const addresses = interfaces[interfaceName].filter(iface => {
+                addresses.concat(interfaces[interfaceName].filter(iface => {
                     return iface.family === 'IPv6' && iface.internal === false
-                });
-                if (addresses.length > 0) return addresses[0].address;
+                }).map(iface => iface.address));
             }
-            return undefined;
+            return addresses;
+        }
+
+        _getRoutableInterfacesAddress() {
+            const addresses = this._getInterfacesAddresses();
+            for (let addr of addresses) {
+                if (this.constructor.isRoutableIpv6Address(addr))
+                    return addr;
+            }
         }
 
         /**
@@ -141,6 +150,18 @@ module.exports = (factory) => {
             const addr = ipaddr.parse(address);
             // TODO: May be need to check other ranges
             return addr.range() === 'private';
+        }
+
+        static isRoutableIpv6Address(address) {
+            const addr = ipaddr.parse(address);
+            if (addr.kind() !== 'ipv6')
+                throw new Error('IP address is not ipv6');
+            for (let publicAddress of publicAddressesRange) {
+                const addrSubnet = publicAddress.split('/');
+                if (addr.match(ipaddr.parse(addrSubnet[0]), addrSubnet[1]))
+                    return true;
+            }
+            return false;
         }
 
         _mapPort(routableAddress, privateAddress) {
@@ -185,13 +206,14 @@ module.exports = (factory) => {
          * uPnP port mapping, set result addresses
          */
         async _forceMappingAddress() {
-            let mappings = await this._getPortMappings();
+            const routableAddress = await this._getRoutableAddress();
+            let mappings = await this._getPortMappings(routableAddress);
             if (!mappings || mappings.length === 0) {
-                this._mapPort();
+                await this._mapPort();
                 mappings = await this._getPortMappings();
             }
             if (mappings && mappings.length > 0) {
-                return {privateAddress: mappings[0].private.host, routableAddress: mappings[0].public.host || this._routableAddress};
+                return {privateAddress: mappings[0].private.host, routableAddress: mappings[0].public.host || routableAddress};
             }
             return {};
         }
@@ -229,13 +251,11 @@ module.exports = (factory) => {
                 debug(`Error determining external IP address: ${err}`);
             }
             if (!addr) return {};
-            if (this._isInterfaceAddress(addr)) {
-                return {privateAddress: addr, routableAddress: addr};
-            }
-            return {routableAddress: addr};
+
+            return addr;
         }
 
-        _listen() {
+        _startListen() {
             const server = net.createServer(async (socket) => {
                 this.emit('connect',
                     new Ipv6Connection({socket, timeout: this._timeout})
@@ -259,7 +279,7 @@ module.exports = (factory) => {
                 if (ipaddr.IPv6.isIPv6(this._address) && !addr.isIPv4MappedAddress()
                     || ipaddr.IPv6.isIPv6(this._address) && addr.isIPv4MappedAddress() && !this.constructor.isPrivateIpAddress(addr.toIPv4Address().toString())) {
                     this._setAddresses({privateAddress: this._address, routableAddress: this._address});
-                    this._listen();
+                    this._startListen();
                     return;
                 }
                 //Listening address isn't routable
@@ -269,21 +289,23 @@ module.exports = (factory) => {
                 if (portMappings && Array.isArray(portMappings)) {
                     //TODO: May be need map address to ipv6
                     this._setAddresses({privateAddress: portMappings[0].private.host, routableAddress: portMappings[0].public.host});
-                    this._listen();
+                    this._startListen();
                     return;
                 }
                 else throw new Error('Failed port mapping');
             }
             else {
-                this._setAddresses(await this._getRoutableAddress());
-                //User has routable ip address in interfaces
-                if (this._areAddressOk()) {
-                    this._listen();
+                let address = this._getRoutableInterfacesAddress();
+                if (address) {
+                    this._setAddresses({privateAddress: address, routableAddress: address});
+                    this._startListen();
                     return;
                 }
+
                 this._setAddresses(await this._forceMappingAddress());
+
                 if (this._areAddressOk()) {
-                    this._listen();
+                    this._startListen();
                     return;
                 }
                 else throw new Error('Error determining listen address');
