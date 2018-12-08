@@ -440,7 +440,9 @@ describe('Node tests', () => {
         node._pendingBlocks.addBlock(parentBlock, new factory.PatchDB());
         await node._storeBlockAndInfo(parentBlock, new factory.BlockInfo(parentBlock.header));
 
-        node._app.processTx = sinon.fake.returns({});
+        node._app.processTxInputs = sinon.fake.returns({totalHas: 10000});
+        node._app.processPayments = sinon.fake.returns(0);
+
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
         node._informNeighbors = sinon.fake();
@@ -453,8 +455,8 @@ describe('Node tests', () => {
 
         await node._handleBlockMessage(peer, msg);
 
-        assert.isOk(node._app.processTx.called);
-        assert.isOk(node._app.processTx.callCount, 2);
+        assert.isOk(node._app.processPayments.called);
+        assert.isOk(node._app.processPayments.callCount, 2);
         assert.isOk(await node._storage.getBlock(block.getHash()));
         assert.isOk(node._informNeighbors.calledOnce);
 
@@ -469,7 +471,7 @@ describe('Node tests', () => {
         const node = new factory.Node({arrTestDefinition: [groupDef]});
 
         // make this block BAD
-        node._app.processTx = sinon.fake.throws('error');
+        node._app.processTxInputs = sinon.fake.throws('error');
 
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
@@ -485,8 +487,8 @@ describe('Node tests', () => {
         try {
             await node._handleBlockMessage(peer, msg);
         } catch (e) {
-            assert.isOk(node._app.processTx.called);
-            assert.isOk(node._app.processTx.callCount, 2);
+            assert.isOk(node._app.processTxInputs.called);
+            assert.isOk(node._app.processTxInputs.callCount, 2);
             assert.isNotOk(node._storage.saveBlock.called);
             assert.isNotOk(node._storage.applyPatch.called);
             assert.isNotOk(node._informNeighbors.called);
@@ -554,7 +556,10 @@ describe('Node tests', () => {
 
     it('should process GENEZIS block', async () => {
         const node = new factory.Node({});
-        node._app.processTx = sinon.fake.returns({fee: 1});
+
+        // Inputs doesn't checked for Genezis
+        node._app.processPayments = sinon.fake.returns(0);
+
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
         node._informNeighbors = sinon.fake();
@@ -567,14 +572,13 @@ describe('Node tests', () => {
         factory.Constants.GENEZIS_BLOCK = block.hash();
         await node._execBlock(block);
 
-        assert.isOk(node._app.processTx.called);
+        assert.isOk(node._app.processPayments.called);
 
         // coinbase is not processed by app
-        assert.equal(node._app.processTx.callCount, 1);
-        const [appTx, mapUtxos, , isGenezis] = node._app.processTx.args[0];
+        assert.equal(node._app.processPayments.callCount, 1);
+        const [appTx, patch] = node._app.processPayments.args[0];
         assert.isOk(appTx.equals(tx));
-        assert.isNotOk(mapUtxos);
-        assert.isOk(isGenezis);
+        assert.isOk(patch);
     });
 
     it('should fail to check COINBASE (not a coinbase)', async () => {

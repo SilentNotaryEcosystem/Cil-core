@@ -382,11 +382,8 @@ module.exports = (factory) => {
             const arrBadHashes = [];
             let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
-                const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
                 try {
-                    const {fee} = await this._app.processTx(tx, mapUtxos, patchMerged, false);
-                    if (fee < Constants.MIN_TX_FEE) throw new Error(`Fee of ${fee} too small in "${tx.hash()}"`);
-                    totalFee += fee;
+                    totalFee += await this._processTx(false, tx, patchMerged);
                     block.addTx(tx);
                 } catch (e) {
                     logger.error(e);
@@ -399,7 +396,8 @@ module.exports = (factory) => {
 
             // TODO: Store patch in DAG for pending blocks
             block.finish(totalFee, this._wallet.publicKey);
-            debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} ready`);
+            debugWitness(
+                `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
 
             return {block, patch: patchMerged};
         }

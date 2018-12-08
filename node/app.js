@@ -16,47 +16,62 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
          * TODO: lock DB for all UTXO with mutex right after forming mapUtxos and release it after applying patch or UTXO DB could be corrupted!
          *
          * @param {Transaction} tx
-         * @param {Object} mapUtxos - keys are txHashes, values - UTXO
-         * @param {PatchDB} patchForBlock - for processing whole block we'll use same patch
-         *                  (if this function fails for even for one TX in block - whole block invalid, patch unusable
-         *                  so there is no need to use separate patches, or use transaction-like behavior)
-         * @param {Boolean} isGenezis - do we process tx from Genezis block (no inputs)
-         * @returns {Promise<{patch, fee}>}
+         * @param {Map} mapUtxos
+         * @param {PatchDB} patchForBlock
+         * @return {{patch: *, totalHas: number}}
          */
-        async processTx(tx, mapUtxos, patchForBlock, isGenezis = false) {
+        processTxInputs(tx, mapUtxos, patchForBlock) {
             const txHash = tx.hash();
+            const txInputs = tx.inputs;
+            const claimProofs = tx.claimProofs;
+
+            let totalHas = 0;
             const patch = patchForBlock ? patchForBlock : new PatchDB();
 
-            // TODO: change "amount" from Numbers to BN or uint64 to avoid floating point issues!
-            let totalHas = 0;
-            let totalSpend = 0;
-            if (!isGenezis) {
-                const txInputs = tx.inputs;
-                const claimProofs = tx.claimProofs;
-                for (let i = 0; i < txInputs.length; i++) {
+            for (let i = 0; i < txInputs.length; i++) {
 
-                    // now it's equals txHash, but if you plan to implement SIGHASH_SINGLE & SIGHASH_NONE it will be different
-                    const buffInputHash = Buffer.from(tx.hash(i), 'hex');
-                    const input = txInputs[i];
-                    const strInputTxHash = input.txHash.toString('hex');
-                    const utxo = patch.getUtxo(strInputTxHash) || mapUtxos[strInputTxHash];
-                    if (!utxo) throw new Error(`UTXO not found for ${strInputTxHash} neither in patch nor in mapUtxos`);
+                // now it's equals txHash, but if you plan to implement SIGHASH_SINGLE & SIGHASH_NONE it will be different
+                const buffInputHash = Buffer.from(tx.hash(i), 'hex');
+                const input = txInputs[i];
 
-                    const coins = utxo.coinsAtIndex(input.nTxOutput);
-                    this._verifyPayToAddr(coins.getReceiverAddr(), claimProofs[i], buffInputHash);
-                    patch.spendCoins(utxo, input.nTxOutput, txHash);
-                    totalHas += coins.getAmount();
-                }
+                // input.txHash - UTXO
+                const strInputTxHash = input.txHash.toString('hex');
+                const utxo = patch.getUtxo(strInputTxHash) || mapUtxos[strInputTxHash];
+                if (!utxo) throw new Error(`UTXO not found for ${strInputTxHash} neither in patch nor in mapUtxos`);
+
+                const coins = utxo.coinsAtIndex(input.nTxOutput);
+
+                // Verify coins possession
+                this._verifyPayToAddr(coins.getReceiverAddr(), claimProofs[i], buffInputHash);
+
+                // spend it
+                patch.spendCoins(utxo, input.nTxOutput, txHash);
+
+                // count sum of all inputs
+                totalHas += coins.getAmount();
             }
 
-            const txCoins = tx.getCoins();
+            return {patch, totalHas};
+        }
+
+        /**
+         * @param {Transaction} tx
+         * @param {PatchDB} patch - to create new coins
+         * @returns {Number} - Amount to spend
+         */
+        processPayments(tx, patch) {
+            const txHash = tx.hash();
+
+            // TODO: change "amount" from Numbers to BN or uint64 to avoid floating point issues!
+            let totalSent = 0;
+            const txCoins = tx.getOutCoins();
+
             for (let i = 0; i < txCoins.length; i++) {
                 patch.createCoins(txHash, i, txCoins[i]);
-                totalSpend += txCoins[i].getAmount();
+                totalSent += txCoins[i].getAmount();
             }
 
-            const fee = totalHas - totalSpend;
-            return {patch, fee};
+            return totalSent;
         }
 
         /**
