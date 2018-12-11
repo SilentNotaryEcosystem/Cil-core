@@ -15,7 +15,7 @@ const debugNode = debugLib('node:app');
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
 
 const createGenezisPatchAndSpendingTx = (factory) => {
-    const patch = new factory.PatchDB();
+    const patch = new factory.PatchDB(0);
 
     const receiverKeyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(receiverKeyPair.publicKey, true);

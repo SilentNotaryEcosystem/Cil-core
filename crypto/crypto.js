@@ -190,6 +190,14 @@ class CryptoLib {
         return needBuffer ? Buffer.from(this.hash160(publicKey), 'hex') : this.hash160(publicKey);
     }
 
+    /**
+     * WARNING! Modify here! if change address to something different than 160 bit (hash160)
+     * @return {Buffer}
+     */
+    static getAddrContractCreation() {
+        return Buffer.alloc(20, 0);
+    }
+
     static ripemd160(buffer) {
         return createHash('rmd160').update(buffer).digest().toString('hex');
     }

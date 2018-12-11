@@ -3,7 +3,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const types = require('../types');
-const {arrayIntersection} = require('../utils');
+const {arrayIntersection, getMapsKeys} = require('../utils');
 
 const debug = debugLib('patch:');
 
@@ -20,6 +20,8 @@ module.exports = ({UTXO, Coins}) =>
 
             this._mapGroupLevel = new Map();
             this.setGroupId(nGroupId);
+
+            this._mapContractStates = new Map();
         }
 
         /**
@@ -88,15 +90,10 @@ module.exports = ({UTXO, Coins}) =>
          * @return {PatchDB} NEW patch!
          */
         merge(patch) {
-            assert(
-                patch._groupId !== undefined && this._groupId !== undefined,
-                'One of merged patch has undefined "groupId"'
-            );
-
             const resultPatch = new PatchDB();
 
             // merge groupLevels
-            const arrGroupIds = Array.from(this._mapGroupLevel.keys()).concat(Array.from(patch._mapGroupLevel.keys()));
+            const arrGroupIds = getMapsKeys(this._mapGroupLevel, patch._mapGroupLevel);
             for (let groupId of arrGroupIds) {
                 resultPatch._mapGroupLevel.set(
                     groupId,
@@ -104,6 +101,7 @@ module.exports = ({UTXO, Coins}) =>
                 );
             }
 
+            // merge UTXOs
             const arrThisCoinsHashes = Array.from(this._data.coins.keys());
             const arrAnotherCoinsHashes = Array.from(patch._data.coins.keys());
 
@@ -159,6 +157,29 @@ module.exports = ({UTXO, Coins}) =>
                     for (let [idx, hash] of mapMySpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
                     for (let [idx, hash] of mapHisSpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
                 }
+            }
+
+            // merge contracts
+            const arrContractAddresses = getMapsKeys(this._mapContractStates, patch._mapContractStates);
+            for (let strAddr of arrContractAddresses) {
+
+                let winnerData;
+                // contract belongs always to one group
+                const contractOne = this.getContract(strAddr);
+                const contractTwo = patch.getContract(strAddr);
+                if (contractOne && contractTwo) {
+                    assert(contractOne.groupId === contractTwo.groupId, 'Contract belongs to different groups');
+
+                    winnerData = this.getLevel(contractOne.groupId) > patch.getLevel(contractTwo.groupId)
+                        ? contractOne
+                        : contractTwo;
+                } else {
+
+                    // no conflict
+                    winnerData = contractOne || contractTwo;
+                }
+                const {data, code} = winnerData;
+                resultPatch.setContract(strAddr, data, code);
             }
 
             return resultPatch;
@@ -225,9 +246,33 @@ module.exports = ({UTXO, Coins}) =>
             this._mapGroupLevel.set(nId, groupLevel);
         }
 
-        getLevel() {
+        getLevel(nGroupId) {
+            nGroupId = nGroupId === undefined ? this._groupId : nGroupId;
             assert(this._groupId !== undefined, '"groupId" not specified!');
 
-            return this._mapGroupLevel.get(this._groupId);
+            return this._mapGroupLevel.get(nGroupId);
         }
+
+        /**
+         *
+         * @param {String} contractAddr - address of newly created contract
+         * @param {Object} objData - contract data
+         * @param {String} strCodeExportedFunctions - code of contract
+         */
+        setContract(contractAddr, objData, strCodeExportedFunctions) {
+            typeforce(typeforce.tuple('String', 'Object', 'String'), arguments);
+
+            this._mapContractStates.set(contractAddr, {
+                code: strCodeExportedFunctions,
+                data: objData,
+                groupId: this._groupId
+            });
+        }
+
+        getContract(contractAddr) {
+            typeforce('String', contractAddr);
+
+            return this._mapContractStates.get(contractAddr);
+        }
+
     };

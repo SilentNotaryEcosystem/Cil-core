@@ -77,7 +77,9 @@ module.exports = {
         PEER_DEAD_TIMEOUT: 60 * 1000,
         PEER_DEAD_TIME: 5 * 60 * 1000,
         PEER_PING_TIMER_NAME: 'peerPingTimer',
-        PEER_PING_TIMEOUT: 4 * 60 * 1000
+        PEER_PING_TIMEOUT: 4 * 60 * 1000,
 
+        // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
+        TIMEOUT_CODE: 10000
     }
 };

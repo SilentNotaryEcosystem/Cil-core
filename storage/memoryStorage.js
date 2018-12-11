@@ -1,5 +1,6 @@
 'use strict';
 
+const v8 = require('v8');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 
@@ -244,6 +245,7 @@ module.exports = (factory) => {
 
             // TODO: implement creating/modification of definitions (groups|templates)
             // TODO: add mutex here!
+            // TODO: serialize contract data with v8
             for (let [txHash, utxo] of statePatch.getCoins()) {
                 const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
                 const key = UTXO_PREFIX + strHash;

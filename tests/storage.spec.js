@@ -100,7 +100,7 @@ describe('Storage tests', () => {
     it('should apply "addCoins" patch to empty storage (like genezis)', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
@@ -126,7 +126,7 @@ describe('Storage tests', () => {
         const storage = new factory.Storage({});
 
         // create coins that we plan to spend
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
@@ -143,7 +143,7 @@ describe('Storage tests', () => {
 
         // now spend it
         {
-            const spendPatch = new factory.PatchDB();
+            const spendPatch = new factory.PatchDB(0);
 
             // 2 of 3 from first utxo
             const utxo = await storage.getUtxo(txHash);
@@ -176,7 +176,7 @@ describe('Storage tests', () => {
     it('should get UTXOs from DB as map', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const txHash2 = pseudoRandomBuffer().toString('hex');
         const txHash3 = pseudoRandomBuffer().toString('hex');
@@ -201,7 +201,7 @@ describe('Storage tests', () => {
     it('should find TX COLLISION', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
@@ -220,7 +220,7 @@ describe('Storage tests', () => {
     it('should NOT find TX COLLISION', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));

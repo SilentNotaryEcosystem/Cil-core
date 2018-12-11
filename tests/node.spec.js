@@ -19,7 +19,7 @@ let seedAddress;
 let seedNode;
 
 const createTxAddCoinsToNode = (node) => {
-    const patch = new factory.PatchDB();
+    const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
     const txHash = pseudoRandomBuffer().toString('hex');
@@ -522,7 +522,7 @@ describe('Node tests', () => {
     it('should throw (fee is too small)', async () => {
         const node = new factory.Node({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const keyPair = factory.Crypto.createKeyPair();
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const txHash = pseudoRandomBuffer().toString('hex');
@@ -1025,5 +1025,19 @@ describe('Node tests', () => {
 
         assert.equal(connectToPeer.callCount, 2);
         assert.equal(pushMessage.callCount, 2);
+    });
+
+    it('should call createContract', async () => {
+        const node = new factory.Node({});
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 12);
+        tx.addReceiver(1000, factory.Crypto.getAddrContractCreation());
+
+        node._app.createContract = sinon.fake();
+
+        // mark it as Genezis block TX (it skip many checks, like signatures & inputs)
+        await node._processTx(true, tx);
+
+        assert.isOk(node._app.createContract.called);
     });
 });

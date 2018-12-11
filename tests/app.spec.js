@@ -1,5 +1,6 @@
 'use strict';
 
+const v8 = require('v8');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
@@ -9,7 +10,7 @@ const factory = require('./testFactory');
 const {pseudoRandomBuffer} = require('./testUtil');
 
 const createGenezis = (factory, utxoHash) => {
-    const patch = new factory.PatchDB();
+    const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
@@ -153,7 +154,7 @@ describe('Application layer', () => {
         tx.addReceiver(100000, buffAddress);
         tx.sign(0, anotherKeyPair.privateKey);
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
         app.processPayments(tx, patch);
 
@@ -230,4 +231,41 @@ describe('Application layer', () => {
         throw new Error('Unexpected success');
     });
 
+    it('should create contract', async () => {
+        const app = new factory.Application();
+        const strGetDataCode = `getData(){
+                return this._data;
+            }`;
+        const strCode = `
+            class A extends Base{
+                constructor(param){
+                    super();
+                    this._data=param;
+                }
+                
+                ${strGetDataCode}
+                
+                set data(value){
+                    return this._data=value;
+                }
+                
+                get data(){
+                    return this._data;
+                }
+            };
+            
+            new A(10);
+            `;
+        const patch = new factory.PatchDB(0);
+        const tx = factory.Transaction.createContract(strCode, 100000);
+        patch.setContract = sinon.fake();
+        app.createContract(tx, patch);
+
+        assert.isOk(patch.setContract.called);
+
+        const [, objData, strCodeExportedFunctions] = patch.setContract.args[0];
+
+        assert.deepEqual(objData, {_data: 10});
+        assert.equal(strCodeExportedFunctions, strGetDataCode);
+    });
 });

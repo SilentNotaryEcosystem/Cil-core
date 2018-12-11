@@ -29,11 +29,11 @@ describe('PatchDB', () => {
     });
 
     it('should create instance', async () => {
-        new factory.PatchDB();
+        new factory.PatchDB(0);
     });
 
     it('should add coins to same UTXO', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer(32).toString('hex');
         const coins = new factory.Coins(10, pseudoRandomBuffer(100));
         patch.createCoins(txHash, 0, coins);
@@ -47,7 +47,7 @@ describe('PatchDB', () => {
     });
 
     it('should add coins to different UTXOs', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer(32).toString('hex');
         const txHash2 = pseudoRandomBuffer(32).toString('hex');
 
@@ -63,7 +63,7 @@ describe('PatchDB', () => {
     });
 
     it('should remove coins', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const spendingTx = pseudoRandomBuffer(32).toString('hex');
 
         const utxo = createUtxo([12, 0, 431]);
@@ -217,16 +217,11 @@ describe('PatchDB', () => {
     });
 
     it('should create patch that woldn\'t merge', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const patchThatWouldntMerge = createNonMergeablePatch(factory);
 
         assert.throws(() => patch.merge(patchThatWouldntMerge));
         assert.throws(() => patchThatWouldntMerge.merge(patch));
-    });
-
-    it('should fail to get level (unset)', async () => {
-        const patch = new factory.PatchDB();
-        assert.throws(() => patch.getLevel());
     });
 
     it('should set level', async () => {
@@ -251,5 +246,68 @@ describe('PatchDB', () => {
 
         patchMergedAgain.setGroupId(1);
         assert.equal(patchMergedAgain._mapGroupLevel.get(1), 3);
+    });
+
+    it('should set/get contract', async () => {
+        const patch = new factory.PatchDB(0);
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const strCode = 'let a=10;';
+        const objData = {a: 10};
+        patch.setContract(contractAddr, objData, strCode);
+
+        const objResult = patch.getContract(contractAddr);
+        assert.isOk(objResult);
+        const {code, data} = objResult;
+        assert.equal(code, strCode);
+        assert.deepEqual(data, objData);
+    });
+
+    it('should have contract in merge result', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const objData = {a: 10};
+
+        const patch = new factory.PatchDB(0);
+        patch.setContract(contractAddr, objData, '');
+
+        const patchDerived = patch.merge(new factory.PatchDB(0));
+        const objResult = patchDerived.getContract(contractAddr);
+
+        assert.isOk(objResult);
+        const {data} = objResult;
+        assert.deepEqual(data, objData);
+    });
+
+    it('should fail to merge patches (contract belongs to different groups)', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+
+        const patch1 = new factory.PatchDB(0);
+        patch1.setContract(contractAddr, {}, '');
+
+        const patch2 = new factory.PatchDB(1);
+        patch2.setContract(contractAddr, {}, '');
+
+        assert.throws(_ => patch1.merge(patch2));
+    });
+
+    it('should merge 2 patches with contract data', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const patch = new factory.PatchDB(0);
+        patch.setContract(contractAddr, {value: 1}, '');
+
+        const patchDerived = patch.merge(new factory.PatchDB(0));
+        patchDerived.setGroupId(0);
+        patchDerived.setContract(contractAddr, {value: 2}, '');
+
+        {
+            const patchMerged = patch.merge(patchDerived);
+            const {data} = patchMerged.getContract(contractAddr);
+            assert.equal(data.value, 2);
+        }
+
+        {
+            const patchMerged = patchDerived.merge(patch);
+            const {data} = patchMerged.getContract(contractAddr);
+            assert.equal(data.value, 2);
+        }
     });
 });

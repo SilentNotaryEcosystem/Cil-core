@@ -718,7 +718,7 @@ module.exports = (factory) => {
          *
          * @param {Boolean} isGenezis
          * @param {Transaction} tx
-         * @param {PatchDB} patchForBlock
+         * @param {PatchDB} patchForBlock - OPTIONAL!
          * @return {Promise<number>} fee for this TX
          * @private
          */
@@ -734,9 +734,13 @@ module.exports = (factory) => {
             }
 
             // TODO: check for TX type: payment or smart contract deploy/call and process separately
-
-            // regular payment
-            const totalSent = this._app.processPayments(tx, patch);
+            let totalSent = 0;
+            if (tx.isContractCreation()) {
+                totalSent = await this._app.createContract(tx, patch);
+            } else {
+                // regular payment
+                totalSent = this._app.processPayments(tx, patch);
+            }
             const fee = totalHas - totalSent;
 
             if (!isGenezis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);

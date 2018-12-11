@@ -2,7 +2,6 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 const types = require('../types');
 
-
 // TODO: calculate tx size for proper fee calculating
 
 const CURRENT_TX_VERSION = 1;
@@ -87,6 +86,16 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             const coinbase = new this();
             coinbase.addInput(Buffer.alloc(32), 0);
             return coinbase;
+        }
+
+        static createContract(strCode, maxCoins) {
+            const tx = new this();
+            tx._data.payload.outs.push({
+                amount: maxCoins,
+                receiverAddr: Crypto.getAddrContractCreation(),
+                contractCode: strCode
+            });
+            return tx;
         }
 
         /**
@@ -214,6 +223,17 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return inputs && inputs.length === 1
                    && inputs[0].txHash.equals(Buffer.alloc(32))
                    && inputs[0].nTxOutput === 0;
+        }
+
+        isContractCreation() {
+            const outCoins = this.getOutCoins();
+            return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
+        }
+
+        getCode() {
+            const outputs = this.outputs;
+            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
+            return outputs[0].contractCode;
         }
 
         /**

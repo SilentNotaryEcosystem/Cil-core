@@ -15,6 +15,9 @@ message output{
 
     // payment receiver
     bytes receiverAddr=2;
+
+    // if receiverAddr is AddrContractCreation or function call
+    string contractCode=3;
 }
 
 message TransactionPayload {

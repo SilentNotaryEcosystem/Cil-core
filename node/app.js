@@ -1,11 +1,17 @@
 'use strict';
 
+const {VM} = require('vm2');
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const {sleep} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('application:');
+
+const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 
 module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
     class Application {
@@ -72,6 +78,54 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
             }
 
             return totalSent;
+        }
+
+        /**
+         * 1. All classes should be derived from Base (or redefine export() - to return all function needed by contract
+         * 2. Last code line - is creating instance of contract class
+         * 3. Contract invocation - string. like functionName(...params)
+         *
+         * @param {Transaction} tx - transaction with contract code
+         * @param {PatchDB} patch - to store new contract & receipt
+         */
+        createContract(tx, patch) {
+
+            // append predefined classes to code
+            const strCode = tx.getCode();
+
+            // run code (timeout 10 sec)
+            const vm = new VM({
+                timeout: Constants.TIMEOUT_CODE,
+                sandbox: {}
+            });
+
+            // TODO: implement fee! (wrapping contract)
+            const retVal = vm.run(strPredefinedClassesCode + strCode);
+
+            // TODO: what happens with failed contract in ETH?
+            assert(retVal);
+
+            // get returned class instance with member data && exported functions
+//            const buffData = v8.serialize(Object.assign({}, retVal));
+            const objData = Object.assign({}, retVal);
+            const strCodeExportedFunctions = retVal
+                .export()
+                .map(strFuncName => retVal[strFuncName].toString())
+                .reduce((accumCode, funcCode) => accumCode + funcCode);
+
+            // generate address for new contract
+            const contractAddr = Crypto.getAddress(tx.hash());
+
+            // save receipt & data & functions code to patch
+            patch.setContract(contractAddr, objData, strCodeExportedFunctions);
+
+            // TODO: create TX with change to author!
+            // TODO: return Fee
+            return 0;
+        }
+
+        runContract(strCodeToRun, contractCode, patch, funcToLoadNestedContracts) {
+
         }
 
         /**

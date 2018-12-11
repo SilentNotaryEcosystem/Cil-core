@@ -376,6 +376,8 @@ module.exports = (factory) => {
             const block = new Block(groupId);
             let {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
             patchMerged = patchMerged ? patchMerged : new PatchDB();
+            patchMerged.setGroupId(groupId);
+
             assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
             block.parentHashes = arrParents;
 

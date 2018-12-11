@@ -25,6 +25,19 @@ module.exports = {
         return new Set(arrSet1.concat(arrSet2));
     },
 
+    /**
+     *
+     * @param {Array} arrMaps of Maps
+     * @return {Array} keys
+     */
+    getMapsKeys: (...arrMaps) => {
+        let arrResultKeys = [];
+        for (let map of arrMaps) {
+            arrResultKeys = arrResultKeys.concat(Array.from(map.keys()));
+        }
+        return arrResultKeys;
+    },
+
     timestamp: () => {
         return parseInt(Date.now() / 1000);
     }

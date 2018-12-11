@@ -113,7 +113,7 @@ describe('Witness tests', () => {
 
         const {witness, groupDefinition} = createDummyWitness();
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100000, Buffer.from(witness._wallet.address, 'hex'));
         patch.createCoins(txHash, 1, coins);
