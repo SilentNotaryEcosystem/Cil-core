@@ -11,12 +11,15 @@ const debug = debugLib('patch:');
 
 module.exports = ({UTXO, Coins}) =>
     class PatchDB {
-        constructor() {
+        constructor(nGroupId) {
             this._data = {
                 coins: new Map()
             };
 
             this._mapSpentUtxos = new Map();
+
+            this._mapGroupLevel = new Map();
+            this.setGroupId(nGroupId);
         }
 
         /**
@@ -79,13 +82,33 @@ module.exports = ({UTXO, Coins}) =>
             return this._data.coins.get(txHash);
         }
 
+        /**
+         *
+         * @param {PatchDB} patch to merge with this
+         * @return {PatchDB} NEW patch!
+         */
         merge(patch) {
+            assert(
+                patch._groupId !== undefined && this._groupId !== undefined,
+                'One of merged patch has undefined "groupId"'
+            );
+
             const resultPatch = new PatchDB();
+
+            // merge groupLevels
+            const arrGroupIds = Array.from(this._mapGroupLevel.keys()).concat(Array.from(patch._mapGroupLevel.keys()));
+            for (let groupId of arrGroupIds) {
+                resultPatch._mapGroupLevel.set(
+                    groupId,
+                    Math.max(this._mapGroupLevel.get(groupId) || 0, patch._mapGroupLevel.get(groupId) || 0)
+                );
+            }
+
             const arrThisCoinsHashes = Array.from(this._data.coins.keys());
             const arrAnotherCoinsHashes = Array.from(patch._data.coins.keys());
 
-            const setUnionHases = new Set(arrThisCoinsHashes.concat(arrAnotherCoinsHashes));
-            for (let coinHash of setUnionHases) {
+            const setUnionHashes = new Set(arrThisCoinsHashes.concat(arrAnotherCoinsHashes));
+            for (let coinHash of setUnionHashes) {
                 if ((this._data.coins.has(coinHash) && !patch._data.coins.has(coinHash)) ||
                     (!this._data.coins.has(coinHash) && patch._data.coins.has(coinHash))) {
 
@@ -98,7 +121,7 @@ module.exports = ({UTXO, Coins}) =>
 
                 } else {
 
-                    // both has (if both doesn't have some, there will be no that hash in setUnionHases)
+                    // both has (if both doesn't have some, there will be no that hash in setUnionHashes)
                     const utxoMy = this.getUtxo(coinHash);
                     const utxoHis = patch.getUtxo(coinHash);
 
@@ -185,5 +208,26 @@ module.exports = ({UTXO, Coins}) =>
         getComplexity() {
             return [...this._mapSpentUtxos.keys()]
                 .reduce((result, strUtxoHash) => result + this._mapSpentUtxos.get(strUtxoHash).size, 0);
+        }
+
+        setGroupId(nId) {
+
+            // it's equal block.witnessGroupId
+            assert(this._groupId === undefined, '"groupId" already specified!');
+            this._groupId = nId;
+
+            // patch could be derived from various blocks, we'll maintain level for every group
+            // we'll use it to resolve conflicts while merging contract data.
+            // for same group: the highest level will win
+            // for different group i have no solution yet
+            // it should be just monotonic, nobody cares about values
+            const groupLevel = (this._mapGroupLevel.get(nId) || 0) + 1;
+            this._mapGroupLevel.set(nId, groupLevel);
+        }
+
+        getLevel() {
+            assert(this._groupId !== undefined, '"groupId" not specified!');
+
+            return this._mapGroupLevel.get(this._groupId);
         }
     };
