@@ -116,7 +116,7 @@ module.exports = (factory) => {
                     address: Transport.strToAddress(strAddr),
                     capabilities: [{service: Constants.NODE}]
                 });
-                this._peerManager.addPeer(peer);
+                await this._peerManager.addPeer(peer);
             }
 
             // start connecting to peers

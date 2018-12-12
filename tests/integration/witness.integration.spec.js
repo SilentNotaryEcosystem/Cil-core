@@ -122,7 +122,9 @@ describe('Witness integration tests', () => {
             ],
             address: factory.Transport.strToAddress('known peer 2')
         });
-        [peerInfo1, peerInfo2].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
+        for (let peerInfo of [peerInfo1, peerInfo2]) {
+            await seedNode._peerManager.addPeer(peerInfo);
+        }
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
@@ -241,37 +243,37 @@ describe('Witness integration tests', () => {
         assert.equal(acceptBlockFake.callCount, 0);
     });
 
-//    it('should DISCONNECT from FAKE Witness', async () => {
+    //    it('should DISCONNECT from FAKE Witness', async () => {
 
-//        const kpTest = factory.Crypto.createKeyPair();
-//        const kpGood = factory.Crypto.createKeyPair();
-//        const kpWalletFake = factory.Crypto.createKeyPair();
-//
-//        const groupName = 'test';
-//        const arrTestDefinition = [
-//            [groupName, [kpTest.getPublic(), kpGood.getPublic()]],
-//            ['anotherGroup', ['pubkey3', 'pubkey4']]
-//        ];
-//
-//        // create fake
-//        const fakeAddress=factory.Transport.strToAddress(`fake witness`);
-//        const fakeWitnessWallet = new factory.Wallet(kpWalletFake.getPrivate());
-//        const fakeWitness=new factory.Witness({
-//            wallet: fakeWitnessWallet, arrTestDefinition,
-//            listenAddr: fakeAddress, delay: 10,
-//            arrSeedAddresses: []
-//        });
-//
-//        // start our witness
-//        const wallet = new factory.Wallet(kpTest.getPrivate());
-//        const testWitness = new factory.Witness(
-//            {
-//                wallet, arrTestDefinition,
-//                listenAddr: factory.Transport.strToAddress('Test witness 2'),
-//                delay: 10, queryTimeout: 5000, arrSeedAddresses: [fakeAddress]
-//            });
-//        await testWitness.bootstrap();
-//        await testWitness.start();
+    //        const kpTest = factory.Crypto.createKeyPair();
+    //        const kpGood = factory.Crypto.createKeyPair();
+    //        const kpWalletFake = factory.Crypto.createKeyPair();
+    //
+    //        const groupName = 'test';
+    //        const arrTestDefinition = [
+    //            [groupName, [kpTest.getPublic(), kpGood.getPublic()]],
+    //            ['anotherGroup', ['pubkey3', 'pubkey4']]
+    //        ];
+    //
+    //        // create fake
+    //        const fakeAddress=factory.Transport.strToAddress(`fake witness`);
+    //        const fakeWitnessWallet = new factory.Wallet(kpWalletFake.getPrivate());
+    //        const fakeWitness=new factory.Witness({
+    //            wallet: fakeWitnessWallet, arrTestDefinition,
+    //            listenAddr: fakeAddress, delay: 10,
+    //            arrSeedAddresses: []
+    //        });
+    //
+    //        // start our witness
+    //        const wallet = new factory.Wallet(kpTest.getPrivate());
+    //        const testWitness = new factory.Witness(
+    //            {
+    //                wallet, arrTestDefinition,
+    //                listenAddr: factory.Transport.strToAddress('Test witness 2'),
+    //                delay: 10, queryTimeout: 5000, arrSeedAddresses: [fakeAddress]
+    //            });
+    //        await testWitness.bootstrap();
+    //        await testWitness.start();
 
-//    });
+    //    });
 });

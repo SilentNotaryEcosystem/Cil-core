@@ -120,7 +120,9 @@ describe('Node tests', () => {
             ],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
         });
-        [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
+        for (let peerInfo of [peerInfo1, peerInfo2, peerInfo3, peerInfo4]) {
+            await seedNode._peerManager.addPeer(peerInfo);
+        }
 
     });
 
@@ -947,7 +949,7 @@ describe('Node tests', () => {
                 close: () => {}
             }
         });
-        const peer = node._peerManager.addPeer(newPeer);
+        const peer = await node._peerManager.addPeer(newPeer);
 
         await node._handleVersionMessage(newPeer, msgCommon);
         assert.equal(sendMessage.callCount, 1);
@@ -1010,11 +1012,11 @@ describe('Node tests', () => {
                 }
             })
         ];
-        peers.forEach((peer) => {
+        for (let peer of peers) {
             peer.pushMessage = pushMessage;
             peer.loaded = loaded;
-            node._peerManager.addPeer(peer);
-        });
+            await node._peerManager.addPeer(peer);
+        };
         let peer = peers[0];
         peer.emit('disconnect', peer);
         await sleep(1500);
