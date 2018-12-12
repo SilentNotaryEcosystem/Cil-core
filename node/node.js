@@ -194,7 +194,7 @@ module.exports = (factory) => {
                 debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
                 const newPeer = new Peer({connection, transport: this._transport});
 
-                const result = this._peerManager.addPeer(newPeer);
+                const result = await this._peerManager.addPeer(newPeer);
                 if (result instanceof Peer) return;
 
                 // peer already connected or banned
@@ -663,7 +663,7 @@ module.exports = (factory) => {
         async _handlePeerList(peer, message) {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
-                const newPeer = this._peerManager.addPeer(peerInfo);
+                const newPeer = await this._peerManager.addPeer(peerInfo);
                 if (newPeer instanceof Peer) {
                     debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
                 }

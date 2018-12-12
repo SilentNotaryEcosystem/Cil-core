@@ -79,7 +79,7 @@ module.exports = (factory) => {
                         peer.markAsPersistent();
 
                         // overwrite this peer definition with freshest data
-                        this._peerManager.addPeer(peer);
+                        await this._peerManager.addPeer(peer);
                         debugWitness(`----- "${this._debugAddress}" WITNESS handshake with "${peer.address}" DONE ---`);
                     } else {
                         debugWitness(`----- "${this._debugAddress}" WITNESS "${peer.address}" TIMED OUT ---`);
