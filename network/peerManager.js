@@ -9,6 +9,7 @@ const EventEmitter = require('events');
  */
 module.exports = (factory) => {
     const {Storage, Constants, Messages, Peer} = factory;
+
     const {PeerInfo} = Messages;
 
     return class PeerManager extends EventEmitter {
@@ -17,7 +18,8 @@ module.exports = (factory) => {
             const {transport} = options;
 
             this._transport = transport;
-
+            const {Storage} = factory;
+            this._storage = new Storage(options);
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
             this._allPeers = new Map();
@@ -43,7 +45,7 @@ module.exports = (factory) => {
          * @param {Object | PeerInfo | Peer} peer
          * @return {Peer | undefined} undefined if peer already connected
          */
-        addPeer(peer) {
+        async addPeer(peer) {
 
             // TODO: do we need mutex support here?
 
@@ -64,6 +66,8 @@ module.exports = (factory) => {
             this.updateHandlers(peer);
 
             // TODO: store it in DB
+            await this._storage.savePeer(key, peer);
+
             // TODO: emit new peer
             this._allPeers.set(key, peer);
             return peer;
@@ -124,6 +128,9 @@ module.exports = (factory) => {
             }
         }
 
+        async loadPeers() {
+            return await this._storage.loadPeers();
+        }
         /**
          *
          * @param {Buffer} address
