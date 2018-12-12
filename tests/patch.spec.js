@@ -310,4 +310,56 @@ describe('PatchDB', () => {
             assert.equal(data.value, 2);
         }
     });
+
+    it('should check contract data separation', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+
+        const patch = new factory.PatchDB(0);
+        patch.setContract(contractAddr, {value: 1}, '');
+
+        {
+            const patchDerived = patch.merge(new factory.PatchDB(0));
+            const {data: derivedData} = patchDerived.getContract(contractAddr);
+            derivedData.value = 12;
+
+            const {data} = patch.getContract(contractAddr);
+            assert.equal(data.value, 1);
+        }
+
+        {
+            const patchDerived = new factory.PatchDB(0).merge(patch);
+            const {data: derivedData} = patchDerived.getContract(contractAddr);
+            derivedData.value = 12;
+
+            const {data} = patch.getContract(contractAddr);
+            assert.equal(data.value, 1);
+        }
+    });
+
+    it('should PURGE contract data (unchanged)', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+
+        const patch = new factory.PatchDB(0);
+        patch.setContract(contractAddr, {value: 1}, '');
+
+        const patchDerived = patch.merge(new factory.PatchDB(0));
+        patchDerived.setGroupId(1);
+        patchDerived.purge(patch);
+
+        assert.isNotOk(patchDerived.getContract(contractAddr));
+    });
+
+    it('should KEEP contract data (changed data)', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+
+        const patch = new factory.PatchDB(0);
+        patch.setContract(contractAddr, {value: 1}, '');
+
+        const patchDerived = patch.merge(new factory.PatchDB(0));
+        patchDerived.setGroupId(0);
+        patch.setContract(contractAddr, {value: 2}, '');
+        patchDerived.purge(patch);
+
+        assert.isOk(patchDerived.getContract(contractAddr));
+    });
 });
