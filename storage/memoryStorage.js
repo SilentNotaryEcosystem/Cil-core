@@ -34,6 +34,8 @@ module.exports = (factory) => {
             // it will allow erase UTXO DB, and rebuild it from block DB
             // it could be levelDB also, but in different dir
             this._blockStorage = new Map();
+
+            this._peerStorage = new Map();
         }
 
         /**
@@ -302,6 +304,20 @@ module.exports = (factory) => {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
             this._db.set(PENDING_BLOCKS, (new ArrayOfHashes(arrBlockHashes)).encode());
+        }
+
+        async hasPeer(key) {
+            return await this._peerStorage.has(key);
+        }
+
+        async savePeer(key,peer) {
+            if(!await this.hasPeer(key)) {
+                this._peerStorage.set(key,peer);
+            }
+        }
+
+        async loadPeers() {
+            return [...this._peerStorage.values()];
         }
     };
 };
