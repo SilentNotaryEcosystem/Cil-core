@@ -1,11 +1,20 @@
 'use strict';
 const assert = require('assert');
+const v8 = require('v8');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const types = require('../types');
 const {arrayIntersection, getMapsKeys} = require('../utils');
 
 const debug = debugLib('patch:');
+
+const serializeContractData = (objData) => {
+    return v8.serialize(objData);
+};
+
+const deSerializeContractData = (buffData) => {
+    return v8.deserialize(buffData);
+};
 
 // Could be used for undo blocks
 
@@ -165,8 +174,8 @@ module.exports = ({UTXO, Coins}) =>
 
                 let winnerData;
                 // contract belongs always to one group
-                const contractOne = this.getContract(strAddr);
-                const contractTwo = patch.getContract(strAddr);
+                const contractOne = this.getContract(strAddr, true);
+                const contractTwo = patch.getContract(strAddr, true);
                 if (contractOne && contractTwo) {
                     assert(contractOne.groupId === contractTwo.groupId, 'Contract belongs to different groups');
 
@@ -205,6 +214,22 @@ module.exports = ({UTXO, Coins}) =>
                 // remove it, if unchanged since (patch)
                 this._data.coins.delete(utxo.getTxHash());
                 this._mapSpentUtxos.delete(utxo.getTxHash());
+            }
+
+            // remove contracts
+            for (let contractAddr of patch._mapContractStates.keys()) {
+                if (this._mapContractStates.has(contractAddr)) {
+
+                    // we could check patch level for contract's groupId (faster, but could keep unchanged data)
+                    // or compare entire data (could be time consuming)
+                    // contract belong only to one group. so groupId is same for both
+                    const {data: buffThisData} = this.getContract(contractAddr, true);
+                    const {data: buffPatchData} = patch.getContract(contractAddr, true);
+
+                    if (buffThisData.equals(buffPatchData)) {
+                        this._mapContractStates.delete(contractAddr);
+                    }
+                }
             }
         }
 
@@ -256,23 +281,38 @@ module.exports = ({UTXO, Coins}) =>
         /**
          *
          * @param {String} contractAddr - address of newly created contract
-         * @param {Object} objData - contract data
+         * @param {Object | Buffer} data - contract data
          * @param {String} strCodeExportedFunctions - code of contract
          */
-        setContract(contractAddr, objData, strCodeExportedFunctions) {
-            typeforce(typeforce.tuple('String', 'Object', 'String'), arguments);
+        setContract(contractAddr, data, strCodeExportedFunctions) {
+            typeforce(typeforce.tuple('String', 'String'), [contractAddr, strCodeExportedFunctions]);
+            typeforce(typeforce.oneOf('Buffer', 'Object'), data);
+
+            if (Buffer.isBuffer(data)) data = deSerializeContractData(data);
 
             this._mapContractStates.set(contractAddr, {
                 code: strCodeExportedFunctions,
-                data: objData,
+                data,
                 groupId: this._groupId
             });
         }
 
-        getContract(contractAddr) {
+        /**
+         *
+         * @param {String} contractAddr
+         * @param {Boolean} serializeData - will we return Object or Buffer.
+         * @return {any}
+         */
+        getContract(contractAddr, serializeData = false) {
             typeforce('String', contractAddr);
 
-            return this._mapContractStates.get(contractAddr);
+            let result = this._mapContractStates.get(contractAddr);
+            if (!result) return undefined;
+
+            if (serializeData && typeof result.data === 'object') {
+                result = Object.assign({}, result, {data: serializeContractData(result.data)});
+            }
+            return result;
         }
 
     };

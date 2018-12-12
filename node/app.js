@@ -106,7 +106,6 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
             assert(retVal);
 
             // get returned class instance with member data && exported functions
-//            const buffData = v8.serialize(Object.assign({}, retVal));
             const objData = Object.assign({}, retVal);
             const strCodeExportedFunctions = retVal
                 .export()
