@@ -150,7 +150,7 @@ describe('Peer tests', () => {
         const keyPair = factory.Crypto.createKeyPair();
 
         // create message and sign it with key that doesn't belong to our group
-        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
         msg.handshakeMessage = true;
         msg.sign(keyPair.getPrivate());
 

@@ -11,7 +11,7 @@ module.exports = {
 
         // maximum connected peers
         MAX_PEERS: 10,
-        
+
         // minimum connected peers
         MIN_PEERS: 3,
 
@@ -35,7 +35,7 @@ module.exports = {
             MSG_REJECT: 'reject',
             MSG_BLOCK: 'block',
             MSG_TX: 'tx',
-            MSD_PING: 'ping',
+            MSG_PING: 'ping',
             MSG_PONG: 'pong',
 
             MSG_WITNESS_HANDSHAKE: 'w_handshake',
@@ -77,7 +77,9 @@ module.exports = {
         PEER_DEAD_TIMEOUT: 60 * 1000,
         PEER_DEAD_TIME: 5 * 60 * 1000,
         PEER_PING_TIMER_NAME: 'peerPingTimer',
-        PEER_PING_TIMEOUT: 4 * 60 * 1000
+        PEER_PING_TIMEOUT: 4 * 60 * 1000,
 
+        // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
+        TIMEOUT_CODE: 10000
     }
 };

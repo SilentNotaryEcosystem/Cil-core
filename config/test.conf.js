@@ -14,7 +14,7 @@ module.exports = {
 
         // minimum connected peers
         MIN_PEERS: 3,
-        
+
         // milliseconds
         PEER_QUERY_TIMEOUT: 30000,
         CONNECTION_TIMEOUT: 60000,
@@ -26,7 +26,6 @@ module.exports = {
         BAN_PEER_SCORE: 100,
         BAN_PEER_TIME: 5000,// 24 * 60 * 60 * 1000,
         PEER_TICK_TIMEOUT: 1000,
-
 
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 500,

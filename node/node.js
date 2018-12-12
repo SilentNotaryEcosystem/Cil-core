@@ -199,9 +199,11 @@ module.exports = (factory) => {
 
                 // peer already connected or banned
                 let reason;
-                if (result === Constants.REJECT_BANNED) reason = 'You are banned';
-                else if (result === Constants.REJECT_DUPLICATE) reason = 'Duplicate connection';
-                else if (result === Constants.REJECT_BANNEDADDRESS) reason = 'Address temporary banned';
+                if (result === Constants.REJECT_BANNED) {
+                    reason = 'You are banned';
+                } else if (result === Constants.REJECT_DUPLICATE) {
+                    reason = 'Duplicate connection';
+                } else if (result === Constants.REJECT_BANNEDADDRESS) reason = 'Address temporary banned';
 
                 const message = new MsgReject({
                     code: result,
@@ -706,12 +708,44 @@ module.exports = (factory) => {
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
-            const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
-            const {fee} = await this._app.processTx(tx, mapUtxos);
-            if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+            await this._processTx(false, tx);
 
             this._mempool.addTx(tx);
             this._informNeighbors(tx);
+        }
+
+        /**
+         *
+         * @param {Boolean} isGenezis
+         * @param {Transaction} tx
+         * @param {PatchDB} patchForBlock - OPTIONAL!
+         * @return {Promise<number>} fee for this TX
+         * @private
+         */
+        async _processTx(isGenezis, tx, patchForBlock) {
+            const patch = patchForBlock ? patchForBlock : new PatchDB();
+            let totalHas = 0;
+
+            // process input (for regular block only)
+            if (!isGenezis) {
+                tx.verify();
+                const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
+                ({totalHas} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
+            }
+
+            // TODO: check for TX type: payment or smart contract deploy/call and process separately
+            let totalSent = 0;
+            if (tx.isContractCreation()) {
+                totalSent = await this._app.createContract(tx, patch);
+            } else {
+                // regular payment
+                totalSent = this._app.processPayments(tx, patch);
+            }
+            const fee = totalHas - totalSent;
+
+            if (!isGenezis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+
+            return fee;
         }
 
         /**
@@ -750,11 +784,7 @@ module.exports = (factory) => {
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                if (!isGenezis) tx.verify();
-
-                const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
-
-                const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
+                const fee = await this._processTx(isGenezis, tx, patchState);
                 blockFees += fee;
             }
 
@@ -762,7 +792,7 @@ module.exports = (factory) => {
             if (!isGenezis) {
                 const coinbase = new Transaction(blockTxns[0]);
                 this._checkCoinbaseTx(coinbase, blockFees);
-                const coins = coinbase.getCoins();
+                const coins = coinbase.getOutCoins();
                 for (let i = 0; i < coins.length; i++) {
                     patchState.createCoins(coinbase.hash(), i, coins[i]);
                 }
@@ -779,6 +809,7 @@ module.exports = (factory) => {
             // save block to graph of pending blocks
             this._pendingBlocks.addBlock(block, patchState);
 
+            // TODO: filter for coinbase TX (we don't find it in mempool)
             this._mempool.removeForBlock(block.getTxHashes());
 
             // check for finality
@@ -873,7 +904,7 @@ module.exports = (factory) => {
 
             const witnessGroupDefinition = await this._storage.getWitnessGroupById(block.witnessGroupId);
             assert(witnessGroupDefinition, `Unknown witnessGroupId: ${block.witnessGroupId}`);
-            const arrPubKeys = witnessGroupDefinition.getPublicKeys();
+            const arrPubKeys = witnessGroupDefinition.getDelegatesPublicKeys();
             assert(
                 block.signatures.length === witnessGroupDefinition.getQuorum(),
                 `Expected ${witnessGroupDefinition.getQuorum()} signatures, got ${block.signatures.length}`

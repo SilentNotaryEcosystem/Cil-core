@@ -228,7 +228,6 @@ module.exports = (factory) => {
                             this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
                         }
                     }
-                    // TODO: update counters/timers here
                     this._lastActionTimestamp = Date.now();
 
                     if (msg.signature) {

@@ -16,11 +16,11 @@ const maxConnections = os.platform() === 'win32' ? 4 : 10;
 //const delay = undefined;
 const delay = 10;
 
-let groupName = 'test';
+let groupId = 11;
 let arrKeyPairs;
 let groupDefinition;
 
-const createDummyDefinition = (groupName, groupId = 0, numOfKeys = 2) => {
+const createDummyDefinition = (groupId = 0, numOfKeys = 2) => {
     const arrKeyPairs = [];
     const arrPublicKeys = [];
     for (let i = 0; i < numOfKeys; i++) {
@@ -28,7 +28,7 @@ const createDummyDefinition = (groupName, groupId = 0, numOfKeys = 2) => {
         arrKeyPairs.push(keyPair);
         arrPublicKeys.push(keyPair.publicKey);
     }
-    const groupDefinition = factory.WitnessGroupDefinition.create(groupName, groupId, arrPublicKeys);
+    const groupDefinition = factory.WitnessGroupDefinition.create(groupId, arrPublicKeys);
 
     return {arrKeyPairs, groupDefinition};
 };
@@ -93,7 +93,7 @@ describe('Witness integration tests', () => {
         this.timeout(15000);
         await factory.asyncLoad();
 
-        ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupName, 0, maxConnections));
+        ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupId, maxConnections));
     });
 
     after(async function() {
@@ -171,7 +171,7 @@ describe('Witness integration tests', () => {
     it('should commit one block (tx in mempool)', async function() {
         this.timeout(maxConnections * 60000);
 
-        const {genezis, tx} = createGenezisBlockAndSpendingTx();
+        const {genezis, tx} = createGenezisBlockAndSpendingTx(groupId);
 
         const seedAddress = factory.Transport.strToAddress('w seed node 3');
         const seedNode = new factory.Node({listenAddr: seedAddress, delay, arrTestDefinition: [groupDefinition]});

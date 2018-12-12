@@ -3,25 +3,25 @@ const types = require('../types');
 
 module.exports = () =>
     class Coins {
-        constructor(amount, codeClaim) {
+        constructor(amount, receiverAddr) {
             typeforce(typeforce.tuple(types.Amount, 'Buffer'), arguments);
 
             this._data = {
                 amount,
-                codeClaim
+                receiverAddr
             };
         }
 
-        static createFromData({amount, codeClaim}) {
-            return new this(amount, codeClaim);
+        static createFromData({amount, receiverAddr}) {
+            return new this(amount, receiverAddr);
         }
 
         getAmount() {
             return this._data.amount;
         }
 
-        getCodeClaim() {
-            return this._data.codeClaim;
+        getReceiverAddr() {
+            return this._data.receiverAddr;
         }
 
         getRawData() {
@@ -34,6 +34,6 @@ module.exports = () =>
          * @returns {boolean|*}
          */
         equals(coin) {
-            return this.getAmount() === coin.getAmount() && this.getCodeClaim().equals(coin.getCodeClaim());
+            return this.getAmount() === coin.getAmount() && this.getReceiverAddr().equals(coin.getReceiverAddr());
         }
     };

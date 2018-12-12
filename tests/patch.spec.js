@@ -29,11 +29,11 @@ describe('PatchDB', () => {
     });
 
     it('should create instance', async () => {
-        new factory.PatchDB();
+        new factory.PatchDB(0);
     });
 
     it('should add coins to same UTXO', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer(32).toString('hex');
         const coins = new factory.Coins(10, pseudoRandomBuffer(100));
         patch.createCoins(txHash, 0, coins);
@@ -47,7 +47,7 @@ describe('PatchDB', () => {
     });
 
     it('should add coins to different UTXOs', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer(32).toString('hex');
         const txHash2 = pseudoRandomBuffer(32).toString('hex');
 
@@ -63,7 +63,7 @@ describe('PatchDB', () => {
     });
 
     it('should remove coins', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const spendingTx = pseudoRandomBuffer(32).toString('hex');
 
         const utxo = createUtxo([12, 0, 431]);
@@ -88,10 +88,10 @@ describe('PatchDB', () => {
     });
 
     it('should MERGE patches (source is empty)', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const utxo = createUtxo([12, 0, 431]);
 
-        const patch2 = new factory.PatchDB();
+        const patch2 = new factory.PatchDB(2);
         const strHash = pseudoRandomBuffer().toString('hex');
         patch2.createCoins(strHash, 17, utxo.coinsAtIndex(12));
         patch2.spendCoins(utxo, 0, pseudoRandomBuffer());
@@ -103,14 +103,14 @@ describe('PatchDB', () => {
     });
 
     it('should MERGE patches (param is empty)', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const utxo = createUtxo([12, 0, 431]);
 
         const strHash = pseudoRandomBuffer().toString('hex');
         patch.createCoins(strHash, 17, utxo.coinsAtIndex(12));
         patch.spendCoins(utxo, 0, pseudoRandomBuffer());
 
-        const resultPatch = patch.merge(new factory.PatchDB());
+        const resultPatch = patch.merge(new factory.PatchDB(0));
 
         assert.isOk(resultPatch.getUtxo(utxo.getTxHash()));
         assert.isOk(resultPatch.getUtxo(strHash));
@@ -118,13 +118,13 @@ describe('PatchDB', () => {
     });
 
     it('should MERGE patches (different outputs same spending TX)', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const utxo = createUtxo([12, 0, 431]);
         const spendingTx = pseudoRandomBuffer();
 
         patch.spendCoins(utxo, 12, spendingTx);
 
-        const patch2 = new factory.PatchDB();
+        const patch2 = new factory.PatchDB(0);
         patch2.spendCoins(utxo, 0, spendingTx);
 
         const mergedPatch = patch.merge(patch2);
@@ -141,8 +141,8 @@ describe('PatchDB', () => {
     });
 
     it('should MERGE patches (same outputs same spending TX)', async () => {
-        const patch = new factory.PatchDB();
-        const patch2 = new factory.PatchDB();
+        const patch = new factory.PatchDB(12);
+        const patch2 = new factory.PatchDB(0);
 
         const utxo = createUtxo([12, 0, 431]);
         const spendingTx = pseudoRandomBuffer();
@@ -153,8 +153,8 @@ describe('PatchDB', () => {
     });
 
     it('should fail MERGE patches (same outputs different spending TX)', async () => {
-        const patch = new factory.PatchDB();
-        const patch2 = new factory.PatchDB();
+        const patch = new factory.PatchDB(12);
+        const patch2 = new factory.PatchDB(12);
         const utxo = createUtxo([12, 0, 431]);
 
         patch.spendCoins(utxo.clone(), 12, pseudoRandomBuffer());
@@ -169,7 +169,7 @@ describe('PatchDB', () => {
     });
 
     it('should PURGE patch (complete removal, since equal)', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
         const utxo = createUtxo([12, 0, 431]);
         const creatingTx = pseudoRandomBuffer().toString('hex');
@@ -177,7 +177,7 @@ describe('PatchDB', () => {
         const spendingTx = pseudoRandomBuffer().toString('hex');
         patch.spendCoins(utxo, 12, spendingTx);
 
-        const mergedPatch = patch.merge(new factory.PatchDB());
+        const mergedPatch = patch.merge(new factory.PatchDB(0));
         mergedPatch.purge(patch);
 
         assert.isNotOk(mergedPatch.getUtxo(utxo.getTxHash()));
@@ -186,16 +186,17 @@ describe('PatchDB', () => {
     });
 
     it('should PURGE patch (no changes, since UTXO modified)', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
         const utxo = createUtxo([12, 0, 431]);
         const spendingTx = pseudoRandomBuffer().toString('hex');
         patch.spendCoins(utxo, 12, spendingTx);
 
-        const mergedPatch = patch.merge(new factory.PatchDB());
+        const mergedPatch = patch.merge(new factory.PatchDB(1));
+        mergedPatch.setGroupId(1);
         mergedPatch.spendCoins(utxo, 0, spendingTx);
 
-        const level3Patch = mergedPatch.merge(new factory.PatchDB());
+        const level3Patch = mergedPatch.merge(new factory.PatchDB(0));
         const level3PatchSize = level3Patch.getCoins().size;
         level3Patch.purge(patch);
 
@@ -203,12 +204,12 @@ describe('PatchDB', () => {
     });
 
     it('should get patch COMPLEXITY', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const utxo = createUtxo([12, 0, 431]);
         const spendingTx = pseudoRandomBuffer().toString('hex');
         patch.spendCoins(utxo, 12, spendingTx);
 
-        const mergedPatch = patch.merge(new factory.PatchDB());
+        const mergedPatch = patch.merge(new factory.PatchDB(3));
         mergedPatch.spendCoins(utxo, 0, spendingTx);
 
         assert.isOk(patch.getComplexity() === 1);
@@ -216,10 +217,97 @@ describe('PatchDB', () => {
     });
 
     it('should create patch that woldn\'t merge', async () => {
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const patchThatWouldntMerge = createNonMergeablePatch(factory);
 
         assert.throws(() => patch.merge(patchThatWouldntMerge));
         assert.throws(() => patchThatWouldntMerge.merge(patch));
+    });
+
+    it('should set level', async () => {
+        const groupId = 12;
+        const patch = new factory.PatchDB(groupId);
+        assert.equal(patch._mapGroupLevel.get(groupId), 1);
+    });
+
+    it('should get level', async () => {
+        const patch = new factory.PatchDB(0);
+        const patchMerged = patch.merge(new factory.PatchDB(1));
+
+        assert.equal(patchMerged._mapGroupLevel.get(0), 1);
+        assert.equal(patchMerged._mapGroupLevel.get(1), 1);
+
+        patchMerged.setGroupId(1);
+        assert.equal(patchMerged._mapGroupLevel.get(1), 2);
+
+        const patchMergedAgain = patchMerged.merge(new factory.PatchDB(1));
+        assert.equal(patchMergedAgain._mapGroupLevel.get(0), 1);
+        assert.equal(patchMergedAgain._mapGroupLevel.get(1), 2);
+
+        patchMergedAgain.setGroupId(1);
+        assert.equal(patchMergedAgain._mapGroupLevel.get(1), 3);
+    });
+
+    it('should set/get contract', async () => {
+        const patch = new factory.PatchDB(0);
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const strCode = 'let a=10;';
+        const objData = {a: 10};
+        patch.setContract(contractAddr, objData, strCode);
+
+        const objResult = patch.getContract(contractAddr);
+        assert.isOk(objResult);
+        const {code, data} = objResult;
+        assert.equal(code, strCode);
+        assert.deepEqual(data, objData);
+    });
+
+    it('should have contract in merge result', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const objData = {a: 10};
+
+        const patch = new factory.PatchDB(0);
+        patch.setContract(contractAddr, objData, '');
+
+        const patchDerived = patch.merge(new factory.PatchDB(0));
+        const objResult = patchDerived.getContract(contractAddr);
+
+        assert.isOk(objResult);
+        const {data} = objResult;
+        assert.deepEqual(data, objData);
+    });
+
+    it('should fail to merge patches (contract belongs to different groups)', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+
+        const patch1 = new factory.PatchDB(0);
+        patch1.setContract(contractAddr, {}, '');
+
+        const patch2 = new factory.PatchDB(1);
+        patch2.setContract(contractAddr, {}, '');
+
+        assert.throws(_ => patch1.merge(patch2));
+    });
+
+    it('should merge 2 patches with contract data', async () => {
+        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const patch = new factory.PatchDB(0);
+        patch.setContract(contractAddr, {value: 1}, '');
+
+        const patchDerived = patch.merge(new factory.PatchDB(0));
+        patchDerived.setGroupId(0);
+        patchDerived.setContract(contractAddr, {value: 2}, '');
+
+        {
+            const patchMerged = patch.merge(patchDerived);
+            const {data} = patchMerged.getContract(contractAddr);
+            assert.equal(data.value, 2);
+        }
+
+        {
+            const patchMerged = patchDerived.merge(patch);
+            const {data} = patchMerged.getContract(contractAddr);
+            assert.equal(data.value, 2);
+        }
     });
 });
