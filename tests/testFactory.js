@@ -57,6 +57,7 @@ const CoinsWrapper = require('../structures/coins');
 const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
 const BlockInfoWrapper = require('../structures/blockInfo');
 const ArrayOfHashesWrapper = require('../structures/arrayOfHashes');
+const ContractWrapper = require('../structures/contract');
 
 const pack = require('../package');
 
@@ -84,6 +85,7 @@ class Factory {
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
                 this._arrayOfHashes = ArrayOfHashesWrapper(this);
+                this._contract = ContractWrapper(this, prototypes);
 
                 this._messagesImplementation = MessagesWrapper(this, prototypes);
 
@@ -134,6 +136,10 @@ class Factory {
 
     get MainDag() {
         return this._mainDagImplementation;
+    }
+
+    get Contract() {
+        return this._contract;
     }
 
     get UTXO() {
@@ -287,7 +293,9 @@ class Factory {
 
             utxoProto: protoStructures.lookupType("structures.UTXO"),
 
-            witnessGroupDefinitionProto: protoStructures.lookupType("structures.WitnessGroupDefinition")
+            witnessGroupDefinitionProto: protoStructures.lookupType("structures.WitnessGroupDefinition"),
+
+            contractProto: protoStructures.lookupType("structures.Contract")
         };
     }
 }
