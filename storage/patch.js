@@ -1,6 +1,5 @@
 'use strict';
 const assert = require('assert');
-const v8 = require('v8');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const types = require('../types');
@@ -8,17 +7,9 @@ const {arrayIntersection, getMapsKeys} = require('../utils');
 
 const debug = debugLib('patch:');
 
-const serializeContractData = (objData) => {
-    return v8.serialize(objData);
-};
-
-const deSerializeContractData = (buffData) => {
-    return v8.deserialize(buffData);
-};
-
 // Could be used for undo blocks
 
-module.exports = ({UTXO, Coins}) =>
+module.exports = ({UTXO, Contract}) =>
     class PatchDB {
         constructor(nGroupId) {
             this._data = {
@@ -172,23 +163,26 @@ module.exports = ({UTXO, Coins}) =>
             const arrContractAddresses = getMapsKeys(this._mapContractStates, patch._mapContractStates);
             for (let strAddr of arrContractAddresses) {
 
-                let winnerData;
-                // contract belongs always to one group
-                const contractOne = this.getContract(strAddr, true);
-                const contractTwo = patch.getContract(strAddr, true);
-                if (contractOne && contractTwo) {
-                    assert(contractOne.groupId === contractTwo.groupId, 'Contract belongs to different groups');
+                let winnerContract;
 
-                    winnerData = this.getLevel(contractOne.groupId) > patch.getLevel(contractTwo.groupId)
+                // contract belongs always to one group
+                const contractOne = this.getContract(strAddr);
+                const contractTwo = patch.getContract(strAddr);
+                if (contractOne && contractTwo) {
+                    assert(
+                        contractOne.getGroupId() === contractTwo.getGroupId(),
+                        'Contract belongs to different groups'
+                    );
+
+                    winnerContract = this.getLevel(contractOne.getGroupId()) > patch.getLevel(contractTwo.getGroupId())
                         ? contractOne
                         : contractTwo;
                 } else {
 
                     // no conflict
-                    winnerData = contractOne || contractTwo;
+                    winnerContract = contractOne || contractTwo;
                 }
-                const {data, code} = winnerData;
-                resultPatch.setContract(strAddr, data, code);
+                resultPatch.setContract(strAddr, winnerContract.getDataBuffer(), winnerContract.getCode());
             }
 
             return resultPatch;
@@ -223,10 +217,11 @@ module.exports = ({UTXO, Coins}) =>
                     // we could check patch level for contract's groupId (faster, but could keep unchanged data)
                     // or compare entire data (could be time consuming)
                     // contract belong only to one group. so groupId is same for both
-                    const {data: buffThisData} = this.getContract(contractAddr, true);
-                    const {data: buffPatchData} = patch.getContract(contractAddr, true);
+                    const thisContract = this.getContract(contractAddr);
+                    const patchContract = patch.getContract(contractAddr);
 
-                    if (buffThisData.equals(buffPatchData)) {
+                    if (thisContract && thisContract &&
+                        thisContract.getDataBuffer().equals(patchContract.getDataBuffer())) {
                         this._mapContractStates.delete(contractAddr);
                     }
                 }
@@ -288,31 +283,30 @@ module.exports = ({UTXO, Coins}) =>
             typeforce(typeforce.tuple('String', 'String'), [contractAddr, strCodeExportedFunctions]);
             typeforce(typeforce.oneOf('Buffer', 'Object'), data);
 
-            if (Buffer.isBuffer(data)) data = deSerializeContractData(data);
-
-            this._mapContractStates.set(contractAddr, {
-                code: strCodeExportedFunctions,
-                data,
-                groupId: this._groupId
-            });
+            const contract = this._mapContractStates.get(contractAddr);
+            if (contract) {
+                contract.updateData(data);
+            } else {
+                this._mapContractStates.set(
+                    contractAddr,
+                    new Contract({
+                        contractCode: strCodeExportedFunctions,
+                        contractData: data,
+                        groupId: this._groupId
+                    })
+                );
+            }
         }
 
         /**
          *
          * @param {String} contractAddr
-         * @param {Boolean} serializeData - will we return Object or Buffer.
          * @return {any}
          */
-        getContract(contractAddr, serializeData = false) {
+        getContract(contractAddr) {
             typeforce('String', contractAddr);
 
-            let result = this._mapContractStates.get(contractAddr);
-            if (!result) return undefined;
-
-            if (serializeData && typeof result.data === 'object') {
-                result = Object.assign({}, result, {data: serializeContractData(result.data)});
-            }
-            return result;
+            return this._mapContractStates.get(contractAddr);
         }
 
     };

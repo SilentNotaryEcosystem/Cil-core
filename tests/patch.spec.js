@@ -2,11 +2,10 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
-const {createDummyTx, pseudoRandomBuffer, createNonMergeablePatch} = require('./testUtil');
+const {pseudoRandomBuffer, createNonMergeablePatch} = require('./testUtil');
 
 const createUtxo = (arrIndexes) => {
     const txHash = pseudoRandomBuffer(32).toString('hex');
@@ -255,11 +254,10 @@ describe('PatchDB', () => {
         const objData = {a: 10};
         patch.setContract(contractAddr, objData, strCode);
 
-        const objResult = patch.getContract(contractAddr);
-        assert.isOk(objResult);
-        const {code, data} = objResult;
-        assert.equal(code, strCode);
-        assert.deepEqual(data, objData);
+        const contract = patch.getContract(contractAddr);
+        assert.isOk(contract);
+        assert.equal(contract.getCode(), strCode);
+        assert.deepEqual(contract.getData(), objData);
     });
 
     it('should have contract in merge result', async () => {
@@ -270,11 +268,11 @@ describe('PatchDB', () => {
         patch.setContract(contractAddr, objData, '');
 
         const patchDerived = patch.merge(new factory.PatchDB(0));
-        const objResult = patchDerived.getContract(contractAddr);
+        patchDerived.setGroupId(1);
+        const contract = patchDerived.getContract(contractAddr);
 
-        assert.isOk(objResult);
-        const {data} = objResult;
-        assert.deepEqual(data, objData);
+        assert.isOk(contract);
+        assert.deepEqual(contract.getData(), objData);
     });
 
     it('should fail to merge patches (contract belongs to different groups)', async () => {
@@ -300,14 +298,14 @@ describe('PatchDB', () => {
 
         {
             const patchMerged = patch.merge(patchDerived);
-            const {data} = patchMerged.getContract(contractAddr);
-            assert.equal(data.value, 2);
+            const contract = patchMerged.getContract(contractAddr);
+            assert.equal(contract.getData().value, 2);
         }
 
         {
             const patchMerged = patchDerived.merge(patch);
-            const {data} = patchMerged.getContract(contractAddr);
-            assert.equal(data.value, 2);
+            const contract = patchMerged.getContract(contractAddr);
+            assert.equal(contract.getData().value, 2);
         }
     });
 
@@ -319,24 +317,24 @@ describe('PatchDB', () => {
 
         {
             const patchDerived = patch.merge(new factory.PatchDB(0));
-            const {data: derivedData} = patchDerived.getContract(contractAddr);
-            derivedData.value = 12;
+            const contract2 = patchDerived.getContract(contractAddr);
+            contract2.getData().value = 12;
 
-            const {data} = patch.getContract(contractAddr);
-            assert.equal(data.value, 1);
+            const contract = patch.getContract(contractAddr);
+            assert.equal(contract.getData().value, 1);
         }
 
         {
             const patchDerived = new factory.PatchDB(0).merge(patch);
-            const {data: derivedData} = patchDerived.getContract(contractAddr);
-            derivedData.value = 12;
+            const contract2 = patchDerived.getContract(contractAddr);
+            contract2.getData().value = 12;
 
-            const {data} = patch.getContract(contractAddr);
-            assert.equal(data.value, 1);
+            const contract = patch.getContract(contractAddr);
+            assert.equal(contract.getData().value, 1);
         }
     });
 
-    it('should PURGE contract data (unchanged)', async () => {
+    it('should PURGE contract data (unchanged between blocks)', async () => {
         const contractAddr = pseudoRandomBuffer(20).toString('hex');
 
         const patch = new factory.PatchDB(0);
@@ -349,7 +347,7 @@ describe('PatchDB', () => {
         assert.isNotOk(patchDerived.getContract(contractAddr));
     });
 
-    it('should KEEP contract data (changed data)', async () => {
+    it('should KEEP contract data (since data was changed)', async () => {
         const contractAddr = pseudoRandomBuffer(20).toString('hex');
 
         const patch = new factory.PatchDB(0);
