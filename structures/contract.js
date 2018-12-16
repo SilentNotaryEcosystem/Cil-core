@@ -79,4 +79,21 @@ module.exports = (factory, {contractProto}) =>
             return contractProto.encode(this._data).finish();
         }
 
+        /**
+         *
+         * @param {Buffer | String} address
+         */
+        storeAddress(address) {
+            address = Buffer.isBuffer(address) ? address.toString('hex') : address;
+            this._strAddress = address;
+        }
+
+        /**
+         *
+         * @return {String}
+         */
+        getStoredAddress() {
+            assert(this._strAddress, 'Contract address not specified!');
+            return this._strAddress;
+        }
     };
