@@ -1,10 +1,8 @@
 'use strict';
 
-const v8 = require('v8');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 
-const {sleep} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('storage:');
@@ -14,11 +12,12 @@ const debug = debugLib('storage:');
 const UTXO_PREFIX = 'c';
 const BLOCK_PREFIX = 'b';
 const BLOCK_INFO_PREFIX = 'H';
+const CONTRACT_PREFIX = 'S';
 const LAST_APPLIED_BLOCKS = 'FINAL';
 const PENDING_BLOCKS = 'PENDING';
 
 module.exports = (factory) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract} = factory;
     return class Storage {
         constructor(options) {
 
@@ -245,7 +244,7 @@ module.exports = (factory) => {
 
             // TODO: implement creating/modification of definitions (groups|templates)
             // TODO: add mutex here!
-            // TODO: serialize contract data with v8
+            // TODO use binary keys for UTXO & Contracts
             for (let [txHash, utxo] of statePatch.getCoins()) {
                 const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
                 const key = UTXO_PREFIX + strHash;
@@ -255,6 +254,32 @@ module.exports = (factory) => {
                     this._db.set(key, utxo.encode());
                 }
             }
+
+            // save contracts
+            for (let [contractAddr, contract] of statePatch.getContracts()) {
+                const key = CONTRACT_PREFIX + contractAddr;
+                this._db.set(key, contract.encode());
+            }
+
+            // save contract receipt
+
+        }
+
+        /**
+         *
+         * @param {Buffer} buffAddress
+         * @return {Promise<Contract>}
+         */
+        async getContract(buffAddress) {
+            typeforce(types.Address, buffAddress);
+
+            const key = CONTRACT_PREFIX + buffAddress.toString('hex');
+            const buffData = this._db.get(key);
+            if (!buffData) return undefined;
+            const contract = new Contract(buffData);
+            contract.storeAddress(buffAddress);
+
+            return contract;
         }
 
         /**

@@ -5,7 +5,7 @@ const {assert} = require('chai');
 
 const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
-const {pseudoRandomBuffer, createNonMergeablePatch} = require('./testUtil');
+const {pseudoRandomBuffer, createNonMergeablePatch, generateAddress} = require('./testUtil');
 
 const createUtxo = (arrIndexes) => {
     const txHash = pseudoRandomBuffer(32).toString('hex');
@@ -249,7 +249,7 @@ describe('PatchDB', () => {
 
     it('should set/get contract', async () => {
         const patch = new factory.PatchDB(0);
-        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const contractAddr = generateAddress().toString('hex');
         const strCode = 'let a=10;';
         const objData = {a: 10};
         patch.setContract(contractAddr, objData, strCode);
@@ -261,7 +261,7 @@ describe('PatchDB', () => {
     });
 
     it('should have contract in merge result', async () => {
-        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const contractAddr = generateAddress().toString('hex');
         const objData = {a: 10};
 
         const patch = new factory.PatchDB(0);
@@ -276,7 +276,7 @@ describe('PatchDB', () => {
     });
 
     it('should fail to merge patches (contract belongs to different groups)', async () => {
-        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const contractAddr = generateAddress().toString('hex');
 
         const patch1 = new factory.PatchDB(0);
         patch1.setContract(contractAddr, {}, '');
@@ -288,7 +288,7 @@ describe('PatchDB', () => {
     });
 
     it('should merge 2 patches with contract data', async () => {
-        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const contractAddr = generateAddress().toString('hex');
         const patch = new factory.PatchDB(0);
         patch.setContract(contractAddr, {value: 1}, '');
 
@@ -310,7 +310,7 @@ describe('PatchDB', () => {
     });
 
     it('should check contract data separation', async () => {
-        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
         patch.setContract(contractAddr, {value: 1}, '');
@@ -335,7 +335,7 @@ describe('PatchDB', () => {
     });
 
     it('should PURGE contract data (unchanged between blocks)', async () => {
-        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
         patch.setContract(contractAddr, {value: 1}, '');
@@ -348,7 +348,7 @@ describe('PatchDB', () => {
     });
 
     it('should KEEP contract data (since data was changed)', async () => {
-        const contractAddr = pseudoRandomBuffer(20).toString('hex');
+        const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
         patch.setContract(contractAddr, {value: 1}, '');

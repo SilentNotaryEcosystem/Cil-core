@@ -275,38 +275,49 @@ module.exports = ({UTXO, Contract}) =>
 
         /**
          *
-         * @param {String} contractAddr - address of newly created contract
+         * @param {String | Buffer} contractAddr - address of newly created contract
          * @param {Object | Buffer} data - contract data
          * @param {String} strCodeExportedFunctions - code of contract
          */
         setContract(contractAddr, data, strCodeExportedFunctions) {
-            typeforce(typeforce.tuple('String', 'String'), [contractAddr, strCodeExportedFunctions]);
+            typeforce(typeforce.oneOf('String', types.Address), contractAddr);
             typeforce(typeforce.oneOf('Buffer', 'Object'), data);
+
+            if (Buffer.isBuffer) contractAddr = contractAddr.toString('hex');
 
             const contract = this._mapContractStates.get(contractAddr);
             if (contract) {
                 contract.updateData(data);
             } else {
-                this._mapContractStates.set(
-                    contractAddr,
-                    new Contract({
-                        contractCode: strCodeExportedFunctions,
-                        contractData: data,
-                        groupId: this._groupId
-                    })
-                );
+                const contract = new Contract({
+                    contractCode: strCodeExportedFunctions,
+                    contractData: data,
+                    groupId: this._groupId
+                });
+                contract.storeAddress(contractAddr);
+
+                this._mapContractStates.set(contractAddr, contract);
             }
         }
 
         /**
          *
-         * @param {String} contractAddr
+         * @param {String | Buffer} contractAddr
          * @return {any}
          */
         getContract(contractAddr) {
-            typeforce('String', contractAddr);
+            typeforce(typeforce.oneOf('String', types.Address), contractAddr);
 
+            if (Buffer.isBuffer) contractAddr = contractAddr.toString('hex');
             return this._mapContractStates.get(contractAddr);
+        }
+
+        /**
+         *
+         * @return {IterableIterator<any>}
+         */
+        getContracts() {
+            return this._mapContractStates.entries();
         }
 
     };

@@ -1,6 +1,5 @@
 'use strict';
 
-const v8 = require('v8');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
@@ -273,5 +272,24 @@ describe('Application layer', () => {
         const resultCode = [strGetDataCode, strFunc2Code]
             .join(factory.Contract.CONTRACT_METHOD_SEPARATOR);
         assert.equal(strCodeExportedFunctions, resultCode);
+    });
+
+    it('should run contract', async () => {
+        const groupId = 10;
+        const contractAddr = generateAddress();
+
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: 'add(a){this.value+=a;}',
+            groupId
+        });
+        contract.storeAddress(contractAddr);
+
+        const app = new factory.Application();
+        const patch = new factory.PatchDB(groupId);
+        await app.runContract('add(10)', patch, contract);
+
+        const storedContract = patch.getContract(contractAddr.toString('hex'));
+        assert.deepEqual(storedContract.getData(), {value: 110});
     });
 });

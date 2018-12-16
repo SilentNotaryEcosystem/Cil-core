@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('storage:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
 const {timestamp, arrayEquals} = require('../utils');
 
 const createBlockInfo = () => {
@@ -332,4 +332,21 @@ describe('Storage tests', () => {
         assert.isOk(arrayEquals(newArr, gotArr));
     });
 
+    it('should apply patch with contract and getContract', async () => {
+        const groupId = 10;
+        const patch = new factory.PatchDB(groupId);
+        const address = generateAddress();
+        const data = {value: 10};
+        const strCode = 'getData(){return this._data}';
+        patch.setContract(address, data, strCode);
+
+        const storage = new factory.Storage({});
+        await storage.applyPatch(patch);
+
+        const contract = await storage.getContract(address);
+        assert.isOk(contract);
+        assert.equal(contract.getGroupId(), groupId);
+        assert.deepEqual(contract.getData(), data);
+        assert.equal(contract.getCode(), strCode);
+    });
 });

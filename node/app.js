@@ -127,8 +127,29 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
             return 0;
         }
 
-        runContract(strCodeToRun, contractCode, patch, funcToLoadNestedContracts) {
+        async runContract(strInvocationCode, patch, contract, funcToLoadNestedContracts) {
+            const CONTEXT_NAME = '__MyContext';
 
+            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
+            // form context from contract data
+            const vm = new VM({
+                timeout: Constants.TIMEOUT_CODE,
+                sandbox: {
+                    [CONTEXT_NAME]: Object.assign({}, contract.getData())
+                }
+            });
+
+            // TODO: implement fee! (wrapping contract)
+            const strPreparedCode = this._prepareCode(contract.getCode(), strInvocationCode);
+            vm.run(strPreparedCode);
+            const newContractState = vm.run(`;${CONTEXT_NAME};`);
+
+            // TODO: create receipt here
+            // TODO: send rest of moneys to receiver (which one of input?!). Possibly output for change?
+            const objData = Object.assign({}, newContractState);
+
+            // save receipt & data & functions code to patch
+            patch.setContract(contract.getStoredAddress(), objData);
         }
 
         /**
@@ -143,5 +164,36 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
 
             const pubKey = Crypto.recoverPubKey(buffSignedData, signature);
             if (!address.equals(Crypto.getAddress(pubKey, true))) throw new Error('Claim failed!');
+        }
+
+        /**
+         *
+         * @param {String} strContractCode - code we saved from contract constructor joined by '\0'
+         * @param {String} strInvocationCode - method invocation
+         * @return {String} code ready to be executed
+         * @private
+         */
+        _prepareCode(strContractCode, strInvocationCode) {
+            const arrMethodCode = strContractCode.split(Constants.CONTRACT_METHOD_SEPARATOR);
+
+            const strContractCodePrepared = arrMethodCode
+                .map(code => {
+
+                    // get method name from code
+                    const [, methodName] = code.match(/^(.+)\(/);
+                    const oldName = new RegExp('^' + methodName);
+
+                    // temporary name
+                    const newName = `__MyRenamed__${methodName}`;
+
+                    // bind it to context
+                    const replacement = `const ${methodName}=${newName}.bind(__MyContext);function ${newName}`;
+
+                    // replace old name with new code
+                    return code.replace(oldName, replacement);
+                })
+                .join('\n');
+
+            return strContractCodePrepared + ';' + strInvocationCode;
         }
     };
