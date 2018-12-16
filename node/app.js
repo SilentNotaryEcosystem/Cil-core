@@ -12,6 +12,11 @@ const types = require('../types');
 const debug = debugLib('application:');
 
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
+const strCodeSuffix = `
+    ;
+    const __MyRetVal={methods: exports.getMethods(), data: exports};
+    __MyRetVal;
+`;
 
 module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
     class Application {
@@ -89,28 +94,27 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
          * @param {PatchDB} patch - to store new contract & receipt
          */
         createContract(tx, patch) {
-
-            // append predefined classes to code
             const strCode = tx.getCode();
 
-            // run code (timeout 10 sec)
+            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
                 sandbox: {}
             });
 
             // TODO: implement fee! (wrapping contract)
-            const retVal = vm.run(strPredefinedClassesCode + strCode);
-
-            // TODO: what happens with failed contract in ETH?
-            assert(retVal);
+            // prepend predefined classes to code
+            const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
+            assert(retVal, 'Unexpected empty result from contract constructor!');
+            assert(retVal.methods, 'No contract methods exported!');
+            assert(retVal.data, 'No contract data exported!');
 
             // get returned class instance with member data && exported functions
-            const objData = Object.assign({}, retVal);
-            const strCodeExportedFunctions = retVal
-                .export()
-                .map(strFuncName => retVal[strFuncName].toString())
-                .reduce((accumCode, funcCode) => accumCode + funcCode);
+            const objData = Object.assign({}, retVal.data);
+
+            const strCodeExportedFunctions = retVal.methods
+                .map(strFuncName => retVal.data[strFuncName].toString())
+                .join(Constants.CONTRACT_METHOD_SEPARATOR);
 
             // generate address for new contract
             const contractAddr = Crypto.getAddress(tx.hash());

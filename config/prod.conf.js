@@ -80,6 +80,8 @@ module.exports = {
         PEER_PING_TIMEOUT: 4 * 60 * 1000,
 
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
-        TIMEOUT_CODE: 10000
+        TIMEOUT_CODE: 10000,
+
+        CONTRACT_METHOD_SEPARATOR: '\0'
     }
 };
