@@ -146,8 +146,8 @@ module.exports = (factory) => {
 
             // we prefer witness nodes
             // TODO: REWORK! it's not good idea to overload witnesses!
-            const arrWitnessNodes = this._peerManager.filterPeers({service: Constants.WITNESS});
-            if (arrWitnessNodes.length) return arrWitnessNodes;
+            if (this._peerManager.filterPeers({service: Constants.WITNESS}).length) 
+                return this._peerManager.filterPeers({service: Constants.WITNESS});
 
             // but if there is no such - use any nodes
             return this._peerManager.filterPeers({service: Constants.NODE});
