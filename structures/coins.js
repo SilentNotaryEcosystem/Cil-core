@@ -20,10 +20,18 @@ module.exports = () =>
             return this._data.amount;
         }
 
+        /**
+         *
+         * @return {Buffer}
+         */
         getReceiverAddr() {
             return this._data.receiverAddr;
         }
 
+        /**
+         *
+         * @return {{amount: *, receiverAddr: *}|*}
+         */
         getRawData() {
             return this._data;
         }

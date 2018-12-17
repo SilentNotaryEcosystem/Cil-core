@@ -12,7 +12,8 @@ const {
     createDummyPeer,
     createDummyBlock,
     createDummyBlockWithTx,
-    pseudoRandomBuffer
+    pseudoRandomBuffer,
+    generateAddress
 } = require('./testUtil');
 
 let seedAddress;
@@ -592,7 +593,7 @@ describe('Node tests', () => {
     it('should fail to check COINBASE (bad amount)', async () => {
         const node = new factory.Node({});
         const coinbase = factory.Transaction.createCoinbase();
-        coinbase.addReceiver(100, pseudoRandomBuffer(20));
+        coinbase.addReceiver(100, generateAddress());
         assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut() - 1));
     });
 
@@ -1041,5 +1042,49 @@ describe('Node tests', () => {
         await node._processTx(true, tx);
 
         assert.isOk(node._app.createContract.called);
+    });
+
+    it('should call runContract', async () => {
+        const node = new factory.Node({});
+        const contractAddr = generateAddress();
+        const groupId = 10;
+
+        const tx = new factory.Transaction();
+        tx.witnessGroupId = groupId;
+        tx.addInput(pseudoRandomBuffer(), 12);
+        tx.invokeContract('', 1000, contractAddr);
+
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+        node._app.runContract = sinon.fake();
+
+        // mark it as Genezis block TX (it skip many checks, like signatures & inputs)
+        await node._processTx(true, tx, new factory.PatchDB(groupId));
+
+        assert.isOk(node._app.runContract.calledOnce);
+        const [strInvocationCode, patch, contract] = node._app.runContract.args[0];
+        assert.isOk(typeof strInvocationCode === 'string');
+        assert.isOk(patch instanceof factory.PatchDB);
+        assert.isOk(contract instanceof factory.Contract);
+    });
+
+    it('should _processTx with contract invocation', async () => {
+        const groupId = 10;
+        const node = new factory.Node({});
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+        node._app.runContract = sinon.fake();
+
+        const tx = new factory.Transaction();
+        tx.witnessGroupId = groupId;
+        tx.addInput(pseudoRandomBuffer(), 12);
+        tx.invokeContract('', 1000, generateAddress());
+
+        const patch = new factory.PatchDB(groupId);
+        patch.getContract = sinon.fake.returns(undefined);
+
+        await node._processTx(true, tx, patch);
+
+        assert.isOk(patch.getContract.calledOnce);
+        assert.isOk(node._storage.getContract.calledOnce);
+        assert.isOk(node._app.runContract.calledOnce);
     });
 });

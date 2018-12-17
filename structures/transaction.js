@@ -135,6 +135,23 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         /**
+         *
+         * @param {String} strCodeInvocation  - method name & parameters
+         * @param {Number} fee
+         * @param {Buffer} addr - receiver
+         */
+        invokeContract(strCodeInvocation, fee, addr) {
+            typeforce(typeforce.tuple('String', 'Number', types.Address), arguments);
+
+            this._checkDone();
+            this._data.payload.outs.push({
+                contractCode: strCodeInvocation,
+                amount: fee,
+                receiverAddr: Buffer.from(addr, 'hex')
+            });
+        }
+
+        /**
          * Now we implement only SIGHASH_ALL
          * The rest is TODO: SIGHASH_SINGLE & SIGHASH_NONE
          *
@@ -228,6 +245,10 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         isContractCreation() {
             const outCoins = this.getOutCoins();
             return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
+        }
+
+        hasOneReceiver() {
+            return this.getOutCoins().length === 1;
         }
 
         getCode() {

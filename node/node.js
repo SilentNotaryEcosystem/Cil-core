@@ -735,9 +735,40 @@ module.exports = (factory) => {
 
             // TODO: check for TX type: payment or smart contract deploy/call and process separately
             let totalSent = 0;
-            if (tx.isContractCreation()) {
-                totalSent = await this._app.createContract(tx, patch);
+            if (tx.hasOneReceiver()) {
+                const [coins] = tx.getOutCoins();
+
+                if (tx.isContractCreation()) {
+                    totalSent = await this._app.createContract(tx, patch);
+                } else {
+
+                    // check: whether it's contract invocation
+                    let contract;
+                    if (patchForBlock && patchForBlock.getContract(coins.getReceiverAddr())) {
+
+                        // contract was changed in previous blocks
+                        contract = patchForBlock.getContract(coins.getReceiverAddr());
+                    } else {
+
+                        // try to load contract data from storage
+                        contract = await this._storage.getContract(coins.getReceiverAddr());
+                    }
+
+                    if (contract) {
+                        assert(
+                            contract.getGroupId() === tx.witnessGroupId,
+                            `TX groupId: "${tx.witnessGroupId}" != contract groupId`
+                        );
+
+                        totalSent = await this._app.runContract(tx.getCode(), patch, contract);
+                    } else {
+
+                        // regular payment
+                        totalSent = this._app.processPayments(tx, patch);
+                    }
+                }
             } else {
+
                 // regular payment
                 totalSent = this._app.processPayments(tx, patch);
             }

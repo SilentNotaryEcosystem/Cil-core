@@ -1,13 +1,12 @@
 'use strict';
 
-const v8 = require('v8');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
 const debug = require('debug')('application:test');
 
 const factory = require('./testFactory');
-const {pseudoRandomBuffer} = require('./testUtil');
+const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 const createGenezis = (factory, utxoHash) => {
     const patch = new factory.PatchDB(0);
@@ -236,6 +235,9 @@ describe('Application layer', () => {
         const strGetDataCode = `getData(){
                 return this._data;
             }`;
+        const strFunc2Code = `getAnother(){
+                return this._data;
+            }`;
         const strCode = `
             class A extends Base{
                 constructor(param){
@@ -244,6 +246,7 @@ describe('Application layer', () => {
                 }
                 
                 ${strGetDataCode}
+                ${strFunc2Code}
                 
                 set data(value){
                     return this._data=value;
@@ -254,7 +257,7 @@ describe('Application layer', () => {
                 }
             };
             
-            new A(10);
+            exports=new A(10);
             `;
         const patch = new factory.PatchDB(0);
         const tx = factory.Transaction.createContract(strCode, 100000);
@@ -266,6 +269,27 @@ describe('Application layer', () => {
         const [, objData, strCodeExportedFunctions] = patch.setContract.args[0];
 
         assert.deepEqual(objData, {_data: 10});
-        assert.equal(strCodeExportedFunctions, strGetDataCode);
+        const resultCode = [strGetDataCode, strFunc2Code]
+            .join(factory.Contract.CONTRACT_METHOD_SEPARATOR);
+        assert.equal(strCodeExportedFunctions, resultCode);
+    });
+
+    it('should run contract', async () => {
+        const groupId = 10;
+        const contractAddr = generateAddress();
+
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: 'add(a){this.value+=a;}',
+            groupId
+        });
+        contract.storeAddress(contractAddr);
+
+        const app = new factory.Application();
+        const patch = new factory.PatchDB(groupId);
+        await app.runContract('add(10)', patch, contract);
+
+        const storedContract = patch.getContract(contractAddr.toString('hex'));
+        assert.deepEqual(storedContract.getData(), {value: 110});
     });
 });

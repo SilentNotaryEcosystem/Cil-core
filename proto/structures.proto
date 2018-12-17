@@ -93,3 +93,11 @@ message BlockInfo{
     BlockHeader header=1;
     uint32 flags=2;
 }
+
+//--------------- Contract info (for storage) -----
+
+message Contract{
+    bytes contractData =1;
+    string contractCode=2;
+    uint32 groupId=3;
+}
