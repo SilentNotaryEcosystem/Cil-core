@@ -101,3 +101,22 @@ message Contract{
     string contractCode=2;
     uint32 groupId=3;
 }
+
+//--------------- TX Receipt -----
+
+enum TxStatuses{
+    TX_STATUS_FAILED = 0;
+    TX_STATUS_OK = 1;
+}
+
+message TxReceipt{
+
+    // if contract was created
+    bytes contractAddress =1;
+
+    // actual fee for contract exec
+    uint32 coinsUsed =2;
+
+    //
+    TxStatuses status =3;
+}
