@@ -3,7 +3,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const types = require('../types');
-const {arrayIntersection, getMapsKeys} = require('../utils');
+const {arrayIntersection, getMapsKeysUnique} = require('../utils');
 
 const debug = debugLib('patch:');
 
@@ -22,6 +22,7 @@ module.exports = ({UTXO, Contract}) =>
             this.setGroupId(nGroupId);
 
             this._mapContractStates = new Map();
+            this._mapTxReceipts = new Map();
         }
 
         /**
@@ -93,7 +94,7 @@ module.exports = ({UTXO, Contract}) =>
             const resultPatch = new PatchDB();
 
             // merge groupLevels
-            const arrGroupIds = getMapsKeys(this._mapGroupLevel, patch._mapGroupLevel);
+            const arrGroupIds = getMapsKeysUnique(this._mapGroupLevel, patch._mapGroupLevel);
             for (let groupId of arrGroupIds) {
                 resultPatch._mapGroupLevel.set(
                     groupId,
@@ -160,7 +161,7 @@ module.exports = ({UTXO, Contract}) =>
             }
 
             // merge contracts
-            const arrContractAddresses = getMapsKeys(this._mapContractStates, patch._mapContractStates);
+            const arrContractAddresses = getMapsKeysUnique(this._mapContractStates, patch._mapContractStates);
             for (let strAddr of arrContractAddresses) {
 
                 let winnerContract;
@@ -183,6 +184,22 @@ module.exports = ({UTXO, Contract}) =>
                     winnerContract = contractOne || contractTwo;
                 }
                 resultPatch.setContract(strAddr, winnerContract.getDataBuffer(), winnerContract.getCode());
+            }
+
+            // merge receipts
+            // TODO: think is TX collisions possible?
+            const arrTxHashes = getMapsKeysUnique(this._mapTxReceipts, patch._mapTxReceipts);
+            for (let strHash of arrTxHashes) {
+
+                // receipts should be same (if no tx collision)
+                const receiptThis = this._mapTxReceipts.get(strHash);
+                const receiptPatch = patch._mapTxReceipts.get(strHash);
+                if (receiptThis && receiptPatch) {
+                    assert(receiptThis.equals(receiptPatch), 'patch.merge: Tx Collision detected');
+                }
+                const receipt = receiptThis || receiptPatch;
+                patch._mapTxReceipts.get(strHash);
+                resultPatch.setReceipt(strHash, receipt);
             }
 
             return resultPatch;
@@ -225,6 +242,11 @@ module.exports = ({UTXO, Contract}) =>
                         this._mapContractStates.delete(contractAddr);
                     }
                 }
+            }
+
+            // remove receipts
+            for (let strHash of patch._mapTxReceipts.keys()) {
+                if (this._mapTxReceipts.has(strHash)) this._mapTxReceipts.delete(strHash);
             }
         }
 
@@ -318,6 +340,23 @@ module.exports = ({UTXO, Contract}) =>
          */
         getContracts() {
             return this._mapContractStates.entries();
+        }
+
+        /**
+         *
+         * @param {String} strTxHash
+         * @param {TxReceipt} receipt
+         */
+        setReceipt(strTxHash, receipt) {
+            this._mapTxReceipts.set(strTxHash, receipt);
+        }
+
+        /**
+         *
+         * @return {IterableIterator<any>}
+         */
+        getReceipts() {
+            return this._mapTxReceipts.entries();
         }
 
     };

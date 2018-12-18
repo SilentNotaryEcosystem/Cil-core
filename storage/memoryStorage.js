@@ -13,11 +13,12 @@ const UTXO_PREFIX = 'c';
 const BLOCK_PREFIX = 'b';
 const BLOCK_INFO_PREFIX = 'H';
 const CONTRACT_PREFIX = 'S';
+const RECEIPT_PREFIX = 'R';
 const LAST_APPLIED_BLOCKS = 'FINAL';
 const PENDING_BLOCKS = 'PENDING';
 
 module.exports = (factory) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt} = factory;
     return class Storage {
         constructor(options) {
 
@@ -262,7 +263,22 @@ module.exports = (factory) => {
             }
 
             // save contract receipt
+            // because we use receipts only for contracts, i decided to keep single txReceipts instead of array of receipts
+            //      for whole block
+            for (let [txHash, receipt] of statePatch.getReceipts()) {
+                const key = RECEIPT_PREFIX + txHash;
+                this._db.set(key, receipt.encode());
+            }
+        }
 
+        /**
+         *
+         * @param {String} strTxHash
+         * @returns {Promise<any>}
+         */
+        async getTxReceipt(strTxHash) {
+            const key = RECEIPT_PREFIX + strTxHash;
+            return new TxReceipt(this._db.get(key));
         }
 
         /**

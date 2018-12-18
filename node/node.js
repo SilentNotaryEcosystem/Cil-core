@@ -734,12 +734,16 @@ module.exports = (factory) => {
             }
 
             // TODO: check for TX type: payment or smart contract deploy/call and process separately
+            // TODO: for regular payment make "DB-transaction-like" behavior (revert spending coins in processTxInputs)
             let totalSent = 0;
             if (tx.hasOneReceiver()) {
                 const [coins] = tx.getOutCoins();
 
                 if (tx.isContractCreation()) {
-                    totalSent = await this._app.createContract(tx, patch);
+                    const receipt = await this._app.createContract(tx, patch);
+                    patch.setReceipt(tx.hash(), receipt);
+
+                    // TODO implement fee
                 } else {
 
                     // check: whether it's contract invocation
@@ -760,7 +764,10 @@ module.exports = (factory) => {
                             `TX groupId: "${tx.witnessGroupId}" != contract groupId`
                         );
 
-                        totalSent = await this._app.runContract(tx.getCode(), patch, contract);
+                        const receipt = await this._app.runContract(tx.getCode(), patch, contract);
+                        patch.setReceipt(tx.hash(), receipt);
+
+                        // TODO implement fee
                     } else {
 
                         // regular payment
@@ -774,6 +781,8 @@ module.exports = (factory) => {
             }
             const fee = totalHas - totalSent;
 
+            // TODO: MIN_TX_FEE is fee per 1Kb of TX size
+            // TODO: rework fee
             if (!isGenezis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
             return fee;
