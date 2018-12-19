@@ -121,7 +121,7 @@ module.exports = (factory) => {
 
             // start connecting to peers
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
-            const arrBestPeers = this._findBestPeers();
+            const arrBestPeers = this._peerManager.findBestPeers();
             await this._connectToPeers(arrBestPeers);
         }
 
@@ -135,22 +135,6 @@ module.exports = (factory) => {
             const address = this._transport.constructor.addressToString(peer.address);
             debugNode(`(address: "${this._debugAddress}") connecting to "${address}"`);
             return await peer.connect();
-        }
-
-        /**
-         *
-         * @return {Array} of Peers we decided to be best peers to connect
-         * @private
-         */
-        _findBestPeers() {
-
-            // we prefer witness nodes
-            // TODO: REWORK! it's not good idea to overload witnesses!
-            if (this._peerManager.filterPeers({service: Constants.WITNESS}).length) 
-                return this._peerManager.filterPeers({service: Constants.WITNESS});
-
-            // but if there is no such - use any nodes
-            return this._peerManager.filterPeers({service: Constants.NODE});
         }
 
         /**
@@ -221,7 +205,7 @@ module.exports = (factory) => {
         async _peerDisconnect(peer) {
             this._msecOffset -= peer.offsetDelta;
 
-            let bestPeers = this._findBestPeers();
+            let bestPeers = this._peerManager.findBestPeers();
             let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
                 .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
             await this._connectToPeers(peers);
