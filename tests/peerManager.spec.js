@@ -293,6 +293,7 @@ describe('Peer manager', () => {
         assert.isOk(arrPeers.length === 1);
         assert.isOk(peer.address.equals(Buffer.from(arrPeers[0], 'hex')));
     });
+
     it('should load peers from storage', async () => {
         const pm = new factory.PeerManager();
         assert.isOk(pm);
@@ -307,5 +308,29 @@ describe('Peer manager', () => {
         const arrPeers = await pm.loadPeers();
         assert.isOk(arrPeers.length === 1);
         assert.isOk(peer.address.equals(Buffer.from(arrPeers[0].address, 'hex')));
+    });
+
+    it('should find best peers', async () => {
+        const pm = new factory.PeerManager();
+        for (let i = 0; i < 15; i++) {
+            const peer = new factory.Peer({
+                connection: {
+                    remoteAddress: factory.Transport.generateAddress(),
+                    listenerCount: () => 0,
+                    on: () => {}
+                }
+            });
+            peer._bytesCount = 15 - i;
+            peer._missbehaveScore = i;
+            await pm.addPeer(peer);
+        }
+        const bestPeers = pm.findBestPeers();
+        assert.equal(bestPeers.length, factory.Constants.MAX_PEERS);
+        for (let i = 0; i < 9; i++) {
+            const current = bestPeers[i].transmittedBytes / (bestPeers[i].missbehaveScore + 1);
+            const next = bestPeers[i + 1].transmittedBytes / (bestPeers[i + 1].missbehaveScore + 1);
+
+            assert.isTrue(current > next);
+        }
     });
 });
