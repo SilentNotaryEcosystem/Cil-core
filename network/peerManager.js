@@ -18,7 +18,6 @@ module.exports = (factory) => {
             const {transport} = options;
 
             this._transport = transport;
-            const {Storage} = factory;
             this._storage = new Storage(options);
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
@@ -65,7 +64,6 @@ module.exports = (factory) => {
 
             this.updateHandlers(peer);
 
-            // TODO: store it in DB
             await this._storage.savePeer(key, peer);
 
             // TODO: emit new peer
@@ -119,6 +117,12 @@ module.exports = (factory) => {
             }
 
             return arrResult;
+        }
+
+        findBestPeers() {
+            return [...this._allPeers.values()]
+                .sort((a,b)=>b.transmittedBytes/(b.missbehaveScore + 1) - a.transmittedBytes/(a.missbehaveScore + 1))
+                .slice(0, Constants.MAX_PEERS);
         }
 
         broadcastToConnected(tag, message) {
