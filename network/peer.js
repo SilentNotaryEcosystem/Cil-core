@@ -69,7 +69,13 @@ module.exports = (factory) => {
             );
 
         }
+        get missbehaveScore() {
+            return this._missbehaveScore;
+        }
 
+        get transmittedBytes() {
+            return this._bytesCount;
+        }
         /**
          * witness peers shouldn't be disconnected
          */
