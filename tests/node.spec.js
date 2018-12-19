@@ -1026,8 +1026,8 @@ describe('Node tests', () => {
         peer.emit('disconnect', peer);
         await sleep(1500);
 
-        assert.equal(connectToPeer.callCount, 2);
-        assert.equal(pushMessage.callCount, 2);
+        assert.equal(connectToPeer.callCount, 3);
+        assert.equal(pushMessage.callCount, 3);
     });
 
     it('should call createContract', async () => {
