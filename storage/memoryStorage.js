@@ -344,6 +344,8 @@ module.exports = (factory) => {
         }
 
         async loadPeers() {
+
+            // TODO: rewrite for levelDB
             return [...this._peerStorage.values()];
         }
     };
