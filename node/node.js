@@ -55,9 +55,6 @@ module.exports = (factory) => {
             this._arrSeedAddresses = arrSeedAddresses;
             this._arrDnsSeeds = arrDnsSeeds;
 
-            this._nMaxPeers = nMaxPeers || Constants.MAX_PEERS;
-
-            // TODO: add minPeers to maintain connection
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
             this._transport = new Transport(options);
 
@@ -76,8 +73,9 @@ module.exports = (factory) => {
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
-
             debugNode(`(address: "${this._debugAddress}") start listening`);
+            this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
+
             this._transport.listen();
             this._transport.on('connect', this._incomingConnection.bind(this));
 
@@ -93,6 +91,8 @@ module.exports = (factory) => {
             this._pendingBlocks = new PendingBlocksManager();
             this._mainDag = new MainDag();
             this._setUnknownBlocks = new Set();
+            this._msecOffset = 0;
+
         }
 
         get rpc() {
@@ -101,6 +101,10 @@ module.exports = (factory) => {
 
         get nonce() {
             return this._nonce;
+        }
+
+        get networkTime() {
+            return Date.now() + this._msecOffset;
         }
 
         async bootstrap() {
@@ -118,13 +122,7 @@ module.exports = (factory) => {
             // start connecting to peers
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
-            for (let peer of arrBestPeers) {
-                if (peer.disconnected) await this._connectToPeer(peer);
-                await peer.pushMessage(this._createMsgVersion());
-                await peer.loaded();
-            }
-
-            // TODO: add watchdog to mantain MIN connections (send pings cleanup failed connections, query new peers ... see above)
+            await this._connectToPeers(arrBestPeers);
         }
 
         /**
@@ -200,7 +198,13 @@ module.exports = (factory) => {
                 if (result instanceof Peer) return;
 
                 // peer already connected or banned
-                const reason = result === Constants.REJECT_BANNED ? 'You are banned' : 'Duplicate connection';
+                let reason;
+                if (result === Constants.REJECT_BANNED) {
+                    reason = 'You are banned';
+                } else if (result === Constants.REJECT_DUPLICATE) {
+                    reason = 'Duplicate connection';
+                } else if (result === Constants.REJECT_BANNEDADDRESS) reason = 'Address temporary banned';
+
                 const message = new MsgReject({
                     code: result,
                     reason
@@ -211,6 +215,23 @@ module.exports = (factory) => {
                 newPeer.disconnect();
             } catch (err) {
                 logger.error(err);
+            }
+        }
+
+        async _peerDisconnect(peer) {
+            this._msecOffset -= peer.offsetDelta;
+
+            let bestPeers = this._findBestPeers();
+            let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
+                .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            await this._connectToPeers(peers);
+        }
+
+        async _connectToPeers(peers) {
+            for (let peer of peers) {
+                if (peer.disconnected) await this._connectToPeer(peer);
+                await peer.pushMessage(this._createMsgVersion());
+                await peer.loaded();
             }
         }
 
@@ -251,8 +272,6 @@ module.exports = (factory) => {
                     return;
                 }
 
-                // TODO: check number of bytes sent to each node (except witness?)
-
                 if (message.isGetAddr()) {
                     return await this._handlePeerRequest(peer);
                 }
@@ -274,7 +293,6 @@ module.exports = (factory) => {
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
-
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(err, `Peer ${peer.address}`);
@@ -328,7 +346,7 @@ module.exports = (factory) => {
 
                 // since we building DAG, it's faster
                 if (await this._mainDag.getBlockInfo(block.hash())) {
-//                if (await this._storage.hasBlock(block.hash())) {
+                    //                if (await this._storage.hasBlock(block.hash())) {
                     logger.error(`Block ${block.hash()} already known!`);
                     return;
                 }
@@ -371,7 +389,7 @@ module.exports = (factory) => {
             await this._verifyBlock(block);
 
             // it will check readiness of parents
-            if (await this._canExecuteBlock(block)) {
+            if (this.isGenezisBlock(block) || await this._canExecuteBlock(block)) {
 
                 // we'r ready to execute this block right now
                 const patchState = await this._execBlock(block);
@@ -389,10 +407,7 @@ module.exports = (factory) => {
             const invToRequest = new Inventory();
 
             for (let hash of this._setUnknownBlocks) {
-                invToRequest.addVector({
-                    type: Constants.INV_BLOCK,
-                    hash
-                });
+                invToRequest.addBlockHash(hash);
             }
 
             msgGetData.inventory = invToRequest;
@@ -436,29 +451,44 @@ module.exports = (factory) => {
             }
         }
 
+        /**
+         * Handler for MSG_GET_BLOCKS message.
+         * Send MSG_INV for further blocks (if we have it)
+         *
+         * @param {Peer} peer - peer that send message
+         * @param {MessageCommon} message - it contains hashes of LAST FINAL blocks!
+         * @return {Promise<void>}
+         * @private
+         */
         async _handleGetBlocksMessage(peer, message) {
 
             // TODO: implement better algo
             const msg = new MsgGetBlocks(message);
-            const arrHashes = msg.arrHashes;
+            let arrHashes = msg.arrHashes;
             const inventory = new Inventory();
-            if (arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
-                let currentLevel = [];
-                arrHashes.map(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
-                do {
-                    const nextLevel = [];
-                    for (let hash of currentLevel) {
-                        inventory.addVector({
-                            type: Constants.INV_BLOCK,
-                            hash
-                        });
-                        this._mainDag.getChildren(hash).forEach(child => nextLevel.push(child));
-                        if (inventory.vector.length > Constants.MAX_BLOCKS_INV) break;
-                    }
-                    currentLevel = nextLevel;
 
-                } while (inventory.vector.length < Constants.MAX_BLOCKS_INV);
+            if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
+
+                // we missed at least one of those hashes! so we think peer is at wrong DAG
+                // sent our version of DAG starting from Genezis
+                arrHashes = [Constants.GENEZIS_BLOCK];
+
+                // Genezis wouldn't be included, so add it here
+                inventory.addBlockHash(Constants.GENEZIS_BLOCK);
             }
+
+            let currentLevel = [];
+            arrHashes.map(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
+            do {
+                const nextLevel = [];
+                for (let hash of currentLevel) {
+                    inventory.addBlockHash(hash);
+                    this._mainDag.getChildren(hash).forEach(child => nextLevel.push(child));
+                    if (inventory.vector.length > Constants.MAX_BLOCKS_INV) break;
+                }
+                currentLevel = nextLevel;
+
+            } while (currentLevel.length && inventory.vector.length < Constants.MAX_BLOCKS_INV);
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
@@ -499,6 +529,8 @@ module.exports = (factory) => {
                 } catch (e) {
                     logger.error(e);
                     peer.misbehave(5);
+
+                    // break loop
                     if (peer.banned) return;
                 }
             }
@@ -513,6 +545,24 @@ module.exports = (factory) => {
          */
         async _handleVersionMessage(peer, message) {
             message = new MsgVersion(message);
+            const _offset = message.msecTime - this.networkTime;
+
+            // check time difference for us and connected peer
+            if (Math.abs(_offset) > Constants.TOLERATED_TIME_DIFF) {
+
+                // send REJECT & disconnect
+                const reason = `Check your clocks! network time is: ${this.networkTime}`;
+                const message = new MsgReject({
+                    code: Constants.REJECT_TIMEOFFSET,
+                    reason
+                });
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
+                await peer.pushMessage(message);
+
+                peer.disconnect();
+                return;
+            }
 
             // we connected to self
             if (message.nonce === this._nonce) {
@@ -545,14 +595,22 @@ module.exports = (factory) => {
                     await peer.pushMessage(this._createMsgVersion());
                 }
 
+                this._adjustNetworkTime(_offset);
+                peer.offsetDelta = _offset / 2;
+
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
                 await peer.pushMessage(msgVerack);
+
             } else {
                 debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
                 peer.disconnect();
             }
+        }
+
+        _adjustNetworkTime(offset) {
+            this._msecOffset += offset / 2;
         }
 
         /**
@@ -650,12 +708,75 @@ module.exports = (factory) => {
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
-            const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
-            const {fee} = await this._app.processTx(tx, mapUtxos);
-            if (fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+            await this._processTx(false, tx);
 
             this._mempool.addTx(tx);
             this._informNeighbors(tx);
+        }
+
+        /**
+         *
+         * @param {Boolean} isGenezis
+         * @param {Transaction} tx
+         * @param {PatchDB} patchForBlock - OPTIONAL!
+         * @return {Promise<number>} fee for this TX
+         * @private
+         */
+        async _processTx(isGenezis, tx, patchForBlock) {
+            const patch = patchForBlock ? patchForBlock : new PatchDB();
+            let totalHas = 0;
+
+            // process input (for regular block only)
+            if (!isGenezis) {
+                tx.verify();
+                const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
+                ({totalHas} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
+            }
+
+            // TODO: check for TX type: payment or smart contract deploy/call and process separately
+            let totalSent = 0;
+            if (tx.hasOneReceiver()) {
+                const [coins] = tx.getOutCoins();
+
+                if (tx.isContractCreation()) {
+                    totalSent = await this._app.createContract(tx, patch);
+                } else {
+
+                    // check: whether it's contract invocation
+                    let contract;
+                    if (patchForBlock && patchForBlock.getContract(coins.getReceiverAddr())) {
+
+                        // contract was changed in previous blocks
+                        contract = patchForBlock.getContract(coins.getReceiverAddr());
+                    } else {
+
+                        // try to load contract data from storage
+                        contract = await this._storage.getContract(coins.getReceiverAddr());
+                    }
+
+                    if (contract) {
+                        assert(
+                            contract.getGroupId() === tx.witnessGroupId,
+                            `TX groupId: "${tx.witnessGroupId}" != contract groupId`
+                        );
+
+                        totalSent = await this._app.runContract(tx.getCode(), patch, contract);
+                    } else {
+
+                        // regular payment
+                        totalSent = this._app.processPayments(tx, patch);
+                    }
+                }
+            } else {
+
+                // regular payment
+                totalSent = this._app.processPayments(tx, patch);
+            }
+            const fee = totalHas - totalSent;
+
+            if (!isGenezis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+
+            return fee;
         }
 
         /**
@@ -694,11 +815,7 @@ module.exports = (factory) => {
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                tx.verify();
-
-                const mapUtxos = isGenezis ? undefined : await this._storage.getUtxosCreateMap(tx.utxos);
-
-                const {fee} = await this._app.processTx(tx, mapUtxos, patchState, isGenezis);
+                const fee = await this._processTx(isGenezis, tx, patchState);
                 blockFees += fee;
             }
 
@@ -706,7 +823,7 @@ module.exports = (factory) => {
             if (!isGenezis) {
                 const coinbase = new Transaction(blockTxns[0]);
                 this._checkCoinbaseTx(coinbase, blockFees);
-                const coins = coinbase.getCoins();
+                const coins = coinbase.getOutCoins();
                 for (let i = 0; i < coins.length; i++) {
                     patchState.createCoins(coinbase.hash(), i, coins[i]);
                 }
@@ -723,6 +840,7 @@ module.exports = (factory) => {
             // save block to graph of pending blocks
             this._pendingBlocks.addBlock(block, patchState);
 
+            // TODO: filter for coinbase TX (we don't find it in mempool)
             this._mempool.removeForBlock(block.getTxHashes());
 
             // check for finality
@@ -753,6 +871,10 @@ module.exports = (factory) => {
 
             await this._storage.applyPatch(patchToApply);
             await this._storage.updateLastAppliedBlocks(arrTopStable);
+
+            for (let blockHash of setBlocksToRollback) {
+                await this._unwindBlock(await this._storage.getBlock(blockHash));
+            }
             await this._storage.removeBadBlocks(setBlocksToRollback);
 
             for (let hash of setStableBlocks) {
@@ -813,7 +935,7 @@ module.exports = (factory) => {
 
             const witnessGroupDefinition = await this._storage.getWitnessGroupById(block.witnessGroupId);
             assert(witnessGroupDefinition, `Unknown witnessGroupId: ${block.witnessGroupId}`);
-            const arrPubKeys = witnessGroupDefinition.getPublicKeys();
+            const arrPubKeys = witnessGroupDefinition.getDelegatesPublicKeys();
             assert(
                 block.signatures.length === witnessGroupDefinition.getQuorum(),
                 `Expected ${witnessGroupDefinition.getQuorum()} signatures, got ${block.signatures.length}`
@@ -969,5 +1091,18 @@ module.exports = (factory) => {
             return result;
         }
 
+        /**
+         * Block failed to become FINAL, let's unwind it
+         *
+         * @param {Block} block
+         * @private
+         */
+        async _unwindBlock(block) {
+            debugNode(`(address: "${this._debugAddress}") Unwinding txns from block: "${block.getHash()}"`);
+            for (let objTx of block.txns) {
+                this._mempool.addTx(new Transaction(objTx));
+            }
+        }
     };
 };
+

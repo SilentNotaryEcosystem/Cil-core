@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
-const {sleep} = require('../utils');
+const {sleep, arrayEquals} = require('../utils');
 const debug = require('debug')('node:test');
 
 const factory = require('./testFactory');
@@ -12,14 +12,15 @@ const {
     createDummyPeer,
     createDummyBlock,
     createDummyBlockWithTx,
-    pseudoRandomBuffer
+    pseudoRandomBuffer,
+    generateAddress
 } = require('./testUtil');
 
 let seedAddress;
 let seedNode;
 
 const createTxAddCoinsToNode = (node) => {
-    const patch = new factory.PatchDB();
+    const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
     const txHash = pseudoRandomBuffer().toString('hex');
@@ -50,7 +51,42 @@ const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
         arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
     }
     block.addWitnessSignatures(arrSignatures);
-    return factory.WitnessGroupDefinition.create('test', block.witnessGroupId, arrPubKeys);
+    return factory.WitnessGroupDefinition.create(block.witnessGroupId, arrPubKeys);
+};
+
+const createSimpleChain = async (callback) => {
+    const arrHashes = [];
+
+    let prevBlock = null;
+    for (let i = 0; i < 10; i++) {
+        const block = createDummyBlock(factory);
+        if (prevBlock) {
+            block.parentHashes = [prevBlock.getHash()];
+        } else {
+            factory.Constants.GENEZIS_BLOCK = block.getHash();
+        }
+        prevBlock = block;
+        await callback(block);
+        arrHashes.push(block.getHash());
+    }
+    return arrHashes;
+};
+
+const createSimpleFork = async (callback) => {
+    const genezis = createDummyBlock(factory);
+    factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+
+    const block1 = createDummyBlock(factory);
+    block1.parentHashes = [genezis.getHash()];
+    const block2 = createDummyBlock(factory);
+    block2.parentHashes = [genezis.getHash()];
+    const block3 = createDummyBlock(factory);
+    block3.parentHashes = [block1.getHash(), block2.getHash()];
+
+    await callback(genezis);
+    await callback(block1);
+    await callback(block2);
+    await callback(block3);
 };
 
 describe('Node tests', () => {
@@ -405,7 +441,9 @@ describe('Node tests', () => {
         node._pendingBlocks.addBlock(parentBlock, new factory.PatchDB());
         await node._storeBlockAndInfo(parentBlock, new factory.BlockInfo(parentBlock.header));
 
-        node._app.processTx = sinon.fake.returns({});
+        node._app.processTxInputs = sinon.fake.returns({totalHas: 10000});
+        node._app.processPayments = sinon.fake.returns(0);
+
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
         node._informNeighbors = sinon.fake();
@@ -418,8 +456,8 @@ describe('Node tests', () => {
 
         await node._handleBlockMessage(peer, msg);
 
-        assert.isOk(node._app.processTx.called);
-        assert.isOk(node._app.processTx.callCount, 2);
+        assert.isOk(node._app.processPayments.called);
+        assert.isOk(node._app.processPayments.callCount, 2);
         assert.isOk(await node._storage.getBlock(block.getHash()));
         assert.isOk(node._informNeighbors.calledOnce);
 
@@ -434,7 +472,7 @@ describe('Node tests', () => {
         const node = new factory.Node({arrTestDefinition: [groupDef]});
 
         // make this block BAD
-        node._app.processTx = sinon.fake.throws('error');
+        node._app.processTxInputs = sinon.fake.throws('error');
 
         node._storage.applyPatch = sinon.fake();
         node._storage.getUtxosCreateMap = sinon.fake();
@@ -450,8 +488,8 @@ describe('Node tests', () => {
         try {
             await node._handleBlockMessage(peer, msg);
         } catch (e) {
-            assert.isOk(node._app.processTx.called);
-            assert.isOk(node._app.processTx.callCount, 2);
+            assert.isOk(node._app.processTxInputs.called);
+            assert.isOk(node._app.processTxInputs.callCount, 2);
             assert.isNotOk(node._storage.saveBlock.called);
             assert.isNotOk(node._storage.applyPatch.called);
             assert.isNotOk(node._informNeighbors.called);
@@ -485,7 +523,7 @@ describe('Node tests', () => {
     it('should throw (fee is too small)', async () => {
         const node = new factory.Node({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const keyPair = factory.Crypto.createKeyPair();
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const txHash = pseudoRandomBuffer().toString('hex');
@@ -519,7 +557,10 @@ describe('Node tests', () => {
 
     it('should process GENEZIS block', async () => {
         const node = new factory.Node({});
-        node._app.processTx = sinon.fake.returns({fee: 1});
+
+        // Inputs doesn't checked for Genezis
+        node._app.processPayments = sinon.fake.returns(0);
+
         node._storage.saveBlock = sinon.fake();
         node._storage.applyPatch = sinon.fake();
         node._informNeighbors = sinon.fake();
@@ -532,14 +573,13 @@ describe('Node tests', () => {
         factory.Constants.GENEZIS_BLOCK = block.hash();
         await node._execBlock(block);
 
-        assert.isOk(node._app.processTx.called);
+        assert.isOk(node._app.processPayments.called);
 
         // coinbase is not processed by app
-        assert.equal(node._app.processTx.callCount, 1);
-        const [appTx, mapUtxos, , isGenezis] = node._app.processTx.args[0];
+        assert.equal(node._app.processPayments.callCount, 1);
+        const [appTx, patch] = node._app.processPayments.args[0];
         assert.isOk(appTx.equals(tx));
-        assert.isNotOk(mapUtxos);
-        assert.isOk(isGenezis);
+        assert.isOk(patch);
     });
 
     it('should fail to check COINBASE (not a coinbase)', async () => {
@@ -551,7 +591,7 @@ describe('Node tests', () => {
     it('should fail to check COINBASE (bad amount)', async () => {
         const node = new factory.Node({});
         const coinbase = factory.Transaction.createCoinbase();
-        coinbase.addReceiver(100, pseudoRandomBuffer(20));
+        coinbase.addReceiver(100, generateAddress());
         assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut() - 1));
     });
 
@@ -646,18 +686,8 @@ describe('Node tests', () => {
     it('should build MainDag from chainlike', async () => {
         const node = new factory.Node({});
 
-        let prevBlock = null;
-        for (let i = 0; i < 10; i++) {
-            const block = createDummyBlock(factory);
-            if (prevBlock) {
-                block.parentHashes = [prevBlock.getHash()];
-            } else {
-                factory.Constants.GENEZIS_BLOCK = block.getHash();
-            }
-            prevBlock = block;
-            await node._storage.saveBlock(block);
-        }
-        await node._storage.updateLastAppliedBlocks([prevBlock.getHash()]);
+        const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
+        await node._storage.updateLastAppliedBlocks([arrHashes[9]]);
 
         await node.buildMainDag();
         assert.equal(node._mainDag.order, 10);
@@ -666,47 +696,32 @@ describe('Node tests', () => {
 
     it('should build MainDag from simple fork', async () => {
         const node = new factory.Node({});
+        const arrBlocks = [];
 
-        const genezis = createDummyBlock(factory);
-        factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+        await createSimpleFork(async block => {
+            await node._storage.saveBlock(block);
+            arrBlocks.push(block);
+        });
 
-        const block1 = createDummyBlock(factory);
-        block1.parentHashes = [genezis.getHash()];
-        const block2 = createDummyBlock(factory);
-        block2.parentHashes = [genezis.getHash()];
-        const block3 = createDummyBlock(factory);
-        block3.parentHashes = [block1.getHash(), block2.getHash()];
-
-        await node._storage.saveBlock(genezis);
-        await node._storage.saveBlock(block1);
-        await node._storage.saveBlock(block2);
-        await node._storage.saveBlock(block3);
-        await node._storage.updateLastAppliedBlocks([block3.getHash()]);
+        await node._storage.updateLastAppliedBlocks([arrBlocks[3].getHash()]);
 
         await node.buildMainDag();
         assert.equal(node._mainDag.order, 4);
         assert.equal(node._mainDag.size, 4);
 
-        assert.deepEqual(node._mainDag.getParents(block3.getHash()), [block1.getHash(), block2.getHash()]);
-        assert.deepEqual(node._mainDag.getChildren(genezis.getHash()), [block1.getHash(), block2.getHash()]);
+        assert.deepEqual(
+            node._mainDag.getParents(arrBlocks[3].getHash()),
+            [arrBlocks[1].getHash(), arrBlocks[2].getHash()]
+        );
+        assert.deepEqual(
+            node._mainDag.getChildren(arrBlocks[0].getHash()),
+            [arrBlocks[1].getHash(), arrBlocks[2].getHash()]
+        );
     });
 
     it('should build PendingBlocks upon startup (from simple chain)', async () => {
         const node = new factory.Node({});
-        const arrHashes = [];
-
-        let prevBlock = null;
-        for (let i = 0; i < 10; i++) {
-            const block = createDummyBlock(factory);
-            if (prevBlock) {
-                block.parentHashes = [prevBlock.getHash()];
-            } else {
-                factory.Constants.GENEZIS_BLOCK = block.getHash();
-            }
-            prevBlock = block;
-            await node._storage.saveBlock(block);
-            arrHashes.push(block.getHash());
-        }
+        const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
 
         //
         await node._storage.updatePendingBlocks(arrHashes);
@@ -719,25 +734,16 @@ describe('Node tests', () => {
 
     it('should build PendingBlocks upon startup (from simple fork)', async () => {
         const node = new factory.Node({});
+        const arrBlocks = [];
 
-        const genezis = createDummyBlock(factory);
-        factory.Constants.GENEZIS_BLOCK = genezis.getHash();
-
-        const block1 = createDummyBlock(factory);
-        block1.parentHashes = [genezis.getHash()];
-        const block2 = createDummyBlock(factory);
-        block2.parentHashes = [genezis.getHash()];
-        const block3 = createDummyBlock(factory);
-        block3.parentHashes = [block1.getHash(), block2.getHash()];
-
-        await node._storage.saveBlock(genezis);
-        await node._storage.saveBlock(block1);
-        await node._storage.saveBlock(block2);
-        await node._storage.saveBlock(block3);
+        await createSimpleFork(async block => {
+            await node._storage.saveBlock(block);
+            arrBlocks.push(block);
+        });
 
         //
         await node._storage.updatePendingBlocks(
-            [genezis.getHash(), block1.getHash(), block2.getHash(), block3.getHash()]
+            [arrBlocks[0].getHash(), arrBlocks[1].getHash(), arrBlocks[2].getHash(), arrBlocks[3].getHash()]
         );
         node._checkCoinbaseTx = sinon.fake();
 
@@ -760,5 +766,323 @@ describe('Node tests', () => {
         assert.isOk(node._setUnknownBlocks.has(block.parentHashes[0]));
     });
 
+    it('should process MSG_GET_BLOCKS (simple chain)', async () => {
+        const node = new factory.Node({});
 
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        // we expect receive INV message with all hashes except Genezis
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [factory.Constants.GENEZIS_BLOCK];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+        assert.equal(vector.length, 9);
+        assert.isOk(
+            vector.every(v =>
+                Buffer.isBuffer(v.hash) &&
+                v.hash.length === 32 &&
+                v.type === factory.Constants.INV_BLOCK
+                && arrHashes.includes(v.hash.toString('hex'))
+            )
+        );
+    });
+
+    it('should process MSG_GET_BLOCKS (simple fork)', async () => {
+        const node = new factory.Node({});
+
+        const arrHashes = [];
+        await createSimpleFork(block => {
+            node._mainDag.addBlock(new factory.BlockInfo(block.header));
+            arrHashes.push(block.getHash());
+        });
+
+        // we expect receive INV message with all hashes except Genezis
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [factory.Constants.GENEZIS_BLOCK];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+        assert.equal(vector.length, 3);
+        assert.isOk(
+            vector.every(v =>
+                Buffer.isBuffer(v.hash) &&
+                v.hash.length === 32 &&
+                v.type === factory.Constants.INV_BLOCK
+                && arrHashes.includes(v.hash.toString('hex'))
+            )
+        );
+    });
+
+    it('should process 2 good hashed from chain', async () => {
+        const node = new factory.Node({});
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [arrHashes[3], arrHashes[7]];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+
+        // we should have all starting from 3d hash (including 7)
+        assert.equal(vector.length, 6);
+        assert.isOk(
+            vector.every(v =>
+                Buffer.isBuffer(v.hash) &&
+                v.hash.length === 32 &&
+                v.type === factory.Constants.INV_BLOCK
+                && arrHashes.includes(v.hash.toString('hex'))
+            )
+        );
+
+    });
+
+    it('should process 2 good hashed from fork', async () => {
+        const node = new factory.Node({});
+
+        const arrHashes = [];
+        await createSimpleFork(block => {
+            node._mainDag.addBlock(new factory.BlockInfo(block.header));
+            arrHashes.push(block.getHash());
+        });
+
+        // we expect receive INV message with tip only
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [arrHashes[1], arrHashes[2]];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+        assert.equal(vector.length, 1);
+        const [{hash}] = vector;
+        assert.equal(hash.toString('hex'), arrHashes[3]);
+    });
+
+    it('should return full DAG (empty hash array received)', async () => {
+        const node = new factory.Node({});
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+
+        assert.equal(vector.length, 10);
+        assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
+    });
+
+    it('should return full DAG (bad hashes received)', async () => {
+        const node = new factory.Node({});
+        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+
+        const msgGetBlock = new factory.Messages.MsgGetBlocks();
+        msgGetBlock.arrHashes = [arrHashes[3], pseudoRandomBuffer()];
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+        await node._handleGetBlocksMessage(peer, msgCommon);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+
+        assert.equal(vector.length, 10);
+        assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
+    });
+
+    it('should send Reject message if time offset very large', async () => {
+        const node = new factory.Node({});
+        const inMsg = new factory.Messages.MsgVersion({
+            nonce: 12,
+            peerInfo: {
+                capabilities: [
+                    {service: factory.Constants.NODE, data: null},
+                    {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                ],
+                address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+            }
+        });
+        inMsg._data.timeStamp =
+            parseInt(Date.now() + factory.Constants.TOLERATED_TIME_DIFF) / 1000 + 100;
+        const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: sinon.fake(),
+                remoteAddress: factory.Transport.generateAddress(),
+                on: sinon.fake(),
+                sendMessage,
+                close: () => {}
+            }
+        });
+        const peer = node._peerManager.addPeer(newPeer);
+
+        await node._handleVersionMessage(newPeer, msgCommon);
+        assert.equal(sendMessage.callCount, 1);
+
+        const [msg] = sendMessage.args[0];
+        assert.isTrue(msg.isReject());
+
+    });
+
+    it('should unwind block to mempool', async () => {
+        const node = new factory.Node({});
+        const block = createDummyBlock(factory);
+        const tx = new factory.Transaction(block.txns[0]);
+
+        await node._unwindBlock(block);
+        assert.isOk(node._mempool.hasTx(tx.hash()));
+
+    });
+
+    it('should reconnect peers', async function() {
+        this.timeout(3000);
+        const node = new factory.Node({});
+        const pushMessage = sinon.fake.returns(Promise.resolve(null));
+        const loaded = sinon.fake.returns(Promise.resolve(null));
+        const connectToPeer = sinon.fake.returns(Promise.resolve(null));
+        node._connectToPeer = connectToPeer;
+
+        const peers = [
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.NODE, data: null},
+                        {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.NODE, data: null}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
+                }
+            }),
+            new factory.Peer({
+                peerInfo: {
+                    capabilities: [
+                        {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
+                    ],
+                    address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
+                }
+            })
+        ];
+        peers.forEach((peer) => {
+            peer.pushMessage = pushMessage;
+            peer.loaded = loaded;
+            node._peerManager.addPeer(peer);
+        });
+        let peer = peers[0];
+        peer.emit('disconnect', peer);
+        await sleep(1500);
+
+        assert.equal(connectToPeer.callCount, 2);
+        assert.equal(pushMessage.callCount, 2);
+    });
+
+    it('should call createContract', async () => {
+        const node = new factory.Node({});
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 12);
+        tx.addReceiver(1000, factory.Crypto.getAddrContractCreation());
+
+        node._app.createContract = sinon.fake();
+
+        // mark it as Genezis block TX (it skip many checks, like signatures & inputs)
+        await node._processTx(true, tx);
+
+        assert.isOk(node._app.createContract.called);
+    });
+
+    it('should call runContract', async () => {
+        const node = new factory.Node({});
+        const contractAddr = generateAddress();
+        const groupId = 10;
+
+        const tx = new factory.Transaction();
+        tx.witnessGroupId = groupId;
+        tx.addInput(pseudoRandomBuffer(), 12);
+        tx.invokeContract('', 1000, contractAddr);
+
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+        node._app.runContract = sinon.fake();
+
+        // mark it as Genezis block TX (it skip many checks, like signatures & inputs)
+        await node._processTx(true, tx, new factory.PatchDB(groupId));
+
+        assert.isOk(node._app.runContract.calledOnce);
+        const [strInvocationCode, patch, contract] = node._app.runContract.args[0];
+        assert.isOk(typeof strInvocationCode === 'string');
+        assert.isOk(patch instanceof factory.PatchDB);
+        assert.isOk(contract instanceof factory.Contract);
+    });
+
+    it('should _processTx with contract invocation', async () => {
+        const groupId = 10;
+        const node = new factory.Node({});
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+        node._app.runContract = sinon.fake();
+
+        const tx = new factory.Transaction();
+        tx.witnessGroupId = groupId;
+        tx.addInput(pseudoRandomBuffer(), 12);
+        tx.invokeContract('', 1000, generateAddress());
+
+        const patch = new factory.PatchDB(groupId);
+        patch.getContract = sinon.fake.returns(undefined);
+
+        await node._processTx(true, tx, patch);
+
+        assert.isOk(patch.getContract.calledOnce);
+        assert.isOk(node._storage.getContract.calledOnce);
+        assert.isOk(node._app.runContract.calledOnce);
+    });
 });

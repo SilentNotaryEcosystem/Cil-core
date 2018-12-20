@@ -1,6 +1,7 @@
 const EventEmitter = require('events');
 const debug = require('debug')('peer:');
 const {sleep} = require('../utils');
+const Tick = require('tick-tock');
 
 /**
  * Хранит информацию о Peer'е
@@ -11,7 +12,12 @@ const {sleep} = require('../utils');
 
 module.exports = (factory) => {
     const {Messages, Transport, Constants} = factory;
-    const {PeerInfo} = Messages;
+    const {
+        MsgCommon,
+        PeerInfo,
+    } = Messages;
+    //const {PeerInfo} = Messages;
+    const PEER_TIMER_NAME = 'peerTimer';
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
@@ -27,6 +33,12 @@ module.exports = (factory) => {
             this._lastActionTimestamp = lastActionTimestamp ? lastActionTimestamp : Date.now();
 
             this._tags = [];
+            this._bytesCount = 0;
+            this._msecOffsetDelta = 0;
+            this._lastDisconnectedAddress = undefined;
+            this._lastDisconnectionTime = undefined;
+
+            this._persistent = false;
 
             // this means that we have incoming connection
             if (connection) {
@@ -36,13 +48,39 @@ module.exports = (factory) => {
                 this._peerInfo = new PeerInfo({
                     address: connection.remoteAddress
                 });
+                this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             } else if (peerInfo) {
                 this.peerInfo = peerInfo;
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
 
-            // TODO: add watchdog to unban peers
+            this._tock = new Tick(this);
+            this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
+
+            this._deadTimer = new Tick(this);
+            this._deadTimer.setInterval(Constants.PEER_DEAD_TIMER_NAME, this._deadTick.bind(this),
+                Constants.PEER_DEAD_TIMEOUT
+            );
+
+            this._pingTimer = new Tick(this);
+            this._pingTimer.setInterval(Constants.PEER_PING_TIMER_NAME, this._pingTick.bind(this),
+                Constants.PEER_PING_TIMEOUT
+            );
+
+        }
+
+        /**
+         * witness peers shouldn't be disconnected
+         */
+        markAsPersistent() {
+            this._persistent = true;
+        }
+
+        get tempBannedAddress() {
+            return !!this._lastDisconnectedAddress
+                   && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
+                   && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
         get peerInfo() {
@@ -128,6 +166,14 @@ module.exports = (factory) => {
             this._witnessLoadDone = true;
         }
 
+        get offsetDelta() {
+            return this._msecOffsetDelta;
+        }
+
+        set offsetDelta(delta) {
+            this._msecOffsetDelta = delta;
+        }
+
         addTag(tag) {
             this._tags.push(tag);
         }
@@ -157,20 +203,33 @@ module.exports = (factory) => {
                 logger.error('Trying to connect to banned peer!');
                 return;
             }
+            if (this.tempBannedAddress) {
+                debug('Trying to connect to banned address!');
+                return;
+            }
             if (!this.disconnected) {
                 debug(`Peer ${this.address} already connected`);
                 return;
             }
+            this._bytesCount = 0;
             this._connection = await this._transport.connect(this.address, this.port);
+            this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
         }
 
         _setConnectionHandlers() {
             if (!this._connection.listenerCount('message')) {
-                this._connection.on('message', msg => {
+                this._connection.on('message', async (msg) => {
 
-                    // TODO: update counters/timers here
+                    // count incoming bytes
+                    if (msg.payload && Buffer.isBuffer(msg.payload)) {
+                        this._bytesCount += msg.payload.length;
+                        if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
+                            this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
+                        }
+                    }
                     this._lastActionTimestamp = Date.now();
+
                     if (msg.signature) {
 
                         // if message signed: check signature
@@ -179,6 +238,10 @@ module.exports = (factory) => {
                         } else {
                             this.emit('witnessMessage', this, undefined);
                         }
+                    } else if (new MsgCommon(msg).isPing()) {
+                        const msgPong = new MsgCommon();
+                        msgPong.pongMessage = true;
+                        await this.pushMessage(msgPong);
                     } else {
                         this.emit('message', this, msg);
                     }
@@ -186,15 +249,16 @@ module.exports = (factory) => {
 
                 this._connection.on('close', () => {
                     debug(`Connection to "${this.address}" closed`);
-                    this._bInbound = false;
-                    this.loadDone = true;
+                    this._cleanup();
+                    this._lastDisconnectedAddress = this.address;
+                    this._lastDisconnectionTime = Date.now();
                     this._connection = undefined;
+                    this.emit('disconnect', this);
                 });
             }
         }
 
         // TODO: for MsgGetData - make a cache for already requested hashes!
-        // TODO: count sent data for period
         async pushMessage(msg) {
 
             // we have pending messages
@@ -207,8 +271,16 @@ module.exports = (factory) => {
                 while ((nextMsg = this._queue.shift())) {
                     debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
                     await this._connection.sendMessage(nextMsg);
+                    if (nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
+                        this._bytesCount += nextMsg.payload.length;
+                    }
                 }
                 this._queue = undefined;
+
+                // count outgoing bytes
+                if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
+                    this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
+                }
             }
         }
 
@@ -218,7 +290,7 @@ module.exports = (factory) => {
 
             debug(`Peer banned till ${new Date(this._bannedTill)}`);
 
-            if (!this.disconnected) this.disconnect();
+            if (!this.disconnected) this.disconnect('Peer banned');
         }
 
         misbehave(score) {
@@ -231,10 +303,47 @@ module.exports = (factory) => {
             if (this._missbehaveScore >= Constants.BAN_PEER_SCORE) this.ban();
         }
 
-        disconnect() {
-            debug(`Closing connection to "${this._connection.remoteAddress}"`);
+        disconnect(reason) {
+            debug(`${reason}. Closing connection to "${this._connection.remoteAddress}"`);
+            this._cleanup();
+            this._lastDisconnectedAddress = this._connection.remoteAddress;
+            this._lastDisconnectionTime = Date.now();
+
             this._connection.close();
+            this._connection = undefined;
+            this.emit('disconnect', this);
         }
 
+        _cleanup() {
+            this._bInbound = false;
+            this.loadDone = true;
+            this._bytesCount = 0;
+            this._msecOffsetDelta = 0;
+        }
+
+        _tick() {
+            if (this._bBanned && this._bannedTill.getTime() < Date.now()) {
+                this._bBanned = false;
+            }
+
+            // disconnect non persistent peers when time has come
+            if (!this._persistent && !this.disconnected && this._connectedTill.getTime() < Date.now()) {
+                this.disconnect('Scheduled disconnect');
+            }
+        }
+
+        _deadTick() {
+            if (!this.disconnected && Date.now() - this._lastActionTimestamp > Constants.PEER_DEAD_TIME) {
+                this.disconnect('Peer is dead!');
+            }
+        }
+
+        async _pingTick() {
+            if (!this.disconnected) {
+                const msgPing = new MsgCommon();
+                msgPing.pingMessage = true;
+                await this.pushMessage(msgPing);
+            }
+        }
     };
 };

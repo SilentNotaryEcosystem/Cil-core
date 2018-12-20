@@ -22,24 +22,24 @@ describe('MessageWitnessBlockVote', () => {
     });
 
     it('should NOT create message (bad block hash)', async () => {
-        const wrapper = () => new factory.Messages.MsgWitnessBlockVote({groupName: 'test', blockHash: '123'});
+        const wrapper = () => new factory.Messages.MsgWitnessBlockVote({groupId: 'test', blockHash: '123'});
         assert.throws(wrapper);
     });
 
     it('should create message', async () => {
-        new factory.Messages.MsgWitnessBlockVote({groupName: 'test', blockHash: pseudoRandomBuffer()});
+        new factory.Messages.MsgWitnessBlockVote({groupId: 0, blockHash: pseudoRandomBuffer()});
     });
 
     it('should get blockHash', async () => {
         const blockHash = pseudoRandomBuffer();
-        const msg = new factory.Messages.MsgWitnessBlockVote({groupName: 'test', blockHash});
+        const msg = new factory.Messages.MsgWitnessBlockVote({groupId: 0, blockHash});
         assert.isOk(blockHash.equals(msg.blockHash));
     });
 
     it('should verify hash & message signatures', async () => {
         const keyPair = factory.Crypto.createKeyPair();
         const blockHash = pseudoRandomBuffer();
-        const msg = new factory.Messages.MsgWitnessBlockVote({groupName: 'test', blockHash});
+        const msg = new factory.Messages.MsgWitnessBlockVote({groupId: 0, blockHash});
         msg.sign(keyPair.privateKey);
 
         assert.isOk(factory.Crypto.verify(blockHash, msg.hashSignature, keyPair.publicKey));
@@ -48,7 +48,7 @@ describe('MessageWitnessBlockVote', () => {
 
     it('should encode/decode message', async () => {
         const blockHash = pseudoRandomBuffer();
-        const msg = new factory.Messages.MsgWitnessBlockVote({groupName: 'test', blockHash});
+        const msg = new factory.Messages.MsgWitnessBlockVote({groupId: 0, blockHash});
         const keyPair = factory.Crypto.createKeyPair();
         msg.sign(keyPair.privateKey);
         const buffMsg = msg.encode();

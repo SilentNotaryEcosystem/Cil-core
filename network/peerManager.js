@@ -57,6 +57,7 @@ module.exports = (factory) => {
                 return Constants.REJECT_DUPLICATE;
             }
 
+            if (existingPeer && existingPeer.tempBannedAddress) return Constants.REJECT_BANNEDADDRESS;
             // we connected to that peer so we believe that this info more correct
             if (existingPeer && (existingPeer.version || !existingPeer.disconnected)) return existingPeer;
 
@@ -73,6 +74,7 @@ module.exports = (factory) => {
             if (peer.isWitness && !peer.listenerCount('witnessMessage')) {
                 peer.on('witnessMessage', this._incomingMessage.bind(this));
             }
+            if (!peer.listenerCount('disconnect')) peer.on('disconnect', this._peerDisconnect.bind(this));
         }
 
         /**
@@ -91,6 +93,9 @@ module.exports = (factory) => {
             }
         }
 
+        _peerDisconnect(thisPeer) {
+            this.emit('disconnect', thisPeer);
+        }
         /**
          *
          * @param {Number} service - @see Constants

@@ -62,6 +62,9 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) => {
             return this._data.peerInfo;
         }
 
+        get msecTime() {
+            return 1000 * this._data.timeStamp;
+        }
         /**
          * ATTENTION! for payload we'll use encode NOT encodeDelimited as for entire Message
          *

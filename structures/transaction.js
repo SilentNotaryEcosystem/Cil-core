@@ -2,11 +2,6 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 const types = require('../types');
 
-/*
-    implementation for pay2addr.
-    TODO: implement codeClaim
- */
-
 // TODO: calculate tx size for proper fee calculating
 
 const CURRENT_TX_VERSION = 1;
@@ -93,15 +88,25 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return coinbase;
         }
 
+        static createContract(strCode, maxCoins) {
+            const tx = new this();
+            tx._data.payload.outs.push({
+                amount: maxCoins,
+                receiverAddr: Crypto.getAddrContractCreation(),
+                contractCode: strCode
+            });
+            return tx;
+        }
+
         /**
          *
          * @return {Array} Coins
          */
-        getCoins() {
+        getOutCoins() {
             const outputs = this.outputs;
             if (!outputs) throw new Error('Unexpected: empty outputs!');
 
-            return outputs.map(out => new Coins(out.amount, out.codeClaim));
+            return outputs.map(out => new Coins(out.amount, out.receiverAddr));
         }
 
         /**
@@ -126,7 +131,24 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             typeforce(typeforce.tuple('Number', types.Address), arguments);
 
             this._checkDone();
-            this._data.payload.outs.push({amount, codeClaim: Buffer.from(addr, 'hex')});
+            this._data.payload.outs.push({amount, receiverAddr: Buffer.from(addr, 'hex')});
+        }
+
+        /**
+         *
+         * @param {String} strCodeInvocation  - method name & parameters
+         * @param {Number} fee
+         * @param {Buffer} addr - receiver
+         */
+        invokeContract(strCodeInvocation, fee, addr) {
+            typeforce(typeforce.tuple('String', 'Number', types.Address), arguments);
+
+            this._checkDone();
+            this._data.payload.outs.push({
+                contractCode: strCodeInvocation,
+                amount: fee,
+                receiverAddr: Buffer.from(addr, 'hex')
+            });
         }
 
         /**
@@ -188,7 +210,8 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             assert(this.witnessGroupId !== undefined, 'witnessGroupId undefined');
 
             // check inputs (not a coinbase & nTxOutput - non negative)
-            const insValid = this.inputs && this._data.payload.ins.every(input => {
+            const inputs = this.inputs;
+            const insValid = inputs && inputs.length && inputs.every(input => {
                 return !input.txHash.equals(Buffer.alloc(32)) &&
                        input.nTxOutput >= 0;
             });
@@ -196,14 +219,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             assert(insValid, 'Errors in input');
 
             // check outputs
-            const outsValid = this.outputs && this._data.payload.outs.every(output => {
+            const outputs = this.outputs;
+            const outsValid = outputs && outputs.every(output => {
                 return output.amount > 0;
             });
 
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
             assert(outsValid, 'Errors in outputs');
 
-            assert(this._data.claimProofs.length === this._data.payload.ins.length, 'Errors in clamProofs');
+            assert(this.claimProofs.length === inputs.length, 'Errors in clamProofs');
         }
 
         /**
@@ -216,6 +240,21 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return inputs && inputs.length === 1
                    && inputs[0].txHash.equals(Buffer.alloc(32))
                    && inputs[0].nTxOutput === 0;
+        }
+
+        isContractCreation() {
+            const outCoins = this.getOutCoins();
+            return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
+        }
+
+        hasOneReceiver() {
+            return this.getOutCoins().length === 1;
+        }
+
+        getCode() {
+            const outputs = this.outputs;
+            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
+            return outputs[0].contractCode;
         }
 
         /**

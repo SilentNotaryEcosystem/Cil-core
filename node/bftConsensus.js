@@ -29,7 +29,6 @@ module.exports = (factory) => {
             super();
             const {groupDefinition, wallet} = options;
 
-            // TODO: implement network time (localtime + average network offset, calculated during handshake) it should be updated by Node?
             this._networkOffset = 0;
 
             this._nonce = parseInt(Math.random() * 100000);
@@ -54,12 +53,16 @@ module.exports = (factory) => {
             this._lastBlockTime = Date.now();
         }
 
-        get groupName() {
-            return this._groupDefinition.getGroupName();
+        get getGroupContractAddress() {
+            return this._groupDefinition.getGroupContractAddress();
         }
 
         get groupId() {
             return this._groupDefinition.getGroupId();
+        }
+
+        updateNetworkTime(nNewOffset) {
+            this._networkOffset = nNewOffset;
         }
 
 //        get quorum() {
@@ -228,7 +231,7 @@ module.exports = (factory) => {
             this._blockStateHandler(true);
 
             const message = this._createBlockAcceptMessage(
-                this._groupDefinition.getGroupName(),
+                this._groupDefinition.getGroupId(),
                 Buffer.from(block.hash(), 'hex')
             );
             this.emit('message', message);
@@ -243,7 +246,7 @@ module.exports = (factory) => {
             this._block = undefined;
             this._blockStateHandler(false);
 
-            const message = this._createBlockRejectMessage(this._groupDefinition.getGroupName());
+            const message = this._createBlockRejectMessage(this._groupDefinition.getGroupId());
             this.emit('message', message);
         }
 
@@ -431,7 +434,7 @@ module.exports = (factory) => {
             debug(
                 `BFT "${this._nonce}" restarting "ROUND_CHANGE" new round: ${this._roundNo}`);
 
-            const msg = new MsgWitnessNextRound({groupName: this.groupName, roundNo: ++this._roundNo});
+            const msg = new MsgWitnessNextRound({groupId: this.groupId, roundNo: ++this._roundNo});
             msg.sign(this._wallet.privateKey);
             this.emit('message', msg);
         }
@@ -444,7 +447,7 @@ module.exports = (factory) => {
          */
         _roundFromNetworkTime() {
             const networkNow = this._getNetworkTime();
-            this._roundNo = parseInt(networkNow / Constants.networkTimeDiff);
+            this._roundNo = parseInt(networkNow / Constants.TOLERATED_TIME_DIFF * 3);
         }
 
         /**
@@ -497,16 +500,16 @@ module.exports = (factory) => {
             this._tock.end();
         }
 
-        _createBlockAcceptMessage(groupName, blockHash) {
-            typeforce(typeforce.tuple('String', typeforce.BufferN(32)), arguments);
+        _createBlockAcceptMessage(groupId, blockHash) {
+            typeforce(typeforce.tuple('Number', typeforce.BufferN(32)), arguments);
 
-            const msgBlockAccept = new MsgWitnessBlockVote({groupName, blockHash});
+            const msgBlockAccept = new MsgWitnessBlockVote({groupId, blockHash});
             msgBlockAccept.sign(this._wallet.privateKey);
             return msgBlockAccept;
         }
 
-        _createBlockRejectMessage(groupName) {
-            const msgBlockReject = MsgWitnessBlockVote.reject(groupName);
+        _createBlockRejectMessage(groupId) {
+            const msgBlockReject = MsgWitnessBlockVote.reject(groupId);
             msgBlockReject.sign(this._wallet.privateKey);
             return msgBlockReject;
         }

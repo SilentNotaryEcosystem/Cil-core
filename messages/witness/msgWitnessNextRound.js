@@ -3,7 +3,7 @@
  * - Decode MessageCommon from wire
  * - Detect signature
  * - Decode WitnessMessageCommon from MessageCommon
- * - Get groupName from WitnessMessageCommon and pass it to respective BFT
+ * - Get groupId from WitnessMessageCommon and pass it to respective BFT
  * - Decode specific Witness msg from WitnessMessageCommon
  *
  * @param {Object} Constants

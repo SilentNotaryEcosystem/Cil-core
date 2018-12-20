@@ -112,9 +112,10 @@ module.exports = (factory) => {
                     } else {
                         patchMerged = patchMerged.merge(patch);
                     }
+
                     arrParents.push(vertex);
                 } catch (e) {
-
+                    console.error(e);
                     // TODO: rework it. this implementation (merging most witnessed vertex with other) could be non optimal
                 }
             }

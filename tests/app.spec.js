@@ -6,10 +6,10 @@ const sinon = require('sinon').createSandbox();
 const debug = require('debug')('application:test');
 
 const factory = require('./testFactory');
-const {pseudoRandomBuffer} = require('./testUtil');
+const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 const createGenezis = (factory, utxoHash) => {
-    const patch = new factory.PatchDB();
+    const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
@@ -39,6 +39,30 @@ describe('Application layer', () => {
         new factory.Application();
     });
 
+    it('should processTxInputs', async () => {
+        const app = new factory.Application();
+
+        const utxoHash = pseudoRandomBuffer().toString('hex');
+        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
+
+        // create tx
+        const tx = new factory.Transaction();
+        tx.addInput(utxoHash, 12);
+        tx.addInput(utxoHash, 0);
+        tx.addInput(utxoHash, 80);
+        tx.addReceiver(1000, buffAddress);
+        tx.sign(0, keyPair.privateKey);
+        tx.sign(1, keyPair.privateKey);
+        tx.sign(2, keyPair.privateKey);
+
+        // get utxos from storage, and form object for app.processTx
+        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+
+        await app.processTxInputs(tx, mapUtxos);
+
+    });
+
     it('should process TX', async () => {
         const app = new factory.Application();
 
@@ -59,8 +83,8 @@ describe('Application layer', () => {
         // get utxos from storage, and form object for app.processTx
         const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
 
-        await app.processTx(tx, mapUtxos);
-
+        const {patch} = app.processTxInputs(tx, mapUtxos);
+        app.processPayments(tx, patch);
     });
 
     it('should throw (wrong UTXO index -> no coins)', async () => {
@@ -80,7 +104,7 @@ describe('Application layer', () => {
         const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
 
         try {
-            await app.processTx(tx, mapUtxos);
+            app.processTxInputs(tx, mapUtxos);
         } catch (e) {
             debug(e);
             assert.equal(e.message, `Output #17 of Tx ${utxoHash} already spent!`);
@@ -107,7 +131,7 @@ describe('Application layer', () => {
         const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
 
         try {
-            await app.processTx(tx, mapUtxos);
+            app.processTxInputs(tx, mapUtxos);
         } catch (e) {
             debug(e);
             assert.equal(e.message, 'Claim failed!');
@@ -129,9 +153,9 @@ describe('Application layer', () => {
         tx.addReceiver(100000, buffAddress);
         tx.sign(0, anotherKeyPair.privateKey);
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
-        await app.processTx(tx, undefined, patch, true);
+        app.processPayments(tx, patch);
 
         assert.equal(patch.getCoins().size, 1);
         const utxo = patch.getUtxo(tx.hash());
@@ -159,7 +183,7 @@ describe('Application layer', () => {
         const mapUtxos = {[utxoHash]: utxo};
 
         try {
-            await app.processTx(tx, mapUtxos);
+            app.processTxInputs(tx, mapUtxos);
         } catch (e) {
             debug(e);
             assert.equal(e.message, `Output #12 of Tx ${utxoHash} already spent!`);
@@ -168,7 +192,7 @@ describe('Application layer', () => {
         throw new Error('Unexpected success');
     });
 
-    it('should NOT process 2nd TX from block', async () => {
+    it('should NOT process 2nd TX (simulate block exec)', async () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
@@ -176,7 +200,6 @@ describe('Application layer', () => {
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
-        {}
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 12);
         tx.addReceiver(1000, buffAddress);
@@ -184,7 +207,8 @@ describe('Application layer', () => {
 
         // get utxos from storage, and form object for app.processTx
         const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
-        const {patch} = await app.processTx(tx, mapUtxos);
+        const {patch} = app.processTxInputs(tx, mapUtxos);
+        app.processPayments(tx, patch);
 
         // create tx
         const keyPair2 = factory.Crypto.createKeyPair();
@@ -197,7 +221,7 @@ describe('Application layer', () => {
         const mapUtxos2 = await storage.getUtxosCreateMap(tx2.utxos);
 
         try {
-            await app.processTx(tx2, mapUtxos2, patch);
+            app.processTxInputs(tx2, mapUtxos2, patch);
         } catch (e) {
             debug(e);
             assert.equal(e.message, `Output #12 of Tx ${utxoHash} already spent!`);
@@ -206,4 +230,66 @@ describe('Application layer', () => {
         throw new Error('Unexpected success');
     });
 
+    it('should create contract', async () => {
+        const app = new factory.Application();
+        const strGetDataCode = `getData(){
+                return this._data;
+            }`;
+        const strFunc2Code = `getAnother(){
+                return this._data;
+            }`;
+        const strCode = `
+            class A extends Base{
+                constructor(param){
+                    super();
+                    this._data=param;
+                }
+                
+                ${strGetDataCode}
+                ${strFunc2Code}
+                
+                set data(value){
+                    return this._data=value;
+                }
+                
+                get data(){
+                    return this._data;
+                }
+            };
+            
+            exports=new A(10);
+            `;
+        const patch = new factory.PatchDB(0);
+        const tx = factory.Transaction.createContract(strCode, 100000);
+        patch.setContract = sinon.fake();
+        app.createContract(tx, patch);
+
+        assert.isOk(patch.setContract.called);
+
+        const [, objData, strCodeExportedFunctions] = patch.setContract.args[0];
+
+        assert.deepEqual(objData, {_data: 10});
+        const resultCode = [strGetDataCode, strFunc2Code]
+            .join(factory.Contract.CONTRACT_METHOD_SEPARATOR);
+        assert.equal(strCodeExportedFunctions, resultCode);
+    });
+
+    it('should run contract', async () => {
+        const groupId = 10;
+        const contractAddr = generateAddress();
+
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: 'add(a){this.value+=a;}',
+            groupId
+        });
+        contract.storeAddress(contractAddr);
+
+        const app = new factory.Application();
+        const patch = new factory.PatchDB(groupId);
+        await app.runContract('add(10)', patch, contract);
+
+        const storedContract = patch.getContract(contractAddr.toString('hex'));
+        assert.deepEqual(storedContract.getData(), {value: 110});
+    });
 });

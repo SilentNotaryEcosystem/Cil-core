@@ -13,8 +13,11 @@ message output{
     // possibly here should be uint64 or bytes (BN)
     uint32 amount=1;
 
-    // code to be executed in App with claimProofs as parameters
-    bytes codeClaim=2;
+    // payment receiver
+    bytes receiverAddr=2;
+
+    // if receiverAddr is AddrContractCreation or function call
+    string contractCode=3;
 }
 
 message TransactionPayload {
@@ -76,9 +79,12 @@ message UTXO{
 
 message WitnessGroupDefinition{
     repeated bytes publicKeys=1;
-    string groupName=2;
+    bytes groupContractAddress=2;
     uint32 groupId=3;
     uint32 quorum=4;
+    uint32 minFee=5;
+    uint32 contractMultiplier=6;
+    repeated bytes delegatesPublicKeys=7;
 }
 
 //--------------- Block summary info (for storage) -----
@@ -86,4 +92,12 @@ message WitnessGroupDefinition{
 message BlockInfo{
     BlockHeader header=1;
     uint32 flags=2;
+}
+
+//--------------- Contract info (for storage) -----
+
+message Contract{
+    bytes contractData =1;
+    string contractCode=2;
+    uint32 groupId=3;
 }

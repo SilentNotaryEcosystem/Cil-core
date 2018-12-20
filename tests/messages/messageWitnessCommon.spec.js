@@ -18,16 +18,16 @@ describe('MessageWitnessCommon', () => {
     });
 
     it('should create message', async () => {
-        new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        new factory.Messages.MsgWitnessCommon({groupId: 0});
     });
 
     it('should FAIL set content (requires buffer)', async () => {
-        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
         assert.throws(() => msg.content = '123');
     });
 
     it('should set/get content', async () => {
-        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
         const value = Buffer.from([1, 2, 3, 4]);
         msg.content = value;
         assert.isOk(msg.content.equals(value));
@@ -36,9 +36,8 @@ describe('MessageWitnessCommon', () => {
     it('should sign/verify payload', async () => {
         const keyPair = factory.Crypto.createKeyPair();
 
-        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
-        const value = Buffer.from([1, 2, 3, 4]);
-        msg.content = value;
+        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
+        msg.content = Buffer.from([1, 2, 3, 4]);
         msg.sign(keyPair.getPrivate());
 
         assert.isOk(msg.signature);

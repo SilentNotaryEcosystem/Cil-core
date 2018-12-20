@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('storage:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
 const {timestamp, arrayEquals} = require('../utils');
 
 const createBlockInfo = () => {
@@ -29,8 +29,9 @@ describe('Storage tests', () => {
     });
 
     it('should store group definitions', async () => {
-        const def1 = factory.WitnessGroupDefinition.create('test', 0, [Buffer.from('public1'), Buffer.from('public2')]);
-        const def2 = factory.WitnessGroupDefinition.create('test2', 1,
+        const def1 = factory.WitnessGroupDefinition.create(0, [Buffer.from('public1'), Buffer.from('public2')]);
+        const def2 = factory.WitnessGroupDefinition.create(
+            1,
             [Buffer.from('public2'), Buffer.from('public3')]
         );
 
@@ -99,7 +100,7 @@ describe('Storage tests', () => {
     it('should apply "addCoins" patch to empty storage (like genezis)', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
@@ -125,7 +126,7 @@ describe('Storage tests', () => {
         const storage = new factory.Storage({});
 
         // create coins that we plan to spend
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
         patch.createCoins(txHash, 12, coins);
@@ -142,7 +143,7 @@ describe('Storage tests', () => {
 
         // now spend it
         {
-            const spendPatch = new factory.PatchDB();
+            const spendPatch = new factory.PatchDB(0);
 
             // 2 of 3 from first utxo
             const utxo = await storage.getUtxo(txHash);
@@ -175,7 +176,7 @@ describe('Storage tests', () => {
     it('should get UTXOs from DB as map', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const txHash2 = pseudoRandomBuffer().toString('hex');
         const txHash3 = pseudoRandomBuffer().toString('hex');
@@ -200,7 +201,7 @@ describe('Storage tests', () => {
     it('should find TX COLLISION', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
@@ -219,7 +220,7 @@ describe('Storage tests', () => {
     it('should NOT find TX COLLISION', async () => {
         const storage = new factory.Storage({});
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
 
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100, pseudoRandomBuffer(17));
@@ -331,4 +332,21 @@ describe('Storage tests', () => {
         assert.isOk(arrayEquals(newArr, gotArr));
     });
 
+    it('should apply patch with contract and getContract', async () => {
+        const groupId = 10;
+        const patch = new factory.PatchDB(groupId);
+        const address = generateAddress();
+        const data = {value: 10};
+        const strCode = 'getData(){return this._data}';
+        patch.setContract(address, data, strCode);
+
+        const storage = new factory.Storage({});
+        await storage.applyPatch(patch);
+
+        const contract = await storage.getContract(address);
+        assert.isOk(contract);
+        assert.equal(contract.getGroupId(), groupId);
+        assert.deepEqual(contract.getData(), data);
+        assert.equal(contract.getCode(), strCode);
+    });
 });

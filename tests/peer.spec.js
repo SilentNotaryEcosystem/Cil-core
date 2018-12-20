@@ -46,7 +46,8 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 on: () => {},
-                listenerCount: () => 0
+                listenerCount: () => 0,
+                close: () => {}
             }
         });
         assert.isOk(newPeer);
@@ -91,7 +92,8 @@ describe('Peer tests', () => {
                     // emulate network latency
                     await sleep(delay);
                     nSendMessages++;
-                }
+                },
+                close: () => {}
             }
         });
         for (let i = 0; i < 5; i++) {
@@ -105,7 +107,8 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
-                on: () => {}
+                on: () => {},
+                close: () => {}
             }
         });
         assert.isOk(newPeer);
@@ -147,7 +150,7 @@ describe('Peer tests', () => {
         const keyPair = factory.Crypto.createKeyPair();
 
         // create message and sign it with key that doesn't belong to our group
-        const msg = new factory.Messages.MsgWitnessCommon({groupName: 'test'});
+        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
         msg.handshakeMessage = true;
         msg.sign(keyPair.getPrivate());
 
@@ -161,5 +164,203 @@ describe('Peer tests', () => {
 
         assert.isOk(witnessMessageSpy.calledOnce);
         assert.isNotOk(messageSpy.called);
+    });
+
+    it('should unban peer after BAN_PEER_TIME', async function() {
+        this.timeout(factory.Constants.BAN_PEER_TIME + 1000);
+        const newPeer = new factory.Peer({peerInfo});
+        newPeer.ban();
+        await sleep(factory.Constants.BAN_PEER_TIME + 100);
+        assert.isNotOk(newPeer.banned);
+    });
+
+    it('should not unban peer before BAN_PEER_TIME', async function() {
+        this.timeout(factory.Constants.BAN_PEER_TIME / 2 + 500);
+        const newPeer = new factory.Peer({
+            connection: {
+                listenerCount: () => 0,
+                on: () => {}, close: () => {}
+            }
+        });
+        newPeer.ban();
+        await sleep(factory.Constants.BAN_PEER_TIME / 2);
+        assert.isOk(newPeer.banned);
+    });
+
+    it('should disconnect after PEER_CONNECTION_LIFETIME', async function() {
+        this.timeout(3000);
+        const newPeer = new factory.Peer({peerInfo});
+
+        await newPeer.connect();
+        newPeer._connectedTill =
+            new Date(newPeer._connectedTill.getTime() - factory.Constants.PEER_CONNECTION_LIFETIME);
+
+        await sleep(1500);
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+
+    });
+
+    it('should NOT disconnect PERSISTENT after PEER_CONNECTION_LIFETIME', async function() {
+        this.timeout(3000);
+        const newPeer = new factory.Peer({peerInfo});
+
+        await newPeer.connect();
+        newPeer.markAsPersistent();
+        newPeer._connectedTill =
+            new Date(newPeer._connectedTill.getTime() - factory.Constants.PEER_CONNECTION_LIFETIME);
+
+        await sleep(1500);
+
+        assert.isNotOk(newPeer.disconnected);
+    });
+
+    it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
+        newPeer = new factory.Peer({peerInfo});
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
+        await newPeer.connect();
+        newPeer._connection.emit('message', msg);
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+        assert.isOk(newPeer._bytesCount);
+
+        newPeer._connection.emit('message', msg);
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+        assert.isNotOk(newPeer._bytesCount);
+
+    });
+
+    it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
+        newPeer = new factory.Peer({peerInfo});
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
+        await newPeer.connect();
+        newPeer.markAsPersistent();
+        newPeer._connection.emit('message', msg);
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+        assert.isOk(newPeer._bytesCount);
+
+        newPeer._connection.emit('message', msg);
+
+        assert.isNotOk(newPeer.disconnected);
+    });
+
+    it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
+
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                address: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                listenerCount: () => 0,
+                on: () => {},
+                sendMessage: async () => {},
+                close: () => {}
+            }
+        });
+        newPeer.pushMessage(msg);
+        await sleep(200);
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+
+        newPeer.pushMessage(msg);
+        await sleep(200);
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+    });
+
+    it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
+        const msg = new factory.Messages.MsgCommon();
+        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTESCOUNT - 1);
+
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                address: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                listenerCount: () => 0,
+                on: () => {},
+                sendMessage: async () => {},
+                close: () => {}
+            }
+        });
+        newPeer.markAsPersistent();
+        newPeer.pushMessage(msg);
+        await sleep(200);
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+
+        newPeer.pushMessage(msg);
+        await sleep(200);
+
+        assert.isNotOk(newPeer.disconnected);
+    });
+
+    it('should not connect peer if address temporary banned', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect();
+        newPeer.disconnect();
+        await newPeer.connect();
+        assert.isOk(newPeer.tempBannedAddress);
+        assert.isOk(newPeer.disconnected);
+    });
+
+    it('should send pong message if ping message is received', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        const pushMessage = sinon.fake();
+        newPeer.pushMessage = pushMessage;
+        const msg = new factory.Messages.MsgCommon();
+        msg.pingMessage = true;
+
+        await newPeer.connect();
+        newPeer._connection.emit('message', msg);
+        assert.equal(pushMessage.callCount, 1);
+        const [pongMsg] = pushMessage.args[0];
+        assert.isTrue(pongMsg.isPong());
+    });
+
+    it('should disconnect if peer dead', async function() {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect();
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+        newPeer._deadTick();
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+    });
+
+    it('should not disconnect if message received', async function() {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect();
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+
+        newPeer._connection.emit('message', 'test');
+        newPeer._deadTick();
+
+        assert.isNotOk(newPeer.disconnected);
+        assert.isOk(newPeer._connection);
+    });
+
+    it('should send ping message by inactivity timer', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        const pushMessage = sinon.fake();
+        newPeer.pushMessage = pushMessage;
+
+        await newPeer.connect();
+        newPeer._pingTick();
+
+        assert.equal(pushMessage.callCount, 1);
+        const [pingMsg] = pushMessage.args[0];
+        assert.isTrue(pingMsg.isPing());
     });
 });
