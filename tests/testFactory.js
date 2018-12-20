@@ -29,6 +29,7 @@ const config = require('../config/test.conf');
 
 const Crypto = require('../crypto/crypto');
 const TransportWrapper = require('../network/testTransport');
+const Ipv6TransportWrapper = require('../network/ipv6Transport');
 const SerializerWrapper = require('../network/serializer');
 const MessageAssemblerWrapper = require('../network/messageAssembler');
 const PeerWrapper = require('../network/peer');
@@ -125,8 +126,8 @@ class Factory {
     get version() {
         const arrSubversions = pack.version.split('.');
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
-               parseInt(arrSubversions[1]) * Math.pow(2, 10) +
-               parseInt(arrSubversions[2]);
+            parseInt(arrSubversions[1]) * Math.pow(2, 10) +
+            parseInt(arrSubversions[2]);
     }
 
     get WitnessGroupDefinition() {
@@ -179,6 +180,10 @@ class Factory {
 
     get Transport() {
         return this._transportImplemetation;
+    }
+
+    get Ipv6Transport() {
+        return this._ipv6TransportImplemetation;
     }
 
     get Serializer() {
