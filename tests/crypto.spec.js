@@ -61,4 +61,13 @@ describe('Crypto library', () => {
         assert.isOk(typeof pubKey === 'string');
         assert.equal(keyPair.getPublic(), pubKey);
     });
+
+    it('should get ADDRESS', async () => {
+        const keyPair = Crypto.createKeyPair();
+
+        assert.isOk(Buffer.isBuffer(keyPair.getAddress()));
+        assert.isOk(typeof keyPair.address === 'string');
+
+        assert.equal(keyPair.address, Crypto.getAddress(keyPair.publicKey, false));
+    });
 });

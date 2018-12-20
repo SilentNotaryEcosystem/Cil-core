@@ -19,6 +19,10 @@ class KeyPair {
         this._pair = keyPair;
     }
 
+    get address() {
+        return this.getAddress(false);
+    }
+
     get privateKey() {
         return this.getPrivate();
     }
@@ -46,6 +50,15 @@ class KeyPair {
      */
     getPublic(compact = true, encoding = 'hex') {
         return this._pair.getPublic(compact, encoding);
+    }
+
+    /**
+     *
+     * @param {Boolean} needBuffer
+     * @returns {String|Buffer}
+     */
+    getAddress(needBuffer = true) {
+        return CryptoLib.getAddress(this.getPublic(), needBuffer);
     }
 
 }
