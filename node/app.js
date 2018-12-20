@@ -97,17 +97,22 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
         createContract(tx, patch) {
             const strCode = tx.getCode();
 
-            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
+            // generate address for new contract
+            const contractAddr = Crypto.getAddress(tx.hash());
+
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
-                sandbox: {}
+                sandbox: {
+                    contractAddr
+                }
             });
 
             // TODO: implement fee! (wrapping contract)
             // prepend predefined classes to code
-            let contractAddr;
             let status;
             try {
+
+                // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
                 const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
                 assert(retVal.methods, 'No contract methods exported!');
@@ -120,9 +125,6 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
                 const strCodeExportedFunctions = retVal.methods
                     .map(strFuncName => retVal.data[strFuncName].toString())
                     .join(Constants.CONTRACT_METHOD_SEPARATOR);
-
-                // generate address for new contract
-                contractAddr = Crypto.getAddress(tx.hash());
 
                 // save receipt & data & functions code to patch
                 patch.setContract(contractAddr, objData, strCodeExportedFunctions);

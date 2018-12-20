@@ -243,6 +243,7 @@ describe('Application layer', () => {
                 constructor(param){
                     super();
                     this._data=param;
+                    this._contractAddr=contractAddr;
                 }
                 
                 ${strGetDataCode}
@@ -266,9 +267,9 @@ describe('Application layer', () => {
 
         assert.isOk(patch.setContract.called);
 
-        const [, objData, strCodeExportedFunctions] = patch.setContract.args[0];
+        const [contractAddr, objData, strCodeExportedFunctions] = patch.setContract.args[0];
 
-        assert.deepEqual(objData, {_data: 10});
+        assert.deepEqual(objData, {_data: 10, _contractAddr: contractAddr});
         const resultCode = [strGetDataCode, strFunc2Code]
             .join(factory.Contract.CONTRACT_METHOD_SEPARATOR);
         assert.equal(strCodeExportedFunctions, resultCode);
