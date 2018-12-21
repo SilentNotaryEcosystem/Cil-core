@@ -47,7 +47,8 @@ describe('Peer tests', () => {
             connection: {
                 on: () => {},
                 listenerCount: () => 0,
-                close: () => {}
+                close: () => {},
+                remoteAddress: factory.Transport.generateAddress()
             }
         });
         assert.isOk(newPeer);
@@ -108,7 +109,8 @@ describe('Peer tests', () => {
             connection: {
                 listenerCount: () => 0,
                 on: () => {},
-                close: () => {}
+                close: () => {},
+                remoteAddress: factory.Transport.generateAddress()
             }
         });
         assert.isOk(newPeer);
@@ -122,7 +124,8 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
-                on: () => {}, close: () => {}
+                on: () => {}, close: () => {},
+                remoteAddress: factory.Transport.generateAddress()
             }
         });
         assert.isOk(newPeer);
@@ -179,7 +182,8 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             connection: {
                 listenerCount: () => 0,
-                on: () => {}, close: () => {}
+                on: () => {}, close: () => {},
+                remoteAddress: factory.Transport.generateAddress()
             }
         });
         newPeer.ban();

@@ -30,12 +30,13 @@ describe('Peer manager', () => {
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
             ],
-            address: factory.Transport.generateAddress()
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+            port: 123
         });
         pm.addPeer(peer);
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 1);
-        assert.isOk(peer.address.equals(Buffer.from(arrPeers[0], 'hex')));
+        assert.equal(arrPeers[0], pm._createKey(peer.address, peer.port));
     });
 
     it('should add peer to PeerManager from Connection', async () => {
@@ -44,6 +45,7 @@ describe('Peer manager', () => {
         const peer = new factory.Peer({
             connection: {
                 remoteAddress: factory.Transport.generateAddress(),
+                remotePort: 123,
                 listenerCount: () => 0,
                 on: () => {},
                 sendMessage: sinon.fake()
@@ -52,7 +54,7 @@ describe('Peer manager', () => {
         pm.addPeer(peer);
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 1);
-        assert.isOk(peer.address.equals(Buffer.from(arrPeers[0], 'hex')));
+        assert.equal(arrPeers[0], pm._createKey(peer.address, peer.port));
     });
 
     it('should filter peers by capability', async () => {
@@ -183,7 +185,7 @@ describe('Peer manager', () => {
     it('should REPLACE disconnected peers', async () => {
         const pm = new factory.PeerManager();
 
-        const address = factory.Transport.generateAddress();
+        const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const peerDisconnected = new factory.Peer({
             peerInfo: new factory.Messages.PeerInfo({
                 capabilities: [
@@ -213,7 +215,7 @@ describe('Peer manager', () => {
 
     it('should KEEP connected peers', async () => {
         const pm = new factory.PeerManager();
-        const address = factory.Transport.generateAddress();
+        const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
 
         const peerConnected = new factory.Peer({
             connection: {
@@ -257,7 +259,7 @@ describe('Peer manager', () => {
         }
     });
     it('should NOT add peer with banned address (REJECT_BANNEDADDRESS)', async () => {
-        const address = factory.Transport.generateAddress();
+        const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
         peer._peerInfo.address = address;

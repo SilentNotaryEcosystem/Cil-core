@@ -42,7 +42,7 @@ const createWitnesses = (num, seedAddress) => {
         arrWitnesses.push(new factory.Witness({
             wallet: witnessWallet,
             arrTestDefinition: [groupDefinition],
-            listenAddr: factory.Transport.strToAddress(`witness ${i + witnesNo}`),
+            listenAddr: factory.Transport.generateAddress(),
             delay,
             arrSeedAddresses: [seedAddress]
         }));
@@ -105,7 +105,7 @@ describe('Witness integration tests', () => {
 
         const genezis = createGenezisBlock();
 
-        const seedAddress = factory.Transport.strToAddress('w seed node');
+        const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
         await seedNode._processBlock(genezis);
 
@@ -114,13 +114,13 @@ describe('Witness integration tests', () => {
             capabilities: [
                 {service: factory.Constants.NODE, data: null}
             ],
-            address: factory.Transport.strToAddress('known peer 1')
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo2 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
             ],
-            address: factory.Transport.strToAddress('known peer 2')
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         [peerInfo1, peerInfo2].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
 
@@ -140,7 +140,7 @@ describe('Witness integration tests', () => {
         this.timeout(maxConnections * 60000);
         const genezis = createGenezisBlock();
 
-        const seedAddress = factory.Transport.strToAddress('w seed node 2');
+        const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
         await seedNode._processBlock(genezis);
 
@@ -171,7 +171,7 @@ describe('Witness integration tests', () => {
 
         const {genezis, tx} = createGenezisBlockAndSpendingTx(groupId);
 
-        const seedAddress = factory.Transport.strToAddress('w seed node 3');
+        const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay, arrTestDefinition: [groupDefinition]});
         await seedNode._processBlock(genezis);
 
@@ -212,7 +212,7 @@ describe('Witness integration tests', () => {
 
         const {genezis, tx} = createGenezisBlockAndSpendingTx(2);
 
-        const seedAddress = factory.Transport.strToAddress('w seed node 4');
+        const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
         await seedNode._processBlock(genezis);
 

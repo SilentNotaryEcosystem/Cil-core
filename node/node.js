@@ -62,12 +62,12 @@ module.exports = (factory) => {
                 capabilities: [
                     {service: Constants.NODE}
                 ],
-                address: this._transport.myAddress,
+                address: Transport.strToAddress(this._transport.myAddress),
                 port: this._transport.port
             });
 
             // used only for debugging purpose. Feel free to remove
-            this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
+            this._debugAddress = this._transport.myAddress;
 
             this._peerManager = new PeerManager({transport: this._transport});
 
@@ -76,7 +76,8 @@ module.exports = (factory) => {
             debugNode(`(address: "${this._debugAddress}") start listening`);
             this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
 
-            this._transport.listen();
+            this._transport.listen().catch(err => console.error(err));
+            ;
             this._transport.on('connect', this._incomingConnection.bind(this));
 
             // create mempool
@@ -381,7 +382,7 @@ module.exports = (factory) => {
             const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
 
             if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
-                logger.error(`Trying to execute ${block.getHash()} more than one time!`);
+                logger.error(`Trying to process ${block.getHash()} more than one time!`);
                 return;
             }
 
@@ -923,7 +924,7 @@ module.exports = (factory) => {
          */
         async _verifyBlock(block, checkSignatures = true) {
 
-            // TODO: think about it.
+            // we create Genezis manually, so we sure that it's valid
             if (block.getHash() === Constants.GENEZIS_BLOCK) return;
 
             // block should have at least one parent!

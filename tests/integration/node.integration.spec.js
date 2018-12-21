@@ -8,6 +8,7 @@ const debugLib = require('debug');
 const util = require('util');
 
 const factory = require('../testFactory');
+const factoryIpV6 = require('../testFactoryIpV6');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('../testUtil');
 
 const debugNode = debugLib('node:app');
@@ -54,10 +55,28 @@ const createNet = async (onlySeed = false) => {
     return {seedNode, arrNodes};
 };
 
+const createLiveNet = async (onlySeed = false) => {
+    const genezis = createDummyBlock(factoryIpV6);
+    factoryIpV6.Constants.GENEZIS_BLOCK = genezis.getHash();
+
+    const [seedAddress] = factoryIpV6.Transport.getInterfacesIpV6Addresses();
+    const seedNode = new factoryIpV6.Node({listenAddr: seedAddress, delay: 0});
+    await seedNode._processBlock(genezis);
+
+    const arrNodes = [];
+    for (let i = 0; i < maxConnections; i++) {
+        const node = new factoryIpV6.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
+        if (!onlySeed) await node._processBlock(genezis);
+        arrNodes.push(node);
+    }
+    return {seedNode, arrNodes};
+};
+
 describe('Node integration tests', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
+        await factoryIpV6.asyncLoad();
     });
 
     after(async function() {
@@ -65,7 +84,7 @@ describe('Node integration tests', () => {
     });
 
     it('should disconnect from self', async () => {
-        const addr = factory.Transport.strToAddress('Loop node');
+        const addr = factory.Transport.generateAddress();
         const newNode = new factory.Node({
             listenAddr: addr,
             delay: 0, queryTimeout: 5000,
@@ -77,7 +96,7 @@ describe('Node integration tests', () => {
     it('should get peers from seedNode', async function() {
         this.timeout(20000);
 
-        const seedAddress = factory.Transport.strToAddress('Seed node');
+        const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
         seedNode._handleGetBlocksMessage = sinon.fake();
 
@@ -86,25 +105,25 @@ describe('Node integration tests', () => {
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
             ],
-            address: factory.Transport.strToAddress('Known node 1')
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo2 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null}
             ],
-            address: factory.Transport.strToAddress('Known node 2')
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo3 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
             ],
-            address: factory.Transport.strToAddress('Known node 3')
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo4 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
             ],
-            address: factory.Transport.strToAddress('Known node 4')
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
 
@@ -179,6 +198,23 @@ describe('Node integration tests', () => {
     it('should propagate GENEZIS block over all nodes', async function() {
         this.timeout(60000);
         const {arrNodes} = await createNet(true);
+        const arrBootstrapPromises = [];
+        const arrBlockPromises = [];
+
+        for (let i = 0; i < maxConnections; i++) {
+
+            arrBlockPromises.push(new Promise(resolve => {
+                arrNodes[i]._acceptBlock = resolve;
+            }));
+            arrBootstrapPromises.push(arrNodes[i].bootstrap());
+        }
+        await Promise.all(arrBootstrapPromises);
+        await Promise.all(arrBlockPromises);
+    });
+
+    it('should create LIVE NET and propagate GENEZIS block over all nodes', async function() {
+        this.timeout(60000);
+        const {arrNodes} = await createLiveNet(true);
         const arrBootstrapPromises = [];
         const arrBlockPromises = [];
 

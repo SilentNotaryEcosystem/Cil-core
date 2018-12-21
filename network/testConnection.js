@@ -11,7 +11,7 @@ const {sleep} = require('../utils');
  */
 
 
-module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
+module.exports = (Serializer, MessageAssembler, Constants) =>
     class Connection extends EventEmitter {
         constructor(options) {
             super();
@@ -41,13 +41,19 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
 
         /**
          *
-         * @return {Buffer} !!
+         * @return {String} !!
          */
         get remoteAddress() {
-            // Prod implementation
-//            return this._socket.remoteAddress;
-            // implementation for testConnection with UNIX sockets
             return this._remoteAddress;
+        }
+
+        /**
+         * it's a stub!
+         *
+         * @return {String} !!
+         */
+        get remotePort() {
+            return Constants.port;
         }
 
         /**
