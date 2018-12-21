@@ -17,7 +17,7 @@ const LAST_APPLIED_BLOCKS = 'FINAL';
 const PENDING_BLOCKS = 'PENDING';
 
 module.exports = (factory) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, Peer} = factory;
     return class Storage {
         constructor(options) {
 
@@ -74,7 +74,7 @@ module.exports = (factory) => {
         async saveBlock(block, blockInfo) {
             const hash = block.hash();
 
-//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
+            //            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
 
             // save entire block
@@ -114,7 +114,7 @@ module.exports = (factory) => {
         async removeBlock(blockHash) {
             typeforce(types.Hash256bit, blockHash);
 
-//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const key = BLOCK_PREFIX + strHash;
@@ -130,7 +130,7 @@ module.exports = (factory) => {
         async getBlock(blockHash) {
             typeforce(types.Hash256bit, blockHash);
 
-//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const key = BLOCK_PREFIX + strHash;
@@ -148,7 +148,7 @@ module.exports = (factory) => {
         async getBlockInfo(blockHash) {
             typeforce(types.Hash256bit, blockHash);
 
-//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
@@ -166,7 +166,7 @@ module.exports = (factory) => {
             typeforce(types.BlockInfo, blockInfo);
 
             const blockHash = blockInfo.getHash();
-//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
@@ -226,7 +226,7 @@ module.exports = (factory) => {
         async getUtxo(hash) {
             typeforce(types.Hash256bit, hash);
 
-//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
+            //            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
             const key = UTXO_PREFIX + strHash;
 
@@ -333,20 +333,56 @@ module.exports = (factory) => {
             this._db.set(PENDING_BLOCKS, (new ArrayOfHashes(arrBlockHashes)).encode());
         }
 
-        async hasPeer(key) {
-            return await this._peerStorage.has(key);
-        }
+        async hasPeer(address) {
+            typeforce.oneOf(typeforce.Address, String);
 
-        async savePeer(key,peer) {
-            if(!await this.hasPeer(key)) {
-                this._peerStorage.set(key,peer);
+            try {
+                await this.getPeer(address);
+                return true;
+            } catch (e) {
+                return false;
             }
         }
 
+        async savePeer(peer) {
+            let peerInfo = peer.peerInfo;
+            const key = Buffer.isBuffer(peer.address) ? this.addressToString(peer.address) : peer.address;
+            peerInfo.lifetimeMisbehaveScore = peer.missbehaveScore;
+            peerInfo.lifetimeTransmittedBytes = peer.transmittedBytes;
+            peerInfo.lifetimeReceivedBytes = peer.receivedBytes;
+
+            this._peerStorage.set(key, peerInfo.encode());
+        }
+        async getPeer(address) {
+            typeforce.oneOf(typeforce.Address, String);
+
+            const strAddress = Buffer.isBuffer(address) ? this.addressToString(address) : address;
+            const peerInfo = this._peerStorage.get(strAddress);
+            if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
+
+            return new Peer({peerInfo});
+
+        }
+
+        async savePeers(arrPeers) {
+            for (let peer of arrPeers)
+                this.savePeer(peer)
+        }
         async loadPeers() {
 
             // TODO: rewrite for levelDB
-            return [...this._peerStorage.values()];
+            let arrPeers = [];
+            for (let p of this._peerStorage.values()) {
+                arrPeers.push(new Peer({peerInfo: p}));
+            }
+            return arrPeers;
+        }
+        addressToString(buffer, encoding = 'hex') {
+            let i = 0;
+
+            // skip leading 0
+            for (; i < buffer.length && !buffer[i]; i++) {}
+            return buffer.toString(encoding, i);
         }
     };
 };
