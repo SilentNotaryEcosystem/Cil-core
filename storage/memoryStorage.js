@@ -19,7 +19,7 @@ const PENDING_BLOCKS = 'PENDING';
 
 module.exports = (factory) => {
 
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, Peer} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, Peer, Transport} = factory;
     return class Storage {
         constructor(options) {
 
@@ -373,7 +373,7 @@ module.exports = (factory) => {
         async getPeer(address) {
             typeforce.oneOf(typeforce.Address, String);
 
-            const strAddress = Buffer.isBuffer(address) ? this.addressToString(address) : address;
+            const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
             const peerInfo = this._peerStorage.get(strAddress);
             if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
 
@@ -393,13 +393,6 @@ module.exports = (factory) => {
                 arrPeers.push(new Peer({peerInfo: p}));
             }
             return arrPeers;
-        }
-        addressToString(buffer, encoding = 'hex') {
-            let i = 0;
-
-            // skip leading 0
-            for (; i < buffer.length && !buffer[i]; i++) {}
-            return buffer.toString(encoding, i);
         }
     };
 };
