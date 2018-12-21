@@ -33,8 +33,7 @@ module.exports = (factory) => {
             this._lastActionTimestamp = lastActionTimestamp ? lastActionTimestamp : Date.now();
 
             this._tags = [];
-            this._transmittedBytes = 0;
-            this._receivedBytes = 0;
+            this._bytesCount = 0;
             this._msecOffsetDelta = 0;
             this._lastDisconnectedAddress = undefined;
             this._lastDisconnectionTime = undefined;
@@ -55,9 +54,6 @@ module.exports = (factory) => {
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
-            this._missbehaveScore = this._peerInfo.lifetimeMisbehaveScore;
-            this._receivedBytes = this._peerInfo.lifetimeReceivedBytes;
-            this._transmittedBytes = this._peerInfo.lifetimeTransmittedBytes;
 
             this._tock = new Tick(this);
             this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
@@ -73,21 +69,12 @@ module.exports = (factory) => {
             );
 
         }
-
-        get amountBytes() {
-            return this._transmittedBytes + this._receivedBytes;
-        }
-
         get missbehaveScore() {
             return this._missbehaveScore;
         }
 
         get transmittedBytes() {
-            return this._transmittedBytes;
-        }
-
-        get receivedBytes() {
-            return this._receivedBytes;
+            return this._bytesCount;
         }
         /**
          * witness peers shouldn't be disconnected
@@ -98,8 +85,8 @@ module.exports = (factory) => {
 
         get tempBannedAddress() {
             return !!this._lastDisconnectedAddress
-                && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
-                && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
+                   && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
+                   && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
         get peerInfo() {
@@ -128,7 +115,7 @@ module.exports = (factory) => {
 
         get isWitness() {
             return Array.isArray(this._peerInfo.capabilities) &&
-                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
         get lastActionTimestamp() {
@@ -230,8 +217,7 @@ module.exports = (factory) => {
                 debug(`Peer ${this.address} already connected`);
                 return;
             }
-            this._transmittedBytes = 0;
-            this._receivedBytes = 0;
+            this._bytesCount = 0;
             this._connection = await this._transport.connect(this.address, this.port);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
@@ -243,8 +229,8 @@ module.exports = (factory) => {
 
                     // count incoming bytes
                     if (msg.payload && Buffer.isBuffer(msg.payload)) {
-                        this._receivedBytes += msg.payload.length;
-                        if (!this._persistent && this.amountBytes > Constants.PEER_MAX_BYTESCOUNT) {
+                        this._bytesCount += msg.payload.length;
+                        if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
                             this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
                         }
                     }
@@ -292,13 +278,13 @@ module.exports = (factory) => {
                     debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
                     await this._connection.sendMessage(nextMsg);
                     if (nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
-                        this._transmittedBytes += nextMsg.payload.length;
+                        this._bytesCount += nextMsg.payload.length;
                     }
                 }
                 this._queue = undefined;
 
                 // count outgoing bytes
-                if (!this._persistent && this.amountBytes > Constants.PEER_MAX_BYTESCOUNT) {
+                if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
                     this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
                 }
             }
@@ -337,9 +323,7 @@ module.exports = (factory) => {
         _cleanup() {
             this._bInbound = false;
             this.loadDone = true;
-            this._transmittedBytes = 0;
-            this._receivedBytes = 0;
-
+            this._bytesCount = 0;
             this._msecOffsetDelta = 0;
         }
 
