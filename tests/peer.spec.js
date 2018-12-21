@@ -225,13 +225,13 @@ describe('Peer tests', () => {
 
         assert.isNotOk(newPeer.disconnected);
         assert.isOk(newPeer._connection);
-        assert.isOk(newPeer._bytesCount);
+        assert.isOk(newPeer.amountBytes);
 
         newPeer._connection.emit('message', msg);
 
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
-        assert.isNotOk(newPeer._bytesCount);
+        assert.isNotOk(newPeer.amountBytes);
 
     });
 
@@ -245,7 +245,7 @@ describe('Peer tests', () => {
 
         assert.isNotOk(newPeer.disconnected);
         assert.isOk(newPeer._connection);
-        assert.isOk(newPeer._bytesCount);
+        assert.isOk(newPeer.amountBytes);
 
         newPeer._connection.emit('message', msg);
 
