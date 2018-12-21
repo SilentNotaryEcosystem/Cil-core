@@ -19,13 +19,13 @@ module.exports = {
         PEER_QUERY_TIMEOUT: 30000,
         CONNECTION_TIMEOUT: 60000,
 
-        // 3 hours
-        PEER_DEAD_TIME: 3 * 3600 * 1000,
-
         // 1 day
         BAN_PEER_SCORE: 100,
-        BAN_PEER_TIME: 24 * 60 * 60 * 1000,
-        PEER_TICK_TIMEOUT: 60 * 60 * 1000,
+        BAN_PEER_TIME: 5000,// 24 * 60 * 60 * 1000,
+        PEER_TICK_TIMEOUT: 1000,
+
+        // maximum block hashes in MSG_INV
+        MAX_BLOCKS_INV: 500,
 
         messageTypes: {
             MSG_VERSION: 'version',
@@ -35,6 +35,9 @@ module.exports = {
             MSG_REJECT: 'reject',
             MSG_BLOCK: 'block',
             MSG_TX: 'tx',
+            MSG_INV: 'inv',
+            MSG_GET_DATA: 'getdata',
+            MSG_GET_BLOCKS: 'getblocks',
             MSG_PING: 'ping',
             MSG_PONG: 'pong',
 
@@ -42,8 +45,7 @@ module.exports = {
             MSG_WITNESS_NEXT_ROUND: 'w_nextround',
             MSG_WITNESS_EXPOSE: 'w_expose',
             MSG_WITNESS_BLOCK: 'w_block',
-            MSG_WITNESS_BLOCK_ACK: 'w_block_ack',
-            MSG_WITNESS_BLOCK_REJECT: 'w_block_rej'
+            MSG_WITNESS_BLOCK_VOTE: 'w_block_vote'
         },
 
         consensusStates: {
@@ -63,16 +65,22 @@ module.exports = {
         // maximum time offset for nodes we tolerate
         TOLERATED_TIME_DIFF: 60 * 60 * 1000,
 
-        MAX_BLOCK_SIZE: 2 * 1024 * 1024,
+        // how much we suppress creating empty blocks
+        WITNESS_HOLDOFF: 15 * 60 * 1000,
+        MAX_BLOCK_SIZE: 1024,
 
-        PEER_CONNECTION_LIFETIME: 24 * 60 * 60 * 1000,
+        // fees
+        MIN_TX_FEE: 1000,
+        MIN_CONTRACT_FEE: 30000,
 
-        MEMPOOL_TX_QTY: 200 * 1000,
-        MEMPOOL_TX_LIFETIME: 14 * 24 * 60 * 60 * 1000,
+        PEER_CONNECTION_LIFETIME: 60 * 60 * 1000,
+
+        MEMPOOL_TX_QTY: 5,
+        MEMPOOL_TX_LIFETIME: 5000,
         MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
 
         PEER_MAX_BYTESCOUNT: 10 * 1024 * 1024,
-        PEER_BANADDRESS_TIME: 60 * 60 * 1000,
+        PEER_BANADDRESS_TIME: 1000,
         PEER_DEAD_TIMER_NAME: 'peerDeadTimer',
         PEER_DEAD_TIMEOUT: 60 * 1000,
         PEER_DEAD_TIME: 5 * 60 * 1000,

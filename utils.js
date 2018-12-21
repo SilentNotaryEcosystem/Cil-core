@@ -6,6 +6,20 @@ const arrayIntersection = (array1, array2) => {
     return result;
 };
 
+/**
+ * Duplicates are possible!
+ *
+ * @param {Array} arrMaps of Maps
+ * @return {Array} keys
+ */
+const getMapsKeys = (...arrMaps) => {
+    let arrResultKeys = [];
+    for (let map of arrMaps) {
+        arrResultKeys = arrResultKeys.concat(Array.from(map.keys()));
+    }
+    return arrResultKeys;
+};
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
@@ -25,17 +39,11 @@ module.exports = {
         return new Set(arrSet1.concat(arrSet2));
     },
 
-    /**
-     *
-     * @param {Array} arrMaps of Maps
-     * @return {Array} keys
-     */
-    getMapsKeys: (...arrMaps) => {
-        let arrResultKeys = [];
-        for (let map of arrMaps) {
-            arrResultKeys = arrResultKeys.concat(Array.from(map.keys()));
-        }
-        return arrResultKeys;
+    getMapsKeys,
+
+    getMapsKeysUnique: (...arrMaps) => {
+        let tempSet = new Set(getMapsKeys(...arrMaps));
+        return Array.from(tempSet.keys());
     },
 
     timestamp: () => {

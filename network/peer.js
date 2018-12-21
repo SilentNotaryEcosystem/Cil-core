@@ -47,7 +47,8 @@ module.exports = (factory) => {
                 this._bInbound = true;
                 this._setConnectionHandlers();
                 this._peerInfo = new PeerInfo({
-                    address: connection.remoteAddress
+                    address: Transport.strToAddress(connection.remoteAddress),
+                    port: connection.remotePort
                 });
                 this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             } else if (peerInfo) {
@@ -232,7 +233,7 @@ module.exports = (factory) => {
             }
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
-            this._connection = await this._transport.connect(this.address, this.port);
+            this._connection = await this._transport.connect(Transport.addressToString(this.address), this.port);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
         }

@@ -18,7 +18,7 @@ const strCodeSuffix = `
     __MyRetVal;
 `;
 
-module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
+module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =>
     class Application {
         constructor(options) {
         }
@@ -92,39 +92,56 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
          *
          * @param {Transaction} tx - transaction with contract code
          * @param {PatchDB} patch - to store new contract & receipt
+         * @returns {TxReceipt}
          */
         createContract(tx, patch) {
             const strCode = tx.getCode();
 
-            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
+            // generate address for new contract
+            const contractAddr = Crypto.getAddress(tx.hash());
+
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
-                sandbox: {}
+                sandbox: {
+                    contractAddr
+                }
             });
 
             // TODO: implement fee! (wrapping contract)
             // prepend predefined classes to code
-            const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
-            assert(retVal, 'Unexpected empty result from contract constructor!');
-            assert(retVal.methods, 'No contract methods exported!');
-            assert(retVal.data, 'No contract data exported!');
+            let status;
+            try {
 
-            // get returned class instance with member data && exported functions
-            const objData = Object.assign({}, retVal.data);
+                // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
+                const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
+                assert(retVal, 'Unexpected empty result from contract constructor!');
+                assert(retVal.methods, 'No contract methods exported!');
+                assert(retVal.data, 'No contract data exported!');
 
-            const strCodeExportedFunctions = retVal.methods
-                .map(strFuncName => retVal.data[strFuncName].toString())
-                .join(Constants.CONTRACT_METHOD_SEPARATOR);
+                // get returned class instance with member data && exported functions
+                const objData = Object.assign({}, retVal.data);
 
-            // generate address for new contract
-            const contractAddr = Crypto.getAddress(tx.hash());
+                // prepare methods for storing
+                const strCodeExportedFunctions = retVal.methods
+                    .map(strFuncName => retVal.data[strFuncName].toString())
+                    .join(Constants.CONTRACT_METHOD_SEPARATOR);
 
-            // save receipt & data & functions code to patch
-            patch.setContract(contractAddr, objData, strCodeExportedFunctions);
+                // save receipt & data & functions code to patch
+                patch.setContract(contractAddr, objData, strCodeExportedFunctions);
+
+                status = Constants.TX_STATUS_OK;
+            } catch (err) {
+                logger.error(err);
+                status = Constants.TX_STATUS_FAILED;
+            }
 
             // TODO: create TX with change to author!
-            // TODO: return Fee
-            return 0;
+            // TODO: return Fee (see coinsUsed)
+            return new TxReceipt({
+                contractAddress: Buffer.from(contractAddr, 'hex'),
+                coinsUsed: Constants.MIN_CONTRACT_FEE,
+                status
+            });
         }
 
         async runContract(strInvocationCode, patch, contract, funcToLoadNestedContracts) {
@@ -141,15 +158,32 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins}) =>
 
             // TODO: implement fee! (wrapping contract)
             const strPreparedCode = this._prepareCode(contract.getCode(), strInvocationCode);
-            vm.run(strPreparedCode);
-            const newContractState = vm.run(`;${CONTEXT_NAME};`);
 
-            // TODO: create receipt here
-            // TODO: send rest of moneys to receiver (which one of input?!). Possibly output for change?
-            const objData = Object.assign({}, newContractState);
+            let status;
+            try {
 
-            // save receipt & data & functions code to patch
-            patch.setContract(contract.getStoredAddress(), objData);
+                vm.run(strPreparedCode);
+                const newContractState = vm.run(`;${CONTEXT_NAME};`);
+
+                // TODO: create receipt here
+                // TODO: send rest of moneys to receiver (which one of input?!). Possibly output for change?
+                const objData = Object.assign({}, newContractState);
+
+                // save receipt & data & functions code to patch
+                patch.setContract(contract.getStoredAddress(), objData);
+
+                status = Constants.TX_STATUS_OK;
+            } catch (err) {
+                logger.error(err);
+                status = Constants.TX_STATUS_FAILED;
+            }
+
+            // TODO: create TX with change to author!
+            // TODO: return Fee
+            return new TxReceipt({
+                coinsUsed: Constants.MIN_CONTRACT_FEE,
+                status
+            });
         }
 
         /**

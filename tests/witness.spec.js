@@ -19,7 +19,7 @@ const createDummyPeer = (pubkey = '0a0b0c0d', address = factory.Transport.genera
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from(pubkey, 'hex')}
             ],
-            address
+            address: factory.Transport.strToAddress(address)
         }
     });
 

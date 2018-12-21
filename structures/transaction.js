@@ -242,11 +242,18 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
                    && inputs[0].nTxOutput === 0;
         }
 
+        // TODO: see todo for hasOneReceiver
         isContractCreation() {
             const outCoins = this.getOutCoins();
             return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
         }
 
+        // TODO: rename to hasTwoOutputs.
+        /**
+         * Used to distinguish payment from contract call
+         *
+         * @return {boolean}
+         */
         hasOneReceiver() {
             return this.getOutCoins().length === 1;
         }

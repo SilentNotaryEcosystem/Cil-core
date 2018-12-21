@@ -19,9 +19,6 @@ module.exports = {
         PEER_QUERY_TIMEOUT: 30000,
         CONNECTION_TIMEOUT: 60000,
 
-        // 3 hours
-        PEER_DEAD_TIME: 3 * 3600 * 1000,
-
         // 1 day
         BAN_PEER_SCORE: 100,
         BAN_PEER_TIME: 5000,// 24 * 60 * 60 * 1000,

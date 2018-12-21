@@ -54,7 +54,7 @@ describe('PeerInfo Message', () => {
             capabilities: [
                 {service: factory.Constants.NODE}
             ],
-            address: factory.Transport.generateAddress()
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         assert.equal(peerInfo.port, factory.Constants.port);
         assert.isOk(Array.isArray(peerInfo.capabilities));
