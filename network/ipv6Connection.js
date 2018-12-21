@@ -1,11 +1,10 @@
 const EventEmitter = require('events');
-const util = require('util');
 const debug = require('debug')('transport:connection');
 
 const {sleep} = require('../utils');
 
 /**
- 
+
  */
 
 
@@ -25,16 +24,23 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
             this._socket.on('end', this.close.bind(this));
             this._socket.on('error', this.close.bind(this));
 
-
             this._messageAssembler = new MessageAssembler;
         }
 
         /**
          *
-         * @return {Buffer} !!
+         * @return {String} !!
          */
         get remoteAddress() {
             return this._socket.remoteAddress;
+        }
+
+        /**
+         *
+         * @return {Number} !!
+         */
+        get remotePort() {
+            return this._socket.remotePort;
         }
 
         /**
@@ -43,8 +49,7 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
          */
         async sendMessage(message) {
             debug(`(Nonce: ${this._nonce}) sendMessage "${message.message}"`);
-            const result = this._socket.write(Serializer.serialize(message));
-            return result;
+            return this._socket.write(Serializer.serialize(message));
         }
 
         async _incomingMessage(data) {
