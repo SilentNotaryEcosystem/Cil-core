@@ -363,7 +363,7 @@ module.exports = (factory) => {
 
         async savePeer(peer) {
             let peerInfo = peer.peerInfo;
-            const key = Buffer.isBuffer(peer.address) ? this.addressToString(peer.address) : peer.address;
+            const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
             peerInfo.lifetimeMisbehaveScore = peer.missbehaveScore;
             peerInfo.lifetimeTransmittedBytes = peer.transmittedBytes;
             peerInfo.lifetimeReceivedBytes = peer.receivedBytes;
