@@ -288,7 +288,7 @@ describe('Peer manager', () => {
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
             ],
-            address: factory.Transport.generateAddress()
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peer = new factory.Peer({peerInfo});
 
@@ -320,7 +320,7 @@ describe('Peer manager', () => {
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
             ],
-            address: factory.Transport.generateAddress()
+            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         await pm.savePeers([new factory.Peer({peerInfo})]);
         const arrPeers = await pm.loadPeers();
