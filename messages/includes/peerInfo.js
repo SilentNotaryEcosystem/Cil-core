@@ -86,10 +86,10 @@ module.exports = (Constants, MessageProto) =>
          */
         static fromAddress(buff) {
             const objAddress = {};
-            objAddress.addr0 = buff.readInt32BE(0);
-            objAddress.addr1 = buff.readInt32BE(4);
-            objAddress.addr2 = buff.readInt32BE(8);
-            objAddress.addr3 = buff.readInt32BE(12);
+            objAddress.addr0 = buff.readUInt32BE(0);
+            objAddress.addr1 = buff.readUInt32BE(4);
+            objAddress.addr2 = buff.readUInt32BE(8);
+            objAddress.addr3 = buff.readUInt32BE(12);
             return objAddress;
         }
 
