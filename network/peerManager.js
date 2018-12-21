@@ -64,7 +64,6 @@ module.exports = (factory) => {
 
             this.updateHandlers(peer);
 
-            await this._storage.savePeer(key, peer);
 
             // TODO: emit new peer
             this._allPeers.set(key, peer);
@@ -121,7 +120,7 @@ module.exports = (factory) => {
 
         findBestPeers() {
             return [...this._allPeers.values()]
-                .sort((a,b)=>b.transmittedBytes/(b.missbehaveScore + 1) - a.transmittedBytes/(a.missbehaveScore + 1))
+                .sort((a, b) => b.amountBytes / (b.missbehaveScore + 1) - a.amountBytes / (a.missbehaveScore + 1))
                 .slice(0, Constants.MAX_PEERS);
         }
 
@@ -132,8 +131,20 @@ module.exports = (factory) => {
             }
         }
 
+        async getPeer(address) {
+            return await this._storage.getPeer(address);
+        }
+
         async loadPeers() {
             return await this._storage.loadPeers();
+        }
+
+        async savePeers(arrPeers) {
+            return await this._storage.savePeers(arrPeers);
+        }
+
+        async saveAllPeers() {
+            return await this._storage.savePeers([...this._allPeers.values()]);
         }
         /**
          *
