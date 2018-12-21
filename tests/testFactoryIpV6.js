@@ -97,8 +97,8 @@ class Factory {
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = Ipv6TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
-                this._peerManagerImplemetation = PeerManagerWrapper(this);
                 this._storageImplementation = StorageWrapper(this);
+                this._peerManagerImplemetation = PeerManagerWrapper(this);
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
