@@ -323,8 +323,6 @@ describe('Peer manager', () => {
         await pm.savePeers([new factory.Peer({peerInfo})]);
         const arrPeers = await pm.loadPeers();
         assert.isOk(arrPeers.length === 1);
-        console.log(arrPeers)
-        //assert.isOk(peer.address.equals(Buffer.from(arrPeers[0].address, 'hex')));
     });
 
     it('should find best peers', async () => {
