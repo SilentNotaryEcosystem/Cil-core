@@ -38,6 +38,7 @@ module.exports = (factory) => {
                 await this.startWitnessGroup(def);
             }
 
+            return arrGroupDefinitions.length;
             // TODO: add watchdog to maintain connections to as much as possible witnesses
         }
 

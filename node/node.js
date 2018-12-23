@@ -94,6 +94,8 @@ module.exports = (factory) => {
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
 
+            process.on('SIGINT', this._gracefulShutdown.bind(this));
+            process.on('SIGTERM', this._gracefulShutdown.bind(this));
         }
 
         get rpc() {
@@ -1112,6 +1114,16 @@ module.exports = (factory) => {
             for (let objTx of block.txns) {
                 this._mempool.addTx(new Transaction(objTx));
             }
+        }
+
+        /**
+         * SIGINT & SIGTERM handlers
+         * @private
+         */
+        _gracefulShutdown() {
+
+            // TODO: implement flushing all in memory data to disk
+            debugLib('Termination signalled');
         }
     };
 };
