@@ -2,12 +2,15 @@
 const EventEmitter = require('events');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
-const {sleep} = require('../utils');
+
+const rpc = require('json-rpc2');
+
+const {sleep, asyncRPC} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('RPC:');
 
-module.exports = ({Transaction}) =>
+module.exports = ({Constants, Transaction}) =>
     class RPC extends EventEmitter {
         /**
          *
@@ -19,7 +22,12 @@ module.exports = ({Transaction}) =>
         constructor(options) {
             super();
 
-            // TODO: register endpoint
+            const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
+            this._server = rpc.Server.$create({websocket: false});
+            this._server.enableAuth(rpcUser, rpcPass);
+
+            this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
+            this._server.listen(rpcPort, rpcAddress);
         }
 
         sendRawTx(bufTx) {

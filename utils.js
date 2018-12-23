@@ -23,7 +23,7 @@ const getMapsKeys = (...arrMaps) => {
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
-            setTimeout(() => resolve(), delay);
+            setTimeout(resolve, delay);
         });
     },
     arrayIntersection,
@@ -48,5 +48,11 @@ module.exports = {
 
     timestamp: () => {
         return parseInt(Date.now() / 1000);
+    },
+
+    asyncRPC: fn => (arg, opt, cb) => {
+        fn(arg, opt)
+            .then(result => cb(null, result))
+            .catch(cb);
     }
 };
