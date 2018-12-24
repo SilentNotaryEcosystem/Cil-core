@@ -76,16 +76,16 @@ module.exports = (factory) => {
             debugNode(`(address: "${this._debugAddress}") start listening`);
             this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
 
-            this._transport.listen().catch(err => console.error(err));
-            ;
             this._transport.on('connect', this._incomingConnection.bind(this));
 
             // create mempool
             this._mempool = new Mempool(options);
 
             //start RPC
-            this._rpc = new RPC(options);
-            this._rpc.on('rpc', this._rpcHandler.bind(this));
+            if (options.rpcUser && options.rpcPass) {
+                this._rpc = new RPC(options);
+                this._rpc.on('rpc', this._rpcHandler.bind(this));
+            }
 
             this._app = new Application(options);
 
@@ -111,6 +111,8 @@ module.exports = (factory) => {
         }
 
         async bootstrap() {
+
+            this._transport.listen().catch(err => console.error(err));
             await this._mergeSeedPeers();
 
             // add seed peers to peerManager
@@ -1123,7 +1125,8 @@ module.exports = (factory) => {
         _gracefulShutdown() {
 
             // TODO: implement flushing all in memory data to disk
-            debugLib('Termination signalled');
+            console.log('Shutting down');
+            process.exit(1);
         }
     };
 };

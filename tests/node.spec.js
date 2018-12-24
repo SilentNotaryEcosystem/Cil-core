@@ -406,7 +406,7 @@ describe('Node tests', () => {
     });
 
     it('should broadcast TX received via RPC', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node({rpcUser: 'test', rpcPass: 'test'});
         node._mempool.addTx = sinon.fake();
         node._informNeighbors = sinon.fake();
 
