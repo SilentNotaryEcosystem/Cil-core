@@ -298,6 +298,10 @@ module.exports = (factory) => {
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
+                if (message.isPong()) {
+                    return;
+                }
+
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(err, `Peer ${peer.address}`);
