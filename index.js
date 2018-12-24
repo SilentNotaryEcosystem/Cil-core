@@ -1,17 +1,26 @@
 const factory = require('./factory');
 const config = require('./config/prod.conf');
 
+const {readCmdLineOptions} = require('./utils');
+
 (async () => {
     await factory.asyncLoad();
 
+    // read command line options
+    const objCmdLineParams = readCmdLineOptions();
     const commonOptions = {
-        listenAddr: config.listenAddress,
-        arrSeedAddresses: config.listenAddress ? [config.listenAddress] : []
+
+        // if command line parameter have same name as option name, like "rpcUser"
+        ...objCmdLineParams,
+
+        // non matching names
+        listenPort: objCmdLineParams.port,
+        arrSeedAddresses: objCmdLineParams.seedAddr ? [objCmdLineParams.seedAddr] : []
     };
 
     let node;
-    if (config.privateKey) {
-        const witnessWallet = new factory.Wallet(config.privateKey);
+    if (objCmdLineParams.privateKey) {
+        const witnessWallet = new factory.Wallet(objCmdLineParams.privateKey);
         node = new factory.Witness({
             ...commonOptions,
             wallet: witnessWallet
@@ -32,6 +41,5 @@ const config = require('./config/prod.conf');
         while (!await node.start()) await sleep(1000);
     }
 
-    // process will remain active since node will start RPC server
 })()
     .catch(err => console.error(err));

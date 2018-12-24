@@ -2,6 +2,7 @@
   "name": "chain-in-law",
   "version": "0.0.1",
   "dependencies": {
+    "command-line-args": "^5.0.2",
     "dagjs": "git+https://github.com/trueshura/DAG.git",
     "elliptic": "^6.4.0",
     "ipaddr.js": "^1.8.0",

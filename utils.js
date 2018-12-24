@@ -1,3 +1,5 @@
+const commandLineArgs = require('command-line-args');
+
 const arrayIntersection = (array1, array2) => {
     const cache = new Set();
     const result = [];
@@ -54,5 +56,18 @@ module.exports = {
         fn(arg, opt)
             .then(result => cb(null, result))
             .catch(cb);
+    },
+
+    readCmdLineOptions: () => {
+        const optionDefinitions = [
+            {name: "listenAddr", type: String, multiple: false},
+            {name: "port", type: Number, multiple: false},
+            {name: "seedAddr", type: String, multiple: false},
+            {name: "rpcUser", type: String, multiple: false},
+            {name: "rpcPass", type: String, multiple: false},
+            {name: "rpcPort", type: Number, multiple: false},
+            {name: "rpcAddress", type: String, multiple: false}
+        ];
+        return commandLineArgs(optionDefinitions, {camelCase: true});
     }
 };
