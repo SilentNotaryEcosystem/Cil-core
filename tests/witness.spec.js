@@ -109,7 +109,7 @@ describe('Witness tests', () => {
     });
 
     it('should create block', async () => {
-        factory.Constants.GENEZIS_BLOCK = pseudoRandomBuffer().toString('hex');
+        factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
 
         const {witness, groupDefinition} = createDummyWitness();
 

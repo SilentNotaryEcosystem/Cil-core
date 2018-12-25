@@ -52,31 +52,31 @@ const createWitnesses = (num, seedAddress) => {
     return arrWitnesses;
 };
 
-const createGenezisBlock = () => {
+const createGenesisBlock = () => {
     const tx = new factory.Transaction(createDummyTx());
     const block = new factory.Block(0);
     block.addTx(tx);
     block.finish(0, pseudoRandomBuffer(33));
-    factory.Constants.GENEZIS_BLOCK = block.hash();
+    factory.Constants.GENESIS_BLOCK = block.hash();
 
     return block;
 };
 
-const createGenezisBlockAndSpendingTx = (witnessGroupId = 0) => {
+const createGenesisBlockAndSpendingTx = (witnessGroupId = 0) => {
     const receiverKeyPair = factory.Crypto.createKeyPair();
     const buffReceiverAddress = factory.Crypto.getAddress(receiverKeyPair.publicKey, true);
 
-    // create "genezis" tx
+    // create "genesis" tx
     const txGen = new factory.Transaction();
     txGen.witnessGroupId = witnessGroupId;
     txGen.addInput(Buffer.alloc(32), 0);
     txGen.addReceiver(1000000, buffReceiverAddress);
 
-    // create "genezis" block
-    const genezis = new factory.Block(0);
-    genezis.addTx(txGen);
-    genezis.finish(0, pseudoRandomBuffer(33));
-    factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+    // create "genesis" block
+    const genesis = new factory.Block(0);
+    genesis.addTx(txGen);
+    genesis.finish(0, pseudoRandomBuffer(33));
+    factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     // create spending tx
     const tx = new factory.Transaction();
@@ -85,7 +85,7 @@ const createGenezisBlockAndSpendingTx = (witnessGroupId = 0) => {
     tx.addReceiver(1000, buffReceiverAddress);
     tx.sign(0, receiverKeyPair.privateKey);
 
-    return {genezis, tx};
+    return {genesis, tx};
 };
 
 describe('Witness integration tests', () => {
@@ -103,11 +103,11 @@ describe('Witness integration tests', () => {
     it('should ACT same as regular node (get peers from seedNode)', async function() {
         this.timeout(maxConnections * 60000);
 
-        const genezis = createGenezisBlock();
+        const genesis = createGenesisBlock();
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
-        await seedNode._processBlock(genezis);
+        await seedNode._processBlock(genesis);
 
         // Peers already known by seedNode
         const peerInfo1 = new factory.Messages.PeerInfo({
@@ -138,11 +138,11 @@ describe('Witness integration tests', () => {
 
     it('should NOT commit block (empty mempool)', async function() {
         this.timeout(maxConnections * 60000);
-        const genezis = createGenezisBlock();
+        const genesis = createGenesisBlock();
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
-        await seedNode._processBlock(genezis);
+        await seedNode._processBlock(genesis);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
@@ -151,7 +151,7 @@ describe('Witness integration tests', () => {
 
         const arrSuppressedBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
-            await arrWitnesses[i]._processBlock(genezis);
+            await arrWitnesses[i]._processBlock(genesis);
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
                 arrWitnesses[i]._acceptBlock = createBlockFake;
@@ -169,11 +169,11 @@ describe('Witness integration tests', () => {
     it('should commit one block (tx in mempool)', async function() {
         this.timeout(maxConnections * 60000);
 
-        const {genezis, tx} = createGenezisBlockAndSpendingTx(groupId);
+        const {genesis, tx} = createGenesisBlockAndSpendingTx(groupId);
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay, arrTestDefinition: [groupDefinition]});
-        await seedNode._processBlock(genezis);
+        await seedNode._processBlock(genesis);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
@@ -182,7 +182,7 @@ describe('Witness integration tests', () => {
         const arrBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
 
-            await arrWitnesses[i]._processBlock(genezis);
+            await arrWitnesses[i]._processBlock(genesis);
 
             arrBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._postAccepBlock = resolve;
@@ -210,15 +210,15 @@ describe('Witness integration tests', () => {
     it('should NOT commit block (there is TX in mempool, but wrong witnessGroupId)', async function() {
         this.timeout(maxConnections * 60000);
 
-        const {genezis, tx} = createGenezisBlockAndSpendingTx(2);
+        const {genesis, tx} = createGenesisBlockAndSpendingTx(2);
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
-        await seedNode._processBlock(genezis);
+        await seedNode._processBlock(genesis);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
-        for (let witness of arrWitnesses) await witness._processBlock(genezis);
+        for (let witness of arrWitnesses) await witness._processBlock(genesis);
 
         const acceptBlockFake = sinon.fake();
 

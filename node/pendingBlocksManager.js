@@ -86,7 +86,7 @@ module.exports = (factory) => {
             const arrTips = this.getTips();
 
             // TODO: review it. it's good only at very beginning. No tips == Error!
-            if (!arrTips.length) arrTips.push(Constants.GENEZIS_BLOCK);
+            if (!arrTips.length) arrTips.push(Constants.GENESIS_BLOCK);
 
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
@@ -123,7 +123,7 @@ module.exports = (factory) => {
             return {
 
                 // TODO: review this condition
-                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
+                arrParents: arrParents.length ? arrParents : [Constants.GENESIS_BLOCK],
 //                arrParents: arrParents,
                 patchMerged
             };

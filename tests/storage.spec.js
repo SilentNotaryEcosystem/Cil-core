@@ -97,7 +97,7 @@ describe('Storage tests', () => {
         const rTx = new factory.Transaction(gotBlock.txns[0]);
     });
 
-    it('should apply "addCoins" patch to empty storage (like genezis)', async () => {
+    it('should apply "addCoins" patch to empty storage (like genesis)', async () => {
         const storage = new factory.Storage({});
 
         const patch = new factory.PatchDB(0);

@@ -398,7 +398,7 @@ module.exports = (factory) => {
             await this._verifyBlock(block);
 
             // it will check readiness of parents
-            if (this.isGenezisBlock(block) || await this._canExecuteBlock(block)) {
+            if (this.isGenesisBlock(block) || await this._canExecuteBlock(block)) {
 
                 // we'r ready to execute this block right now
                 const patchState = await this._execBlock(block);
@@ -479,11 +479,11 @@ module.exports = (factory) => {
             if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
 
                 // we missed at least one of those hashes! so we think peer is at wrong DAG
-                // sent our version of DAG starting from Genezis
-                arrHashes = [Constants.GENEZIS_BLOCK];
+                // sent our version of DAG starting from Genesis
+                arrHashes = [Constants.GENESIS_BLOCK];
 
-                // Genezis wouldn't be included, so add it here
-                inventory.addBlockHash(Constants.GENEZIS_BLOCK);
+                // Genesis wouldn't be included, so add it here
+                inventory.addBlockHash(Constants.GENESIS_BLOCK);
             }
 
             let currentLevel = [];
@@ -725,18 +725,18 @@ module.exports = (factory) => {
 
         /**
          *
-         * @param {Boolean} isGenezis
+         * @param {Boolean} isGenesis
          * @param {Transaction} tx
          * @param {PatchDB} patchForBlock - OPTIONAL!
          * @return {Promise<number>} fee for this TX
          * @private
          */
-        async _processTx(isGenezis, tx, patchForBlock) {
+        async _processTx(isGenesis, tx, patchForBlock) {
             const patch = patchForBlock ? patchForBlock : new PatchDB();
             let totalHas = 0;
 
             // process input (for regular block only)
-            if (!isGenezis) {
+            if (!isGenesis) {
                 tx.verify();
                 const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
                 ({totalHas} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
@@ -792,7 +792,7 @@ module.exports = (factory) => {
 
             // TODO: MIN_TX_FEE is fee per 1Kb of TX size
             // TODO: rework fee
-            if (!isGenezis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+            if (!isGenesis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
             return fee;
         }
@@ -825,7 +825,7 @@ module.exports = (factory) => {
         async _execBlock(block) {
 
             const patchState = this._pendingBlocks.mergePatches(block.parentHashes);
-            const isGenezis = this.isGenezisBlock(block);
+            const isGenesis = this.isGenesisBlock(block);
 
             let blockFees = 0;
             const blockTxns = block.txns;
@@ -833,12 +833,12 @@ module.exports = (factory) => {
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                const fee = await this._processTx(isGenezis, tx, patchState);
+                const fee = await this._processTx(isGenesis, tx, patchState);
                 blockFees += fee;
             }
 
             // process coinbase tx
-            if (!isGenezis) {
+            if (!isGenesis) {
                 const coinbase = new Transaction(blockTxns[0]);
                 this._checkCoinbaseTx(coinbase, blockFees);
                 const coins = coinbase.getOutCoins();
@@ -918,8 +918,8 @@ module.exports = (factory) => {
             assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
         }
 
-        isGenezisBlock(block) {
-            return block.hash() === Constants.GENEZIS_BLOCK;
+        isGenesisBlock(block) {
+            return block.hash() === Constants.GENESIS_BLOCK;
         }
 
         /**
@@ -932,14 +932,14 @@ module.exports = (factory) => {
          */
         async _verifyBlock(block, checkSignatures = true) {
 
-            // we create Genezis manually, so we sure that it's valid
-            if (block.getHash() === Constants.GENEZIS_BLOCK) return;
+            // we create Genesis manually, so we sure that it's valid
+            if (block.getHash() === Constants.GENESIS_BLOCK) return;
 
             // block should have at least one parent!
             assert(Array.isArray(block.parentHashes) && block.parentHashes.length);
 
             // signatures
-            if (checkSignatures && !this.isGenezisBlock(block)) await this._verifyBlockSignatures(block);
+            if (checkSignatures && !this.isGenesisBlock(block)) await this._verifyBlockSignatures(block);
 
             // merkleRoot
             assert(block.hash() !== block.merkleRoot.toString('hex'), `Bad merkle root for ${block.hash()}`);
@@ -989,8 +989,8 @@ module.exports = (factory) => {
                     }
                 }
 
-                // Do we reach GENEZIS?
-                if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENEZIS_BLOCK) break;
+                // Do we reach GENESIS?
+                if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];

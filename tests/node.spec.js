@@ -25,7 +25,7 @@ const createTxAddCoinsToNode = (node) => {
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
     const txHash = pseudoRandomBuffer().toString('hex');
 
-    // create "genezis"
+    // create "genesis"
     const coins = new factory.Coins(100000, buffAddress);
     patch.createCoins(txHash, 12, coins);
     patch.createCoins(txHash, 0, coins);
@@ -63,7 +63,7 @@ const createSimpleChain = async (callback) => {
         if (prevBlock) {
             block.parentHashes = [prevBlock.getHash()];
         } else {
-            factory.Constants.GENEZIS_BLOCK = block.getHash();
+            factory.Constants.GENESIS_BLOCK = block.getHash();
         }
         prevBlock = block;
         await callback(block);
@@ -73,17 +73,17 @@ const createSimpleChain = async (callback) => {
 };
 
 const createSimpleFork = async (callback) => {
-    const genezis = createDummyBlock(factory);
-    factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+    const genesis = createDummyBlock(factory);
+    factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const block1 = createDummyBlock(factory);
-    block1.parentHashes = [genezis.getHash()];
+    block1.parentHashes = [genesis.getHash()];
     const block2 = createDummyBlock(factory);
-    block2.parentHashes = [genezis.getHash()];
+    block2.parentHashes = [genesis.getHash()];
     const block3 = createDummyBlock(factory);
     block3.parentHashes = [block1.getHash(), block2.getHash()];
 
-    await callback(genezis);
+    await callback(genesis);
     await callback(block1);
     await callback(block2);
     await callback(block3);
@@ -528,7 +528,7 @@ describe('Node tests', () => {
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const txHash = pseudoRandomBuffer().toString('hex');
 
-        // create "genezis"
+        // create "genesis"
         const coins = new factory.Coins(100000, buffAddress);
         patch.createCoins(txHash, 12, coins);
 
@@ -555,10 +555,10 @@ describe('Node tests', () => {
         await node._processReceivedTx(tx);
     });
 
-    it('should process GENEZIS block', async () => {
+    it('should process GENESIS block', async () => {
         const node = new factory.Node({});
 
-        // Inputs doesn't checked for Genezis
+        // Inputs doesn't checked for Genesis
         node._app.processPayments = sinon.fake.returns(0);
 
         node._storage.saveBlock = sinon.fake();
@@ -570,7 +570,7 @@ describe('Node tests', () => {
         block.addTx(tx);
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
 
-        factory.Constants.GENEZIS_BLOCK = block.hash();
+        factory.Constants.GENESIS_BLOCK = block.hash();
         await node._execBlock(block);
 
         assert.isOk(node._app.processPayments.called);
@@ -771,9 +771,9 @@ describe('Node tests', () => {
 
         const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
-        // we expect receive INV message with all hashes except Genezis
+        // we expect receive INV message with all hashes except Genesis
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [factory.Constants.GENEZIS_BLOCK];
+        msgGetBlock.arrHashes = [factory.Constants.GENESIS_BLOCK];
 
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
@@ -804,9 +804,9 @@ describe('Node tests', () => {
             arrHashes.push(block.getHash());
         });
 
-        // we expect receive INV message with all hashes except Genezis
+        // we expect receive INV message with all hashes except Genesis
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [factory.Constants.GENEZIS_BLOCK];
+        msgGetBlock.arrHashes = [factory.Constants.GENESIS_BLOCK];
 
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
@@ -1036,7 +1036,7 @@ describe('Node tests', () => {
 
         node._app.createContract = sinon.fake();
 
-        // mark it as Genezis block TX (it skip many checks, like signatures & inputs)
+        // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
         await node._processTx(true, tx);
 
         assert.isOk(node._app.createContract.called);
@@ -1055,7 +1055,7 @@ describe('Node tests', () => {
         node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
         node._app.runContract = sinon.fake();
 
-        // mark it as Genezis block TX (it skip many checks, like signatures & inputs)
+        // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
         await node._processTx(true, tx, new factory.PatchDB(groupId));
 
         assert.isOk(node._app.runContract.calledOnce);

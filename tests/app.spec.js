@@ -8,12 +8,12 @@ const debug = require('debug')('application:test');
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
-const createGenezis = (factory, utxoHash) => {
+const createGenesis = (factory, utxoHash) => {
     const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
-    // create "genezis"
+    // create "genesis"
     const coins = new factory.Coins(100000, buffAddress);
     patch.createCoins(utxoHash, 12, coins);
     patch.createCoins(utxoHash, 0, coins);
@@ -43,7 +43,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -67,7 +67,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -91,7 +91,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -117,7 +117,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const anotherKeyPair = factory.Crypto.createKeyPair();
 
@@ -144,7 +144,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const anotherKeyPair = factory.Crypto.createKeyPair();
 
@@ -167,7 +167,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -196,7 +196,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
