@@ -11,7 +11,7 @@ message input{
 message output{
 
     // possibly here should be uint64 or bytes (BN)
-    uint32 amount=1;
+    fixed64 amount=1;
 
     // payment receiver
     bytes receiverAddr=2;

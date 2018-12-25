@@ -23,6 +23,15 @@ module.exports = ({Coins}, {utxoProto}) =>
 
                 if (data && Buffer.isBuffer(data)) {
                     this._data = utxoProto.decode(data);
+
+                    // fix fixed64 conversion to Long. see https://github.com/dcodeIO/ProtoBuf.js/
+                    // If a proper way to work with 64 bit values (uint64, int64 etc.) is required,
+                    // just install long.js alongside this library.
+                    // All 64 bit numbers will then be returned as a Long instance instead of a possibly
+                    // unsafe JavaScript number (see).
+                    for (let output of this._data.arrOutputs) {
+                        output.amount = output.amount.toNumber();
+                    }
                 }
             } else {
                 throw new Error('Construct from txHash');
