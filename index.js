@@ -8,6 +8,9 @@ const {readCmdLineOptions} = require('./utils');
 
     // read command line options
     const objCmdLineParams = readCmdLineOptions();
+
+    if (objCmdLineParams.genesisHash) factory.Constants.GENESIS_BLOCK = objCmdLineParams.genesisHash;
+
     const commonOptions = {
 
         // if command line parameter have same name as option name, like "rpcUser"
@@ -31,6 +34,7 @@ const {readCmdLineOptions} = require('./utils');
         });
     }
 
+    await node.ensureListening();
     await node.bootstrap();
 
     // it's a witness node

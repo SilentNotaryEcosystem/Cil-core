@@ -66,7 +66,8 @@ module.exports = {
             {name: "rpcUser", type: String, multiple: false},
             {name: "rpcPass", type: String, multiple: false},
             {name: "rpcPort", type: Number, multiple: false},
-            {name: "rpcAddress", type: String, multiple: false}
+            {name: "rpcAddress", type: String, multiple: false},
+            {name: "genesisHash", type: String, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     }
