@@ -83,7 +83,7 @@ module.exports = (factory) => {
         /**
          * Only for tests
          *
-         * @return {Buffer}
+         * @return {String} !!
          */
         static generateAddress() {
             return uuid.v4().substring(0, 8);

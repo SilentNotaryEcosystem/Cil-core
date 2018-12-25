@@ -52,7 +52,7 @@ module.exports = (factory) => {
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
 
-            this._arrSeedAddresses = arrSeedAddresses;
+            this._arrSeedAddresses = arrSeedAddresses || [];
             this._arrDnsSeeds = arrDnsSeeds;
 
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
@@ -96,6 +96,8 @@ module.exports = (factory) => {
 
             process.on('SIGINT', this._gracefulShutdown.bind(this));
             process.on('SIGTERM', this._gracefulShutdown.bind(this));
+
+            this._listenPromise = this._transport.listen().catch(err => console.error(err));
         }
 
         get rpc() {
@@ -110,9 +112,11 @@ module.exports = (factory) => {
             return Date.now() + this._msecOffset;
         }
 
-        async bootstrap() {
+        ensureListening() {
+            return this._listenPromise;
+        }
 
-            this._transport.listen().catch(err => console.error(err));
+        async bootstrap() {
             await this._mergeSeedPeers();
 
             // add seed peers to peerManager
@@ -234,9 +238,13 @@ module.exports = (factory) => {
 
         async _connectToPeers(peers) {
             for (let peer of peers) {
-                if (peer.disconnected) await this._connectToPeer(peer);
-                await peer.pushMessage(this._createMsgVersion());
-                await peer.loaded();
+                try {
+                    if (peer.disconnected) await this._connectToPeer(peer);
+                    await peer.pushMessage(this._createMsgVersion());
+                    await peer.loaded();
+                } catch (e) {
+                    logger.error(e);
+                }
             }
         }
 

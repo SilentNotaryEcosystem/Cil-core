@@ -281,6 +281,8 @@ module.exports = (factory) => {
                     const {groupId} = consensus;
                     const {block, patch} = await this._createBlock(groupId);
                     if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
+
+                        // catch it below
                         throw (0);
                     }
 

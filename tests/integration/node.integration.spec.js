@@ -13,6 +13,9 @@ const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('../testUt
 
 const debugNode = debugLib('node:app');
 
+// set to undefined to use random delays
+const delay = undefined;
+//const delay = 10;
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
 
 const createGenesisPatchAndSpendingTx = (factory) => {
@@ -43,7 +46,7 @@ const createNet = async (onlySeed = false) => {
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const seedAddress = factory.Transport.generateAddress();
-    const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+    const seedNode = new factory.Node({listenAddr: seedAddress, delay, rpcUser: 'test', rpcPass: 'test'});
     await seedNode._processBlock(genesis);
 
     const arrNodes = [];
@@ -60,7 +63,7 @@ const createLiveNet = async (onlySeed = false) => {
     factoryIpV6.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const [seedAddress] = factoryIpV6.Transport.getInterfacesIpV6Addresses();
-    const seedNode = new factoryIpV6.Node({listenAddr: seedAddress, delay: 0});
+    const seedNode = new factoryIpV6.Node({listenAddr: seedAddress, rpcUser: 'test', rpcPass: 'test'});
     await seedNode._processBlock(genesis);
 
     const arrNodes = [];
@@ -87,7 +90,8 @@ describe('Node integration tests', () => {
         const addr = factory.Transport.generateAddress();
         const newNode = new factory.Node({
             listenAddr: addr,
-            delay: 0, queryTimeout: 5000,
+            delay,
+            queryTimeout: 5000,
             arrSeedAddresses: [addr]
         });
         await newNode.bootstrap();
@@ -97,7 +101,7 @@ describe('Node integration tests', () => {
         this.timeout(20000);
 
         const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
         seedNode._handleGetBlocksMessage = sinon.fake();
 
         const peerInfo1 = new factory.Messages.PeerInfo({
@@ -129,7 +133,7 @@ describe('Node integration tests', () => {
 
         const testNode = new factory.Node({
             listenAddr: factory.Transport.strToAddress('Test node'),
-            delay: 10, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
+            delay, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
         });
         await testNode.bootstrap();
 
@@ -198,6 +202,7 @@ describe('Node integration tests', () => {
     it('should propagate GENESIS block over all nodes', async function() {
         this.timeout(60000);
         const {arrNodes} = await createNet(true);
+
         const arrBootstrapPromises = [];
         const arrBlockPromises = [];
 
@@ -215,6 +220,7 @@ describe('Node integration tests', () => {
     it('should create LIVE NET and propagate GENESIS block over all nodes', async function() {
         this.timeout(60000);
         const {arrNodes} = await createLiveNet(true);
+
         const arrBootstrapPromises = [];
         const arrBlockPromises = [];
 

@@ -13,8 +13,8 @@ const maxConnections = os.platform() === 'win32' ? 4 : 10;
 //const maxConnections = 2;
 
 // set to undefined to use random delays
-//const delay = undefined;
-const delay = 10;
+const delay = undefined;
+//const delay = 10;
 
 let groupId = 11;
 let arrKeyPairs;
@@ -172,7 +172,13 @@ describe('Witness integration tests', () => {
         const {genesis, tx} = createGenesisBlockAndSpendingTx(groupId);
 
         const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay, arrTestDefinition: [groupDefinition]});
+        const seedNode = new factory.Node({
+            listenAddr: seedAddress,
+            delay,
+            arrTestDefinition: [groupDefinition],
+            rpcUser: 'test',
+            rpcPass: 'test'
+        });
         await seedNode._processBlock(genesis);
 
         // create 'maxConnections' witnesses
@@ -208,15 +214,21 @@ describe('Witness integration tests', () => {
     });
 
     it('should NOT commit block (there is TX in mempool, but wrong witnessGroupId)', async function() {
-        this.timeout(maxConnections * 60000);
+        this.timeout(maxConnections * 200000);
 
+        // it will create tx for groupId==2
         const {genesis, tx} = createGenesisBlockAndSpendingTx(2);
 
         const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        const seedNode = new factory.Node({
+            listenAddr: seedAddress,
+            delay: 10,
+            rpcUser: 'test',
+            rpcPass: 'test'
+        });
         await seedNode._processBlock(genesis);
 
-        // create 'maxConnections' witnesses
+        // create 'maxConnections' witnesses for groupId (11 see global variable)
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
         for (let witness of arrWitnesses) await witness._processBlock(genesis);
 
