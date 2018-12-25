@@ -14,7 +14,7 @@ const debug = debugLib('application:');
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
     ;
-    const __MyRetVal={methods: exports.getMethods(), data: exports};
+    const __MyRetVal={arrCode: exports.getCode(), data: exports};
     __MyRetVal;
 `;
 
@@ -115,23 +115,21 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
                 const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
-                assert(retVal.methods, 'No contract methods exported!');
+                assert(retVal.arrCode, 'No contract methods exported!');
                 assert(retVal.data, 'No contract data exported!');
 
                 // get returned class instance with member data && exported functions
-                const objData = Object.assign({}, retVal.data);
+                const objData = JSON.parse(JSON.stringify(retVal.data));
 
                 // prepare methods for storing
-                const strCodeExportedFunctions = retVal.methods
-                    .map(strFuncName => retVal.data[strFuncName].toString())
-                    .join(Constants.CONTRACT_METHOD_SEPARATOR);
+                const strCodeExportedFunctions = retVal.arrCode.join(Constants.CONTRACT_METHOD_SEPARATOR);
 
                 // save receipt & data & functions code to patch
                 patch.setContract(contractAddr, objData, strCodeExportedFunctions);
 
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
-                logger.error(err);
+                logger.error('Error while creating contract!', new Error(err));
                 status = Constants.TX_STATUS_FAILED;
             }
 
