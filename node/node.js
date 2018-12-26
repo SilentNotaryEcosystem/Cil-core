@@ -833,6 +833,7 @@ module.exports = (factory) => {
         async _execBlock(block) {
 
             const patchState = this._pendingBlocks.mergePatches(block.parentHashes);
+            patchState.setGroupId(block.witnessGroupId);
             const isGenesis = this.isGenesisBlock(block);
 
             let blockFees = 0;
