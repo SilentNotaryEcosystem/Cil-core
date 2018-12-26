@@ -124,27 +124,29 @@ module.exports = (factory) => {
          * Return entire block!
          *
          * @param {String | Buffer} blockHash
-         * @return {Promise<Block>}
+         * @param {Boolean} raw
+         * @return {Promise<Block | Buffer>}
          */
-        async getBlock(blockHash) {
+        async getBlock(blockHash, raw = false) {
             typeforce(types.Hash256bit, blockHash);
 
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const key = BLOCK_PREFIX + strHash;
-            const block = this._blockStorage.get(key);
-            if (!block) throw new Error(`Storage: No block found by hash ${strHash}`);
-            return new Block(block);
+            const buffBlock = this._blockStorage.get(key);
+            if (!buffBlock) throw new Error(`Storage: No block found by hash ${strHash}`);
+            return raw ? buffBlock : new Block(buffBlock);
         }
 
         /**
          * Get BlockInfo @see proto/structures.proto
          *
          * @param {String | Buffer} blockHash
-         * @return {Promise<BlockInfo>}
+         * @param {Boolean} raw
+         * @return {Promise<BlockInfo | Buffer>}
          */
-        async getBlockInfo(blockHash) {
+        async getBlockInfo(blockHash, raw = false) {
             typeforce(types.Hash256bit, blockHash);
 
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
@@ -153,7 +155,7 @@ module.exports = (factory) => {
             const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
             const buffInfo = this._db.get(blockInfoKey);
             if (!buffInfo) throw new Error(`Storage: No block found by hash ${strHash}`);
-            return new BlockInfo(buffInfo);
+            return raw ? buffInfo : new BlockInfo(buffInfo);
         }
 
         /**
@@ -222,7 +224,13 @@ module.exports = (factory) => {
             return mapUtxos;
         }
 
-        async getUtxo(hash) {
+        /**
+         *
+         * @param {String | Buffer} hash - tx hash
+         * @param {Boolean} raw
+         * @returns {Promise<*>}
+         */
+        async getUtxo(hash, raw = false) {
             typeforce(types.Hash256bit, hash);
 
 //            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
@@ -230,10 +238,10 @@ module.exports = (factory) => {
             const key = UTXO_PREFIX + strHash;
 
             // TODO: implement persistent storage
-            const utxo = this._db.get(key);
-            if (!utxo) throw new Error(`Storage: UTXO with hash ${strHash} not found!`);
+            const buffUtxo = this._db.get(key);
+            if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${strHash} not found!`);
 
-            return new UTXO({txHash: hash, data: utxo});
+            return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
         }
 
         /**
@@ -274,19 +282,22 @@ module.exports = (factory) => {
         /**
          *
          * @param {String} strTxHash
+         * @param {Boolean} raw
          * @returns {Promise<any>}
          */
-        async getTxReceipt(strTxHash) {
+        async getTxReceipt(strTxHash, raw) {
             const key = RECEIPT_PREFIX + strTxHash;
-            return new TxReceipt(this._db.get(key));
+            const buffData = this._db.get(key);
+            return raw ? buffData : new TxReceipt(buffData);
         }
 
         /**
          *
          * @param {Buffer} buffAddress
-         * @return {Promise<Contract>}
+         * @param {Boolean} raw
+         * @return {Promise<Contract | Buffer>}
          */
-        async getContract(buffAddress) {
+        async getContract(buffAddress, raw = false) {
             typeforce(types.Address, buffAddress);
 
             const key = CONTRACT_PREFIX + buffAddress.toString('hex');
@@ -295,18 +306,18 @@ module.exports = (factory) => {
             const contract = new Contract(buffData);
             contract.storeAddress(buffAddress);
 
-            return contract;
+            return raw ? buffData : contract;
         }
 
         /**
          * the block hashes up to which the database represents the unspent transaction outputs.
-         *
+         * @param {Boolean} raw
          * @return {Promise<Array>} of buffers. each is hash of last stable block
          */
-        async getLastAppliedBlockHashes() {
+        async getLastAppliedBlockHashes(raw = false) {
 
             const result = this._db.get(LAST_APPLIED_BLOCKS);
-            return Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : [];
+            return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
         }
 
         /**
@@ -335,10 +346,15 @@ module.exports = (factory) => {
             this._db.set(LAST_APPLIED_BLOCKS, cArr.encode());
         }
 
-        async getPendingBlockHashes() {
+        /**
+         *
+         * @param {Boolean} raw
+         * @returns {Promise<*>}
+         */
+        async getPendingBlockHashes(raw = false) {
 
             const result = this._db.get(PENDING_BLOCKS);
-            return Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : [];
+            return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
         }
 
         async updatePendingBlocks(arrBlockHashes) {

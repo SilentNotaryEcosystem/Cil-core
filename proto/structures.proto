@@ -114,7 +114,7 @@ message TxReceipt{
     // if contract was created
     bytes contractAddress =1;
 
-    // actual fee for contract exec
+    // actual fee for contract exec (i think unit32 should be enough)
     uint32 coinsUsed =2;
 
     //
