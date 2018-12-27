@@ -1,7 +1,7 @@
 const factory = require('./factory');
 const config = require('./config/prod.conf');
 
-const {readCmdLineOptions} = require('./utils');
+const {readCmdLineOptions, sleep} = require('./utils');
 
 (async () => {
     await factory.asyncLoad();
@@ -33,6 +33,9 @@ const {readCmdLineOptions} = require('./utils');
             ...commonOptions
         });
     }
+
+    process.on('SIGINT', node.gracefulShutdown.bind(this));
+    process.on('SIGTERM', node.gracefulShutdown.bind(this));
 
     await node.ensureListening();
     await node.bootstrap();

@@ -94,9 +94,6 @@ module.exports = (factory) => {
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
 
-            process.on('SIGINT', this._gracefulShutdown.bind(this));
-            process.on('SIGTERM', this._gracefulShutdown.bind(this));
-
             this._listenPromise = this._transport.listen().catch(err => console.error(err));
         }
 
@@ -1135,7 +1132,7 @@ module.exports = (factory) => {
          * SIGINT & SIGTERM handlers
          * @private
          */
-        _gracefulShutdown() {
+        gracefulShutdown() {
 
             // TODO: implement flushing all in memory data to disk
             console.log('Shutting down');
