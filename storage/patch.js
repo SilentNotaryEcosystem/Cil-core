@@ -345,6 +345,15 @@ module.exports = ({UTXO, Contract}) =>
         /**
          *
          * @param {String} strTxHash
+         * @returns {TxReceipt}
+         */
+        getReceipt(strTxHash) {
+            return this._mapTxReceipts.get(strTxHash);
+        }
+
+        /**
+         *
+         * @param {String} strTxHash
          * @param {TxReceipt} receipt
          */
         setReceipt(strTxHash, receipt) {

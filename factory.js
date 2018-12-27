@@ -43,7 +43,7 @@ const WitnessWrapper = require('./node/witness');
 const RpcWrapper = require('./node/rpc');
 const AppWrapper = require('./node/app');
 
-const StorageWrapper = require('./storage/memoryStorage');
+const StorageWrapper = require('./storage/memoryStorageDefinition');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');

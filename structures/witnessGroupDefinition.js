@@ -1,13 +1,15 @@
 'use strict';
 
 const typeforce = require('typeforce');
+const v8 = require('v8');
+
 const types = require('../types');
 
 module.exports = (factory, {witnessGroupDefinitionProto}) =>
     class WitnessGroupDefinition {
         constructor(data) {
             if (Buffer.isBuffer(data)) {
-                this._data = {...witnessGroupDefinitionProto.decode(data)};
+                this._data = v8.deSerialize(data);
             } else if (typeof data === 'object') {
                 const errMsg = witnessGroupDefinitionProto.verify(data);
                 if (errMsg) throw new Error(`WitnessGroupDefinition: ${errMsg}`);
@@ -59,5 +61,15 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
             if (this._data.quorum) return this._data.quorum;
             const arr = this._data.delegatesPublicKeys || this._data.publicKeys;
             return parseInt(arr.length / 2) + 1;
+        }
+
+        /**
+         *
+         * @param {Object} objContractData - contract data, now {_arrGroupDefinitions: []}
+         * @returns {Array} of WitnessGroupDefinition
+         */
+        static getFromContractData(objContractData) {
+            const {_arrGroupDefinitions} = objContractData;
+            return _arrGroupDefinitions.map(objDefData => new this(objDefData));
         }
     };
