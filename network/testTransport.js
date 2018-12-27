@@ -86,7 +86,9 @@ module.exports = (factory) => {
          * @return {String} !!
          */
         static generateAddress() {
-            return uuid.v4().substring(0, 8);
+
+            // this awful construction will format address as needed (pad with zeroes ahead)
+            return this.addressToString(this.strToAddress(uuid.v4().substring(0, 8)));
         }
 
         static isPrivateAddress(address) {

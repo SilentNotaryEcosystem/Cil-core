@@ -7,14 +7,16 @@ const sinon = require('sinon');
 const factory = require('../testFactory');
 const {pseudoRandomBuffer, createDummyTx} = require('../testUtil');
 
+process.on('warning', e => console.warn(e.stack));
+
 const debugWitness = debugLib('witness:app');
 
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
 //const maxConnections = 2;
 
 // set to undefined to use random delays
-const delay = undefined;
-//const delay = 10;
+//const delay = undefined;
+const delay = 10;
 
 let groupId = 11;
 let arrKeyPairs;
@@ -92,7 +94,9 @@ describe('Witness integration tests', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
+    });
 
+    beforeEach(async function() {
         ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupId, maxConnections));
     });
 
@@ -205,6 +209,49 @@ describe('Witness integration tests', () => {
         // run
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
         await Promise.all(arrWitnesses.map(witness => witness.start()));
+
+        // inject TX into network
+        seedNode.rpc.sendRawTx(tx.encode());
+
+        // all witnesses + seedNode should get block (_acceptBlock called)
+        await Promise.all(arrBlocksPromises);
+    });
+
+    it('should work for SINGLE WITNESS (commit one block tx in mempool)', async function() {
+        this.timeout(maxConnections * 60000);
+
+        ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupId, 1));
+        const {genesis, tx} = createGenesisBlockAndSpendingTx(groupId);
+
+        const seedAddress = factory.Transport.generateAddress();
+        const seedNode = new factory.Node({
+            listenAddr: seedAddress,
+            delay,
+            arrTestDefinition: [groupDefinition],
+            rpcUser: 'test',
+            rpcPass: 'test'
+        });
+        await seedNode._processBlock(genesis);
+
+        // create ONE witnesses
+        const [witness] = createWitnesses(1, seedAddress);
+        await witness._processBlock(genesis);
+
+        const arrBlocksPromises = [];
+        arrBlocksPromises.push(new Promise(resolve => {
+            witness._postAccepBlock = resolve;
+        }));
+        witness._canExecuteBlock = sinon.fake.returns(true);
+
+        // add seed to array also
+        arrBlocksPromises.push(new Promise(resolve => {
+            seedNode._postAccepBlock = resolve;
+        }));
+        seedNode._canExecuteBlock = sinon.fake.returns(true);
+
+        // run
+        await witness.bootstrap();
+        await witness.start();
 
         // inject TX into network
         seedNode.rpc.sendRawTx(tx.encode());

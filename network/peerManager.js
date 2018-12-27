@@ -135,7 +135,7 @@ module.exports = (factory) => {
 
             // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
             // it could be ripemd160
-            return address.toString('hex') + port.toString();
+            return address + port.toString();
         }
     };
 };

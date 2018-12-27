@@ -138,8 +138,7 @@ module.exports = (factory) => {
          * @private
          */
         async _connectToPeer(peer) {
-            const address = this._transport.constructor.addressToString(peer.address);
-            debugNode(`(address: "${this._debugAddress}") connecting to "${address}"`);
+            debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
             return await peer.connect();
         }
 
@@ -228,7 +227,7 @@ module.exports = (factory) => {
             this._msecOffset -= peer.offsetDelta;
 
             let bestPeers = this._findBestPeers();
-            let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
+            let peers = bestPeers.filter(p => p.address !== peer.address)
                 .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
             await this._connectToPeers(peers);
         }
@@ -386,7 +385,7 @@ module.exports = (factory) => {
          * 2. we don't have all parents -> mark as InFlight, request that block
          *
          * @param {Block} block
-         * @return {Promise}
+         * @return {Promise <PatchDB | undefined>}
          * @private
          */
         async _processBlock(block) {
@@ -409,6 +408,8 @@ module.exports = (factory) => {
                 const patchState = await this._execBlock(block);
                 await this._acceptBlock(block, patchState);
                 await this._postAccepBlock();
+
+                return patchState;
             } else {
 
                 // not ready, so we should request unknown blocks

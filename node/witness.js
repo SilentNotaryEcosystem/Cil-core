@@ -161,7 +161,8 @@ module.exports = (factory) => {
                     const exposeMsg = this._createExposeMessage(messageWitness);
                     this._broadcastConsensusInitiatedMessage(exposeMsg);
                 }
-                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content}`);
+                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content.toString(
+                    'hex')}`);
                 consensus.processMessage(messageWitness);
             } catch (e) {
                 logger.error(e);
@@ -312,7 +313,7 @@ module.exports = (factory) => {
          * @private
          */
         _suppressedBlockHandler() {
-            debugWitness('Suppressing empty block');
+            debugWitness(`(address: "${this._debugAddress}"). Suppressing empty block`);
         }
 
         /**

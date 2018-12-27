@@ -80,7 +80,7 @@ module.exports = (factory) => {
 
         get tempBannedAddress() {
             return !!this._lastDisconnectedAddress
-                   && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
+                   && this._lastDisconnectedAddress === this.address
                    && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
@@ -96,8 +96,12 @@ module.exports = (factory) => {
             }
         }
 
+        /**
+         *
+         * @returns {String} !!!
+         */
         get address() {
-            return this._peerInfo.address;
+            return Transport.addressToString(this._peerInfo.address);
         }
 
         get port() {
@@ -205,15 +209,15 @@ module.exports = (factory) => {
                 return;
             }
             if (this.tempBannedAddress) {
-                debug('Trying to connect to banned address!');
+                logger.error('Trying to connect to banned address!');
                 return;
             }
             if (!this.disconnected) {
-                debug(`Peer ${this.address} already connected`);
+                logger.error(`Peer ${this.address} already connected`);
                 return;
             }
             this._bytesCount = 0;
-            this._connection = await this._transport.connect(Transport.addressToString(this.address), this.port);
+            this._connection = await this._transport.connect(this.address, this.port);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
         }
@@ -264,14 +268,18 @@ module.exports = (factory) => {
 
             // we have pending messages
             if (Array.isArray(this._queue)) {
-                debug(`Queue message "${msg.message}" to "${Transport.addressToString(this.address)}"`);
+                debug(`Queue message "${msg.message}" to "${this.address}"`);
                 this._queue.push(msg);
             } else {
                 this._queue = [msg];
                 let nextMsg;
                 while ((nextMsg = this._queue.shift())) {
-                    debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
-                    await this._connection.sendMessage(nextMsg);
+                    debug(`Sending message "${nextMsg.message}" to "${this.address}"`);
+
+                    // possibly, peer was disconnected between messages
+                    if (this._connection && typeof this._connection.sendMessage === 'function') {
+                        await this._connection.sendMessage(nextMsg);
+                    }
                     if (nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
                         this._bytesCount += nextMsg.payload.length;
                     }

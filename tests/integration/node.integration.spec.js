@@ -11,6 +11,8 @@ const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('../testUtil');
 
+process.on('warning', e => console.warn(e.stack));
+
 const debugNode = debugLib('node:app');
 
 // set to undefined to use random delays
@@ -52,6 +54,7 @@ const createNet = async (onlySeed = false) => {
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factory.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
+        await node.ensureListening();
         if (!onlySeed) await node._processBlock(genesis);
         arrNodes.push(node);
     }
@@ -69,6 +72,7 @@ const createLiveNet = async (onlySeed = false) => {
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factoryIpV6.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
+        await node.ensureListening();
         if (!onlySeed) await node._processBlock(genesis);
         arrNodes.push(node);
     }
@@ -86,7 +90,9 @@ describe('Node integration tests', () => {
         this.timeout(15000);
     });
 
-    it('should disconnect from self', async () => {
+    it('should disconnect from self', async function() {
+        this.timeout(20000);
+
         const addr = factory.Transport.generateAddress();
         const newNode = new factory.Node({
             listenAddr: addr,
@@ -132,7 +138,7 @@ describe('Node integration tests', () => {
         [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
 
         const testNode = new factory.Node({
-            listenAddr: factory.Transport.strToAddress('Test node'),
+            listenAddr: factory.Transport.generateAddress(),
             delay, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
         });
         await testNode.bootstrap();
