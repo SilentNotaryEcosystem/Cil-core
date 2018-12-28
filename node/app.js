@@ -99,11 +99,13 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
 
             // generate address for new contract
             const contractAddr = Crypto.getAddress(tx.hash());
+            const contractTx = tx.hash();
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
                 sandbox: {
-                    contractAddr
+                    contractAddr,
+                    contractTx
                 }
             });
 

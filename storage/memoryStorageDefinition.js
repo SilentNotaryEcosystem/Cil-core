@@ -52,7 +52,7 @@ module.exports = (factory) => {
             const arrResult = [];
             for (let def of this._arrGroupDefinition) {
                 if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) {
-                    arrResult.push(new WitnessGroupDefinition(def));
+                    arrResult.push(def);
                 }
             }
             return arrResult;
@@ -70,7 +70,7 @@ module.exports = (factory) => {
 
             // TODO: implement persistent storage
             return id > this._arrGroupDefinition.length ?
-                undefined : new WitnessGroupDefinition(this._arrGroupDefinition[id]);
+                undefined : this._arrGroupDefinition[id];
         }
 
         async getWitnessGroupsCount() {

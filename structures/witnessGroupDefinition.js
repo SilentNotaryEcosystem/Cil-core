@@ -49,10 +49,6 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
             return this._data.delegatesPublicKeys;
         }
 
-        getGroupContractAddress() {
-            return this._data.groupContractAddress;
-        }
-
         getGroupId() {
             return this._data.groupId;
         }

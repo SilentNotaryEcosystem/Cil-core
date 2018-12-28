@@ -53,10 +53,6 @@ module.exports = (factory) => {
             this._lastBlockTime = Date.now();
         }
 
-        get getGroupContractAddress() {
-            return this._groupDefinition.getGroupContractAddress();
-        }
-
         get groupId() {
             return this._groupDefinition.getGroupId();
         }
