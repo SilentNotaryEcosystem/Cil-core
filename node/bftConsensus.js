@@ -39,8 +39,8 @@ module.exports = (factory) => {
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
-            // public keys are buffers, transform it to strings, to use with maps
-            this._arrPublicKeys = groupDefinition.getPublicKeys().sort().map(key => key.toString('hex'));
+            // delegates public keys are buffers, transform it to strings, to use with maps
+            this._arrPublicKeys = groupDefinition.getDelegatesPublicKeys().sort().map(key => key.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
