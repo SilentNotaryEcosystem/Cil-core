@@ -220,7 +220,7 @@ module.exports = ({UTXO, Contract}) =>
 
                 // keep UTXO if it was changed
                 const utxo = this.getUtxo(hash);
-                if (!utxo.equals(patch.getUtxo(hash))) continue;
+                if (!utxo || !utxo.equals(patch.getUtxo(hash))) continue;
 
                 // remove it, if unchanged since (patch)
                 this._data.coins.delete(utxo.getTxHash());
@@ -274,6 +274,9 @@ module.exports = ({UTXO, Contract}) =>
         }
 
         setGroupId(nId) {
+
+            // invoked from constructor, which invoked from merge
+            if (nId === undefined) return;
 
             // it's equal block.witnessGroupId
             assert(this._groupId === undefined, '"groupId" already specified!');
