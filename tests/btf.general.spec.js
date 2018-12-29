@@ -46,6 +46,50 @@ describe('BFT general tests', () => {
         this.timeout(15000);
     });
 
+    it('should get MAJORITY for SOLO witness (group of 2 delegates, but with quorum 1)', async () => {
+        const kp1 = factory.Crypto.createKeyPair();
+        const kp2 = factory.Crypto.createKeyPair();
+        const newWallet = new factory.Wallet(kp1.privateKey);
+
+        const groupDefinition = factory.WitnessGroupDefinition.create(
+            groupId,
+            [kp1.publicKey, kp2.publicKey],
+            undefined,
+            1
+        );
+
+        const newBft = new factory.BFT({
+            groupDefinition,
+            wallet: newWallet
+        });
+        newBft._stopTimer();
+        assert.equal(newBft._majority([1, 0]), 1);
+        assert.equal(newBft._majority([undefined, 0]), 0);
+        assert.equal(newBft._majority([0, undefined]), 0);
+    });
+
+    it('should get default MAJORITY (group of 2 delegates, with quorum 2)', async () => {
+        const kp1 = factory.Crypto.createKeyPair();
+        const kp2 = factory.Crypto.createKeyPair();
+        const newWallet = new factory.Wallet(kp1.privateKey);
+
+        const groupDefinition = factory.WitnessGroupDefinition.create(
+            groupId,
+            [kp1.publicKey, kp2.publicKey],
+            undefined
+        );
+
+        const newBft = new factory.BFT({
+            groupDefinition,
+            wallet: newWallet
+        });
+        newBft._stopTimer();
+        assert.equal(newBft._majority([1, 0]), undefined);
+        assert.equal(newBft._majority([undefined, undefined]), undefined);
+        assert.equal(newBft._majority([1, 1]), 1);
+        assert.equal(newBft._majority([0, 0]), 0);
+    });
+
     it('should PASS (one witness)', async () => {
         const {newBft, groupDefinition} = createDummyBFT(groupId, 1);
         const sampleData = {data: 1};
@@ -716,82 +760,10 @@ describe('BFT general tests', () => {
         assert.throws(() => newBft._getSignaturesForBlock());
     });
 
-    it('should fail to get signatures (voted for different blocks)', async () => {
-        const {arrKeyPairs, newBft} = createDummyBFT();
-        const [keyPair1, keyPair2] = arrKeyPairs;
-
-        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
-        const fakeBlockHash2 = Buffer.from(factory.Crypto.randomBytes(32));
-
-        newBft._resetState();
-        newBft._block = {
-            hash: () => fakeBlockHash.toString('hex')
-        };
-
-        const createBlockAckMessage = (groupId, privateKey, blockHash) => {
-            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupId, blockHash});
-            msgBlockAck.sign(privateKey);
-            return msgBlockAck;
-        };
-
-        // Message received from party
-        const msgParty = createBlockAckMessage(groupId, keyPair2.privateKey, fakeBlockHash);
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
-
-        // My message
-        const msgMy = createBlockAckMessage(groupId, keyPair1.privateKey, fakeBlockHash2);
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
-
-        // My message returned by party
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
-
-        // Party message exposed by me
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
-
-        const arrSignatures = newBft._getSignaturesForBlock();
-        assert.isNotOk(arrSignatures);
-    });
-
-    it('should get signatures', async () => {
-        const {arrKeyPairs, newBft} = createDummyBFT();
-        const [keyPair1, keyPair2] = arrKeyPairs;
-
-        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
-
-        newBft._resetState();
-        newBft._block = {
-            hash: () => fakeBlockHash.toString('hex')
-        };
-
-        const createBlockAckMessage = (groupId, privateKey, blockHash) => {
-            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupId, blockHash: fakeBlockHash});
-            msgBlockAck.sign(privateKey);
-            return msgBlockAck;
-        };
-
-        // Message received from party
-        const msgParty = createBlockAckMessage(groupId, keyPair2.privateKey);
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
-
-        // My message
-        const msgMy = createBlockAckMessage(groupId, keyPair1.privateKey);
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
-
-        // My message returned by party
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
-
-        // Party message exposed by me
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
-
-        // emulate workflow, state will be reset and _getSignaturesForBlock will use stored _prevViews
-        newBft._resetState();
-        const arrSignatures = newBft._getSignaturesForBlock();
-        assert.isOk(arrSignatures);
-        assert.equal(arrSignatures.length, 2);
-
-        // it depends on sorting
-        assert.isOk(arrSignatures[0].equals(msgMy.hashSignature) || arrSignatures[1].equals(msgMy.hashSignature));
-        assert.isOk(arrSignatures[0].equals(msgParty.hashSignature) || arrSignatures[1].equals(msgParty.hashSignature));
-    });
-
+//    it('should move to COMMIT stage', async () => {
+//        const {newBft} = createDummyBFT(groupId,1);
+//        const block= createDummyBlock(factory, groupId);
+//
+//        newBft._voteStateHandler(true, {blockHash: })
+//    });
 });

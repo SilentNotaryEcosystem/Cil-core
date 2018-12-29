@@ -1,58 +1,144 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {sleep} = require('../../utils');
 
-describe('BFT consensus (DEMO tests)', () => {
+const {sleep} = require('../../utils');
+const factory = require('../testFactory');
+
+const groupId = 11;
+
+const createDummyBFT = (groupId = 0, numOfKeys = 2) => {
+    const arrKeyPairs = [];
+    const arrPublicKeys = [];
+    for (let i = 0; i < numOfKeys; i++) {
+        const keyPair = factory.Crypto.createKeyPair();
+        arrKeyPairs.push(keyPair);
+        arrPublicKeys.push(keyPair.publicKey);
+    }
+    const newWallet = new factory.Wallet(arrKeyPairs[0].privateKey);
+
+    const groupDefinition = factory.WitnessGroupDefinition.create(groupId, arrPublicKeys);
+
+    const newBft = new factory.BFT({
+        groupDefinition,
+        wallet: newWallet
+    });
+    newBft._stopTimer();
+
+    return {arrKeyPairs, newWallet, groupDefinition, newBft};
+};
+
+const createBlockAckMessage = (groupId, privateKey, blockHash) => {
+    const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupId, blockHash});
+    msgBlockAck.sign(privateKey);
+    return msgBlockAck;
+};
+
+describe('BFT consensus integration tests', () => {
     before(async function() {
         this.timeout(15000);
+
+        await factory.asyncLoad();
     });
 
     after(async function() {
         this.timeout(15000);
     });
 
-    it('should COMMIT on single witness (for example initial)', async () => {
-        // Для группы из 1 свидетеля (изначального в частности)
+    it('should fail to get signatures (voted for different blocks)', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT();
+        const [keyPair1, keyPair2] = arrKeyPairs;
+
+        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
+        const fakeBlockHash2 = Buffer.from(factory.Crypto.randomBytes(32));
+
+        newBft._resetState();
+        newBft._block = {
+            hash: () => fakeBlockHash.toString('hex')
+        };
+
+        const createBlockAckMessage = (groupId, privateKey, blockHash) => {
+            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupId, blockHash});
+            msgBlockAck.sign(privateKey);
+            return msgBlockAck;
+        };
+
+        // Message received from party
+        const msgParty = createBlockAckMessage(groupId, keyPair2.privateKey, fakeBlockHash);
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        // My message
+        const msgMy = createBlockAckMessage(groupId, keyPair1.privateKey, fakeBlockHash2);
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // My message returned by party
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // Party message exposed by me
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        const arrSignatures = newBft._getSignaturesForBlock();
+        assert.isNotOk(arrSignatures);
     });
 
-    it('should FAIL 2 witness (no quorum)', async () => {
-        // Для 2х свидетелей с одинаковым весом
+    it('should get signatures', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT();
+        const [keyPair1, keyPair2] = arrKeyPairs;
+
+        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
+
+        newBft._resetState();
+        newBft._block = {
+            hash: () => fakeBlockHash.toString('hex')
+        };
+
+        // Message received from party
+        const msgParty = createBlockAckMessage(groupId, keyPair2.privateKey, fakeBlockHash);
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        // My message
+        const msgMy = createBlockAckMessage(groupId, keyPair1.privateKey, fakeBlockHash);
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // My message returned by party
+        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
+
+        // Party message exposed by me
+        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
+
+        // emulate workflow, state will be reset and _getSignaturesForBlock will use stored _prevViews
+        newBft._resetState();
+        const arrSignatures = newBft._getSignaturesForBlock();
+        assert.isOk(arrSignatures);
+        assert.equal(arrSignatures.length, 2);
+
+        // it depends on sorting
+        assert.isOk(arrSignatures[0].equals(msgMy.hashSignature) || arrSignatures[1].equals(msgMy.hashSignature));
+        assert.isOk(arrSignatures[0].equals(msgParty.hashSignature) || arrSignatures[1].equals(msgParty.hashSignature));
     });
 
-    it('should COMMIT 2 witness (weighted consensus)', async () => {
-        // Для случая когда вляет вес свидетеля
-    });
+    it('should get signatures for SOLO witness', async () => {
+        const {arrKeyPairs, newBft} = createDummyBFT(groupId, 1);
+        const [keyPair1] = arrKeyPairs;
 
-    it('should COMMIT 3 witness', async () => {
-        // Для 3х свидетелей с одинаковым весом
-    });
+        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
 
-    it('should FAIL 3 witness but no transaction (no block)', async () => {
-        // Все хорошо, но транзакций нет - нет блока
-    });
+        newBft._resetState();
+        newBft._block = {
+            hash: () => fakeBlockHash.toString('hex')
+        };
 
-    it('should FAIL 3 witness, but one of different group', async () => {
-        // Все с одинаковым весом, но 3й принадлежит другой группе
-    });
+        const msg = createBlockAckMessage(groupId, keyPair1.privateKey, fakeBlockHash);
+        newBft._addViewOfNodeWithPubKey();
 
-    it('should FAIL 3 witness, but one propose higher block height', async () => {
-        // Все с одинаковым весом, но 1 предлагает блок на 1 больше чем видят 2 остальных (не получили предыдущий блок)
-    });
+        // emulate workflow, state will be reset and _getSignaturesForBlock will use stored _prevViews
+        newBft._resetState();
+        const arrSignatures = newBft._getSignaturesForBlock();
+        assert.isOk(arrSignatures);
+        assert.equal(arrSignatures.length, 2);
 
-    it('should FAIL 3 witness, but one propose lowe block height', async () => {
-        // Все с одинаковым весом, но 1 предлагает блок на 1 меньше чем видят 2 остальных (не получил предыдущий блок)
-    });
-
-    it('should FAIL 3 witness (no consensus on leader)', async () => {
-        // 2 одновременно предложили свои блоки. Нет синхронизации по лидеру.
-    });
-
-    it('should FAIL 3 witness (no consensus on block)', async () => {
-        // по крайней мере 1 не имеет транзакции в мемпуле включенной в блок. Рестартуем раунд.
-    });
-
-    it('should FAIL 4 witness (split network)', async () => {
-        // свидетели соеденены попарно
+        // it depends on sorting
+        assert.isOk(arrSignatures[0].equals(msgMy.hashSignature) || arrSignatures[1].equals(msgMy.hashSignature));
+        assert.isOk(arrSignatures[0].equals(msgParty.hashSignature) || arrSignatures[1].equals(msgParty.hashSignature));
     });
 
 });
