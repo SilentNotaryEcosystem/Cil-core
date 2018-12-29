@@ -76,11 +76,9 @@ message UTXO{
 }
 
 //--------------- Witness group definition ---------
-// not used since we encode with v8.serialize()
 
 message WitnessGroupDefinition{
     repeated bytes publicKeys=1;
-    bytes groupCreationTx=2;
     uint32 groupId=3;
     uint32 quorum=4;
     uint32 minFee=5;
