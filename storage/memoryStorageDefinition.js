@@ -368,7 +368,7 @@ module.exports = (factory) => {
         /**
          *
          * @param {Boolean} raw
-         * @returns {Promise<*>}
+         * @returns {Promise<ArrayOfHashes | Buffer>}
          */
         async getPendingBlockHashes(raw = false) {
 

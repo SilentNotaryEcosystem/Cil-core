@@ -89,7 +89,10 @@ module.exports = (factory) => {
 
             this._app = new Application(options);
 
-            this._pendingBlocks = new PendingBlocksManager();
+            this._rebuildPromise = this._storage.getPendingBlockHashes().then(arrOfHashes => {
+                this._pendingBlocks = new PendingBlocksManager(arrOfHashes);
+            });
+
             this._mainDag = new MainDag();
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
@@ -109,8 +112,8 @@ module.exports = (factory) => {
             return Date.now() + this._msecOffset;
         }
 
-        ensureListening() {
-            return this._listenPromise;
+        ensureLoaded() {
+            return Promise.all([this._listenPromise, this._rebuildPromise]);
         }
 
         async bootstrap() {
@@ -390,6 +393,8 @@ module.exports = (factory) => {
          */
         async _processBlock(block) {
 
+            debugLib(`Processing block ${block.hash()}`);
+
             // check: whether we already processed this block?
             const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
 
@@ -407,7 +412,7 @@ module.exports = (factory) => {
                 // we'r ready to execute this block right now
                 const patchState = await this._execBlock(block);
                 await this._acceptBlock(block, patchState);
-                await this._postAccepBlock();
+                await this._postAccepBlock(block);
 
                 return patchState;
             } else {
@@ -913,11 +918,12 @@ module.exports = (factory) => {
         /**
          * post hook
          *
+         * @param {Block} block
          * @returns {Promise<void>}
          * @private
          */
-        async _postAccepBlock() {
-
+        async _postAccepBlock(block) {
+            logger.log(`Block ${block.hash()} with ${block.txns.length} TXns was accepted`);
         }
 
         _checkCoinbaseTx(tx, blockFees) {
