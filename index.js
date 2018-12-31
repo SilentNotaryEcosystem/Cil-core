@@ -1,15 +1,19 @@
 const factory = require('./factory');
-const config = require('./config/prod.conf');
 
 const {readCmdLineOptions, sleep} = require('./utils');
 
 (async () => {
     await factory.asyncLoad();
 
+    console.log(`Using ${factory.Constants.strIdent} config`);
+
     // read command line options
     const objCmdLineParams = readCmdLineOptions();
 
     if (objCmdLineParams.genesisHash) factory.Constants.GENESIS_BLOCK = objCmdLineParams.genesisHash;
+    if (objCmdLineParams.groupDefContract) {
+        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.groupDefContract;
+    }
 
     const commonOptions = {
 
@@ -37,7 +41,7 @@ const {readCmdLineOptions, sleep} = require('./utils');
     process.on('SIGINT', node.gracefulShutdown.bind(this));
     process.on('SIGTERM', node.gracefulShutdown.bind(this));
 
-    await node.ensureListening();
+    await node.ensureLoaded();
     await node.bootstrap();
 
     // it's a witness node

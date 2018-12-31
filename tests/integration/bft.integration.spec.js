@@ -115,30 +115,4 @@ describe('BFT consensus integration tests', () => {
         assert.isOk(arrSignatures[0].equals(msgMy.hashSignature) || arrSignatures[1].equals(msgMy.hashSignature));
         assert.isOk(arrSignatures[0].equals(msgParty.hashSignature) || arrSignatures[1].equals(msgParty.hashSignature));
     });
-
-    it('should get signatures for SOLO witness', async () => {
-        const {arrKeyPairs, newBft} = createDummyBFT(groupId, 1);
-        const [keyPair1] = arrKeyPairs;
-
-        const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
-
-        newBft._resetState();
-        newBft._block = {
-            hash: () => fakeBlockHash.toString('hex')
-        };
-
-        const msg = createBlockAckMessage(groupId, keyPair1.privateKey, fakeBlockHash);
-        newBft._addViewOfNodeWithPubKey();
-
-        // emulate workflow, state will be reset and _getSignaturesForBlock will use stored _prevViews
-        newBft._resetState();
-        const arrSignatures = newBft._getSignaturesForBlock();
-        assert.isOk(arrSignatures);
-        assert.equal(arrSignatures.length, 2);
-
-        // it depends on sorting
-        assert.isOk(arrSignatures[0].equals(msgMy.hashSignature) || arrSignatures[1].equals(msgMy.hashSignature));
-        assert.isOk(arrSignatures[0].equals(msgParty.hashSignature) || arrSignatures[1].equals(msgParty.hashSignature));
-    });
-
 });
