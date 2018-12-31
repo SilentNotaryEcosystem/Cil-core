@@ -10,7 +10,6 @@ const debug = debugLib('storage:');
 // TODO: use mutex to get|put|patch records !!!
 
 const UTXO_PREFIX = 'c';
-const BLOCK_PREFIX = 'b';
 const BLOCK_INFO_PREFIX = 'H';
 const CONTRACT_PREFIX = 'S';
 const RECEIPT_PREFIX = 'R';
@@ -89,7 +88,8 @@ module.exports = (factory) => {
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
 
             // save entire block
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${strHash} already saved!`);
             this._blockStorage.set(key, block.encode());
 
@@ -128,7 +128,8 @@ module.exports = (factory) => {
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             await this._blockStorage.delete(key);
         }
 
@@ -145,7 +146,8 @@ module.exports = (factory) => {
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             const buffBlock = this._blockStorage.get(key);
             if (!buffBlock) throw new Error(`Storage: No block found by hash ${strHash}`);
             return raw ? buffBlock : new Block(buffBlock);
