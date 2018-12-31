@@ -54,7 +54,7 @@ const createNet = async (onlySeed = false) => {
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factory.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
-        await node.ensureListening();
+        await node.ensureLoaded();
         if (!onlySeed) await node._processBlock(genesis);
         arrNodes.push(node);
     }
@@ -72,7 +72,7 @@ const createLiveNet = async (onlySeed = false) => {
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factoryIpV6.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
-        await node.ensureListening();
+        await node.ensureLoaded();
         if (!onlySeed) await node._processBlock(genesis);
         arrNodes.push(node);
     }

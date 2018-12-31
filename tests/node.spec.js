@@ -6,6 +6,8 @@ const sinon = require('sinon').createSandbox();
 const {sleep, arrayEquals} = require('../utils');
 const debug = require('debug')('node:test');
 
+process.on('warning', e => console.warn(e.stack));
+
 const factory = require('./testFactory');
 const {
     createDummyTx,
@@ -437,6 +439,7 @@ describe('Node tests', () => {
 
         const groupDef = createGroupDefAndSignBlock(block);
         const node = new factory.Node({arrTestDefinition: [groupDef]});
+        await node.ensureLoaded();
 
         node._pendingBlocks.addBlock(parentBlock, new factory.PatchDB());
         await node._storeBlockAndInfo(parentBlock, new factory.BlockInfo(parentBlock.header));
@@ -470,6 +473,7 @@ describe('Node tests', () => {
 
         const groupDef = createGroupDefAndSignBlock(block);
         const node = new factory.Node({arrTestDefinition: [groupDef]});
+        await node.ensureLoaded();
 
         // make this block BAD
         node._app.processTxInputs = sinon.fake.throws('error');
@@ -557,6 +561,7 @@ describe('Node tests', () => {
 
     it('should process GENESIS block', async () => {
         const node = new factory.Node({});
+        await node.ensureLoaded();
 
         // Inputs doesn't checked for Genesis
         node._app.processPayments = sinon.fake.returns(0);
@@ -721,6 +726,8 @@ describe('Node tests', () => {
 
     it('should build PendingBlocks upon startup (from simple chain)', async () => {
         const node = new factory.Node({});
+        await node.ensureLoaded();
+
         const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
 
         //
@@ -734,6 +741,8 @@ describe('Node tests', () => {
 
     it('should build PendingBlocks upon startup (from simple fork)', async () => {
         const node = new factory.Node({});
+        await node.ensureLoaded();
+
         const arrBlocks = [];
 
         await createSimpleFork(async block => {
@@ -754,6 +763,8 @@ describe('Node tests', () => {
 
     it('should request unknown parent', async () => {
         const node = new factory.Node({});
+        await node.ensureLoaded();
+
         const block = createDummyBlock(factory);
 
         node._requestUnknownBlocks = sinon.fake();

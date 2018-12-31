@@ -55,7 +55,7 @@ module.exports = ({Coins}, {utxoProto}) =>
          * @returns {string | *}
          */
         getTxHash() {
-            return this._txHash;
+            return Buffer.isBuffer(this._txHash) ? this._txHash.toString('hex') : this._txHash;
         }
 
         /**
@@ -67,7 +67,7 @@ module.exports = ({Coins}, {utxoProto}) =>
             typeforce(typeforce.tuple(types.Amount, types.Coins), arguments);
 
             if (~this._data.arrIndexes.findIndex(i => i === idx)) {
-                throw new Error(`Tx ${this._txHash} index ${idx} already added!`);
+                throw new Error(`Tx ${this.getTxHash()} index ${idx} already added!`);
             }
 
             // this will make serialization mode simple
@@ -80,7 +80,7 @@ module.exports = ({Coins}, {utxoProto}) =>
 
             const idx = this._data.arrIndexes.findIndex(i => i === nTxOutput);
             if (!~idx) {
-                throw new Error(`Tx ${this._txHash} index ${nTxOutput} already deleted!`);
+                throw new Error(`Tx ${this.getTxHash()} index ${nTxOutput} already deleted!`);
             }
 
             this._data.arrIndexes.splice(idx, 1);
@@ -96,7 +96,7 @@ module.exports = ({Coins}, {utxoProto}) =>
             typeforce('Number', idx);
 
             const index = this._data.arrIndexes.findIndex(nOutput => nOutput === idx);
-            if (!~index) throw new Error(`Output #${idx} of Tx ${this._txHash} already spent!`);
+            if (!~index) throw new Error(`Output #${idx} of Tx ${this.getTxHash()} already spent!`);
 
             return Coins.createFromData(this._data.arrOutputs[index]);
         }
