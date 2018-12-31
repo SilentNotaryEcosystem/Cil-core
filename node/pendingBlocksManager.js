@@ -89,6 +89,7 @@ module.exports = (factory) => {
             let arrTips = this.getTips();
 
             if (!arrTips.length) arrTips = this._topStable;
+            if (!arrTips.length) arrTips = [Constants.GENESIS_BLOCK];
 
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
