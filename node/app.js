@@ -17,6 +17,7 @@ const strCodeSuffix = `
     const __MyRetVal={arrCode: exports.getCode(), data: exports};
     __MyRetVal;
 `;
+const CONTEXT_NAME = '__MyContext';
 
 module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =>
     class Application {
@@ -145,7 +146,6 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
         }
 
         async runContract(strInvocationCode, patch, contract, funcToLoadNestedContracts) {
-            const CONTEXT_NAME = '__MyContext';
 
             // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
             // form context from contract data
@@ -157,6 +157,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
             });
 
             // TODO: implement fee! (wrapping contract)
+            // this will bind code to data (assign 'this' variable)
             const strPreparedCode = this._prepareCode(contract.getCode(), strInvocationCode);
 
             let status;

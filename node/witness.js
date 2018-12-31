@@ -302,7 +302,7 @@ module.exports = (factory) => {
                 await this._acceptBlock(block, patch);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
-                await this._postAccepBlock();
+                await this._postAccepBlock(block);
                 consensus.blockCommited();
             });
         }
@@ -400,7 +400,6 @@ module.exports = (factory) => {
             // remove failed txns
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
-            // TODO: Store patch in DAG for pending blocks
             block.finish(totalFee, this._wallet.publicKey);
             debugWitness(
                 `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
