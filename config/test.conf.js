@@ -2,6 +2,8 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
+        strIdent: 'Test',
+
         network: 0x12882304,
         protocolVersion: 0x0123,
         port: 8223,

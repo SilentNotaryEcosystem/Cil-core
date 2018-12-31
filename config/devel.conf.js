@@ -2,7 +2,7 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
-        strIdent: 'Prod',
+        strIdent: 'Devel',
 
         network: 0x12882304,
         protocolVersion: 0x0123,
@@ -70,7 +70,7 @@ module.exports = {
         TOLERATED_TIME_DIFF: 60 * 60 * 1000,
 
         // how much we suppress creating empty blocks
-        WITNESS_HOLDOFF: 15 * 60 * 1000,
+        WITNESS_HOLDOFF: 5 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
 
         // fees

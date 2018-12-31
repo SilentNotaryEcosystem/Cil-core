@@ -14,17 +14,19 @@ debug.log = console.log.bind(console);
 
 // simple logger
 global.logger = {
-    error: msg => error(msg),
-    log: msg => log(msg),
-    info: msg => info(msg),
-    debug: msg => debug(msg)
+    error: (...msgs) => error(msgs),
+    log: (...msgs) => log(msgs),
+    info: (...msgs) => info(msgs),
+    debug: (...msgs) => debug(msgs)
 };
 
 /**
  * Class to easy replacement used components
  */
 
-const config = require('./config/prod.conf');
+const configProd = require('./config/prod.conf');
+const configDev = require('./config/devel.conf');
+const config = process.env.NODE_ENV === 'Devel' ? configDev : configProd;
 
 const Crypto = require('./crypto/crypto');
 const Ipv6TransportWrapper = require('./network/ipv6Transport');
