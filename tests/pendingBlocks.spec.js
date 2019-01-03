@@ -90,7 +90,7 @@ describe('Pending block manager', async () => {
         const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.throws();
 
-        pbm.addBlock(block1, patch);
+        pbm.addBlock(block1, new factory.PatchDB(0));
         pbm.addBlock(block2, patch);
 
         const {arrParents} = await pbm.getBestParents();
@@ -112,14 +112,14 @@ describe('Pending block manager', async () => {
 
         pbm.addBlock(block1, patch);
         pbm.addBlock(block2, patch);
-        pbm.addBlock(block3, patch);
+        pbm.addBlock(block3, new factory.PatchDB(0));
 
         const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 1);
         assert.isOk(arrayEquals(arrParents, [block3.getHash()]));
     });
 
-    it('should call merge 9 times', async () => {
+    it('should call merge 10 times', async () => {
 
         const pbm = new factory.PendingBlocksManager();
 
@@ -131,9 +131,7 @@ describe('Pending block manager', async () => {
             pbm.addBlock(block, patch);
         }
         await pbm.getBestParents();
-
-        // because first patch is assigned not merged
-        assert.isOk(patch.merge.callCount === 9);
+        assert.isOk(patch.merge.callCount === 10);
     });
 
     it('should select 2 from 3  (has conflicts)', async () => {
@@ -149,9 +147,7 @@ describe('Pending block manager', async () => {
         let callCount = 0;
         const patch = new factory.PatchDB(0);
         patch.merge = () => {
-
-            // really it's a second merge. first merge with self made by assignment
-            if (++callCount === 1) {
+            if (++callCount === 2) {
                 throw new Error('Conflict');
             }
         };
