@@ -4,6 +4,7 @@ const typeforce = require('typeforce');
 const debugLib = require('debug');
 const {sleep} = require('../utils');
 const types = require('../types');
+const Tick = require('tick-tock');
 
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
@@ -93,6 +94,7 @@ module.exports = (factory) => {
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
 
+            this._reconnectTimer = new Tick(this);
         }
 
         get rpc() {
@@ -123,6 +125,7 @@ module.exports = (factory) => {
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
             await this._connectToPeers(arrBestPeers);
+            //this._startReconnect();
         }
 
         /**
@@ -135,6 +138,7 @@ module.exports = (factory) => {
             const address = this._transport.constructor.addressToString(peer.address);
             debugNode(`(address: "${this._debugAddress}") connecting to "${address}"`);
             return await peer.connect();
+
         }
 
         /**
@@ -219,18 +223,30 @@ module.exports = (factory) => {
         async _peerDisconnect(peer) {
             this._msecOffset -= peer.offsetDelta;
 
-            let bestPeers = this._findBestPeers();
-            let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
-                .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
-            await this._connectToPeers(peers);
+            // let bestPeers = this._findBestPeers();
+            // let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
+            //     .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            // await this._connectToPeers(peers);
         }
 
         async _connectToPeers(peers) {
             for (let peer of peers) {
-                if (peer.disconnected) await this._connectToPeer(peer);
-                await peer.pushMessage(this._createMsgVersion());
-                await peer.loaded();
+                if (peer.disconnected) {
+                    await this._connectToPeer(peer);
+                    await peer.pushMessage(this._createMsgVersion());
+                    await peer.loaded();
+                }
             }
+        }
+
+        async _reconnectPeers() {
+            let bestPeers = this._findBestPeers().filter(p => p.disconnected);
+            let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            await this._connectToPeers(peers);
+        }
+
+        _startReconnect() {
+            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),  Constants.PEER_RECONNECT_INTERVAL);
         }
 
         /**
