@@ -263,7 +263,11 @@ describe('Application layer', () => {
         const patch = new factory.PatchDB(0);
         const tx = factory.Transaction.createContract(strCode, 100000);
         patch.setContract = sinon.fake();
-        app.createContract(tx, patch);
+        const env = {
+            contractTx: tx.hash(),
+            contractAddr: factory.Crypto.getAddress(tx.hash())
+        };
+        app.createContract(tx.getCode(), patch, env);
 
         assert.isOk(patch.setContract.called);
 
@@ -288,7 +292,8 @@ describe('Application layer', () => {
 
         const app = new factory.Application();
         const patch = new factory.PatchDB(groupId);
-        await app.runContract('add(10)', patch, contract);
+
+        await app.runContract('add(10)', patch, contract, {});
 
         const storedContract = patch.getContract(contractAddr.toString('hex'));
         assert.deepEqual(storedContract.getData(), {value: 110});

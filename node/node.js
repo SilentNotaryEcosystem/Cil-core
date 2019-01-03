@@ -757,14 +757,23 @@ module.exports = (factory) => {
             // TODO: for regular payment make "DB-transaction-like" behavior (revert spending coins in processTxInputs)
             let totalSent = 0;
             if (tx.hasOneReceiver()) {
-                const [coins] = tx.getOutCoins();
+
+                // prepare global variables for contract
+                const environment = {
+                    contractTx: tx.hash()
+                };
 
                 if (tx.isContractCreation()) {
-                    const receipt = await this._app.createContract(tx, patch);
+
+                    // Newly deployed contract address!
+                    environment.contractAddr = Crypto.getAddress(tx.hash());
+
+                    const receipt = await this._app.createContract(tx.getCode(), patch, environment);
                     patch.setReceipt(tx.hash(), receipt);
 
                     // TODO implement fee
                 } else {
+                    const [coins] = tx.getOutCoins();
 
                     // check: whether it's contract invocation
                     let contract;
@@ -784,7 +793,8 @@ module.exports = (factory) => {
                             `TX groupId: "${tx.witnessGroupId}" != contract groupId`
                         );
 
-                        const receipt = await this._app.runContract(tx.getCode(), patch, contract);
+                        environment.contractAddr = coins.getReceiverAddr().toString('hex');
+                        const receipt = await this._app.runContract(tx.getCode(), patch, contract, environment);
                         patch.setReceipt(tx.hash(), receipt);
 
                         // TODO implement fee

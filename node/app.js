@@ -91,22 +91,17 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
          * 2. Last code line - is creating instance of contract class
          * 3. Contract invocation - string. like functionName(...params)
          *
-         * @param {Transaction} tx - transaction with contract code
+         * @param {String} strCode - contract code
          * @param {PatchDB} patch - to store new contract & receipt
+         * @param {Object} environment - global variables for contract (like contractAddr)
          * @returns {TxReceipt}
          */
-        createContract(tx, patch) {
-            const strCode = tx.getCode();
-
-            // generate address for new contract
-            const contractAddr = Crypto.getAddress(tx.hash());
-            const contractTx = tx.hash();
+        createContract(strCode, patch, environment) {
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
                 sandbox: {
-                    contractAddr,
-                    contractTx
+                    ...environment
                 }
             });
 
@@ -122,13 +117,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
                 assert(retVal.data, 'No contract data exported!');
 
                 // get returned class instance with member data && exported functions
+                // this will keep only data (strip proxies)
                 const objData = JSON.parse(JSON.stringify(retVal.data));
 
                 // prepare methods for storing
                 const strCodeExportedFunctions = retVal.arrCode.join(Constants.CONTRACT_METHOD_SEPARATOR);
 
                 // save receipt & data & functions code to patch
-                patch.setContract(contractAddr, objData, strCodeExportedFunctions);
+                patch.setContract(environment.contractAddr, objData, strCodeExportedFunctions);
 
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
@@ -139,19 +135,29 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
             // TODO: create TX with change to author!
             // TODO: return Fee (see coinsUsed)
             return new TxReceipt({
-                contractAddress: Buffer.from(contractAddr, 'hex'),
+                contractAddress: Buffer.from(environment.contractAddr, 'hex'),
                 coinsUsed: Constants.MIN_CONTRACT_FEE,
                 status
             });
         }
 
-        async runContract(strInvocationCode, patch, contract, funcToLoadNestedContracts) {
+        /**
+         *
+         * @param {String} strInvocationCode - code to invoke, like publicMethod(param1, param2)
+         * @param {PatchDB} patch - to store results & receipts
+         * @param {Contract} contract - contract loaded from store (@see structures/contract.js)
+         * @param {Object} environment - global variables for contract (like contractAddr)
+         * @param {Function} funcToLoadNestedContracts - not used yet.
+         * @returns {Promise<*>}
+         */
+        async runContract(strInvocationCode, patch, contract, environment, funcToLoadNestedContracts) {
 
             // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
             // form context from contract data
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
                 sandbox: {
+                    ...environment,
                     [CONTEXT_NAME]: Object.assign({}, contract.getData())
                 }
             });
@@ -168,7 +174,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
 
                 // TODO: create receipt here
                 // TODO: send rest of moneys to receiver (which one of input?!). Possibly output for change?
-                const objData = Object.assign({}, newContractState);
+                // this will keep only data (strip proxies & member functions that we inject to call like this.method)
+                const objData = JSON.parse(JSON.stringify(newContractState));
 
                 // save receipt & data & functions code to patch
                 patch.setContract(contract.getStoredAddress(), objData);
@@ -222,10 +229,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
                     const newName = `__MyRenamed__${methodName}`;
 
                     // bind it to context
-                    const replacement = `const ${methodName}=${newName}.bind(__MyContext);function ${newName}`;
+                    // no ';' at the end because it's a replacement for function name
+                    const replacement = `const ${methodName}=${newName}.bind(${CONTEXT_NAME});function ${newName}`;
 
-                    // replace old name with new code
-                    return code.replace(oldName, replacement);
+                    // replace old name with code that we prepared above
+                    const preparedCode = code.replace(oldName, replacement);
+
+                    // inject function name into context, so we could use this.methodName
+                    return preparedCode + `;__MyContext['${methodName}']=${methodName};`;
                 })
                 .join('\n');
 

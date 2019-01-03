@@ -1041,9 +1041,7 @@ describe('Node tests', () => {
 
     it('should call createContract', async () => {
         const node = new factory.Node({});
-        const tx = new factory.Transaction();
-        tx.addInput(pseudoRandomBuffer(), 12);
-        tx.addReceiver(1000, factory.Crypto.getAddrContractCreation());
+        const tx = factory.Transaction.createContract('class A extends Base{}', 10000);
 
         node._app.createContract = sinon.fake();
 

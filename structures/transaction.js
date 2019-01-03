@@ -108,6 +108,16 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return tx;
         }
 
+        static invokeContract(strContractAddr, strCode, maxCoins) {
+            const tx = new this();
+            tx._data.payload.outs.push({
+                amount: maxCoins,
+                receiverAddr: Buffer.from(strContractAddr, 'hex'),
+                contractCode: strCode
+            });
+            return tx;
+        }
+
         /**
          *
          * @return {Array} Coins
