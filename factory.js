@@ -1,4 +1,5 @@
-const protobuf = require("protobufjs");
+const protobuf = require('protobufjs');
+const Mutex = require('mutex');
 const debugLib = require('debug');
 
 // Uncomment in prod!!
@@ -66,6 +67,7 @@ const pack = require('./package');
 class Factory {
     constructor() {
 
+        this._mutexSingleton = new Mutex();
         this._donePromise = this._asyncLoader();
         this._donePromise.then((prototypes) => {
 
@@ -121,6 +123,10 @@ class Factory {
             ...config.constants
         };
         this._walletImplementation = WalletWrapper(this.Crypto);
+    }
+
+    get Mutex() {
+        return this._mutexSingleton;
     }
 
     get version() {

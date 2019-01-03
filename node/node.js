@@ -27,7 +27,8 @@ module.exports = (factory) => {
         Coins,
         PendingBlocksManager,
         MainDag,
-        BlockInfo
+        BlockInfo,
+        Mutex
     } = factory;
     const {
         MsgCommon,
@@ -393,32 +394,40 @@ module.exports = (factory) => {
          */
         async _processBlock(block) {
 
-            debugLib(`Processing block ${block.hash()}`);
+            const lock = await Mutex.acquire(['block']);
 
-            // check: whether we already processed this block?
-            const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
+            try {
+                debugLib(`Processing block ${block.hash()}`);
 
-            if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
-                logger.error(`Trying to process ${block.getHash()} more than one time!`);
-                return;
-            }
+                // check: whether we already processed this block?
+                const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
 
-            // TODO: add mutex here?
-            await this._verifyBlock(block);
+                if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
+                    logger.error(`Trying to process ${block.getHash()} more than one time!`);
+                    return;
+                }
 
-            // it will check readiness of parents
-            if (this.isGenesisBlock(block) || await this._canExecuteBlock(block)) {
+                // TODO: add mutex here?
+                await this._verifyBlock(block);
 
-                // we'r ready to execute this block right now
-                const patchState = await this._execBlock(block);
-                await this._acceptBlock(block, patchState);
-                await this._postAccepBlock(block);
+                // it will check readiness of parents
+                if (this.isGenesisBlock(block) || await this._canExecuteBlock(block)) {
 
-                return patchState;
-            } else {
+                    // we'r ready to execute this block right now
+                    const patchState = await this._execBlock(block);
+                    await this._acceptBlock(block, patchState);
+                    await this._postAccepBlock(block);
 
-                // not ready, so we should request unknown blocks
-                this._requestUnknownBlocks();
+                    return patchState;
+                } else {
+
+                    // not ready, so we should request unknown blocks
+                    this._requestUnknownBlocks();
+                }
+            } catch (e) {
+                throw e;
+            } finally {
+                Mutex.release(lock);
             }
         }
 
@@ -944,7 +953,9 @@ module.exports = (factory) => {
          * @private
          */
         async _postAccepBlock(block) {
-            logger.log(`Block ${block.hash()} with ${block.txns.length} TXns was accepted`);
+            logger.log(
+                `Block ${block.hash()} with ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
+            );
         }
 
         /**
