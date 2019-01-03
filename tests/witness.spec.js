@@ -113,13 +113,13 @@ describe('Witness tests', () => {
 
         const {witness, groupDefinition} = createDummyWitness();
 
-        const patch = new factory.PatchDB(0);
+        const patchSource = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100000, Buffer.from(witness._wallet.address, 'hex'));
-        patch.createCoins(txHash, 1, coins);
-        patch.createCoins(txHash, 2, coins);
-        patch.createCoins(txHash, 3, coins);
-        await witness._storage.applyPatch(patch);
+        patchSource.createCoins(txHash, 1, coins);
+        patchSource.createCoins(txHash, 2, coins);
+        patchSource.createCoins(txHash, 3, coins);
+        await witness._storage.applyPatch(patchSource);
 
         const tx1 = new factory.Transaction();
         tx1.addInput(txHash, 1);
@@ -133,7 +133,9 @@ describe('Witness tests', () => {
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
-        const {block} = await witness._createBlock(groupDefinition.getGroupId());
+        const {block, patch} = await witness._createBlock(groupDefinition.getGroupId());
         assert.equal(block.txns.length, 3);
+
+        assert.isOk(patch.getUtxo(new factory.Transaction(block.txns[0]).hash()));
     });
 });

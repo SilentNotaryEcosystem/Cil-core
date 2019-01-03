@@ -851,15 +851,26 @@ module.exports = (factory) => {
 
             // process coinbase tx
             if (!isGenesis) {
-                const coinbase = new Transaction(blockTxns[0]);
-                this._checkCoinbaseTx(coinbase, blockFees);
-                const coins = coinbase.getOutCoins();
-                for (let i = 0; i < coins.length; i++) {
-                    patchState.createCoins(coinbase.hash(), i, coins[i]);
-                }
+                this._processBlockCoinbaseTX(block, blockFees, patchState);
             }
 
             return patchState;
+        }
+
+        /**
+         *
+         * @param {Block} block
+         * @param {Number} blockFees - sum of block TXns fees
+         * @param {PatchDB} patchState - patch to add coins
+         * @private
+         */
+        _processBlockCoinbaseTX(block, blockFees, patchState) {
+            const coinbase = new Transaction(block.txns[0]);
+            this._checkCoinbaseTx(coinbase, blockFees);
+            const coins = coinbase.getOutCoins();
+            for (let i = 0; i < coins.length; i++) {
+                patchState.createCoins(coinbase.hash(), i, coins[i]);
+            }
         }
 
         async _acceptBlock(block, patchState) {
@@ -926,6 +937,13 @@ module.exports = (factory) => {
             logger.log(`Block ${block.hash()} with ${block.txns.length} TXns was accepted`);
         }
 
+        /**
+         * You can add block reward checks here
+         *
+         * @param {Transaction} tx
+         * @param {Number} blockFees
+         * @private
+         */
         _checkCoinbaseTx(tx, blockFees) {
             assert(tx.isCoinbase(), 'Not a coinbase TX!');
             assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
@@ -961,6 +979,13 @@ module.exports = (factory) => {
             await this._storage.checkTxCollision(block.getTxHashes());
         }
 
+        /**
+         * Ok, if all block signatures (number og it equals to group quorum) matches delegates pubKeys
+         *
+         * @param {Blob} block
+         * @returns {Promise<void>}
+         * @private
+         */
         async _verifyBlockSignatures(block) {
             const buffBlockHash = Buffer.from(block.hash(), 'hex');
 
@@ -1010,6 +1035,11 @@ module.exports = (factory) => {
             }
         }
 
+        /**
+         * Used at startup to rebuild DAG of pending blocks
+         *
+         * @returns {Promise<void>}
+         */
         async rebuildPending() {
             const arrHashes = await this._storage.getPendingBlockHashes();
             const mapBlocks = new Map();
@@ -1049,12 +1079,6 @@ module.exports = (factory) => {
         async _blockBad(block) {
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsBad();
-            await this._storeBlockAndInfo(block, blockInfo);
-        }
-
-        async _blockFinal(block) {
-            const blockInfo = new BlockInfo(block.header);
-            blockInfo.markAsFinal();
             await this._storeBlockAndInfo(block, blockInfo);
         }
 

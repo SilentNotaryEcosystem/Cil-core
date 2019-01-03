@@ -78,12 +78,12 @@ describe('Storage tests', () => {
 
     it('should NOT find block in storage', async () => {
         const storage = new factory.Storage({});
-        assert.isNotOk(await storage.hasBlock(Buffer.allocUnsafe(32)));
+        assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32)));
     });
 
     it('should NOT find block in storage', async () => {
         const storage = new factory.Storage({});
-        assert.isNotOk(await storage.hasBlock(Buffer.allocUnsafe(32).toString('hex')));
+        assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32).toString('hex')));
     });
 
     it('should get saved block', async () => {

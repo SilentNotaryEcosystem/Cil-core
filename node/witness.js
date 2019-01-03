@@ -401,6 +401,9 @@ module.exports = (factory) => {
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
             block.finish(totalFee, this._wallet.publicKey);
+
+            this._processBlockCoinbaseTX(block, totalFee, patchMerged);
+
             debugWitness(
                 `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
 
