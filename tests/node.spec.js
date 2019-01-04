@@ -984,7 +984,7 @@ describe('Node tests', () => {
     });
 
     it('should reconnect peers', async function() {
-        this.timeout(3000);
+        this.timeout(4000);
         const node = new factory.Node({});
         const pushMessage = sinon.fake.returns(Promise.resolve(null));
         const loaded = sinon.fake.returns(Promise.resolve(null));
@@ -1031,12 +1031,9 @@ describe('Node tests', () => {
             peer.loaded = loaded;
             node._peerManager.addPeer(peer);
         });
-        let peer = peers[0];
-        peer.emit('disconnect', peer);
-        await sleep(1500);
-
-        assert.equal(connectToPeer.callCount, 2);
-        assert.equal(pushMessage.callCount, 2);
+        await node._reconnectPeers();
+        assert.equal(connectToPeer.callCount, 3);
+        assert.equal(pushMessage.callCount, 3);
     });
 
     it('should call createContract', async () => {

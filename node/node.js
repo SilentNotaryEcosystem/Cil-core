@@ -4,6 +4,7 @@ const typeforce = require('typeforce');
 const debugLib = require('debug');
 const {sleep} = require('../utils');
 const types = require('../types');
+const Tick = require('tick-tock');
 
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
@@ -98,6 +99,7 @@ module.exports = (factory) => {
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
 
+            this._reconnectTimer = new Tick(this);
             this._listenPromise = this._transport.listen().catch(err => console.error(err));
         }
 
@@ -133,6 +135,7 @@ module.exports = (factory) => {
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
             await this._connectToPeers(arrBestPeers);
+            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),  Constants.PEER_RECONNECT_INTERVAL);
         }
 
         /**
@@ -144,6 +147,7 @@ module.exports = (factory) => {
         async _connectToPeer(peer) {
             debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
             return await peer.connect();
+
         }
 
         /**
@@ -229,11 +233,6 @@ module.exports = (factory) => {
 
         async _peerDisconnect(peer) {
             this._msecOffset -= peer.offsetDelta;
-
-            let bestPeers = this._findBestPeers();
-            let peers = bestPeers.filter(p => p.address !== peer.address)
-                .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
-            await this._connectToPeers(peers);
         }
 
         async _connectToPeers(peers) {
@@ -246,6 +245,12 @@ module.exports = (factory) => {
                     logger.error(e);
                 }
             }
+        }
+
+        async _reconnectPeers() {
+            let bestPeers = this._findBestPeers().filter(p => p.disconnected);
+            let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            await this._connectToPeers(peers);
         }
 
         /**
