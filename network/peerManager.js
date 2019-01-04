@@ -57,7 +57,10 @@ module.exports = (factory) => {
                 return Constants.REJECT_DUPLICATE;
             }
 
-            if (existingPeer && existingPeer.tempBannedAddress) return Constants.REJECT_BANNEDADDRESS;
+            if (existingPeer && existingPeer.tempBannedAddress) {
+                return Constants.REJECT_BANNEDADDRESS;
+            }
+
             // we connected to that peer so we believe that this info more correct
             if (existingPeer && (existingPeer.version || !existingPeer.disconnected)) return existingPeer;
 
@@ -67,6 +70,21 @@ module.exports = (factory) => {
             // TODO: emit new peer
             this._allPeers.set(key, peer);
             return peer;
+        }
+
+        removePeer(peer) {
+            if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
+            const key = this._createKey(peer.address, peer.port);
+            const foundPeer = this._allPeers.get(key);
+
+            foundPeer.removeAllListeners();
+            this._allPeers.delete(key);
+        }
+
+        hasPeer(peer) {
+            if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
+            const key = this._createKey(peer.address, peer.port);
+            return this._allPeers.has(key);
         }
 
         updateHandlers(peer) {
@@ -96,7 +114,9 @@ module.exports = (factory) => {
         _peerDisconnect(thisPeer) {
             this.emit('disconnect', thisPeer);
         }
+
         /**
+         * Return only alive & not banned peers
          *
          * @param {Number} service - @see Constants
          * @return {Array} of Peers
@@ -108,7 +128,7 @@ module.exports = (factory) => {
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
             for (let [, peer] of this._allPeers.entries()) {
                 if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
-                    if (!peer.banned && peer.lastActionTimestamp > tsAlive) {
+                    if (!peer.banned && !peer.tempBannedAddress && peer.lastActionTimestamp > tsAlive) {
                         arrResult.push(peer);
                     }
                 }

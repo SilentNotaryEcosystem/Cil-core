@@ -602,8 +602,8 @@ module.exports = (factory) => {
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
 
-                // TODO: should be reviewed, since ban self not only prevent connection to self, but exclude self from advertising it
-                peer.ban();
+                this._peerManager.removePeer(peer);
+                peer.disconnect('Connection to self detected');
                 return;
             }
 
@@ -678,12 +678,15 @@ module.exports = (factory) => {
         async _handlePeerRequest(peer) {
 
             // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
-            const arrPeers = this._peerManager.filterPeers().map(peer => peer.peerInfo.data);
-            if (arrPeers.length > Constants.ADDR_MAX_LENGTH) {
+            const arrPeerInfos = this._peerManager.filterPeers().map(peer => peer.peerInfo.data);
+
+            // add address of this node (it's absent in peerManager)
+            arrPeerInfos.push(this._myPeerInfo.data);
+            if (arrPeerInfos.length > Constants.ADDR_MAX_LENGTH) {
                 logger.error('Its time to implement multiple addr messages');
             }
-            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeers.length} items`);
-            await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
+            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeerInfos.length} items`);
+            await peer.pushMessage(new MsgAddr({count: arrPeerInfos.length, peers: arrPeerInfos}));
         }
 
         /**

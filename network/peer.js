@@ -14,7 +14,7 @@ module.exports = (factory) => {
     const {Messages, Transport, Constants} = factory;
     const {
         MsgCommon,
-        PeerInfo,
+        PeerInfo
     } = Messages;
     //const {PeerInfo} = Messages;
     const PEER_TIMER_NAME = 'peerTimer';
@@ -69,13 +69,6 @@ module.exports = (factory) => {
                 Constants.PEER_PING_TIMEOUT
             );
 
-        }
-
-        /**
-         * witness peers shouldn't be disconnected
-         */
-        markAsPersistent() {
-            this._persistent = true;
         }
 
         get tempBannedAddress() {
@@ -177,6 +170,13 @@ module.exports = (factory) => {
 
         set offsetDelta(delta) {
             this._msecOffsetDelta = delta;
+        }
+
+        /**
+         * witness peers shouldn't be disconnected
+         */
+        markAsPersistent() {
+            this._persistent = true;
         }
 
         addTag(tag) {
@@ -312,8 +312,8 @@ module.exports = (factory) => {
             if (this._missbehaveScore >= Constants.BAN_PEER_SCORE) this.ban();
         }
 
-        disconnect(reason) {
-            debug(`${reason}. Closing connection to "${this._connection.remoteAddress}"`);
+        disconnect(strReason) {
+            debug(`${strReason}. Closing connection to "${this._connection.remoteAddress}"`);
             this._cleanup();
             this._lastDisconnectedAddress = this._connection.remoteAddress;
             this._lastDisconnectionTime = Date.now();

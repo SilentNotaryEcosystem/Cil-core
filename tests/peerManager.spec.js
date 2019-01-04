@@ -278,4 +278,14 @@ describe('Peer manager', () => {
         assert.equal(result, factory.Constants.REJECT_BANNEDADDRESS);
     });
 
+    it('should remove peer', async () => {
+        const pm = new factory.PeerManager();
+        const peer = new factory.Peer(createDummyPeer(factory));
+
+        pm.addPeer(peer);
+        assert.isOk(pm.hasPeer(peer));
+        pm.removePeer(peer);
+        assert.isNotOk(pm.hasPeer(peer));
+    });
+
 });

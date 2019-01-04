@@ -204,7 +204,9 @@ describe('Node tests', () => {
         const [msg] = sendMessage.args[0];
         assert.isOk(msg && msg.isAddr());
         assert.isOk(msg.peers);
-        assert.equal(msg.peers.length, 4);
+
+        // 4 known + self
+        assert.equal(msg.peers.length, 5);
         msg.peers.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
         });
