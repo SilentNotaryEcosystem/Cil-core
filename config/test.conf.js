@@ -88,6 +88,6 @@ module.exports = {
         PEER_PING_TIMER_NAME: 'peerPingTimer',
         PEER_PING_TIMEOUT: 4 * 60 * 1000,
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
-        PEER_RECONNECT_INTERVAL: 2 * 1000
+        PEER_RECONNECT_INTERVAL: 2 * 60 * 1000
     }
 };

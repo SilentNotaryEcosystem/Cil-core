@@ -1015,8 +1015,7 @@ describe('Node tests', () => {
             peer.loaded = loaded;
             node._peerManager.addPeer(peer);
         });
-        node._startReconnect();
-        await sleep(2100);
+        await node._reconnectPeers();
         assert.equal(connectToPeer.callCount, 3);
         assert.equal(pushMessage.callCount, 3);
     });
