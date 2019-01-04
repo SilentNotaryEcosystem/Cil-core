@@ -147,7 +147,6 @@ module.exports = (factory) => {
         async _connectToPeer(peer) {
             debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
             return await peer.connect();
-
         }
 
         /**
@@ -421,7 +420,7 @@ module.exports = (factory) => {
                     // we'r ready to execute this block right now
                     const patchState = await this._execBlock(block);
                     await this._acceptBlock(block, patchState);
-                    await this._postAccepBlock(block);
+                    await this._postAcceptBlock(block);
 
                     return patchState;
                 } else {
@@ -960,7 +959,7 @@ module.exports = (factory) => {
          * @returns {Promise<void>}
          * @private
          */
-        async _postAccepBlock(block) {
+        async _postAcceptBlock(block) {
             logger.log(
                 `Block ${block.hash()} with ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );

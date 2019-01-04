@@ -195,14 +195,14 @@ describe('Witness integration tests', () => {
             await arrWitnesses[i]._processBlock(genesis);
 
             arrBlocksPromises.push(new Promise(resolve => {
-                arrWitnesses[i]._postAccepBlock = resolve;
+                arrWitnesses[i]._postAcceptBlock = resolve;
             }));
             arrWitnesses[i]._canExecuteBlock = sinon.fake.returns(true);
         }
 
         // add seed to array also
         arrBlocksPromises.push(new Promise(resolve => {
-            seedNode._postAccepBlock = resolve;
+            seedNode._postAcceptBlock = resolve;
         }));
         seedNode._canExecuteBlock = sinon.fake.returns(true);
 
@@ -239,13 +239,13 @@ describe('Witness integration tests', () => {
 
         const arrBlocksPromises = [];
         arrBlocksPromises.push(new Promise(resolve => {
-            witness._postAccepBlock = resolve;
+            witness._postAcceptBlock = resolve;
         }));
         witness._canExecuteBlock = sinon.fake.returns(true);
 
         // add seed to array also
         arrBlocksPromises.push(new Promise(resolve => {
-            seedNode._postAccepBlock = resolve;
+            seedNode._postAcceptBlock = resolve;
         }));
         seedNode._canExecuteBlock = sinon.fake.returns(true);
 

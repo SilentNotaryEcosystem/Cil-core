@@ -302,7 +302,7 @@ module.exports = (factory) => {
                 await this._acceptBlock(block, patch);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
-                await this._postAccepBlock(block);
+                await this._postAcceptBlock(block);
                 consensus.blockCommited();
             });
         }
