@@ -135,7 +135,9 @@ module.exports = (factory) => {
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._findBestPeers();
             await this._connectToPeers(arrBestPeers);
-            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),  Constants.PEER_RECONNECT_INTERVAL);
+            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),
+                Constants.PEER_RECONNECT_INTERVAL
+            );
         }
 
         /**
