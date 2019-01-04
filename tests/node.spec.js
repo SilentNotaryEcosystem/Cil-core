@@ -429,7 +429,32 @@ describe('Node tests', () => {
         assert.isOk(txToSend.equals(tx));
     });
 
-    it('should process good block from MsgBlock', async () => {
+    it('should process NEW block from MsgBlock', async () => {
+        const node = new factory.Node({});
+
+        const block = createDummyBlock(factory);
+        const msg = new factory.Messages.MsgBlock(block);
+
+        node._mainDag.getBlockInfo = sinon.fake.resolves(false);
+        node._processBlock = sinon.fake();
+        await node._handleBlockMessage(undefined, msg);
+
+        assert.isOk(node._processBlock.called);
+    });
+
+    it('should omit KNOWN block from MsgBlock', async () => {
+        const node = new factory.Node({});
+
+        const block = createDummyBlock(factory);
+        const msg = new factory.Messages.MsgBlock(block);
+
+        node._mainDag.getBlockInfo = sinon.fake.resolves(true);
+        await node._handleBlockMessage(undefined, msg);
+
+        assert.isNotOk(node._processBlock.called);
+    });
+
+    it('should process good block', async () => {
         const tx = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
         const parentBlock = createDummyBlock(factory);
@@ -439,10 +464,10 @@ describe('Node tests', () => {
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
         block.parentHashes = [parentBlock.getHash()];
 
-        const groupDef = createGroupDefAndSignBlock(block);
-        const node = new factory.Node({arrTestDefinition: [groupDef]});
+        const node = new factory.Node({});
         await node.ensureLoaded();
 
+        node._verifyBlockSignatures = sinon.fake.resolves(true);
         node._pendingBlocks.addBlock(parentBlock, new factory.PatchDB());
         await node._storeBlockAndInfo(parentBlock, new factory.BlockInfo(parentBlock.header));
 
@@ -467,7 +492,6 @@ describe('Node tests', () => {
         assert.isOk(node._informNeighbors.calledOnce);
 
         assert.isNotOk(peer.ban.called);
-
     });
 
     it('should process BAD block from MsgBlock', async () => {
@@ -505,7 +529,7 @@ describe('Node tests', () => {
         assert.isOk(false, 'Unexpected success');
     });
 
-    it('should throw (no UTXO for tx)', async () => {
+    it('should throw while _processReceivedTx (no UTXO for tx)', async () => {
         const node = new factory.Node({});
 
         const txHash = pseudoRandomBuffer().toString('hex');
@@ -526,7 +550,7 @@ describe('Node tests', () => {
         throw new Error('Unexpected success');
     });
 
-    it('should throw (fee is too small)', async () => {
+    it('should throw while _processReceivedTx (fee is too small)', async () => {
         const node = new factory.Node({});
 
         const patch = new factory.PatchDB(0);
@@ -631,7 +655,8 @@ describe('Node tests', () => {
         const groupDef2 = createGroupDefAndSignBlock(block2, 7);
 
         // groupId: 0 will have different keys used for block2
-        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+        const node = new factory.Node({});
+        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -651,7 +676,8 @@ describe('Node tests', () => {
         const groupDef2 = createGroupDefAndSignBlock(block2);
 
         // groupId: 0 will have different keys used for block2
-        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+        const node = new factory.Node({});
+        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -666,7 +692,8 @@ describe('Node tests', () => {
     it('should check BLOCK SIGNATURES', async () => {
         const block = createDummyBlock(factory);
         const groupDef = createGroupDefAndSignBlock(block);
-        const node = new factory.Node({arrTestDefinition: [groupDef]});
+        const node = new factory.Node({});
+        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef);
 
         await node._verifyBlockSignatures(block);
     });

@@ -24,31 +24,8 @@ describe('Storage tests', () => {
     });
 
     it('should create storage', async () => {
-        const wrapper = () => new factory.Storage({});
+        const wrapper = () => new factory.Storage();
         assert.doesNotThrow(wrapper);
-    });
-
-    it('should store group definitions', async () => {
-        const def1 = factory.WitnessGroupDefinition.create(0, [Buffer.from('public1'), Buffer.from('public2')]);
-        const def2 = factory.WitnessGroupDefinition.create(
-            1,
-            [Buffer.from('public2'), Buffer.from('public3')]
-        );
-
-        const storage = new factory.Storage({arrTestDefinition: [def1, def2]});
-
-        {
-            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public1'));
-            assert.isOk(Array.isArray(arrDefs));
-            assert.equal(arrDefs.length, 1);
-        }
-
-        {
-            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public2'));
-            assert.isOk(Array.isArray(arrDefs));
-            assert.equal(arrDefs.length, 2);
-        }
-
     });
 
     it('should save block', async () => {
@@ -387,4 +364,63 @@ describe('Storage tests', () => {
 
         assert.isOk(Buffer.isBuffer(await storage.getPendingBlockHashes(true)));
     });
+
+    it('should store/read contract', async () => {
+        const contractData = {a: 1};
+        const contractCode = 'let a=1;';
+        const contractAddress = generateAddress();
+
+        const patch = new factory.PatchDB();
+        patch.setContract(contractAddress, contractData, contractCode);
+
+        const storage = new factory.Storage();
+        await storage.applyPatch(patch);
+
+        const contract = await storage.getContract(contractAddress);
+        assert.isOk(contract);
+        assert.deepEqual(contract.getData(), contractData);
+        assert.equal(contract.getCode(), contractCode);
+    });
+
+    it('should read group definitions', async () => {
+        const contractAddress = generateAddress();
+        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = contractAddress;
+
+        const def1 = factory.WitnessGroupDefinition.create(
+            0,
+            [Buffer.from('public1'), Buffer.from('public2')]
+        );
+        const def2 = factory.WitnessGroupDefinition.create(
+            1,
+            [Buffer.from('public2'), Buffer.from('public3')]
+        );
+
+        const patch = new factory.PatchDB();
+        patch.setContract(
+            contractAddress,
+            {
+                _arrGroupDefinitions: [
+                    def1.toObject(),
+                    def2.toObject()
+                ]
+            },
+            ''
+        );
+
+        const storage = new factory.Storage();
+        storage.applyPatch(patch);
+
+        {
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public1'));
+            assert.isOk(Array.isArray(arrDefs));
+            assert.equal(arrDefs.length, 1);
+        }
+
+        {
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public2'));
+            assert.isOk(Array.isArray(arrDefs));
+            assert.equal(arrDefs.length, 2);
+        }
+    });
+
 });

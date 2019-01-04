@@ -23,17 +23,15 @@ module.exports = (factory) => {
 
             this._db = new Map();
 
-            // possibly it's a good idea to keep blocks separately from UTXO DB
+            // it's a good idea to keep blocks separately from UTXO DB
             // it will allow erase UTXO DB, and rebuild it from block DB
             // it could be levelDB also, but in different dir
             this._blockStorage = new Map();
         }
 
         async _ensureArrGroupDefinition() {
-            if (!this._arrGroupDefinition || !this._arrGroupDefinition.length) {
-                const cont = await this.getContract(Buffer.from(Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'));
-                this._arrGroupDefinition = cont ? WitnessGroupDefinition.getFromContractData(cont.getData()) : [];
-            }
+            const cont = await this.getContract(Buffer.from(Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'));
+            this._arrGroupDefinition = cont ? WitnessGroupDefinition.getFromContractData(cont.getData()) : [];
         }
 
         /**
@@ -64,7 +62,7 @@ module.exports = (factory) => {
          */
         async getWitnessGroupById(id) {
 
-            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return [];
+            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return undefined;
             await this._ensureArrGroupDefinition();
 
             // TODO: implement persistent storage

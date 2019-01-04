@@ -78,4 +78,8 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
             const arr = this._data.delegatesPublicKeys || this._data.publicKeys;
             return parseInt(arr.length / 2) + 1;
         }
+
+        toObject() {
+            return this._data;
+        }
     };
