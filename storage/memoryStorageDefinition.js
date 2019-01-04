@@ -10,7 +10,6 @@ const debug = debugLib('storage:');
 // TODO: use mutex to get|put|patch records !!!
 
 const UTXO_PREFIX = 'c';
-const BLOCK_PREFIX = 'b';
 const BLOCK_INFO_PREFIX = 'H';
 const CONTRACT_PREFIX = 'S';
 const RECEIPT_PREFIX = 'R';
@@ -18,17 +17,9 @@ const LAST_APPLIED_BLOCKS = 'FINAL';
 const PENDING_BLOCKS = 'PENDING';
 
 module.exports = (factory) => {
-
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, Peer, Transport} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition} = factory;
     return class Storage {
-        constructor(options) {
-
-            // only for tests, for prod we should query DB
-            const {arrTestDefinition = []} = options;
-            this._groupDefinitions = new Map();
-            for (let def of arrTestDefinition) {
-                this._groupDefinitions.set(def.getGroupId(), def);
-            }
+        constructor() {
 
             this._db = new Map();
 
@@ -36,8 +27,13 @@ module.exports = (factory) => {
             // it will allow erase UTXO DB, and rebuild it from block DB
             // it could be levelDB also, but in different dir
             this._blockStorage = new Map();
+        }
 
-            this._peerStorage = new Map();
+        async _ensureArrGroupDefinition() {
+            if (!this._arrGroupDefinition || !this._arrGroupDefinition.length) {
+                const cont = await this.getContract(Buffer.from(Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'));
+                this._arrGroupDefinition = cont ? WitnessGroupDefinition.getFromContractData(cont.getData()) : [];
+            }
         }
 
         /**
@@ -48,10 +44,15 @@ module.exports = (factory) => {
         async getWitnessGroupsByKey(publicKey) {
             const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
 
+            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return [];
+            await this._ensureArrGroupDefinition();
+
             // TODO: read from DB
             const arrResult = [];
-            for (let def of this._groupDefinitions.values()) {
-                if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) arrResult.push(def);
+            for (let def of this._arrGroupDefinition) {
+                if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) {
+                    arrResult.push(def);
+                }
             }
             return arrResult;
         }
@@ -63,24 +64,32 @@ module.exports = (factory) => {
          */
         async getWitnessGroupById(id) {
 
+            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return [];
+            await this._ensureArrGroupDefinition();
+
             // TODO: implement persistent storage
-            return this._groupDefinitions.get(id);
+            return id > this._arrGroupDefinition.length ?
+                undefined : this._arrGroupDefinition[id];
         }
 
         async getWitnessGroupsCount() {
 
+            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return 0;
+            await this._ensureArrGroupDefinition();
+
             // TODO: implement persistent storage
-            return this._groupDefinitions.size;
+            return this._arrGroupDefinition.length;
         }
 
         async saveBlock(block, blockInfo) {
             const hash = block.hash();
 
-            //            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
+//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
 
             // save entire block
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${strHash} already saved!`);
             this._blockStorage.set(key, block.encode());
 
@@ -116,10 +125,11 @@ module.exports = (factory) => {
         async removeBlock(blockHash) {
             typeforce(types.Hash256bit, blockHash);
 
-            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             await this._blockStorage.delete(key);
         }
 
@@ -133,10 +143,11 @@ module.exports = (factory) => {
         async getBlock(blockHash, raw = false) {
             typeforce(types.Hash256bit, blockHash);
 
-            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             const buffBlock = this._blockStorage.get(key);
             if (!buffBlock) throw new Error(`Storage: No block found by hash ${strHash}`);
             return raw ? buffBlock : new Block(buffBlock);
@@ -152,7 +163,7 @@ module.exports = (factory) => {
         async getBlockInfo(blockHash, raw = false) {
             typeforce(types.Hash256bit, blockHash);
 
-            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
@@ -170,7 +181,7 @@ module.exports = (factory) => {
             typeforce(types.BlockInfo, blockInfo);
 
             const blockHash = blockInfo.getHash();
-            //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
+//            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
             const blockInfoKey = BLOCK_INFO_PREFIX + strHash;
@@ -236,7 +247,7 @@ module.exports = (factory) => {
         async getUtxo(hash, raw = false) {
             typeforce(types.Hash256bit, hash);
 
-            //            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
+//            const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash);
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
             const key = UTXO_PREFIX + strHash;
 
@@ -269,6 +280,11 @@ module.exports = (factory) => {
 
             // save contracts
             for (let [contractAddr, contract] of statePatch.getContracts()) {
+
+                // if we change groupDefinition contract - update cache
+                if (Constants.GROUP_DEFINITION_CONTRACT_ADDRESS === contractAddr) {
+                    this._arrGroupDefinition = contract.getData();
+                }
                 const key = CONTRACT_PREFIX + contractAddr;
                 this._db.set(key, contract.encode());
             }
@@ -352,7 +368,7 @@ module.exports = (factory) => {
         /**
          *
          * @param {Boolean} raw
-         * @returns {Promise<*>}
+         * @returns {Promise<ArrayOfHashes | Buffer>}
          */
         async getPendingBlockHashes(raw = false) {
 
@@ -364,51 +380,6 @@ module.exports = (factory) => {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
             this._db.set(PENDING_BLOCKS, (new ArrayOfHashes(arrBlockHashes)).encode());
-        }
-
-        async hasPeer(address) {
-            typeforce.oneOf(typeforce.Address, String);
-
-            try {
-                await this.getPeer(address);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
-
-        async savePeer(peer) {
-            let peerInfo = peer.peerInfo;
-            const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
-            peerInfo.lifetimeMisbehaveScore = peer.missbehaveScore;
-            peerInfo.lifetimeTransmittedBytes = peer.transmittedBytes;
-            peerInfo.lifetimeReceivedBytes = peer.receivedBytes;
-
-            this._peerStorage.set(key, peerInfo.encode());
-        }
-        async getPeer(address) {
-            typeforce.oneOf(typeforce.Address, String);
-
-            const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
-            const peerInfo = this._peerStorage.get(strAddress);
-            if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
-
-            return new Peer({peerInfo});
-
-        }
-
-        async savePeers(arrPeers) {
-            for (let peer of arrPeers)
-                this.savePeer(peer)
-        }
-        async loadPeers() {
-
-            // TODO: rewrite for levelDB
-            let arrPeers = [];
-            for (let p of this._peerStorage.values()) {
-                arrPeers.push(new Peer({peerInfo: p}));
-            }
-            return arrPeers;
         }
     };
 };

@@ -56,9 +56,9 @@ module.exports = (factory) => {
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
-            this._missbehaveScore = this._peerInfo.lifetimeMisbehaveScore;
-            this._receivedBytes = this._peerInfo.lifetimeReceivedBytes;
-            this._transmittedBytes = this._peerInfo.lifetimeTransmittedBytes;
+            // this._missbehaveScore = this._peerInfo.lifetimeMisbehaveScore;
+            // this._receivedBytes = this._peerInfo.lifetimeReceivedBytes;
+            //this._transmittedBytes = this._peerInfo.lifetimeTransmittedBytes;
 
             this._tock = new Tick(this);
             this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
@@ -99,7 +99,7 @@ module.exports = (factory) => {
 
         get tempBannedAddress() {
             return !!this._lastDisconnectedAddress
-                && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
+                && this._lastDisconnectedAddress === this.address
                 && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
@@ -115,8 +115,12 @@ module.exports = (factory) => {
             }
         }
 
+        /**
+         *
+         * @returns {String} !!!
+         */
         get address() {
-            return this._peerInfo.address;
+            return Transport.addressToString(this._peerInfo.address);
         }
 
         get port() {
@@ -194,6 +198,11 @@ module.exports = (factory) => {
             this._msecOffsetDelta = delta;
         }
 
+        get quality() {
+            return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
+             / (this._peerInfo.lifetimeMisbehaveScore + this.missbehaveScore + 1);
+        }
+
         addTag(tag) {
             this._tags.push(tag);
         }
@@ -224,16 +233,16 @@ module.exports = (factory) => {
                 return;
             }
             if (this.tempBannedAddress) {
-                debug('Trying to connect to banned address!');
+                logger.error('Trying to connect to banned address!');
                 return;
             }
             if (!this.disconnected) {
-                debug(`Peer ${this.address} already connected`);
+                logger.error(`Peer ${this.address} already connected`);
                 return;
             }
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
-            this._connection = await this._transport.connect(Transport.addressToString(this.address), this.port);
+            this._connection = await this._transport.connect(this.address, this.port);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
         }
@@ -273,6 +282,13 @@ module.exports = (factory) => {
                     this._cleanup();
                     this._lastDisconnectedAddress = this.address;
                     this._lastDisconnectionTime = Date.now();
+                    console.log(this._peerInfo.lifetimeMisbehaveScore)
+                    console.log(this._connection.remoteAddress)
+//**
+                    this._peerInfo.lifetimeMisbehaveScore += this._missbehaveScore;
+                    this._peerInfo.lifetimeTransmittedBytes += this._transmittedBytes;
+                    this._peerInfo.lifetimeReceivedBytes += this._receivedBytes;
+ //**
                     this._connection = undefined;
                     this.emit('disconnect', this);
                 });
@@ -284,14 +300,18 @@ module.exports = (factory) => {
 
             // we have pending messages
             if (Array.isArray(this._queue)) {
-                debug(`Queue message "${msg.message}" to "${Transport.addressToString(this.address)}"`);
+                debug(`Queue message "${msg.message}" to "${this.address}"`);
                 this._queue.push(msg);
             } else {
                 this._queue = [msg];
                 let nextMsg;
                 while ((nextMsg = this._queue.shift())) {
-                    debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
-                    await this._connection.sendMessage(nextMsg);
+                    debug(`Sending message "${nextMsg.message}" to "${this.address}"`);
+
+                    // possibly, peer was disconnected between messages
+                    if (this._connection && typeof this._connection.sendMessage === 'function') {
+                        await this._connection.sendMessage(nextMsg);
+                    }
                     if (nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
                         this._transmittedBytes += nextMsg.payload.length;
                     }
@@ -326,9 +346,11 @@ module.exports = (factory) => {
 
         disconnect(reason) {
             debug(`${reason}. Closing connection to "${this._connection.remoteAddress}"`);
-            this._cleanup();
-            this._lastDisconnectedAddress = this._connection.remoteAddress;
-            this._lastDisconnectionTime = Date.now();
+            // this._cleanup();
+            // this._lastDisconnectedAddress = this._connection.remoteAddress;
+            // this._lastDisconnectionTime = Date.now();
+            // console.log('**'+this._peerInfo.lifetimeMisbehaveScore)
+            // console.log('**'+this._connection.remoteAddress)
 
             this._connection.close();
             this._connection = undefined;

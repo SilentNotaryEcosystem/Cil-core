@@ -78,12 +78,12 @@ describe('Storage tests', () => {
 
     it('should NOT find block in storage', async () => {
         const storage = new factory.Storage({});
-        assert.isNotOk(await storage.hasBlock(Buffer.allocUnsafe(32)));
+        assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32)));
     });
 
     it('should NOT find block in storage', async () => {
         const storage = new factory.Storage({});
-        assert.isNotOk(await storage.hasBlock(Buffer.allocUnsafe(32).toString('hex')));
+        assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32).toString('hex')));
     });
 
     it('should get saved block', async () => {
@@ -97,7 +97,7 @@ describe('Storage tests', () => {
         const rTx = new factory.Transaction(gotBlock.txns[0]);
     });
 
-    it('should apply "addCoins" patch to empty storage (like genezis)', async () => {
+    it('should apply "addCoins" patch to empty storage (like genesis)', async () => {
         const storage = new factory.Storage({});
 
         const patch = new factory.PatchDB(0);
@@ -348,5 +348,43 @@ describe('Storage tests', () => {
         assert.equal(contract.getGroupId(), groupId);
         assert.deepEqual(contract.getData(), data);
         assert.equal(contract.getCode(), strCode);
+    });
+
+    it('should write to db encoded data (buffers)', async () => {
+        const groupId = 10;
+        const patch = new factory.PatchDB(groupId);
+        const storage = new factory.Storage({});
+
+        const buffUtxoHash = pseudoRandomBuffer();
+        patch.createCoins(buffUtxoHash, 1, new factory.Coins(1000, generateAddress()));
+        const buffContractAddr = generateAddress();
+        patch.setContract(buffContractAddr, {data: 1}, `let code=1`);
+        patch.setReceipt(buffUtxoHash, new factory.TxReceipt({
+            contractAddress: buffContractAddr,
+            coinsUsed: 1000
+        }));
+
+        await storage.applyPatch(patch);
+
+        assert.isOk(Buffer.isBuffer(await storage.getUtxo(buffUtxoHash, true)));
+        assert.isOk(Buffer.isBuffer(await storage.getContract(buffContractAddr, true)));
+        assert.isOk(Buffer.isBuffer(await storage.getTxReceipt(buffUtxoHash, true)));
+
+        const block = new factory.Block(0);
+        block.finish(1e5, pseudoRandomBuffer(33));
+        const blockInfo = new factory.BlockInfo(block.header);
+
+        await storage.saveBlock(block, blockInfo);
+
+        assert.isOk(Buffer.isBuffer(await storage.getBlock(block.getHash(), true)));
+        assert.isOk(Buffer.isBuffer(await storage.getBlockInfo(block.getHash(), true)));
+
+        await storage.updateLastAppliedBlocks([block.getHash()]);
+
+        assert.isOk(Buffer.isBuffer(await storage.getLastAppliedBlockHashes(true)));
+
+        await storage.updatePendingBlocks([pseudoRandomBuffer()]);
+
+        assert.isOk(Buffer.isBuffer(await storage.getPendingBlockHashes(true)));
     });
 });

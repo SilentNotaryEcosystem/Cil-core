@@ -37,7 +37,7 @@ describe('Peer manager', () => {
         await pm.addPeer(peer);
         const arrPeers = Array.from(pm._allPeers.keys());
         assert.isOk(arrPeers.length === 1);
-        assert.equal(arrPeers[0], pm._createKey(peer.address, peer.port));
+        assert.equal(arrPeers[0], pm._createKey(factory.Transport.addressToString(peer.address), peer.port));
     });
 
     it('should add peer to PeerManager from Connection', async () => {
@@ -262,10 +262,11 @@ describe('Peer manager', () => {
         }
     });
     it('should NOT add peer with banned address (REJECT_BANNEDADDRESS)', async () => {
-        const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
+//        const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
+        const address = factory.Transport.generateAddress();
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
-        peer._peerInfo.address = address;
+        peer._peerInfo.address = factory.Transport.strToAddress(address);
 
         let result = await pm.addPeer(peer);
 
@@ -346,8 +347,8 @@ describe('Peer manager', () => {
         const bestPeers = pm.findBestPeers();
         assert.equal(bestPeers.length, factory.Constants.MAX_PEERS);
         for (let i = 0; i < 9; i++) {
-            const current = bestPeers[i].amountBytes / (bestPeers[i].missbehaveScore + 1);
-            const next = bestPeers[i + 1].amountBytes / (bestPeers[i + 1].missbehaveScore + 1);
+            const current = bestPeers[i].quality;
+            const next = bestPeers[i + 1].quality;
 
             assert.isTrue(current > next);
         }

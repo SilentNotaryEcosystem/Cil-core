@@ -11,18 +11,23 @@ const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('../testUtil');
 
+process.on('warning', e => console.warn(e.stack));
+
 const debugNode = debugLib('node:app');
 
+// set to undefined to use random delays
+const delay = undefined;
+//const delay = 10;
 const maxConnections = os.platform() === 'win32' ? 4 : 10;
 
-const createGenezisPatchAndSpendingTx = (factory) => {
+const createGenesisPatchAndSpendingTx = (factory) => {
     const patch = new factory.PatchDB(0);
 
     const receiverKeyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(receiverKeyPair.publicKey, true);
     const utxoHash = pseudoRandomBuffer().toString('hex');
 
-    // create "genezis"
+    // create "genesis"
     const coins = new factory.Coins(100000, buffAddress);
     patch.createCoins(utxoHash, 12, coins);
     patch.createCoins(utxoHash, 0, coins);
@@ -39,34 +44,36 @@ const createGenezisPatchAndSpendingTx = (factory) => {
 };
 
 const createNet = async (onlySeed = false) => {
-    const genezis = createDummyBlock(factory);
-    factory.Constants.GENEZIS_BLOCK = genezis.getHash();
+    const genesis = createDummyBlock(factory);
+    factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const seedAddress = factory.Transport.generateAddress();
-    const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
-    await seedNode._processBlock(genezis);
+    const seedNode = new factory.Node({listenAddr: seedAddress, delay, rpcUser: 'test', rpcPass: 'test'});
+    await seedNode._processBlock(genesis);
 
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factory.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
-        if (!onlySeed) await node._processBlock(genezis);
+        await node.ensureLoaded();
+        if (!onlySeed) await node._processBlock(genesis);
         arrNodes.push(node);
     }
     return {seedNode, arrNodes};
 };
 
 const createLiveNet = async (onlySeed = false) => {
-    const genezis = createDummyBlock(factoryIpV6);
-    factoryIpV6.Constants.GENEZIS_BLOCK = genezis.getHash();
+    const genesis = createDummyBlock(factoryIpV6);
+    factoryIpV6.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const [seedAddress] = factoryIpV6.Transport.getInterfacesIpV6Addresses();
-    const seedNode = new factoryIpV6.Node({listenAddr: seedAddress, delay: 0});
-    await seedNode._processBlock(genezis);
+    const seedNode = new factoryIpV6.Node({listenAddr: seedAddress, rpcUser: 'test', rpcPass: 'test'});
+    await seedNode._processBlock(genesis);
 
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factoryIpV6.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
-        if (!onlySeed) await node._processBlock(genezis);
+        await node.ensureLoaded();
+        if (!onlySeed) await node._processBlock(genesis);
         arrNodes.push(node);
     }
     return {seedNode, arrNodes};
@@ -83,11 +90,14 @@ describe('Node integration tests', () => {
         this.timeout(15000);
     });
 
-    it('should disconnect from self', async () => {
+    it('should disconnect from self', async function() {
+        this.timeout(20000);
+
         const addr = factory.Transport.generateAddress();
         const newNode = new factory.Node({
             listenAddr: addr,
-            delay: 0, queryTimeout: 5000,
+            delay,
+            queryTimeout: 5000,
             arrSeedAddresses: [addr]
         });
         await newNode.bootstrap();
@@ -97,7 +107,7 @@ describe('Node integration tests', () => {
         this.timeout(20000);
 
         const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay: 0});
+        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
         seedNode._handleGetBlocksMessage = sinon.fake();
 
         const peerInfo1 = new factory.Messages.PeerInfo({
@@ -130,8 +140,8 @@ describe('Node integration tests', () => {
         }
 
         const testNode = new factory.Node({
-            listenAddr: factory.Transport.strToAddress('Test node'),
-            delay: 10, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
+            listenAddr: factory.Transport.generateAddress(),
+            delay, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
         });
         await testNode.bootstrap();
 
@@ -173,7 +183,7 @@ describe('Node integration tests', () => {
     it('should propagate TX over all nodes', async function() {
         this.timeout(60000);
         const {seedNode, arrNodes} = await createNet();
-        const {patch, tx} = createGenezisPatchAndSpendingTx(factory);
+        const {patch, tx} = createGenesisPatchAndSpendingTx(factory);
 
         // make all nodes aware of utxo
         for (let node of arrNodes) node._storage.applyPatch(patch);
@@ -197,9 +207,10 @@ describe('Node integration tests', () => {
         await Promise.all(arrTxPromises);
     });
 
-    it('should propagate GENEZIS block over all nodes', async function() {
+    it('should propagate GENESIS block over all nodes', async function() {
         this.timeout(60000);
         const {arrNodes} = await createNet(true);
+
         const arrBootstrapPromises = [];
         const arrBlockPromises = [];
 
@@ -214,9 +225,10 @@ describe('Node integration tests', () => {
         await Promise.all(arrBlockPromises);
     });
 
-    it('should create LIVE NET and propagate GENEZIS block over all nodes', async function() {
+    it('should create LIVE NET and propagate GENESIS block over all nodes', async function() {
         this.timeout(60000);
         const {arrNodes} = await createLiveNet(true);
+
         const arrBootstrapPromises = [];
         const arrBlockPromises = [];
 

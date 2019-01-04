@@ -8,12 +8,12 @@ const debug = require('debug')('application:test');
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
-const createGenezis = (factory, utxoHash) => {
+const createGenesis = (factory, utxoHash) => {
     const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
-    // create "genezis"
+    // create "genesis"
     const coins = new factory.Coins(100000, buffAddress);
     patch.createCoins(utxoHash, 12, coins);
     patch.createCoins(utxoHash, 0, coins);
@@ -43,7 +43,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -67,7 +67,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -91,7 +91,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -117,7 +117,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const anotherKeyPair = factory.Crypto.createKeyPair();
 
@@ -144,7 +144,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const anotherKeyPair = factory.Crypto.createKeyPair();
 
@@ -167,7 +167,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -196,7 +196,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -263,7 +263,11 @@ describe('Application layer', () => {
         const patch = new factory.PatchDB(0);
         const tx = factory.Transaction.createContract(strCode, 100000);
         patch.setContract = sinon.fake();
-        app.createContract(tx, patch);
+        const env = {
+            contractTx: tx.hash(),
+            contractAddr: factory.Crypto.getAddress(tx.hash())
+        };
+        app.createContract(tx.getCode(), patch, env);
 
         assert.isOk(patch.setContract.called);
 
@@ -288,7 +292,8 @@ describe('Application layer', () => {
 
         const app = new factory.Application();
         const patch = new factory.PatchDB(groupId);
-        await app.runContract('add(10)', patch, contract);
+
+        await app.runContract('add(10)', patch, contract, {});
 
         const storedContract = patch.getContract(contractAddr.toString('hex'));
         assert.deepEqual(storedContract.getData(), {value: 110});

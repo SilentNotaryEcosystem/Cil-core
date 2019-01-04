@@ -38,6 +38,7 @@ module.exports = (factory) => {
                 await this.startWitnessGroup(def);
             }
 
+            return arrGroupDefinitions.length;
             // TODO: add watchdog to maintain connections to as much as possible witnesses
         }
 
@@ -160,7 +161,8 @@ module.exports = (factory) => {
                     const exposeMsg = this._createExposeMessage(messageWitness);
                     this._broadcastConsensusInitiatedMessage(exposeMsg);
                 }
-                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content}`);
+                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content.toString(
+                    'hex')}`);
                 consensus.processMessage(messageWitness);
             } catch (e) {
                 logger.error(e);
@@ -280,6 +282,8 @@ module.exports = (factory) => {
                     const {groupId} = consensus;
                     const {block, patch} = await this._createBlock(groupId);
                     if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
+
+                        // catch it below
                         throw (0);
                     }
 
@@ -298,7 +302,7 @@ module.exports = (factory) => {
                 await this._acceptBlock(block, patch);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
-                await this._postAccepBlock();
+                await this._postAccepBlock(block);
                 consensus.blockCommited();
             });
         }
@@ -309,7 +313,7 @@ module.exports = (factory) => {
          * @private
          */
         _suppressedBlockHandler() {
-            debugWitness('Suppressing empty block');
+            debugWitness(`(address: "${this._debugAddress}"). Suppressing empty block`);
         }
 
         /**
@@ -396,8 +400,10 @@ module.exports = (factory) => {
             // remove failed txns
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
-            // TODO: Store patch in DAG for pending blocks
             block.finish(totalFee, this._wallet.publicKey);
+
+            this._processBlockCoinbaseTX(block, totalFee, patchMerged);
+
             debugWitness(
                 `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
 

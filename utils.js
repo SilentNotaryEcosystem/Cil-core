@@ -1,3 +1,5 @@
+const commandLineArgs = require('command-line-args');
+
 const arrayIntersection = (array1, array2) => {
     const cache = new Set();
     const result = [];
@@ -23,7 +25,7 @@ const getMapsKeys = (...arrMaps) => {
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
-            setTimeout(() => resolve(), delay);
+            setTimeout(resolve, delay);
         });
     },
     arrayIntersection,
@@ -48,5 +50,27 @@ module.exports = {
 
     timestamp: () => {
         return parseInt(Date.now() / 1000);
+    },
+
+    asyncRPC: fn => (arg, opt, cb) => {
+        fn(arg, opt)
+            .then(result => cb(null, result))
+            .catch(cb);
+    },
+
+    readCmdLineOptions: () => {
+        const optionDefinitions = [
+            {name: "listenAddr", type: String, multiple: false},
+            {name: "port", type: Number, multiple: false},
+            {name: "seedAddr", type: String, multiple: false},
+            {name: "rpcUser", type: String, multiple: false},
+            {name: "rpcPass", type: String, multiple: false},
+            {name: "rpcPort", type: Number, multiple: false},
+            {name: "rpcAddress", type: String, multiple: false},
+            {name: "genesisHash", type: String, multiple: false},
+            {name: "groupDefContract", type: String, multiple: false},
+            {name: "privateKey", type: String, multiple: false}
+        ];
+        return commandLineArgs(optionDefinitions, {camelCase: true});
     }
 };

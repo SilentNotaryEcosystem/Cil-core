@@ -2,9 +2,13 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
+        strIdent: 'Prod',
+
         network: 0x12882304,
         protocolVersion: 0x0123,
         port: 8223,
+
+        rpcPort: 8222,
 
         // How many peers we'll send in one 'addr' message
         ADDR_MAX_LENGTH: 1000,
@@ -87,8 +91,13 @@ module.exports = {
         PEER_PING_TIMER_NAME: 'peerPingTimer',
         PEER_PING_TIMEOUT: 4 * 60 * 1000,
 
+        PEER_RECONNECT_TIMER: 'peerReconnectTimer',
+        PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
+
+
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
         TIMEOUT_CODE: 10000,
+
 
         CONTRACT_METHOD_SEPARATOR: '\0'
     }

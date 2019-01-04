@@ -120,7 +120,7 @@ module.exports = (factory) => {
 
         findBestPeers() {
             return [...this._allPeers.values()]
-                .sort((a, b) => b.amountBytes / (b.missbehaveScore + 1) - a.amountBytes / (a.missbehaveScore + 1))
+                .sort((a, b) => b.quality - a.quality)
                 .slice(0, Constants.MAX_PEERS);
         }
 
@@ -157,7 +157,7 @@ module.exports = (factory) => {
 
             // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
             // it could be ripemd160
-            return address.toString('hex') + port.toString();
+            return address + port.toString();
         }
     };
 };

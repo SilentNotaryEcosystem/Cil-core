@@ -36,7 +36,7 @@ module.exports = (factory, {contractProto}) =>
             }
 
             // just to show that we'll not use it after decode
-            data.contractData = undefined;
+            this._data.contractData = undefined;
         }
 
         /**

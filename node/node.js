@@ -4,6 +4,7 @@ const typeforce = require('typeforce');
 const debugLib = require('debug');
 const {sleep} = require('../utils');
 const types = require('../types');
+const Tick = require('tick-tock');
 
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
@@ -27,7 +28,8 @@ module.exports = (factory) => {
         Coins,
         PendingBlocksManager,
         MainDag,
-        BlockInfo
+        BlockInfo,
+        Mutex
     } = factory;
     const {
         MsgCommon,
@@ -52,7 +54,7 @@ module.exports = (factory) => {
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
 
-            this._arrSeedAddresses = arrSeedAddresses;
+            this._arrSeedAddresses = arrSeedAddresses || [];
             this._arrDnsSeeds = arrDnsSeeds;
 
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
@@ -76,24 +78,29 @@ module.exports = (factory) => {
             debugNode(`(address: "${this._debugAddress}") start listening`);
             this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
 
-            this._transport.listen().catch(err => console.error(err));
-            ;
             this._transport.on('connect', this._incomingConnection.bind(this));
 
             // create mempool
             this._mempool = new Mempool(options);
 
             //start RPC
-            this._rpc = new RPC(options);
-            this._rpc.on('rpc', this._rpcHandler.bind(this));
+            if (options.rpcUser && options.rpcPass) {
+                this._rpc = new RPC(options);
+                this._rpc.on('rpc', this._rpcHandler.bind(this));
+            }
 
             this._app = new Application(options);
 
-            this._pendingBlocks = new PendingBlocksManager();
+            this._rebuildPromise = this._storage.getPendingBlockHashes().then(arrOfHashes => {
+                this._pendingBlocks = new PendingBlocksManager(arrOfHashes);
+            });
+
             this._mainDag = new MainDag();
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
 
+            this._reconnectTimer = new Tick(this);
+            this._listenPromise = this._transport.listen().catch(err => console.error(err));
         }
 
         get rpc() {
@@ -106,6 +113,10 @@ module.exports = (factory) => {
 
         get networkTime() {
             return Date.now() + this._msecOffset;
+        }
+
+        ensureLoaded() {
+            return Promise.all([this._listenPromise, this._rebuildPromise]);
         }
 
         async bootstrap() {
@@ -124,6 +135,7 @@ module.exports = (factory) => {
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._peerManager.findBestPeers();
             await this._connectToPeers(arrBestPeers);
+            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),  Constants.PEER_RECONNECT_INTERVAL);
         }
 
         /**
@@ -133,9 +145,9 @@ module.exports = (factory) => {
          * @private
          */
         async _connectToPeer(peer) {
-            const address = this._transport.constructor.addressToString(peer.address);
-            debugNode(`(address: "${this._debugAddress}") connecting to "${address}"`);
+            debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
             return await peer.connect();
+
         }
 
         /**
@@ -205,19 +217,24 @@ module.exports = (factory) => {
 
         async _peerDisconnect(peer) {
             this._msecOffset -= peer.offsetDelta;
-
-            let bestPeers = this._peerManager.findBestPeers();
-            let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
-                .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
-            await this._connectToPeers(peers);
         }
 
         async _connectToPeers(peers) {
             for (let peer of peers) {
-                if (peer.disconnected) await this._connectToPeer(peer);
-                await peer.pushMessage(this._createMsgVersion());
-                await peer.loaded();
+                try {
+                    if (peer.disconnected) await this._connectToPeer(peer);
+                    await peer.pushMessage(this._createMsgVersion());
+                    await peer.loaded();
+                } catch (e) {
+                    logger.error(e);
+                }
             }
+        }
+
+        async _reconnectPeers() {
+            let bestPeers = this._findBestPeers().filter(p => p.disconnected);
+            let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            await this._connectToPeers(peers);
         }
 
         /**
@@ -278,6 +295,10 @@ module.exports = (factory) => {
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
+                if (message.isPong()) {
+                    return;
+                }
+
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(err, `Peer ${peer.address}`);
@@ -357,33 +378,45 @@ module.exports = (factory) => {
          * 2. we don't have all parents -> mark as InFlight, request that block
          *
          * @param {Block} block
-         * @return {Promise}
+         * @return {Promise <PatchDB | undefined>}
          * @private
          */
         async _processBlock(block) {
 
-            // check: whether we already processed this block?
-            const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
+            const lock = await Mutex.acquire(['block']);
 
-            if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
-                logger.error(`Trying to process ${block.getHash()} more than one time!`);
-                return;
-            }
+            try {
+                debugLib(`Processing block ${block.hash()}`);
 
-            // TODO: add mutex here?
-            await this._verifyBlock(block);
+                // check: whether we already processed this block?
+                const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
 
-            // it will check readiness of parents
-            if (this.isGenezisBlock(block) || await this._canExecuteBlock(block)) {
+                if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
+                    logger.error(`Trying to process ${block.getHash()} more than one time!`);
+                    return;
+                }
 
-                // we'r ready to execute this block right now
-                const patchState = await this._execBlock(block);
-                await this._acceptBlock(block, patchState);
-                await this._postAccepBlock();
-            } else {
+                // TODO: add mutex here?
+                await this._verifyBlock(block);
 
-                // not ready, so we should request unknown blocks
-                this._requestUnknownBlocks();
+                // it will check readiness of parents
+                if (this.isGenesisBlock(block) || await this._canExecuteBlock(block)) {
+
+                    // we'r ready to execute this block right now
+                    const patchState = await this._execBlock(block);
+                    await this._acceptBlock(block, patchState);
+                    await this._postAccepBlock(block);
+
+                    return patchState;
+                } else {
+
+                    // not ready, so we should request unknown blocks
+                    this._requestUnknownBlocks();
+                }
+            } catch (e) {
+                throw e;
+            } finally {
+                Mutex.release(lock);
             }
         }
 
@@ -455,11 +488,11 @@ module.exports = (factory) => {
             if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
 
                 // we missed at least one of those hashes! so we think peer is at wrong DAG
-                // sent our version of DAG starting from Genezis
-                arrHashes = [Constants.GENEZIS_BLOCK];
+                // sent our version of DAG starting from Genesis
+                arrHashes = [Constants.GENESIS_BLOCK];
 
-                // Genezis wouldn't be included, so add it here
-                inventory.addBlockHash(Constants.GENEZIS_BLOCK);
+                // Genesis wouldn't be included, so add it here
+                inventory.addBlockHash(Constants.GENESIS_BLOCK);
             }
 
             let currentLevel = [];
@@ -701,18 +734,18 @@ module.exports = (factory) => {
 
         /**
          *
-         * @param {Boolean} isGenezis
+         * @param {Boolean} isGenesis
          * @param {Transaction} tx
          * @param {PatchDB} patchForBlock - OPTIONAL!
          * @return {Promise<number>} fee for this TX
          * @private
          */
-        async _processTx(isGenezis, tx, patchForBlock) {
+        async _processTx(isGenesis, tx, patchForBlock) {
             const patch = patchForBlock ? patchForBlock : new PatchDB();
             let totalHas = 0;
 
             // process input (for regular block only)
-            if (!isGenezis) {
+            if (!isGenesis) {
                 tx.verify();
                 const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
                 ({totalHas} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
@@ -722,14 +755,23 @@ module.exports = (factory) => {
             // TODO: for regular payment make "DB-transaction-like" behavior (revert spending coins in processTxInputs)
             let totalSent = 0;
             if (tx.hasOneReceiver()) {
-                const [coins] = tx.getOutCoins();
+
+                // prepare global variables for contract
+                const environment = {
+                    contractTx: tx.hash()
+                };
 
                 if (tx.isContractCreation()) {
-                    const receipt = await this._app.createContract(tx, patch);
+
+                    // Newly deployed contract address!
+                    environment.contractAddr = Crypto.getAddress(tx.hash());
+
+                    const receipt = await this._app.createContract(tx.getCode(), patch, environment);
                     patch.setReceipt(tx.hash(), receipt);
 
                     // TODO implement fee
                 } else {
+                    const [coins] = tx.getOutCoins();
 
                     // check: whether it's contract invocation
                     let contract;
@@ -749,7 +791,8 @@ module.exports = (factory) => {
                             `TX groupId: "${tx.witnessGroupId}" != contract groupId`
                         );
 
-                        const receipt = await this._app.runContract(tx.getCode(), patch, contract);
+                        environment.contractAddr = coins.getReceiverAddr().toString('hex');
+                        const receipt = await this._app.runContract(tx.getCode(), patch, contract, environment);
                         patch.setReceipt(tx.hash(), receipt);
 
                         // TODO implement fee
@@ -768,7 +811,7 @@ module.exports = (factory) => {
 
             // TODO: MIN_TX_FEE is fee per 1Kb of TX size
             // TODO: rework fee
-            if (!isGenezis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+            if (!isGenesis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
             return fee;
         }
@@ -801,7 +844,8 @@ module.exports = (factory) => {
         async _execBlock(block) {
 
             const patchState = this._pendingBlocks.mergePatches(block.parentHashes);
-            const isGenezis = this.isGenezisBlock(block);
+            patchState.setGroupId(block.witnessGroupId);
+            const isGenesis = this.isGenesisBlock(block);
 
             let blockFees = 0;
             const blockTxns = block.txns;
@@ -809,21 +853,32 @@ module.exports = (factory) => {
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                const fee = await this._processTx(isGenezis, tx, patchState);
+                const fee = await this._processTx(isGenesis, tx, patchState);
                 blockFees += fee;
             }
 
             // process coinbase tx
-            if (!isGenezis) {
-                const coinbase = new Transaction(blockTxns[0]);
-                this._checkCoinbaseTx(coinbase, blockFees);
-                const coins = coinbase.getOutCoins();
-                for (let i = 0; i < coins.length; i++) {
-                    patchState.createCoins(coinbase.hash(), i, coins[i]);
-                }
+            if (!isGenesis) {
+                this._processBlockCoinbaseTX(block, blockFees, patchState);
             }
 
             return patchState;
+        }
+
+        /**
+         *
+         * @param {Block} block
+         * @param {Number} blockFees - sum of block TXns fees
+         * @param {PatchDB} patchState - patch to add coins
+         * @private
+         */
+        _processBlockCoinbaseTX(block, blockFees, patchState) {
+            const coinbase = new Transaction(block.txns[0]);
+            this._checkCoinbaseTx(coinbase, blockFees);
+            const coins = coinbase.getOutCoins();
+            for (let i = 0; i < coins.length; i++) {
+                patchState.createCoins(coinbase.hash(), i, coins[i]);
+            }
         }
 
         async _acceptBlock(block, patchState) {
@@ -882,20 +937,30 @@ module.exports = (factory) => {
         /**
          * post hook
          *
+         * @param {Block} block
          * @returns {Promise<void>}
          * @private
          */
-        async _postAccepBlock() {
-
+        async _postAccepBlock(block) {
+            logger.log(
+                `Block ${block.hash()} with ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
+            );
         }
 
+        /**
+         * You can add block reward checks here
+         *
+         * @param {Transaction} tx
+         * @param {Number} blockFees
+         * @private
+         */
         _checkCoinbaseTx(tx, blockFees) {
             assert(tx.isCoinbase(), 'Not a coinbase TX!');
             assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
         }
 
-        isGenezisBlock(block) {
-            return block.hash() === Constants.GENEZIS_BLOCK;
+        isGenesisBlock(block) {
+            return block.hash() === Constants.GENESIS_BLOCK;
         }
 
         /**
@@ -908,14 +973,14 @@ module.exports = (factory) => {
          */
         async _verifyBlock(block, checkSignatures = true) {
 
-            // we create Genezis manually, so we sure that it's valid
-            if (block.getHash() === Constants.GENEZIS_BLOCK) return;
+            // we create Genesis manually, so we sure that it's valid
+            if (block.getHash() === Constants.GENESIS_BLOCK) return;
 
             // block should have at least one parent!
             assert(Array.isArray(block.parentHashes) && block.parentHashes.length);
 
             // signatures
-            if (checkSignatures && !this.isGenezisBlock(block)) await this._verifyBlockSignatures(block);
+            if (checkSignatures && !this.isGenesisBlock(block)) await this._verifyBlockSignatures(block);
 
             // merkleRoot
             assert(block.hash() !== block.merkleRoot.toString('hex'), `Bad merkle root for ${block.hash()}`);
@@ -924,6 +989,13 @@ module.exports = (factory) => {
             await this._storage.checkTxCollision(block.getTxHashes());
         }
 
+        /**
+         * Ok, if all block signatures (number og it equals to group quorum) matches delegates pubKeys
+         *
+         * @param {Blob} block
+         * @returns {Promise<void>}
+         * @private
+         */
         async _verifyBlockSignatures(block) {
             const buffBlockHash = Buffer.from(block.hash(), 'hex');
 
@@ -965,14 +1037,19 @@ module.exports = (factory) => {
                     }
                 }
 
-                // Do we reach GENEZIS?
-                if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENEZIS_BLOCK) break;
+                // Do we reach GENESIS?
+                if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
             }
         }
 
+        /**
+         * Used at startup to rebuild DAG of pending blocks
+         *
+         * @returns {Promise<void>}
+         */
         async rebuildPending() {
             const arrHashes = await this._storage.getPendingBlockHashes();
             const mapBlocks = new Map();
@@ -1012,12 +1089,6 @@ module.exports = (factory) => {
         async _blockBad(block) {
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsBad();
-            await this._storeBlockAndInfo(block, blockInfo);
-        }
-
-        async _blockFinal(block) {
-            const blockInfo = new BlockInfo(block.header);
-            blockInfo.markAsFinal();
             await this._storeBlockAndInfo(block, blockInfo);
         }
 
@@ -1096,6 +1167,17 @@ module.exports = (factory) => {
             for (let objTx of block.txns) {
                 this._mempool.addTx(new Transaction(objTx));
             }
+        }
+
+        /**
+         * SIGINT & SIGTERM handlers
+         * @private
+         */
+        gracefulShutdown() {
+
+            // TODO: implement flushing all in memory data to disk
+            console.log('Shutting down');
+            process.exit(1);
         }
     };
 };
