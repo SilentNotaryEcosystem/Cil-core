@@ -6,11 +6,15 @@ const pseudoRandomBuffer = (length = 32) => {
     return pseudoRandomBytes;
 };
 
+const generateAddress = () => {
+    return pseudoRandomBuffer(20);
+};
+
 const createDummyTx = (hash, witnessGroupId) => {
     return {
         payload: {
             ins: [{txHash: hash ? hash : pseudoRandomBuffer(), nTxOutput: parseInt(Math.random() * 1000) + 1}],
-            outs: [{amount: parseInt(Math.random() * 1000) + 1, codeClaim: pseudoRandomBuffer()}],
+            outs: [{amount: parseInt(Math.random() * 1000) + 1, receiverAddr: generateAddress()}],
             witnessGroupId: witnessGroupId !== undefined ? witnessGroupId : 0
         },
         claimProofs: [pseudoRandomBuffer()]
@@ -18,6 +22,7 @@ const createDummyTx = (hash, witnessGroupId) => {
 };
 
 module.exports = {
+    generateAddress,
     sleep: (delay) => {
         return new Promise(resolve => {
             setTimeout(() => resolve(), delay);
@@ -52,8 +57,7 @@ module.exports = {
     pseudoRandomBuffer,
 
     createNonMergeablePatch: (factory) => {
-        const patch = new factory.PatchDB();
-        const patchThatWouldntMerge = new factory.PatchDB();
+        const patchThatWouldntMerge = new factory.PatchDB(0);
         patchThatWouldntMerge._data = undefined;
         return patchThatWouldntMerge;
     }

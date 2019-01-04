@@ -1,3 +1,5 @@
+const commandLineArgs = require('command-line-args');
+
 const arrayIntersection = (array1, array2) => {
     const cache = new Set();
     const result = [];
@@ -6,10 +8,24 @@ const arrayIntersection = (array1, array2) => {
     return result;
 };
 
+/**
+ * Duplicates are possible!
+ *
+ * @param {Array} arrMaps of Maps
+ * @return {Array} keys
+ */
+const getMapsKeys = (...arrMaps) => {
+    let arrResultKeys = [];
+    for (let map of arrMaps) {
+        arrResultKeys = arrResultKeys.concat(Array.from(map.keys()));
+    }
+    return arrResultKeys;
+};
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
-            setTimeout(() => resolve(), delay);
+            setTimeout(resolve, delay);
         });
     },
     arrayIntersection,
@@ -25,7 +41,36 @@ module.exports = {
         return new Set(arrSet1.concat(arrSet2));
     },
 
+    getMapsKeys,
+
+    getMapsKeysUnique: (...arrMaps) => {
+        let tempSet = new Set(getMapsKeys(...arrMaps));
+        return Array.from(tempSet.keys());
+    },
+
     timestamp: () => {
         return parseInt(Date.now() / 1000);
+    },
+
+    asyncRPC: fn => (arg, opt, cb) => {
+        fn(arg, opt)
+            .then(result => cb(null, result))
+            .catch(cb);
+    },
+
+    readCmdLineOptions: () => {
+        const optionDefinitions = [
+            {name: "listenAddr", type: String, multiple: false},
+            {name: "port", type: Number, multiple: false},
+            {name: "seedAddr", type: String, multiple: false},
+            {name: "rpcUser", type: String, multiple: false},
+            {name: "rpcPass", type: String, multiple: false},
+            {name: "rpcPort", type: Number, multiple: false},
+            {name: "rpcAddress", type: String, multiple: false},
+            {name: "genesisHash", type: String, multiple: false},
+            {name: "groupDefContract", type: String, multiple: false},
+            {name: "privateKey", type: String, multiple: false}
+        ];
+        return commandLineArgs(optionDefinitions, {camelCase: true});
     }
 };

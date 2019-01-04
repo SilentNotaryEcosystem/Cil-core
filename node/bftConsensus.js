@@ -39,8 +39,8 @@ module.exports = (factory) => {
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
-            // public keys are buffers, transform it to strings, to use with maps
-            this._arrPublicKeys = groupDefinition.getPublicKeys().sort().map(key => key.toString('hex'));
+            // delegates public keys are buffers, transform it to strings, to use with maps
+            this._arrPublicKeys = groupDefinition.getDelegatesPublicKeys().sort().map(key => key.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
@@ -51,10 +51,6 @@ module.exports = (factory) => {
             this._resetState();
 
             this._lastBlockTime = Date.now();
-        }
-
-        get groupName() {
-            return this._groupDefinition.getGroupName();
         }
 
         get groupId() {
@@ -157,8 +153,8 @@ module.exports = (factory) => {
         runConsensus() {
 
             // i'm a single node (for example Initial witness)
-            if (this._arrPublicKeys.length === 1 &&
-                this._arrPublicKeys[0] === this._wallet.publicKey) {
+            if (this._groupDefinition.getQuorum() === 1 &&
+                this._arrPublicKeys.includes(this._wallet.publicKey)) {
                 return this._views[this._wallet.publicKey][this._wallet.publicKey];
             }
 
@@ -193,6 +189,7 @@ module.exports = (factory) => {
         _majority(arrDataWitnessI) {
             const objHashes = {};
             for (let data of arrDataWitnessI) {
+                if (data === undefined) continue;
                 const hash = this._calcDataHash(data);
                 if (typeof objHashes[hash] !== 'object') {
 
@@ -217,6 +214,14 @@ module.exports = (factory) => {
             return count >= this._groupDefinition.getQuorum() ? majorityValue : undefined;
         }
 
+        /**
+         * - Store block & patch for further processing
+         * - advance state to Vote
+         * - send it to other witnesses
+         *
+         * @param {Block} block
+         * @param {PatchDB} patch
+         */
         processValidBlock(block, patch) {
             typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
 
@@ -231,7 +236,7 @@ module.exports = (factory) => {
             this._blockStateHandler(true);
 
             const message = this._createBlockAcceptMessage(
-                this._groupDefinition.getGroupName(),
+                this._groupDefinition.getGroupId(),
                 Buffer.from(block.hash(), 'hex')
             );
             this.emit('message', message);
@@ -246,28 +251,25 @@ module.exports = (factory) => {
             this._block = undefined;
             this._blockStateHandler(false);
 
-            const message = this._createBlockRejectMessage(this._groupDefinition.getGroupName());
+            const message = this._createBlockRejectMessage(this._groupDefinition.getGroupId());
             this.emit('message', message);
         }
 
         blockCommited() {
             // TODO: this state (COMMIT) also requires acknowledge, because for small block it speed up process
-            // TODO: and will let all node to process large blocks
+            //  and will let all node to process large blocks
         }
 
         /**
-         * Transfrm data to hash to make data comparable
+         * Transform data to hash to make data comparable
          *
          * @param {Object} data
          * @return {String|undefined}
          * @private
          */
         _calcDataHash(data) {
-
-            // TODO: it's not best method i suppose. But deepEqual is even worse?
-            if (data === undefined) return undefined;
-
             let copyData;
+
             // remove signature (it will be present for MSG_WITNESS_BLOCK_ACK) it will make items unequal
             if (data.hasOwnProperty('signature')) {
 
@@ -277,6 +279,8 @@ module.exports = (factory) => {
             } else {
                 copyData = data;
             }
+
+            // TODO: it's not best method i suppose. But deepEqual is even worse?
             return Crypto.createHash(JSON.stringify(copyData));
         }
 
@@ -399,7 +403,7 @@ module.exports = (factory) => {
                         if (!signatures) {
                             logger.error(
                                 `Consensus reached for block ${consensusValue.blockHash}, but fail to get signatures!`);
-                            this._nextRound();
+                            return this._nextRound();
                         }
 
                         this._block.addWitnessSignatures(signatures);
@@ -434,7 +438,7 @@ module.exports = (factory) => {
             debug(
                 `BFT "${this._nonce}" restarting "ROUND_CHANGE" new round: ${this._roundNo}`);
 
-            const msg = new MsgWitnessNextRound({groupName: this.groupName, roundNo: ++this._roundNo});
+            const msg = new MsgWitnessNextRound({groupId: this.groupId, roundNo: ++this._roundNo});
             msg.sign(this._wallet.privateKey);
             this.emit('message', msg);
         }
@@ -500,22 +504,23 @@ module.exports = (factory) => {
             this._tock.end();
         }
 
-        _createBlockAcceptMessage(groupName, blockHash) {
-            typeforce(typeforce.tuple('String', typeforce.BufferN(32)), arguments);
+        _createBlockAcceptMessage(groupId, blockHash) {
+            typeforce(typeforce.tuple('Number', typeforce.BufferN(32)), arguments);
 
-            const msgBlockAccept = new MsgWitnessBlockVote({groupName, blockHash});
+            const msgBlockAccept = new MsgWitnessBlockVote({groupId, blockHash});
             msgBlockAccept.sign(this._wallet.privateKey);
             return msgBlockAccept;
         }
 
-        _createBlockRejectMessage(groupName) {
-            const msgBlockReject = MsgWitnessBlockVote.reject(groupName);
+        _createBlockRejectMessage(groupId) {
+            const msgBlockReject = MsgWitnessBlockVote.reject(groupId);
             msgBlockReject.sign(this._wallet.privateKey);
             return msgBlockReject;
         }
 
         /**
-         * this._views contains {state, blockHash, signature}
+         * Get block hash signatures from state (this._views contains {state, blockHash, signature})
+         * and return it to append to block
          *
          * @returns {Array}
          * @private

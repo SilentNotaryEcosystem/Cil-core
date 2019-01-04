@@ -2,11 +2,13 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
-        strIdent: 'Test',
+        strIdent: 'Devel',
 
         network: 0x12882304,
         protocolVersion: 0x0123,
         port: 8223,
+
+        rpcPort: 8222,
 
         // How many peers we'll send in one 'addr' message
         ADDR_MAX_LENGTH: 1000,
@@ -68,9 +70,12 @@ module.exports = {
         TOLERATED_TIME_DIFF: 60 * 60 * 1000,
 
         // how much we suppress creating empty blocks
-        WITNESS_HOLDOFF: 15 * 60 * 1000,
+        WITNESS_HOLDOFF: 5 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
+
+        // fees
         MIN_TX_FEE: 1000,
+        MIN_CONTRACT_FEE: 30000,
 
         PEER_CONNECTION_LIFETIME: 60 * 60 * 1000,
 
@@ -85,7 +90,10 @@ module.exports = {
         PEER_DEAD_TIME: 5 * 60 * 1000,
         PEER_PING_TIMER_NAME: 'peerPingTimer',
         PEER_PING_TIMEOUT: 4 * 60 * 1000,
-        PEER_RECONNECT_TIMER: 'peerReconnectTimer',
-        PEER_RECONNECT_INTERVAL: 2 * 60 * 1000
+
+        // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
+        TIMEOUT_CODE: 10000,
+
+        CONTRACT_METHOD_SEPARATOR: '\0'
     }
 };

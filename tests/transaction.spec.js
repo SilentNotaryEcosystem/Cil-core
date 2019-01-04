@@ -255,4 +255,45 @@ describe('Transaction tests', () => {
         tx.addReceiver(5, Buffer.allocUnsafe(20));
         assert.equal(tx.amountOut(), 20);
     });
+
+    it('should be NON contractCreation (receiver)', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 0);
+        tx.addInput(pseudoRandomBuffer(), 1);
+        tx.addReceiver(1, pseudoRandomBuffer(20));
+
+        assert.isNotOk(tx.isContractCreation());
+    });
+
+    it('should be NON contractCreation (2 outputs)', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 0);
+        tx.addInput(pseudoRandomBuffer(), 1);
+        tx.addReceiver(1, factory.Crypto.getAddrContractCreation());
+        tx.addReceiver(1, pseudoRandomBuffer(20));
+
+        assert.isNotOk(tx.isContractCreation());
+    });
+
+    it('should be contractCreation', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 0);
+        tx.addInput(pseudoRandomBuffer(), 1);
+        tx.addReceiver(1, factory.Crypto.getAddrContractCreation());
+
+        assert.isOk(tx.isContractCreation());
+    });
+
+    it('should createContract TX', async () => {
+        const tx = factory.Transaction.createContract('', 1000);
+        assert.isOk(tx.isContractCreation());
+    });
+
+    it('should get code', async () => {
+        const strCode = 'var a=0;';
+        const tx = factory.Transaction.createContract(strCode, 1000);
+        const strGotCode = tx.getCode();
+
+        assert.equal(strCode, strGotCode);
+    });
 });

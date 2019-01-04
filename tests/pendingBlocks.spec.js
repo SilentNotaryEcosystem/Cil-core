@@ -37,7 +37,7 @@ describe('Pending block manager', async () => {
             pseudoRandomBuffer().toString('hex'),
             pseudoRandomBuffer().toString('hex')
         ];
-        pbm.addBlock(block, new factory.PatchDB());
+        pbm.addBlock(block, new factory.PatchDB(0));
 
         assert.equal(pbm.getDag().order, 1);
     });
@@ -54,10 +54,10 @@ describe('Pending block manager', async () => {
         block3.parentHashes = [block1.getHash()];
         block4.parentHashes = [block2.getHash()];
 
-        pbm.addBlock(block1, new factory.PatchDB());
-        pbm.addBlock(block2, new factory.PatchDB());
-        pbm.addBlock(block3, new factory.PatchDB());
-        pbm.addBlock(block4, new factory.PatchDB());
+        pbm.addBlock(block1, new factory.PatchDB(0));
+        pbm.addBlock(block2, new factory.PatchDB(0));
+        pbm.addBlock(block3, new factory.PatchDB(0));
+        pbm.addBlock(block4, new factory.PatchDB(0));
 
         assert.equal(pbm.getVertexWitnessBelow(block1.getHash()), 1);
         assert.equal(pbm.getVertexWitnessBelow(block3.getHash()), 1);
@@ -72,9 +72,9 @@ describe('Pending block manager', async () => {
         const block2 = createDummyBlock(factory, 2);
         const block3 = createDummyBlock(factory, 3);
 
-        pbm.addBlock(block1, new factory.PatchDB());
-        pbm.addBlock(block2, new factory.PatchDB());
-        pbm.addBlock(block3, new factory.PatchDB());
+        pbm.addBlock(block1, new factory.PatchDB(0));
+        pbm.addBlock(block2, new factory.PatchDB(1));
+        pbm.addBlock(block3, new factory.PatchDB(2));
 
         const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 3);
@@ -87,7 +87,7 @@ describe('Pending block manager', async () => {
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.throws();
 
         pbm.addBlock(block1, patch);
@@ -107,7 +107,7 @@ describe('Pending block manager', async () => {
 
         block3.parentHashes = [block2.getHash()];
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.throws();
 
         pbm.addBlock(block1, patch);
@@ -123,7 +123,7 @@ describe('Pending block manager', async () => {
 
         const pbm = new factory.PendingBlocksManager();
 
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.returns(patch);
 
         for (let i = 1; i < 11; i++) {
@@ -147,7 +147,7 @@ describe('Pending block manager', async () => {
         block3.parentHashes = [block2.getHash()];
 
         let callCount = 0;
-        const patch = new factory.PatchDB();
+        const patch = new factory.PatchDB(0);
         patch.merge = () => {
 
             // really it's a second merge. first merge with self made by assignment
@@ -179,7 +179,7 @@ describe('Pending block manager', async () => {
             this.timeout(15000);
 
             const block1 = createDummyBlock(factory, 1, 10);
-            pbm.addBlock(block1, new factory.PatchDB());
+            pbm.addBlock(block1, new factory.PatchDB(0));
 
             const result = pbm.checkFinality(block1.getHash(), 2);
             assert.isNotOk(result);
@@ -189,7 +189,7 @@ describe('Pending block manager', async () => {
             this.timeout(15000);
 
             const block1 = createDummyBlock(factory, 1);
-            pbm.addBlock(block1, new factory.PatchDB());
+            pbm.addBlock(block1, new factory.PatchDB(0));
 
             const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block1.getHash(), 1);
             assert.equal(setBlocksToRollback.size, 0);
@@ -206,8 +206,8 @@ describe('Pending block manager', async () => {
                 block1.getHash()
             ];
 
-            pbm.addBlock(block1, new factory.PatchDB());
-            pbm.addBlock(block2, new factory.PatchDB());
+            pbm.addBlock(block1, new factory.PatchDB(0));
+            pbm.addBlock(block2, new factory.PatchDB(0));
 
             const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block2.getHash(), 2);
             assert.equal(setBlocksToRollback.size, 0);
@@ -227,10 +227,10 @@ describe('Pending block manager', async () => {
             block3.parentHashes = [block2.getHash()];
             block4.parentHashes = [block3.getHash()];
 
-            pbm.addBlock(block1, new factory.PatchDB());
-            pbm.addBlock(block2, new factory.PatchDB());
-            pbm.addBlock(block3, new factory.PatchDB());
-            pbm.addBlock(block4, new factory.PatchDB());
+            pbm.addBlock(block1, new factory.PatchDB(0));
+            pbm.addBlock(block2, new factory.PatchDB(0));
+            pbm.addBlock(block3, new factory.PatchDB(0));
+            pbm.addBlock(block4, new factory.PatchDB(0));
 
             const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block4.getHash(), 2);
             assert.equal(setBlocksToRollback.size, 0);
@@ -249,7 +249,7 @@ describe('Pending block manager', async () => {
             const block2 = createDummyBlock(factory, 1);
             const block3 = createDummyBlock(factory, 2);
 
-            pbm.addBlock(block2, new factory.PatchDB());
+            pbm.addBlock(block2, new factory.PatchDB(0));
 
             const patchThatWouldntMerge = createNonMergeablePatch(factory);
 
@@ -266,7 +266,7 @@ describe('Pending block manager', async () => {
 
                 block5 = createDummyBlock(factory, 1);
                 block5.parentHashes = arrParents;
-                pbm.addBlock(block5, new factory.PatchDB());
+                pbm.addBlock(block5, new factory.PatchDB(0));
             }
 
             let block6;
@@ -276,7 +276,7 @@ describe('Pending block manager', async () => {
 
                 block6 = createDummyBlock(factory, 1);
                 block6.parentHashes = arrParents;
-                pbm.addBlock(block6, new factory.PatchDB());
+                pbm.addBlock(block6, new factory.PatchDB(0));
                 const result = pbm.checkFinality(block6.getHash(), numOfWitnessGroup);
 
                 // no finality
@@ -284,7 +284,7 @@ describe('Pending block manager', async () => {
             }
 
             // connection to group0 restored
-            pbm.addBlock(block1, new factory.PatchDB());
+            pbm.addBlock(block1, new factory.PatchDB(0));
             {
                 const result = pbm.checkFinality(block1.getHash(), numOfWitnessGroup);
 
@@ -295,7 +295,7 @@ describe('Pending block manager', async () => {
             const block7 = createDummyBlock(factory, 0);
             {
                 block7.parentHashes = [block1.getHash(), block5.getHash()];
-                pbm.addBlock(block7, new factory.PatchDB());
+                pbm.addBlock(block7, new factory.PatchDB(0));
 
                 // finality!
                 const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfWitnessGroup);
@@ -317,7 +317,7 @@ describe('Pending block manager', async () => {
                 assert.equal(arrParents[1], block6.getHash());
 
                 block8.parentHashes = arrParents;
-                pbm.addBlock(block8, new factory.PatchDB());
+                pbm.addBlock(block8, new factory.PatchDB(0));
 
                 // finality!
                 const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block8.getHash(), numOfWitnessGroup);

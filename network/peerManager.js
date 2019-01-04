@@ -48,7 +48,7 @@ module.exports = (factory) => {
             // TODO: do we need mutex support here?
 
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
-            const key = this._createKey(peer.address);
+            const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._allPeers.get(key);
 
             if (existingPeer && existingPeer.banned) return Constants.REJECT_BANNED;
@@ -127,14 +127,15 @@ module.exports = (factory) => {
         /**
          *
          * @param {Buffer} address
+         * @param {Number} port
          * @return {string}
          * @private
          */
-        _createKey(address) {
+        _createKey(address, port) {
 
             // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
             // it could be ripemd160
-            return address.toString('hex');
+            return address + port.toString();
         }
     };
 };

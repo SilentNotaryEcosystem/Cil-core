@@ -26,7 +26,7 @@ module.exports = ({Constants}) =>
             typeforce(types.BlockInfo, blockInfo);
             const blockHash = blockInfo.getHash();
 
-            if (blockHash !== Constants.GENEZIS_BLOCK) {
+            if (blockHash !== Constants.GENESIS_BLOCK) {
                 for (let strHash of blockInfo.parentHashes) {
                     this._dag.add(blockHash, strHash);
                 }

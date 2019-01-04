@@ -57,8 +57,8 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessBlockVoteProto
             return this._data;
         }
 
-        static reject(groupName) {
-            return new this({groupName, blockHash: Buffer.from('reject')});
+        static reject(groupId) {
+            return new this({groupId, blockHash: Buffer.from('reject')});
         }
 
         sign(privateKey) {

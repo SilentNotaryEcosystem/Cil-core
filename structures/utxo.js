@@ -15,7 +15,6 @@ module.exports = ({Coins}, {utxoProto}) =>
                 typeforce(types.Hash256bit, txHash);
 
                 this._txHash = txHash;
-                this._strHash = txHash.toString('hex');
                 this._data = {
                     arrIndexes: [],
                     arrOutputs: []
@@ -23,6 +22,15 @@ module.exports = ({Coins}, {utxoProto}) =>
 
                 if (data && Buffer.isBuffer(data)) {
                     this._data = utxoProto.decode(data);
+
+                    // fix fixed64 conversion to Long. see https://github.com/dcodeIO/ProtoBuf.js/
+                    // If a proper way to work with 64 bit values (uint64, int64 etc.) is required,
+                    // just install long.js alongside this library.
+                    // All 64 bit numbers will then be returned as a Long instance instead of a possibly
+                    // unsafe JavaScript number (see).
+                    for (let output of this._data.arrOutputs) {
+                        output.amount = output.amount.toNumber();
+                    }
                 }
             } else {
                 throw new Error('Construct from txHash');
@@ -47,7 +55,7 @@ module.exports = ({Coins}, {utxoProto}) =>
          * @returns {string | *}
          */
         getTxHash() {
-            return this._strHash;
+            return Buffer.isBuffer(this._txHash) ? this._txHash.toString('hex') : this._txHash;
         }
 
         /**
@@ -59,7 +67,7 @@ module.exports = ({Coins}, {utxoProto}) =>
             typeforce(typeforce.tuple(types.Amount, types.Coins), arguments);
 
             if (~this._data.arrIndexes.findIndex(i => i === idx)) {
-                throw new Error(`Tx ${this._strHash} index ${idx} already added!`);
+                throw new Error(`Tx ${this.getTxHash()} index ${idx} already added!`);
             }
 
             // this will make serialization mode simple
@@ -72,7 +80,7 @@ module.exports = ({Coins}, {utxoProto}) =>
 
             const idx = this._data.arrIndexes.findIndex(i => i === nTxOutput);
             if (!~idx) {
-                throw new Error(`Tx ${this._strHash} index ${nTxOutput} already deleted!`);
+                throw new Error(`Tx ${this.getTxHash()} index ${nTxOutput} already deleted!`);
             }
 
             this._data.arrIndexes.splice(idx, 1);
@@ -88,7 +96,7 @@ module.exports = ({Coins}, {utxoProto}) =>
             typeforce('Number', idx);
 
             const index = this._data.arrIndexes.findIndex(nOutput => nOutput === idx);
-            if (!~index) throw new Error(`Output #${idx} of Tx ${this._strHash} already spent!`);
+            if (!~index) throw new Error(`Output #${idx} of Tx ${this.getTxHash()} already spent!`);
 
             return Coins.createFromData(this._data.arrOutputs[index]);
         }

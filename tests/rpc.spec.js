@@ -18,11 +18,11 @@ describe('RPC', () => {
     });
 
     it('should create instance', async () => {
-        new factory.RPC();
+        new factory.RPC({});
     });
 
     it('should emit TX event', (done) => {
-        const rpc = new factory.RPC();
+        const rpc = new factory.RPC({});
         const tx = new factory.Transaction(createDummyTx());
         rpc.on('rpc', ({event, content}) => {
             assert.isOk(event);

@@ -19,18 +19,18 @@ const createDummyPeer = (pubkey = '0a0b0c0d', address = factory.Transport.genera
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from(pubkey, 'hex')}
             ],
-            address
+            address: factory.Transport.strToAddress(address)
         }
     });
 
 const createDummyPeerInfo = (pubkey, address) => createDummyPeer(pubkey, address).peerInfo;
 
-const createDummyDefinitionWallet = (groupName, groupId = 0) => {
+const createDummyDefinitionWallet = (groupId = 0) => {
     const keyPair1 = factory.Crypto.createKeyPair();
     const keyPair2 = factory.Crypto.createKeyPair();
     const newWallet = new factory.Wallet(keyPair1.privateKey);
 
-    const groupDefinition = factory.WitnessGroupDefinition.create(groupName, groupId,
+    const groupDefinition = factory.WitnessGroupDefinition.create(groupId,
         [keyPair1.publicKey, keyPair2.publicKey]
     );
 
@@ -38,9 +38,7 @@ const createDummyDefinitionWallet = (groupName, groupId = 0) => {
 };
 
 const createDummyWitness = () => {
-    const groupName = 'test';
-
-    const {groupDefinition, newWallet} = createDummyDefinitionWallet(groupName);
+    const {groupDefinition, newWallet} = createDummyDefinitionWallet();
     const witness = new factory.Witness({wallet: newWallet, arrTestDefinition: [groupDefinition]});
 
     return {witness, groupDefinition};
@@ -68,8 +66,8 @@ describe('Witness tests', () => {
     });
 
     it('should get peers for my group', async () => {
-        const groupName = 'test';
-        const {keyPair1, keyPair2, groupDefinition} = createDummyDefinitionWallet(groupName);
+        const groupId = 0;
+        const {keyPair1, keyPair2, groupDefinition} = createDummyDefinitionWallet(groupId);
         const witness = new factory.Witness({wallet, arrTestDefinition: [groupDefinition]});
 
         const peer1 = createDummyPeer(keyPair1.publicKey);
@@ -84,12 +82,13 @@ describe('Witness tests', () => {
     });
 
     it('should reject message with wrong signature prom peer', async () => {
-        const groupName = 'test';
+        const groupId = 11;
 
         // mock peer with public key from group
         const peer = createDummyPeer();
 
-        const def = factory.WitnessGroupDefinition.create(groupName, 0,
+        const def = factory.WitnessGroupDefinition.create(
+            groupId,
             [wallet.publicKey, Buffer.from('pubkey1'), Buffer.from('pubkey2')]
         );
         const arrTestDefinition = [def];
@@ -97,7 +96,7 @@ describe('Witness tests', () => {
         // create witness
         const witness = new factory.Witness({wallet, arrTestDefinition});
         await witness._createConsensusForGroup(def);
-        const newBft = witness._consensuses.get(def.getGroupName());
+        const newBft = witness._consensuses.get(def.getGroupId());
         newBft._stopTimer();
 
         try {
@@ -110,17 +109,17 @@ describe('Witness tests', () => {
     });
 
     it('should create block', async () => {
-        factory.Constants.GENEZIS_BLOCK = pseudoRandomBuffer().toString('hex');
+        factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
 
         const {witness, groupDefinition} = createDummyWitness();
 
-        const patch = new factory.PatchDB();
+        const patchSource = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(100000, Buffer.from(witness._wallet.address, 'hex'));
-        patch.createCoins(txHash, 1, coins);
-        patch.createCoins(txHash, 2, coins);
-        patch.createCoins(txHash, 3, coins);
-        await witness._storage.applyPatch(patch);
+        patchSource.createCoins(txHash, 1, coins);
+        patchSource.createCoins(txHash, 2, coins);
+        patchSource.createCoins(txHash, 3, coins);
+        await witness._storage.applyPatch(patchSource);
 
         const tx1 = new factory.Transaction();
         tx1.addInput(txHash, 1);
@@ -134,7 +133,9 @@ describe('Witness tests', () => {
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
-        const {block} = await witness._createBlock(groupDefinition.getGroupId());
+        const {block, patch} = await witness._createBlock(groupDefinition.getGroupId());
         assert.equal(block.txns.length, 3);
+
+        assert.isOk(patch.getUtxo(new factory.Transaction(block.txns[0]).hash()));
     });
 });

@@ -10,7 +10,6 @@ const debug = debugLib('storage:');
 // TODO: use mutex to get|put|patch records !!!
 
 const UTXO_PREFIX = 'c';
-const BLOCK_PREFIX = 'b';
 const BLOCK_INFO_PREFIX = 'H';
 const CONTRACT_PREFIX = 'S';
 const RECEIPT_PREFIX = 'R';
@@ -18,16 +17,9 @@ const LAST_APPLIED_BLOCKS = 'FINAL';
 const PENDING_BLOCKS = 'PENDING';
 
 module.exports = (factory) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition} = factory;
     return class Storage {
-        constructor(options) {
-
-            // only for tests, for prod we should query DB
-            const {arrTestDefinition = []} = options;
-            this._groupDefinitions = new Map();
-            for (let def of arrTestDefinition) {
-                this._groupDefinitions.set(def.getGroupId(), def);
-            }
+        constructor() {
 
             this._db = new Map();
 
@@ -35,6 +27,13 @@ module.exports = (factory) => {
             // it will allow erase UTXO DB, and rebuild it from block DB
             // it could be levelDB also, but in different dir
             this._blockStorage = new Map();
+        }
+
+        async _ensureArrGroupDefinition() {
+            if (!this._arrGroupDefinition || !this._arrGroupDefinition.length) {
+                const cont = await this.getContract(Buffer.from(Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'));
+                this._arrGroupDefinition = cont ? WitnessGroupDefinition.getFromContractData(cont.getData()) : [];
+            }
         }
 
         /**
@@ -45,10 +44,15 @@ module.exports = (factory) => {
         async getWitnessGroupsByKey(publicKey) {
             const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
 
+            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return [];
+            await this._ensureArrGroupDefinition();
+
             // TODO: read from DB
             const arrResult = [];
-            for (let def of this._groupDefinitions.values()) {
-                if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) arrResult.push(def);
+            for (let def of this._arrGroupDefinition) {
+                if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) {
+                    arrResult.push(def);
+                }
             }
             return arrResult;
         }
@@ -60,14 +64,21 @@ module.exports = (factory) => {
          */
         async getWitnessGroupById(id) {
 
+            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return [];
+            await this._ensureArrGroupDefinition();
+
             // TODO: implement persistent storage
-            return this._groupDefinitions.get(id);
+            return id > this._arrGroupDefinition.length ?
+                undefined : this._arrGroupDefinition[id];
         }
 
         async getWitnessGroupsCount() {
 
+            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return 0;
+            await this._ensureArrGroupDefinition();
+
             // TODO: implement persistent storage
-            return this._groupDefinitions.size;
+            return this._arrGroupDefinition.length;
         }
 
         async saveBlock(block, blockInfo) {
@@ -77,7 +88,8 @@ module.exports = (factory) => {
             const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
 
             // save entire block
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${strHash} already saved!`);
             this._blockStorage.set(key, block.encode());
 
@@ -116,7 +128,8 @@ module.exports = (factory) => {
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             await this._blockStorage.delete(key);
         }
 
@@ -133,7 +146,8 @@ module.exports = (factory) => {
 //            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash);
             const strHash = Buffer.isBuffer(blockHash) ? blockHash.toString('hex') : blockHash;
 
-            const key = BLOCK_PREFIX + strHash;
+            // no prefix needed (because we using separate DB)
+            const key = strHash;
             const buffBlock = this._blockStorage.get(key);
             if (!buffBlock) throw new Error(`Storage: No block found by hash ${strHash}`);
             return raw ? buffBlock : new Block(buffBlock);
@@ -266,6 +280,11 @@ module.exports = (factory) => {
 
             // save contracts
             for (let [contractAddr, contract] of statePatch.getContracts()) {
+
+                // if we change groupDefinition contract - update cache
+                if (Constants.GROUP_DEFINITION_CONTRACT_ADDRESS === contractAddr) {
+                    this._arrGroupDefinition = contract.getData();
+                }
                 const key = CONTRACT_PREFIX + contractAddr;
                 this._db.set(key, contract.encode());
             }
@@ -349,7 +368,7 @@ module.exports = (factory) => {
         /**
          *
          * @param {Boolean} raw
-         * @returns {Promise<*>}
+         * @returns {Promise<ArrayOfHashes | Buffer>}
          */
         async getPendingBlockHashes(raw = false) {
 

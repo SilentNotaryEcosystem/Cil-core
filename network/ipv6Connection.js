@@ -1,42 +1,30 @@
 const EventEmitter = require('events');
-const util = require('util');
 const debug = require('debug')('transport:connection');
 
 const {sleep} = require('../utils');
 
 /**
- * Это тестовый транспорт Socket'ах.
- * Нужно фактически заменить path на address для обычного TCP/IP
- * Может эмулировать задержку через options.delay
+
  */
 
 
-module.exports = (Serializer, MessageAssembler, Constants) =>
+module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
     class Connection extends EventEmitter {
         constructor(options) {
             super();
 
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
-            this._delay = options.delay !== undefined ? options.delay : parseInt(Math.random() * 10 * 1000);
             this._socket = options.socket;
 
-            if (!options.remoteAddress) throw new Error('Remote address unknown!');
-            this._remoteAddress = options.remoteAddress;
-
             if (!this._socket) throw new Error('No socket!');
-//            this._socket.write = util.promisify(this._socket.write);
+            //            this._socket.write = util.promisify(this._socket.write);
 
             this._nonce = parseInt(Math.random() * 10000);
             this._socket.on('data', this._incomingMessage.bind(this));
             this._socket.on('end', this.close.bind(this));
             this._socket.on('error', this.close.bind(this));
 
-
             this._messageAssembler = new MessageAssembler;
-        }
-
-        get myAddress() {
-            return this._socket.localAddress;
         }
 
         /**
@@ -44,16 +32,15 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
          * @return {String} !!
          */
         get remoteAddress() {
-            return this._remoteAddress;
+            return this._socket.remoteAddress;
         }
 
         /**
-         * it's a stub!
          *
-         * @return {String} !!
+         * @return {Number} !!
          */
         get remotePort() {
-            return Constants.port;
+            return this._socket.remotePort;
         }
 
         /**
@@ -61,10 +48,8 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
          * @param {MsgCommon} message - message to send to peer
          */
         async sendMessage(message) {
-            if (this._delay) await sleep(this._delay);
-            debug(`(Nonce: ${this._nonce}, delay ${this._delay}) sendMessage "${message.message}"`);
-            const result = this._socket.write(Serializer.serialize(message));
-            return result;
+            debug(`(Nonce: ${this._nonce}) sendMessage "${message.message}"`);
+            return this._socket.write(Serializer.serialize(message));
         }
 
         async _incomingMessage(data) {
@@ -77,8 +62,7 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
             while ((msgBuffer = arrMessages.shift())) {
                 try {
                     const msg = Serializer.deSerialize(msgBuffer);
-                    debug(`(Nonce: ${this._nonce}, delay ${this._delay}) incomingMessage: "${msg.message}". Done`);
-                    if (this._delay) await sleep(this._delay);
+                    debug(`(Nonce: ${this._nonce}) incomingMessage: "${msg.message}". Done`);
                     this.emit('message', msg);
 
                     // for receiveSync only.
@@ -106,21 +90,4 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
             this._socket.destroy();
             this.emit('close');
         }
-
-        /**
-         * DON'T implement in prod connection
-         *
-         * Return at least 16 bytes (length of ipv6 address) buffer created from address
-         * If needed it will be padded with 0 from start
-         * Will be replaced with real ipv6 buffer
-         *
-         * @param {String} address
-         * @return {Buffer}
-         */
-        static strToAddress(address) {
-            const buffer = Buffer.from(address);
-            const bytestoPadd = buffer.length > 16 ? 0 : 16 - buffer.length;
-            return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
-        }
-
     };

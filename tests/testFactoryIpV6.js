@@ -2,66 +2,65 @@ const protobuf = require("protobufjs");
 const debugLib = require('debug');
 
 // Uncomment in prod!!
-const error = console.error;
-
-const log = console.error;
-
-const info = console.error;
-info.log = console.info.bind(console);
-
-const debug = debugLib('node:app');
-debug.log = console.log.bind(console);
-
+//const error=debugLib('app:error');
+//const log=debugLib('app:log');
+//log.log = console.log.bind(console);
+//const info=debugLib('app:info');
+//info.log = console.info.bind(console);
+//const debug=debugLib('app:debug');
+//debug.log = console.log.bind(console);
 // simple logger
-global.logger = {
-    error: (...msgs) => error(msgs),
-    log: (...msgs) => log(msgs),
-    info: (...msgs) => info(msgs),
-    debug: (...msgs) => debug(msgs)
-};
+//global.logger = {
+//    error: msg => error(msg),
+//    log: msg => log(msg),
+//    info: msg => info(msg)
+//    debug: msg => debug(msg)
+//};
+
+// Remove in prod
+global.logger = console;
+global.logger.debug = console.log;
 
 /**
  * Class to easy replacement used components
  */
 
-const configProd = require('./config/prod.conf');
-const configDev = require('./config/devel.conf');
-const config = process.env.NODE_ENV === 'Devel' ? configDev : configProd;
+const config = require('../config/test.conf');
 
-const Crypto = require('./crypto/crypto');
-const Ipv6TransportWrapper = require('./network/ipv6Transport');
-const SerializerWrapper = require('./network/serializer');
-const MessageAssemblerWrapper = require('./network/messageAssembler');
-const PeerWrapper = require('./network/peer');
-const PeerManagerWrapper = require('./network/peerManager');
+const Crypto = require('../crypto/crypto');
+const Ipv6TransportWrapper = require('../network/ipv6Transport');
+const SerializerWrapper = require('../network/serializer');
+const MessageAssemblerWrapper = require('../network/messageAssembler');
+const PeerWrapper = require('../network/peer');
+const PeerManagerWrapper = require('../network/peerManager');
 
-const MessagesWrapper = require('./messages/index');
+const MessagesWrapper = require('../messages/index');
 
-const WalletWrapper = require('./node/wallet');
-const BftWrapper = require('./node/bftConsensus');
-const NodeWrapper = require('./node/node');
-const MempoolWrapper = require('./node/mempool');
-const WitnessWrapper = require('./node/witness');
-const RpcWrapper = require('./node/rpc');
-const AppWrapper = require('./node/app');
+const WalletWrapper = require('../node/wallet');
+const BftWrapper = require('../node/bftConsensus');
+const NodeWrapper = require('../node/node');
+const MempoolWrapper = require('../node/mempool');
+const WitnessWrapper = require('../node/witness');
+const RpcWrapper = require('../node/rpc');
+const AppWrapper = require('../node/app');
 
-const StorageWrapper = require('./storage/memoryStorageDefinition');
-const PatchWrapper = require('./storage/patch');
-const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
-const MainDagWrapper = require('./node/mainDag');
+const StorageWrapper = require('../storage/memoryStorage');
+const PatchWrapper = require('../storage/patch');
+const PendingBlocksManagerWrapper = require('../node/pendingBlocksManager');
+const MainDagWrapper = require('../node/mainDag');
 
-const TransactionWrapper = require('./structures/transaction');
-const BlockWrapper = require('./structures/block');
-const InventoryWrapper = require('./structures/inventory');
-const UtxoWrapper = require('./structures/utxo');
-const CoinsWrapper = require('./structures/coins');
-const WitnessGroupDefinition = require('./structures/witnessGroupDefinition');
-const BlockInfoWrapper = require('./structures/blockInfo');
-const ArrayOfHashesWrapper = require('./structures/arrayOfHashes');
-const ContractWrapper = require('./structures/contract');
-const TxReceiptWrapper = require('./structures/txReceipt');
+const TransactionWrapper = require('../structures/transaction');
+const BlockWrapper = require('../structures/block');
+const InventoryWrapper = require('../structures/inventory');
+const UtxoWrapper = require('../structures/utxo');
+const CoinsWrapper = require('../structures/coins');
+const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
+const BlockInfoWrapper = require('../structures/blockInfo');
+const ArrayOfHashesWrapper = require('../structures/arrayOfHashes');
+const ContractWrapper = require('../structures/contract');
+const TxReceiptWrapper = require('../structures/txReceipt');
 
-const pack = require('./package');
+const pack = require('../package');
 
 class Factory {
     constructor() {

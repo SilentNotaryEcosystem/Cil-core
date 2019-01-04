@@ -57,6 +57,8 @@ const CoinsWrapper = require('../structures/coins');
 const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
 const BlockInfoWrapper = require('../structures/blockInfo');
 const ArrayOfHashesWrapper = require('../structures/arrayOfHashes');
+const ContractWrapper = require('../structures/contract');
+const TxReceiptWrapper = require('../structures/txReceipt');
 
 const pack = require('../package');
 
@@ -72,7 +74,8 @@ class Factory {
                     ...this._constants,
                     ...prototypes.enumServices.values,
                     ...prototypes.enumRejectCodes.values,
-                    ...prototypes.enumInventory.values
+                    ...prototypes.enumInventory.values,
+                    ...prototypes.enumTxStatus.values
                 };
 
                 // prototypes
@@ -84,6 +87,8 @@ class Factory {
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
                 this._arrayOfHashes = ArrayOfHashesWrapper(this);
+                this._contract = ContractWrapper(this, prototypes);
+                this._txReceipt = TxReceiptWrapper(this, prototypes);
 
                 this._messagesImplementation = MessagesWrapper(this, prototypes);
 
@@ -134,6 +139,14 @@ class Factory {
 
     get MainDag() {
         return this._mainDagImplementation;
+    }
+
+    get Contract() {
+        return this._contract;
+    }
+
+    get TxReceipt() {
+        return this._txReceipt;
     }
 
     get UTXO() {
@@ -274,6 +287,7 @@ class Factory {
             enumServices: protoNetwork.lookup("network.Services"),
             enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
             enumInventory: protoStructures.lookup("structures.InventoryTypes"),
+            enumTxStatus: protoStructures.lookup("structures.TxStatuses"),
 
             // Structures
             transactionProto: protoStructures.lookupType("structures.Transaction"),
@@ -287,7 +301,10 @@ class Factory {
 
             utxoProto: protoStructures.lookupType("structures.UTXO"),
 
-            witnessGroupDefinitionProto: protoStructures.lookupType("structures.WitnessGroupDefinition")
+            witnessGroupDefinitionProto: protoStructures.lookupType("structures.WitnessGroupDefinition"),
+
+            contractProto: protoStructures.lookupType("structures.Contract"),
+            txReceiptProto: protoStructures.lookupType("structures.TxReceipt")
         };
     }
 }

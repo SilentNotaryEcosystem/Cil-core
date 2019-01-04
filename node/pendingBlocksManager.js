@@ -10,8 +10,9 @@ const {mergeSets} = require('../utils');
 
 const debug = debugLib('pendingBlocksManager:');
 
-// IMPORTANT
+// IMPORTANT: how many witnesses should include it in graph to make it stable
 const majority = (nGroup) => parseInt(nGroup / 2) + 1;
+
 
 module.exports = (factory) => {
     const {Constants, PatchDB} = factory;
@@ -19,10 +20,12 @@ module.exports = (factory) => {
     assert(PatchDB);
 
     return class PendingBlocksManager {
-        constructor() {
+        constructor(arrTopStable) {
             this._dag = new Dag();
 
-            // TODO: maintain graph of pending blocks (store it + load it)!
+            this._topStable = arrTopStable;
+
+            // see node.rebuildPending
         }
 
         getDag() {
@@ -83,10 +86,10 @@ module.exports = (factory) => {
          * @private
          */
         async getBestParents() {
-            const arrTips = this.getTips();
+            let arrTips = this.getTips();
 
-            // TODO: review it. it's good only at very beginning. No tips == Error!
-            if (!arrTips.length) arrTips.push(Constants.GENEZIS_BLOCK);
+            if (!arrTips.length) arrTips = this._topStable;
+            if (!arrTips.length) arrTips = [Constants.GENESIS_BLOCK];
 
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
@@ -112,18 +115,20 @@ module.exports = (factory) => {
                     } else {
                         patchMerged = patchMerged.merge(patch);
                     }
+
                     arrParents.push(vertex);
                 } catch (e) {
-
+                    console.error(e);
                     // TODO: rework it. this implementation (merging most witnessed vertex with other) could be non optimal
                 }
             }
 
+            if (!arrParents.length) logger.debug('No pending parents found, using stable tips!');
+
             return {
 
                 // TODO: review this condition
-                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
-//                arrParents: arrParents,
+                arrParents: arrParents.length ? arrParents : arrTips,
                 patchMerged
             };
         }
@@ -225,6 +230,9 @@ module.exports = (factory) => {
             }
 
             // apply patchToApply to storage, undo all setBlocksToRollback
+
+            this._topStable = arrTopStable;
+
             return {
                 patchToApply,
                 setStableBlocks: setAlsoStableVertices,

@@ -19,6 +19,10 @@ class KeyPair {
         this._pair = keyPair;
     }
 
+    get address() {
+        return this.getAddress(false);
+    }
+
     get privateKey() {
         return this.getPrivate();
     }
@@ -46,6 +50,15 @@ class KeyPair {
      */
     getPublic(compact = true, encoding = 'hex') {
         return this._pair.getPublic(compact, encoding);
+    }
+
+    /**
+     *
+     * @param {Boolean} needBuffer
+     * @returns {String|Buffer}
+     */
+    getAddress(needBuffer = true) {
+        return CryptoLib.getAddress(this.getPublic(), needBuffer);
     }
 
 }
@@ -188,6 +201,14 @@ class CryptoLib {
      */
     static getAddress(publicKey, needBuffer = false) {
         return needBuffer ? Buffer.from(this.hash160(publicKey), 'hex') : this.hash160(publicKey);
+    }
+
+    /**
+     * WARNING! Modify here! if change address to something different than 160 bit (hash160)
+     * @return {Buffer}
+     */
+    static getAddrContractCreation() {
+        return Buffer.alloc(20, 0);
     }
 
     static ripemd160(buffer) {
