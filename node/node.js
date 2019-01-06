@@ -80,7 +80,7 @@ module.exports = (factory, factoryOptions) => {
             // used only for debugging purpose. Feel free to remove
             this._debugAddress = this._transport.myAddress;
 
-            this._peerManager = new PeerManager({transport: this._transport});
+            this._peerManager = new PeerManager({transport: this._transport, storage: this._storage});
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));

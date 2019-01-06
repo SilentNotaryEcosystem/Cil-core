@@ -14,9 +14,13 @@ module.exports = (factory) => {
     return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {transport} = options;
+            const {transport, storage} = options;
 
+            // to pass it to peers
             this._transport = transport;
+
+            // to store address book
+            this._storage = storage;
 
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
