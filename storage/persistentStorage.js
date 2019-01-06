@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('path');
+const assert = require('assert');
 const levelup = require('levelup');
 const leveldown = require('leveldown');
 const typeforce = require('typeforce');
@@ -28,17 +30,54 @@ const createKey = (strPrefix, buffKey) => {
     return buffKey ? Buffer.concat([Buffer.from(strPrefix), buffKey]) : Buffer.from(strPrefix);
 };
 
-module.exports = (factory) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition, Mutex} = factory;
-    return class Storage {
-        constructor() {
+/**
+ *
+ * @param db - levelup instance
+ * @returns {Promise<any>}
+ */
+const eraseDbContent = (db) => {
+    return new Promise(resolve => {
+        db.createKeyStream({keyAsBuffer: true, valueAsBuffer: false})
+            .on('data', function(data) {
+                db.del(data, {keyAsBuffer: true, valueAsBuffer: false});
+            })
+            .on('close', function() {
+                resolve();
+            });
+    });
+};
 
-            this._db = levelup(leveldown(Constants.DB_CHAINSTATE_DIR));
+module.exports = (factory, factoryOptions) => {
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition} = factory;
+    return class Storage {
+        constructor(options) {
+            options = {
+                ...factoryOptions,
+                ...options
+            };
+
+            const {testStorage, dbPath, mutex} = options;
+            assert(mutex, 'Storage constructor requires Mutex instance!');
+
+            let downAdapter;
+            if (testStorage) {
+
+                // used for tests
+                downAdapter = require('memdown');
+            } else {
+                downAdapter = leveldown;
+            }
+
+            const pathPrefix = path.resolve(dbPath || Constants.DB_PATH_PREFIX);
+
+            this._db = levelup(downAdapter(`${pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`));
 
             // it's a good idea to keep blocks separately from UTXO DB
             // it will allow erase UTXO DB, and rebuild it from block DB
             // it could be levelDB also, but in different dir
-            this._blockStorage = levelup(leveldown(Constants.DB_BLOCKSTATE_DIR));
+            this._blockStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
+
+            this._mutex = mutex;
         }
 
         async _ensureArrGroupDefinition() {
@@ -96,7 +135,9 @@ module.exports = (factory) => {
             // save entire block
             // no prefix needed (because we using separate DB)
             const key = createKey('', buffHash);
-            if (await this.hasBlock(hash)) throw new Error(`Storage: Block ${buffHash} already saved!`);
+            if (await this.hasBlock(hash)) {
+                throw new Error(`Storage: Block ${buffHash.toString('hex')} already saved!`);
+            }
             await this._blockStorage.put(key, block.encode());
 
             // save blockInfo
@@ -150,8 +191,9 @@ module.exports = (factory) => {
 
             // no prefix needed (because we using separate DB)
             const key = createKey('', buffHash);
-            const buffBlock = await this._blockStorage.get(key);
-            if (!buffBlock) throw new Error(`Storage: No block found by hash ${buffHash}`);
+            const buffBlock = await this._blockStorage.get(key).catch(err => debug(err));
+            if (!buffBlock) throw new Error(`Storage: No block found by hash ${buffHash.toString('hex')}`);
+
             return raw ? buffBlock : new Block(buffBlock);
         }
 
@@ -168,8 +210,9 @@ module.exports = (factory) => {
             const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
             const blockInfoKey = createKey(BLOCK_INFO_PREFIX, bufHash);
 
-            const buffInfo = await this._db.get(blockInfoKey);
-            if (!buffInfo) throw new Error(`Storage: No block found by hash ${strHash}`);
+            const buffInfo = await this._db.get(blockInfoKey).catch(err => debug(err));
+            if (!buffInfo) throw new Error(`Storage: No block found by hash ${bufHash.toString('hex')}`);
+
             return raw ? buffInfo : new BlockInfo(buffInfo);
         }
 
@@ -215,7 +258,10 @@ module.exports = (factory) => {
                 } catch (e) {
                     continue;
                 }
-                throw new Error(`Tx collision for ${txHash}!`);
+                throw new Error(`;
+            Tx;
+            collision;
+            for ${txHash}!`);
             }
         }
 
@@ -244,12 +290,12 @@ module.exports = (factory) => {
         getUtxo(hash, raw = false) {
             typeforce(types.Hash256bit, hash);
 
-            return Mutex.runExclusive(['utxo'], async () => {
+            return this._mutex.runExclusive(['utxo'], async () => {
                 const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
                 const key = createKey(UTXO_PREFIX, bufHash);
 
                 const buffUtxo = await this._db.get(key);
-                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${bufHash} not found!`);
+                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${bufHash.toString('hex')} not found !`);
 
                 return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
             });
@@ -263,7 +309,7 @@ module.exports = (factory) => {
         async applyPatch(statePatch) {
 
             const arrOps = [];
-            const lock = await Mutex.acquire(['utxo', 'contract', 'receipt']);
+            const lock = await this._mutex.acquire(['utxo', 'contract', 'receipt']);
             try {
                 for (let [strTxHash, utxo] of statePatch.getCoins()) {
                     const key = createKey(UTXO_PREFIX, Buffer.from(strTxHash, 'hex'));
@@ -296,7 +342,7 @@ module.exports = (factory) => {
                 // BATCH WRITE
                 await this._db.batch(arrOps);
             } finally {
-                Mutex.release(lock);
+                this._mutex.release(lock);
             }
         }
 
@@ -309,9 +355,10 @@ module.exports = (factory) => {
         getTxReceipt(strTxHash, raw) {
             typeforce(types.Hash256bit, strTxHash);
 
-            return Mutex.runExclusive(['receipt'], async () => {
+            return this._mutex.runExclusive(['receipt'], async () => {
                 const key = createKey(RECEIPT_PREFIX, Buffer.from(strTxHash, 'hex'));
-                const buffData = await this._db.get(key);
+                const buffData = await this._db.get(key).catch(err => debug(err));
+                if (!buffData) return undefined;
 
                 return raw ? buffData : new TxReceipt(buffData);
             });
@@ -326,12 +373,12 @@ module.exports = (factory) => {
         getContract(buffAddress, raw = false) {
             typeforce(types.Address, buffAddress);
 
-            return Mutex.runExclusive(['contract'], async () => {
+            return this._mutex.runExclusive(['contract'], async () => {
 
                 const key = createKey(CONTRACT_PREFIX, buffAddress);
-                const buffData = await this._db.get(key).catch(err => console.error(err));
-
+                const buffData = await this._db.get(key).catch(err => debug(err));
                 if (!buffData) return undefined;
+
                 const contract = new Contract(buffData);
                 contract.storeAddress(buffAddress);
 
@@ -346,7 +393,7 @@ module.exports = (factory) => {
          */
         async getLastAppliedBlockHashes(raw = false) {
             const key = createKey(LAST_APPLIED_BLOCKS);
-            const result = await this._db.get(key).catch(err => console.error(err));
+            const result = await this._db.get(key).catch(err => debug(err));
 
             return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
         }
@@ -386,8 +433,8 @@ module.exports = (factory) => {
         getPendingBlockHashes(raw = false) {
             const key = createKey(PENDING_BLOCKS);
 
-            return Mutex.runExclusive(['pending_blocks'], async () => {
-                const result = await this._db.get(key).catch(err => console.error(err));
+            return this._mutex.runExclusive(['pending_blocks'], async () => {
+                const result = await this._db.get(key).catch(err => debug(err));
 
                 return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
             });
@@ -398,14 +445,9 @@ module.exports = (factory) => {
 
             const key = createKey(PENDING_BLOCKS);
 
-            return Mutex.runExclusive(['pending_blocks'], async () => {
+            return this._mutex.runExclusive(['pending_blocks'], async () => {
                 await this._db.put(key, (new ArrayOfHashes(arrBlockHashes)).encode());
             });
-        }
-
-        async cleanup() {
-            await this._db.close();
-            await this._blockStorage.close();
         }
     };
 };
