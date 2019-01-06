@@ -112,6 +112,7 @@ describe('Witness tests', () => {
         factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
 
         const {witness, groupDefinition} = createDummyWitness();
+        await witness.ensureLoaded();
 
         const patchSource = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');

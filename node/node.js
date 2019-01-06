@@ -9,7 +9,7 @@ const Tick = require('tick-tock');
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
-module.exports = (factory) => {
+module.exports = (factory, factoryOptions) => {
     const {
         Transport,
         Messages,
@@ -47,9 +47,18 @@ module.exports = (factory) => {
 
     return class Node {
         constructor(options) {
+
+            // mix in factory (common for all instance) options
+            options = {
+                ...factoryOptions,
+                ...options
+            };
+
             const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout} = options;
 
-            this._storage = new Storage(options);
+            this._mutex = new Mutex();
+
+            this._storage = new Storage({...options, mutex: this._mutex});
 
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
@@ -400,8 +409,7 @@ module.exports = (factory) => {
          */
         async _processBlock(block) {
 
-            const lock = await Mutex.acquire(['block']);
-
+            const lock = await this._mutex.acquire(['block']);
             try {
                 debugLib(`Processing block ${block.hash()}`);
 
@@ -413,7 +421,6 @@ module.exports = (factory) => {
                     return;
                 }
 
-                // TODO: add mutex here?
                 await this._verifyBlock(block);
 
                 // it will check readiness of parents
@@ -433,7 +440,7 @@ module.exports = (factory) => {
             } catch (e) {
                 throw e;
             } finally {
-                Mutex.release(lock);
+                this._mutex.release(lock);
             }
         }
 

@@ -15,12 +15,17 @@ const maxConnections = os.platform() === 'win32' ? 4 : 10;
 //const maxConnections = 2;
 
 // set to undefined to use random delays
-//const delay = undefined;
-const delay = 10;
+const delay = undefined;
+//const delay = 10;
 
 let groupId = 11;
 let arrKeyPairs;
 let groupDefinition;
+
+const patchNodeForWitnesses = (node, groupDefinition) => {
+    node._storage.getWitnessGroupsByKey = sinon.fake.returns([groupDefinition]);
+    node._storage.getWitnessGroupById = sinon.fake.returns(groupDefinition);
+};
 
 const createDummyDefinition = (groupId = 0, numOfKeys = 2) => {
     const arrKeyPairs = [];
@@ -41,13 +46,14 @@ const createWitnesses = (num, seedAddress) => {
 
     for (let i = 0; i < num; i++) {
         const witnessWallet = new factory.Wallet(arrKeyPairs[i].getPrivate());
-        arrWitnesses.push(new factory.Witness({
+        const witness = new factory.Witness({
             wallet: witnessWallet,
-            arrTestDefinition: [groupDefinition],
             listenAddr: factory.Transport.generateAddress(),
             delay,
             arrSeedAddresses: [seedAddress]
-        }));
+        });
+        patchNodeForWitnesses(witness, groupDefinition);
+        arrWitnesses.push(witness);
     }
     witnesNo += num;
 
@@ -111,6 +117,7 @@ describe('Witness integration tests', () => {
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
         // Peers already known by seedNode
@@ -131,6 +138,7 @@ describe('Witness integration tests', () => {
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
 
+        await Promise.all(arrWitnesses.map(witness => witness.ensureLoaded()));
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
 
         // there should be maxConnections+2 peers added to seed
@@ -146,6 +154,7 @@ describe('Witness integration tests', () => {
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
         // create 'maxConnections' witnesses
@@ -155,6 +164,7 @@ describe('Witness integration tests', () => {
 
         const arrSuppressedBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
+            await arrWitnesses[i].ensureLoaded();
             await arrWitnesses[i]._processBlock(genesis);
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
@@ -183,6 +193,8 @@ describe('Witness integration tests', () => {
             rpcUser: 'test',
             rpcPass: 'test'
         });
+        patchNodeForWitnesses(seedNode, groupDefinition);
+        await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
         // create 'maxConnections' witnesses
@@ -191,7 +203,7 @@ describe('Witness integration tests', () => {
         // prepare Done handlers for all witnesses & seedNode
         const arrBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
-
+            await arrWitnesses[i].ensureLoaded();
             await arrWitnesses[i]._processBlock(genesis);
 
             arrBlocksPromises.push(new Promise(resolve => {
@@ -231,10 +243,13 @@ describe('Witness integration tests', () => {
             rpcUser: 'test',
             rpcPass: 'test'
         });
+        patchNodeForWitnesses(seedNode, groupDefinition);
+        await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
         // create ONE witnesses
         const [witness] = createWitnesses(1, seedAddress);
+        await witness.ensureLoaded();
         await witness._processBlock(genesis);
 
         const arrBlocksPromises = [];
@@ -273,11 +288,16 @@ describe('Witness integration tests', () => {
             rpcUser: 'test',
             rpcPass: 'test'
         });
+        patchNodeForWitnesses(seedNode, groupDefinition);
+        await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
         // create 'maxConnections' witnesses for groupId (11 see global variable)
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
-        for (let witness of arrWitnesses) await witness._processBlock(genesis);
+        for (let witness of arrWitnesses) {
+            await witness.ensureLoaded();
+            await witness._processBlock(genesis);
+        }
 
         const acceptBlockFake = sinon.fake();
 

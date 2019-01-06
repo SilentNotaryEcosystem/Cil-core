@@ -258,10 +258,7 @@ module.exports = (factory, factoryOptions) => {
                 } catch (e) {
                     continue;
                 }
-                throw new Error(`;
-            Tx;
-            collision;
-            for ${txHash}!`);
+                throw new Error(`Tx collision for ${txHash}!`);
             }
         }
 

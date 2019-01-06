@@ -45,7 +45,7 @@ const WitnessWrapper = require('../node/witness');
 const RpcWrapper = require('../node/rpc');
 const AppWrapper = require('../node/app');
 
-const StorageWrapper = require('../storage/memoryStorageDefinition');
+const StorageWrapper = require('../storage/persistentStorage');
 const PatchWrapper = require('../storage/patch');
 const PendingBlocksManagerWrapper = require('../node/pendingBlocksManager');
 const MainDagWrapper = require('../node/mainDag');
@@ -64,9 +64,9 @@ const TxReceiptWrapper = require('../structures/txReceipt');
 const pack = require('../package');
 
 class Factory {
-    constructor() {
+    constructor(options) {
 
-        this._mutexSingleton = new Mutex();
+        this._mutexImplementation = Mutex;
         this._donePromise = this._asyncLoader();
         this._donePromise.then((prototypes) => {
 
@@ -100,7 +100,7 @@ class Factory {
                 this._transportImplemetation = TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
-                this._storageImplementation = StorageWrapper(this);
+                this._storageImplementation = StorageWrapper(this, options);
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
@@ -110,8 +110,8 @@ class Factory {
                 this._mainDagImplementation = MainDagWrapper(this);
 
                 // all componenst should be declared above
-                this._nodeImplementation = NodeWrapper(this);
-                this._witnessImplementation = WitnessWrapper(this);
+                this._nodeImplementation = NodeWrapper(this, options);
+                this._witnessImplementation = WitnessWrapper(this, options);
             })
             .catch(err => {
                 logger.error(err);
@@ -125,7 +125,7 @@ class Factory {
     }
 
     get Mutex() {
-        return this._mutexSingleton;
+        return this._mutexImplementation;
     }
 
     get version() {
@@ -315,4 +315,7 @@ class Factory {
     }
 }
 
-module.exports = new Factory();
+module.exports = new Factory({
+    testStorage: true,
+    mutex: new Mutex()
+});

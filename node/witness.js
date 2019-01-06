@@ -5,12 +5,19 @@ const debugLib = require('debug');
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
-module.exports = (factory) => {
+module.exports = (factory, factoryOptions) => {
     const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {
-        constructor(options = {}) {
+        constructor(options) {
+
+            // mix in factory (common for all instance) options
+            options = {
+                ...factoryOptions,
+                ...options
+            };
+
             super(options);
             const {wallet} = options;
 

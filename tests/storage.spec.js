@@ -30,20 +30,20 @@ describe('Storage tests', () => {
 
     it('should save block', async () => {
         const block = createDummyBlock(factory);
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.saveBlock(block);
     });
 
     it('should find block in storage', async () => {
         const block = createDummyBlock(factory);
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.saveBlock(block);
 
         assert.isOk(await storage.hasBlock(block.hash()));
     });
 
     it('should THROWS find block in storage (param check failed)', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         try {
             await storage.hasBlock('133');
@@ -54,18 +54,18 @@ describe('Storage tests', () => {
     });
 
     it('should NOT find block in storage', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32)));
     });
 
     it('should NOT find block in storage', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32).toString('hex')));
     });
 
     it('should get saved block', async () => {
         const block = createDummyBlock(factory);
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.saveBlock(block);
 
         const gotBlock = await storage.getBlock(block.hash());
@@ -75,7 +75,7 @@ describe('Storage tests', () => {
     });
 
     it('should apply "addCoins" patch to empty storage (like genesis)', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
@@ -100,7 +100,7 @@ describe('Storage tests', () => {
     });
 
     it('should apply "spendCoins" patch', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         // create coins that we plan to spend
         const patch = new factory.PatchDB(0);
@@ -151,7 +151,7 @@ describe('Storage tests', () => {
     });
 
     it('should get UTXOs from DB as map', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
@@ -176,7 +176,7 @@ describe('Storage tests', () => {
     // if we find UTXO with same hash
     // @see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
     it('should find TX COLLISION', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
 
@@ -195,7 +195,7 @@ describe('Storage tests', () => {
     });
 
     it('should NOT find TX COLLISION', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
 
@@ -208,7 +208,7 @@ describe('Storage tests', () => {
     });
 
     it('should SET/GET BlockInfo', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         const blockInfo = createBlockInfo();
         await storage.saveBlockInfo(blockInfo);
         const result = await storage.getBlockInfo(blockInfo.getHash());
@@ -218,7 +218,7 @@ describe('Storage tests', () => {
     });
 
     it('should store LAST_APPLIED_BLOCKS', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 1);
         const block3 = createDummyBlock(factory, 10);
@@ -234,7 +234,7 @@ describe('Storage tests', () => {
     });
 
     it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 1);
         const block3 = createDummyBlock(factory, 10);
@@ -266,7 +266,7 @@ describe('Storage tests', () => {
     });
 
     it('should removeBadBlocks', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 1);
         const block3 = createDummyBlock(factory, 10);
@@ -294,7 +294,7 @@ describe('Storage tests', () => {
     });
 
     it('should set/get PendingBlockHashes', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const emptyArr = await storage.getPendingBlockHashes();
         assert.isOk(Array.isArray(emptyArr));
@@ -317,7 +317,7 @@ describe('Storage tests', () => {
         const strCode = 'getData(){return this._data}';
         patch.setContract(address, data, strCode);
 
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.applyPatch(patch);
 
         const contract = await storage.getContract(address);
@@ -330,7 +330,7 @@ describe('Storage tests', () => {
     it('should write to db encoded data (buffers)', async () => {
         const groupId = 10;
         const patch = new factory.PatchDB(groupId);
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const buffUtxoHash = pseudoRandomBuffer();
         patch.createCoins(buffUtxoHash, 1, new factory.Coins(1000, generateAddress()));

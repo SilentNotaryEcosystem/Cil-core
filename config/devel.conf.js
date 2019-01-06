@@ -96,6 +96,10 @@ module.exports = {
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
         TIMEOUT_CODE: 10000,
 
-        CONTRACT_METHOD_SEPARATOR: '\0'
+        CONTRACT_METHOD_SEPARATOR: '\0',
+
+        DB_PATH_PREFIX: './db',
+        DB_CHAINSTATE_DIR: 'chainstate',
+        DB_BLOCKSTATE_DIR: 'blockstate'
     }
 };

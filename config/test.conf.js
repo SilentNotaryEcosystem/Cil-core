@@ -86,6 +86,10 @@ module.exports = {
         PEER_PING_TIMER_NAME: 'peerPingTimer',
         PEER_PING_TIMEOUT: 4 * 60 * 1000,
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
-        PEER_RECONNECT_INTERVAL: 2 * 60 * 1000
+        PEER_RECONNECT_INTERVAL: 5 * 60 * 1000,
+
+        DB_PATH_PREFIX: './db',
+        DB_CHAINSTATE_DIR: 'test_chainstate',
+        DB_BLOCKSTATE_DIR: 'test_blockstate'
     }
 };
