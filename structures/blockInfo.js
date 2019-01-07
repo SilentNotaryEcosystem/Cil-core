@@ -45,6 +45,10 @@ module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
             return this._data.header.parentHashes.map(hash => hash.toString('hex'));
         }
 
+        /**
+         *
+         * @returns {String}
+         */
         getHash() {
             return Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
         }

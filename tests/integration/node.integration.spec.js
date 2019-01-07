@@ -49,6 +49,8 @@ const createNet = async (onlySeed = false) => {
 
     const seedAddress = factory.Transport.generateAddress();
     const seedNode = new factory.Node({listenAddr: seedAddress, delay, rpcUser: 'test', rpcPass: 'test'});
+    await seedNode.ensureLoaded();
+
     await seedNode._processBlock(genesis);
 
     const arrNodes = [];
@@ -67,6 +69,7 @@ const createLiveNet = async (onlySeed = false) => {
 
     const [seedAddress] = factoryIpV6.Transport.getInterfacesIpV6Addresses();
     const seedNode = new factoryIpV6.Node({listenAddr: seedAddress, rpcUser: 'test', rpcPass: 'test'});
+    await seedNode.ensureLoaded();
     await seedNode._processBlock(genesis);
 
     const arrNodes = [];

@@ -19,7 +19,7 @@ const createGenesis = (factory, utxoHash) => {
     patch.createCoins(utxoHash, 0, coins);
     patch.createCoins(utxoHash, 80, coins);
 
-    const storage = new factory.Storage({});
+    const storage = new factory.Storage();
     storage.applyPatch(patch);
 
     return {storage, keyPair};

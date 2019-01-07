@@ -69,7 +69,8 @@ module.exports = {
             {name: "rpcAddress", type: String, multiple: false},
             {name: "genesisHash", type: String, multiple: false},
             {name: "groupDefContract", type: String, multiple: false},
-            {name: "privateKey", type: String, multiple: false}
+            {name: "privateKey", type: String, multiple: false},
+            {name: "dbPath", type: String, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     }

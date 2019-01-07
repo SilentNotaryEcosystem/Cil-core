@@ -138,7 +138,7 @@ describe('Node tests', () => {
     });
 
     it('should create a Node', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         assert.isOk(node);
     });
 
@@ -157,7 +157,7 @@ describe('Node tests', () => {
     });
 
     it('should _storeBlockAndInfo', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const block = createDummyBlock(factory);
 
         await node._storeBlockAndInfo(block, new factory.BlockInfo(block.header));
@@ -166,7 +166,7 @@ describe('Node tests', () => {
     });
 
     it('should prepare verAckMessage', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const inMsg = new factory.Messages.MsgVersion({
             nonce: 12,
             peerInfo: {
@@ -206,7 +206,9 @@ describe('Node tests', () => {
         const [msg] = sendMessage.args[0];
         assert.isOk(msg && msg.isAddr());
         assert.isOk(msg.peers);
-        assert.equal(msg.peers.length, 4);
+
+        // 4 known + self
+        assert.equal(msg.peers.length, 5);
         msg.peers.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
         });
@@ -234,7 +236,7 @@ describe('Node tests', () => {
 
     // TODO: add message handlers test
     it('should send GET_DATA message', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         node._mempool.hasTx = sinon.fake.returns(false);
         node._storage.hasBlock = sinon.fake.returns(false);
 
@@ -263,7 +265,7 @@ describe('Node tests', () => {
     });
 
     it('should NOT send GET_DATA message (that hashes are known to node)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         node._mempool.hasTx = sinon.fake.returns(true);
         node._storage.hasBlock = sinon.fake.returns(true);
 
@@ -289,7 +291,7 @@ describe('Node tests', () => {
     });
 
     it('should send MSG_TX & MSG_BLOCK', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
 
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
         node._storage.getBlock = sinon.fake.returns(createDummyBlock(factory));
@@ -320,7 +322,7 @@ describe('Node tests', () => {
     });
 
     it('should send NOTHING (bad msg)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         node._mempool.getTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
         node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
 
@@ -344,7 +346,7 @@ describe('Node tests', () => {
     });
 
     it('should send NOTHING and mark peer misbehaving (no tx in mempool)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         node._mempool.getTx = sinon.fake.throws(new Error('No tx in mempool'));
         node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
 
@@ -365,7 +367,7 @@ describe('Node tests', () => {
     });
 
     it('should relay received TX to neighbors', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         node._mempool.addTx = sinon.fake();
         node._informNeighbors = sinon.fake();
 
@@ -388,7 +390,7 @@ describe('Node tests', () => {
 
     it('should NOT relay received TX (already known)', async () => {
         const err = 'err msg';
-        const node = new factory.Node({});
+        const node = new factory.Node();
         node._mempool.addTx = sinon.fake.throws(err);
         node._informNeighbors = sinon.fake();
 
@@ -429,7 +431,32 @@ describe('Node tests', () => {
         assert.isOk(txToSend.equals(tx));
     });
 
-    it('should process good block from MsgBlock', async () => {
+    it('should process NEW block from MsgBlock', async () => {
+        const node = new factory.Node();
+
+        const block = createDummyBlock(factory);
+        const msg = new factory.Messages.MsgBlock(block);
+
+        node._mainDag.getBlockInfo = sinon.fake.resolves(false);
+        node._processBlock = sinon.fake();
+        await node._handleBlockMessage(undefined, msg);
+
+        assert.isOk(node._processBlock.called);
+    });
+
+    it('should omit KNOWN block from MsgBlock', async () => {
+        const node = new factory.Node();
+
+        const block = createDummyBlock(factory);
+        const msg = new factory.Messages.MsgBlock(block);
+
+        node._mainDag.getBlockInfo = sinon.fake.resolves(true);
+        await node._handleBlockMessage(undefined, msg);
+
+        assert.isNotOk(node._processBlock.called);
+    });
+
+    it('should process good block', async () => {
         const tx = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
         const parentBlock = createDummyBlock(factory);
@@ -439,10 +466,10 @@ describe('Node tests', () => {
         block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
         block.parentHashes = [parentBlock.getHash()];
 
-        const groupDef = createGroupDefAndSignBlock(block);
-        const node = new factory.Node({arrTestDefinition: [groupDef]});
+        const node = new factory.Node();
         await node.ensureLoaded();
 
+        node._verifyBlockSignatures = sinon.fake.resolves(true);
         node._pendingBlocks.addBlock(parentBlock, new factory.PatchDB());
         await node._storeBlockAndInfo(parentBlock, new factory.BlockInfo(parentBlock.header));
 
@@ -467,7 +494,6 @@ describe('Node tests', () => {
         assert.isOk(node._informNeighbors.calledOnce);
 
         assert.isNotOk(peer.ban.called);
-
     });
 
     it('should process BAD block from MsgBlock', async () => {
@@ -505,8 +531,8 @@ describe('Node tests', () => {
         assert.isOk(false, 'Unexpected success');
     });
 
-    it('should throw (no UTXO for tx)', async () => {
-        const node = new factory.Node({});
+    it('should throw while _processReceivedTx (no UTXO for tx)', async () => {
+        const node = new factory.Node();
 
         const txHash = pseudoRandomBuffer().toString('hex');
         const keyPair = factory.Crypto.createKeyPair();
@@ -526,8 +552,8 @@ describe('Node tests', () => {
         throw new Error('Unexpected success');
     });
 
-    it('should throw (fee is too small)', async () => {
-        const node = new factory.Node({});
+    it('should throw while _processReceivedTx (fee is too small)', async () => {
+        const node = new factory.Node();
 
         const patch = new factory.PatchDB(0);
         const keyPair = factory.Crypto.createKeyPair();
@@ -555,14 +581,14 @@ describe('Node tests', () => {
     });
 
     it('should accept TX', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const {tx} = createTxAddCoinsToNode(node);
 
         await node._processReceivedTx(tx);
     });
 
     it('should process GENESIS block', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         await node.ensureLoaded();
 
         // Inputs doesn't checked for Genesis
@@ -590,20 +616,20 @@ describe('Node tests', () => {
     });
 
     it('should fail to check COINBASE (not a coinbase)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const tx = new factory.Transaction(createDummyTx());
         assert.throws(() => node._checkCoinbaseTx(tx.rawData, tx.amountOut()));
     });
 
     it('should fail to check COINBASE (bad amount)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const coinbase = factory.Transaction.createCoinbase();
         coinbase.addReceiver(100, generateAddress());
         assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut() - 1));
     });
 
     it('should accept COINBASE', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const coinbase = factory.Transaction.createCoinbase();
         coinbase.addReceiver(100, pseudoRandomBuffer(20));
         assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut()));
@@ -611,7 +637,7 @@ describe('Node tests', () => {
 
     it('should fail check BLOCK SIGNATURES (unknown group)', async () => {
         const block = createDummyBlock(factory);
-        const node = new factory.Node({});
+        const node = new factory.Node();
 
         try {
             await node._verifyBlockSignatures(block);
@@ -631,7 +657,8 @@ describe('Node tests', () => {
         const groupDef2 = createGroupDefAndSignBlock(block2, 7);
 
         // groupId: 0 will have different keys used for block2
-        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+        const node = new factory.Node();
+        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -651,7 +678,8 @@ describe('Node tests', () => {
         const groupDef2 = createGroupDefAndSignBlock(block2);
 
         // groupId: 0 will have different keys used for block2
-        const node = new factory.Node({arrTestDefinition: [groupDef2]});
+        const node = new factory.Node();
+        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -666,13 +694,14 @@ describe('Node tests', () => {
     it('should check BLOCK SIGNATURES', async () => {
         const block = createDummyBlock(factory);
         const groupDef = createGroupDefAndSignBlock(block);
-        const node = new factory.Node({arrTestDefinition: [groupDef]});
+        const node = new factory.Node();
+        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef);
 
         await node._verifyBlockSignatures(block);
     });
 
     it('should build EMPTY MainDag (no blocks were processed-final)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
 
         let prevBlock = null;
         for (let i = 0; i < 10; i++) {
@@ -691,7 +720,7 @@ describe('Node tests', () => {
     });
 
     it('should build MainDag from chainlike', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
 
         const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
         await node._storage.updateLastAppliedBlocks([arrHashes[9]]);
@@ -702,7 +731,7 @@ describe('Node tests', () => {
     });
 
     it('should build MainDag from simple fork', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const arrBlocks = [];
 
         await createSimpleFork(async block => {
@@ -727,7 +756,7 @@ describe('Node tests', () => {
     });
 
     it('should build PendingBlocks upon startup (from simple chain)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         await node.ensureLoaded();
 
         const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
@@ -742,7 +771,7 @@ describe('Node tests', () => {
     });
 
     it('should build PendingBlocks upon startup (from simple fork)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         await node.ensureLoaded();
 
         const arrBlocks = [];
@@ -764,7 +793,7 @@ describe('Node tests', () => {
     });
 
     it('should request unknown parent', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         await node.ensureLoaded();
 
         const block = createDummyBlock(factory);
@@ -780,7 +809,7 @@ describe('Node tests', () => {
     });
 
     it('should process MSG_GET_BLOCKS (simple chain)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
 
         const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
@@ -809,7 +838,7 @@ describe('Node tests', () => {
     });
 
     it('should process MSG_GET_BLOCKS (simple fork)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
 
         const arrHashes = [];
         await createSimpleFork(block => {
@@ -842,7 +871,7 @@ describe('Node tests', () => {
     });
 
     it('should process 2 good hashed from chain', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
@@ -872,7 +901,7 @@ describe('Node tests', () => {
     });
 
     it('should process 2 good hashed from fork', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
 
         const arrHashes = [];
         await createSimpleFork(block => {
@@ -899,7 +928,7 @@ describe('Node tests', () => {
     });
 
     it('should return full DAG (empty hash array received)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
@@ -920,7 +949,7 @@ describe('Node tests', () => {
     });
 
     it('should return full DAG (bad hashes received)', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
@@ -941,7 +970,7 @@ describe('Node tests', () => {
     });
 
     it('should send Reject message if time offset very large', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const inMsg = new factory.Messages.MsgVersion({
             nonce: 12,
             peerInfo: {
@@ -976,7 +1005,7 @@ describe('Node tests', () => {
     });
 
     it('should unwind block to mempool', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const block = createDummyBlock(factory);
         const tx = new factory.Transaction(block.txns[0]);
 
@@ -987,7 +1016,7 @@ describe('Node tests', () => {
 
     it('should reconnect peers', async function() {
         this.timeout(4000);
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const pushMessage = sinon.fake.returns(Promise.resolve(null));
         const loaded = sinon.fake.returns(Promise.resolve(null));
         const connectToPeer = sinon.fake.returns(Promise.resolve(null));
@@ -1039,7 +1068,7 @@ describe('Node tests', () => {
     });
 
     it('should call createContract', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const tx = factory.Transaction.createContract('class A extends Base{}', 10000);
 
         node._app.createContract = sinon.fake();
@@ -1051,7 +1080,7 @@ describe('Node tests', () => {
     });
 
     it('should call runContract', async () => {
-        const node = new factory.Node({});
+        const node = new factory.Node();
         const contractAddr = generateAddress();
         const groupId = 10;
 
@@ -1075,7 +1104,7 @@ describe('Node tests', () => {
 
     it('should _processTx with contract invocation', async () => {
         const groupId = 10;
-        const node = new factory.Node({});
+        const node = new factory.Node();
         node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
         node._app.runContract = sinon.fake();
 

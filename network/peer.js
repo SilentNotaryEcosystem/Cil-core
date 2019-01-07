@@ -14,7 +14,7 @@ module.exports = (factory) => {
     const {Messages, Transport, Constants} = factory;
     const {
         MsgCommon,
-        PeerInfo,
+        PeerInfo
     } = Messages;
     //const {PeerInfo} = Messages;
     const PEER_TIMER_NAME = 'peerTimer';

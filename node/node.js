@@ -9,7 +9,7 @@ const Tick = require('tick-tock');
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
-module.exports = (factory) => {
+module.exports = (factory, factoryOptions) => {
     const {
         Transport,
         Messages,
@@ -47,9 +47,18 @@ module.exports = (factory) => {
 
     return class Node {
         constructor(options) {
+
+            // mix in factory (common for all instance) options
+            options = {
+                ...factoryOptions,
+                ...options
+            };
+
             const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout} = options;
 
-            this._storage = new Storage(options);
+            this._mutex = new Mutex();
+
+            this._storage = new Storage({...options, mutex: this._mutex});
 
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
@@ -71,7 +80,7 @@ module.exports = (factory) => {
             // used only for debugging purpose. Feel free to remove
             this._debugAddress = this._transport.myAddress;
 
-            this._peerManager = new PeerManager({transport: this._transport});
+            this._peerManager = new PeerManager({transport: this._transport, storage: this._storage});
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
@@ -135,7 +144,9 @@ module.exports = (factory) => {
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._peerManager.findBestPeers();
             await this._connectToPeers(arrBestPeers);
-            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),  Constants.PEER_RECONNECT_INTERVAL);
+            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),
+                Constants.PEER_RECONNECT_INTERVAL
+            );
         }
 
         /**
@@ -383,8 +394,7 @@ module.exports = (factory) => {
          */
         async _processBlock(block) {
 
-            const lock = await Mutex.acquire(['block']);
-
+            const lock = await this._mutex.acquire(['block']);
             try {
                 debugLib(`Processing block ${block.hash()}`);
 
@@ -396,7 +406,6 @@ module.exports = (factory) => {
                     return;
                 }
 
-                // TODO: add mutex here?
                 await this._verifyBlock(block);
 
                 // it will check readiness of parents
@@ -405,7 +414,7 @@ module.exports = (factory) => {
                     // we'r ready to execute this block right now
                     const patchState = await this._execBlock(block);
                     await this._acceptBlock(block, patchState);
-                    await this._postAccepBlock(block);
+                    await this._postAcceptBlock(block);
 
                     return patchState;
                 } else {
@@ -416,7 +425,7 @@ module.exports = (factory) => {
             } catch (e) {
                 throw e;
             } finally {
-                Mutex.release(lock);
+                this._mutex.release(lock);
             }
         }
 
@@ -586,8 +595,8 @@ module.exports = (factory) => {
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
 
-                // TODO: should be reviewed, since ban self not only prevent connection to self, but exclude self from advertising it
-                peer.ban();
+                this._peerManager.removePeer(peer);
+                peer.disconnect('Connection to self detected');
                 return;
             }
 
@@ -662,12 +671,15 @@ module.exports = (factory) => {
         async _handlePeerRequest(peer) {
 
             // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
-            const arrPeers = this._peerManager.filterPeers().map(peer => peer.peerInfo.data);
-            if (arrPeers.length > Constants.ADDR_MAX_LENGTH) {
+            const arrPeerInfos = this._peerManager.filterPeers().map(peer => peer.peerInfo.data);
+
+            // add address of this node (it's absent in peerManager)
+            arrPeerInfos.push(this._myPeerInfo.data);
+            if (arrPeerInfos.length > Constants.ADDR_MAX_LENGTH) {
                 logger.error('Its time to implement multiple addr messages');
             }
-            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeers.length} items`);
-            await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
+            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeerInfos.length} items`);
+            await peer.pushMessage(new MsgAddr({count: arrPeerInfos.length, peers: arrPeerInfos}));
         }
 
         /**
@@ -941,7 +953,7 @@ module.exports = (factory) => {
          * @returns {Promise<void>}
          * @private
          */
-        async _postAccepBlock(block) {
+        async _postAcceptBlock(block) {
             logger.log(
                 `Block ${block.hash()} with ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );

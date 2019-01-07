@@ -46,7 +46,7 @@ const WitnessWrapper = require('./node/witness');
 const RpcWrapper = require('./node/rpc');
 const AppWrapper = require('./node/app');
 
-const StorageWrapper = require('./storage/memoryStorageDefinition');
+const StorageWrapper = require('./storage/persistentStorage');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
@@ -67,7 +67,7 @@ const pack = require('./package');
 class Factory {
     constructor() {
 
-        this._mutexSingleton = new Mutex();
+        this._mutexImplementation = Mutex;
         this._donePromise = this._asyncLoader();
         this._donePromise.then((prototypes) => {
 
@@ -126,7 +126,7 @@ class Factory {
     }
 
     get Mutex() {
-        return this._mutexSingleton;
+        return this._mutexImplementation;
     }
 
     get version() {
