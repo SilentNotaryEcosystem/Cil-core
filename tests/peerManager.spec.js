@@ -280,7 +280,7 @@ describe('Peer manager', () => {
         assert.isNotOk(result instanceof factory.Peer);
         assert.equal(result, factory.Constants.REJECT_BANNEDADDRESS);
     });
-
+/*
     it('should save and restore peer ', async () => {
         const pm = new factory.PeerManager();
         assert.isOk(pm);
@@ -328,7 +328,7 @@ describe('Peer manager', () => {
         const arrPeers = await pm.loadPeers();
         assert.isOk(arrPeers.length === 1);
     });
-
+*/
     it('should find best peers', async () => {
         const pm = new factory.PeerManager();
         for (let i = 0; i < 15; i++) {
@@ -354,6 +354,8 @@ describe('Peer manager', () => {
             assert.isTrue(current > next);
         }
     });
+
+/*    
     it('should remove peer', async () => {
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
@@ -363,5 +365,5 @@ describe('Peer manager', () => {
         pm.removePeer(peer);
         assert.isNotOk(pm.hasPeer(peer));
     });
-
+*/
 });

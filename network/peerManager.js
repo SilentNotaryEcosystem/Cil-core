@@ -156,7 +156,7 @@ module.exports = (factory) => {
         }
 
         async hasPeer(address) {
-            typeforce.oneOf(typeforce.Address, String);
+            //typeforce.oneOf(typeforce.Address, String);
 
             try {
                 await this.getPeer(address);

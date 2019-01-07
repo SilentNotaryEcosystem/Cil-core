@@ -200,7 +200,7 @@ module.exports = (factory) => {
 
         get quality() {
             return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
-             / (this._peerInfo.lifetimeMisbehaveScore + this.missbehaveScore + 1);
+                / (this._peerInfo.lifetimeMisbehaveScore + this.missbehaveScore + 1);
         }
 
         addTag(tag) {
@@ -282,13 +282,13 @@ module.exports = (factory) => {
                     this._cleanup();
                     this._lastDisconnectedAddress = this.address;
                     this._lastDisconnectionTime = Date.now();
-                    console.log(this._peerInfo.lifetimeMisbehaveScore)
-                    console.log(this._connection.remoteAddress)
-//**
+                    //console.log(this._peerInfo.lifetimeMisbehaveScore)
+                    //console.log(this._connection.remoteAddress)
+                    //**
                     this._peerInfo.lifetimeMisbehaveScore += this._missbehaveScore;
                     this._peerInfo.lifetimeTransmittedBytes += this._transmittedBytes;
                     this._peerInfo.lifetimeReceivedBytes += this._receivedBytes;
- //**
+                    //**
                     this._connection = undefined;
                     this.emit('disconnect', this);
                 });
@@ -351,8 +351,12 @@ module.exports = (factory) => {
             // this._lastDisconnectionTime = Date.now();
             // console.log('**'+this._peerInfo.lifetimeMisbehaveScore)
             // console.log('**'+this._connection.remoteAddress)
-
-            this._connection.close();
+            try {
+                this._connection.close();
+            }
+            catch (err) {
+                logger.error(err);
+            }
             this._connection = undefined;
             this.emit('disconnect', this);
         }
