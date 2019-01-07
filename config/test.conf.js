@@ -90,6 +90,8 @@ module.exports = {
 
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'test_chainstate',
-        DB_BLOCKSTATE_DIR: 'test_blockstate'
+        DB_BLOCKSTATE_DIR: 'test_blockstate',
+        DB_PEERSTATE_DIR: 'test_peerstate'
+
     }
 };
