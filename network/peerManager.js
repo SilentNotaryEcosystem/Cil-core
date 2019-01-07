@@ -117,6 +117,7 @@ module.exports = (factory) => {
         }
 
         _peerDisconnect(thisPeer) {
+            this.savePeer(thisPeer);
             this.emit('disconnect', thisPeer);
         }
 
@@ -155,49 +156,23 @@ module.exports = (factory) => {
             }
         }
 
-        async hasPeer(address) {
-            //typeforce.oneOf(typeforce.Address, String);
-
-            try {
-                await this.getPeer(address);
-                return true;
-            } catch (e) {
-                return false;
-            }
-        }
         async getPeer(address) {
-            //
-            //typeforce.oneOf(typeforce.Address, String);
-
-            const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
-            const peerInfo = this._storage.get(strAddress);
-            if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
-
-            return new Peer({peerInfo});
+            return await this._storage.getPeer(address);
         }
 
         async savePeer(peer) {
-            const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
-            peer.saveLifetimeCounters();
-            this._storage.set(key, peer.peerInfo.encode());
+            return await this._storage.savePeer(peer);
         }
 
-        async loadPeers() {
-            let arrPeers = [];
-            for (let p of this._storage.values()) {
-                arrPeers.push(new Peer({peerInfo: p}));
-            }
-            return arrPeers;
+        async loadPeers(arrPeers) {
+
+            return await this._storage.loadPeers(arrPeers);
         }
 
         async savePeers(arrPeers) {
-            for (let peer of arrPeers)
-                this.savePeer(peer)
+            return await this._storage.savePeers(arrPeers);
         }
 
-        async saveAllPeers() {
-            return await this.savePeers(Array.from(this._allPeers.values()));
-        }
         /**
          *
          * @param {Buffer} address
