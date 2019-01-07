@@ -280,9 +280,10 @@ describe('Peer manager', () => {
         assert.isNotOk(result instanceof factory.Peer);
         assert.equal(result, factory.Constants.REJECT_BANNEDADDRESS);
     });
-/*
+
     it('should save and restore peer ', async () => {
-        const pm = new factory.PeerManager();
+        const storage = new factory.Storage({});
+        const pm = new factory.PeerManager({storage});
         assert.isOk(pm);
         const peerInfo = new factory.Messages.PeerInfo({
             capabilities: [
@@ -315,20 +316,23 @@ describe('Peer manager', () => {
     });
 
     it('should load peers from storage', async () => {
-        const pm = new factory.PeerManager();
+        const storage = new factory.Storage({});
+
+        const pm = new factory.PeerManager({storage});
         assert.isOk(pm);
+        const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const peerInfo = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
                 {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
             ],
-            address: factory.Transport.strToAddress(factory.Transport.generateAddress())
+            address
         });
         await pm.savePeers([new factory.Peer({peerInfo})]);
-        const arrPeers = await pm.loadPeers();
+        const arrPeers = await pm.loadPeers([address]);
         assert.isOk(arrPeers.length === 1);
     });
-*/
+
     it('should find best peers', async () => {
         const pm = new factory.PeerManager();
         for (let i = 0; i < 15; i++) {
@@ -355,7 +359,7 @@ describe('Peer manager', () => {
         }
     });
 
-/*    
+   
     it('should remove peer', async () => {
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
@@ -365,5 +369,5 @@ describe('Peer manager', () => {
         pm.removePeer(peer);
         assert.isNotOk(pm.hasPeer(peer));
     });
-*/
+
 });
