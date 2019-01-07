@@ -48,7 +48,7 @@ const eraseDbContent = (db) => {
 };
 
 module.exports = (factory, factoryOptions) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition, Peer, Transport} = factory;
     return class Storage {
         constructor(options) {
             options = {
@@ -76,6 +76,8 @@ module.exports = (factory, factoryOptions) => {
             // it will allow erase UTXO DB, and rebuild it from block DB
             // it could be levelDB also, but in different dir
             this._blockStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
+
+            this._peerStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
 
             this._mutex = mutex;
         }
@@ -445,6 +447,58 @@ module.exports = (factory, factoryOptions) => {
             return this._mutex.runExclusive(['pending_blocks'], async () => {
                 await this._db.put(key, (new ArrayOfHashes(arrBlockHashes)).encode());
             });
+        }
+
+        async getPeer(address) {
+            typeforce.oneOf(types.Address, String);
+
+            const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
+            const peerInfo = await this._peerStorage.get(strAddress).catch(err => debug(err));
+            if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
+
+            return new Peer({peerInfo});
+        }
+
+        async savePeer(peer) {
+            const peerInfo = peer.peerInfo;
+            const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
+            peer.saveLifetimeCounters();
+
+            await this._peerStorage.put(key, peerInfo.encode());
+        }
+
+        async savePeers(arrPeers) {
+            const arrOps = [];
+
+            for (let peer of arrPeers) {
+                const peerInfo = peer.peerInfo;
+                const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
+                peer.saveLifetimeCounters();
+                arrOps.push({type: 'put', key, value: peerInfo.encode()});
+            }
+            await this._peerStorage.batch(arrOps);
+        }
+
+        async loadPeers(addresses) {
+            let arrPeers = [];
+            for (let address of addresses) {
+                try {
+                    const peer = await this.getPeer(address);
+                    arrPeers.push(peer);
+                }
+                catch(e) {}
+            }
+            return arrPeers;
+        }
+        async hasPeer(address) {
+            typeforce.oneOf(types.Address, String);
+
+            try {
+                await this.getPeer(address);
+                return true;
+            } catch (e) {
+                return false;
+            }
         }
     };
 };
