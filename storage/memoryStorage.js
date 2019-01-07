@@ -365,7 +365,7 @@ module.exports = (factory) => {
 
             this._db.set(PENDING_BLOCKS, (new ArrayOfHashes(arrBlockHashes)).encode());
         }
-
+//**
         async hasPeer(address) {
             typeforce.oneOf(typeforce.Address, String);
 
@@ -377,38 +377,38 @@ module.exports = (factory) => {
             }
         }
 
-        async savePeer(peer) {
-            let peerInfo = peer.peerInfo;
-            const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
-            peerInfo.lifetimeMisbehaveScore = peer.missbehaveScore;
-            peerInfo.lifetimeTransmittedBytes = peer.transmittedBytes;
-            peerInfo.lifetimeReceivedBytes = peer.receivedBytes;
+        // async savePeer(peer) {
+        //     let peerInfo = peer.peerInfo;
+        //     const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
+        //     peerInfo.lifetimeMisbehaveScore = peer.missbehaveScore;
+        //     peerInfo.lifetimeTransmittedBytes = peer.transmittedBytes;
+        //     peerInfo.lifetimeReceivedBytes = peer.receivedBytes;
 
-            this._peerStorage.set(key, peerInfo.encode());
-        }
-        async getPeer(address) {
-            typeforce.oneOf(typeforce.Address, String);
+        //     this._peerStorage.set(key, peerInfo.encode());
+        // }
+        // async getPeer(address) {
+        //     typeforce.oneOf(typeforce.Address, String);
 
-            const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
-            const peerInfo = this._peerStorage.get(strAddress);
-            if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
+        //     const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
+        //     const peerInfo = this._peerStorage.get(strAddress);
+        //     if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
 
-            return new Peer({peerInfo});
+        //     return new Peer({peerInfo});
 
-        }
+        // }
 
-        async savePeers(arrPeers) {
-            for (let peer of arrPeers)
-                this.savePeer(peer)
-        }
-        async loadPeers() {
+        // async savePeers(arrPeers) {
+        //     for (let peer of arrPeers)
+        //         this.savePeer(peer)
+        // }
+        // async loadPeers() {
 
-            // TODO: rewrite for levelDB
-            let arrPeers = [];
-            for (let p of this._peerStorage.values()) {
-                arrPeers.push(new Peer({peerInfo: p}));
-            }
-            return arrPeers;
-        }
+        //     // TODO: rewrite for levelDB
+        //     let arrPeers = [];
+        //     for (let p of this._peerStorage.values()) {
+        //         arrPeers.push(new Peer({peerInfo: p}));
+        //     }
+        //     return arrPeers;
+        // }
     };
 };

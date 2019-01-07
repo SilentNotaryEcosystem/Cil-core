@@ -357,6 +357,12 @@ module.exports = (factory) => {
             this.emit('disconnect', this);
         }
 
+        saveLifetimeCounters() {
+            this.peerInfo.lifetimeMisbehaveScore = this._missbehaveScore;
+            this.peerInfo.lifetimeTransmittedBytes = this._transmittedBytes;
+            this.peerInfo.lifetimeReceivedBytes = this._receivedBytes;
+        }
+
         _cleanup() {
             this._bInbound = false;
             this.loadDone = true;

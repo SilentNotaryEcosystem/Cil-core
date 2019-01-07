@@ -299,7 +299,7 @@ describe('Peer manager', () => {
         await pm.savePeers([peer]);
 
         let newPeer = await pm.getPeer(peer.address);
-
+        
         assert.deepEqual(peer.address, newPeer.address);
         assert.equal(peer.capabilities.length, newPeer.capabilities.length);
         assert.equal(peer.capabilities[0].service, newPeer.capabilities[0].service);
@@ -307,9 +307,10 @@ describe('Peer manager', () => {
 
         assert.equal(peer.capabilities[1].service, newPeer.capabilities[1].service)
         assert.deepEqual(peer.capabilities[1].data, newPeer.capabilities[1].data);
-        assert.equal(peer.misbehave, newPeer.misbehave);
-        assert.equal(peer.transmittedBytes, newPeer.transmittedBytes);
-        assert.equal(peer.receivedBytes, newPeer.receivedBytes);
+
+        assert.equal(peer.missbehaveScore, newPeer.peerInfo.lifetimeMisbehaveScore);
+        assert.equal(peer.transmittedBytes, newPeer.peerInfo.lifetimeTransmittedBytes);
+        assert.equal(peer.receivedBytes, newPeer.peerInfo.lifetimeReceivedBytes);
         
     });
 

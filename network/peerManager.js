@@ -18,7 +18,7 @@ module.exports = (factory) => {
             const {transport} = options;
 
             this._transport = transport;
-            this._storage = new Storage(options);
+            this._storage = new Map(); //new Storage(options);
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
             this._allPeers = new Map();
@@ -119,7 +119,7 @@ module.exports = (factory) => {
         }
 
         findBestPeers() {
-            return [...this._allPeers.values()]
+            return Array.from(this._allPeers.values())
                 .sort((a, b) => b.quality - a.quality)
                 .slice(0, Constants.MAX_PEERS);
         }
@@ -131,20 +131,48 @@ module.exports = (factory) => {
             }
         }
 
+        async hasPeer(address) {
+            typeforce.oneOf(typeforce.Address, String);
+
+            try {
+                await this.getPeer(address);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
         async getPeer(address) {
-            return await this._storage.getPeer(address);
+            //
+            //typeforce.oneOf(typeforce.Address, String);
+
+            const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
+            const peerInfo = this._storage.get(strAddress);
+            if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
+
+            return new Peer({peerInfo});
+        }
+
+        async savePeer(peer) {
+            const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
+            peer.saveLifetimeCounters();
+            this._storage.set(key, peer.peerInfo.encode());
         }
 
         async loadPeers() {
-            return await this._storage.loadPeers();
+            let arrPeers = [];
+            for (let p of this._storage.values()) {
+                arrPeers.push(new Peer({peerInfo: p}));
+            }
+            return arrPeers;
         }
 
         async savePeers(arrPeers) {
-            return await this._storage.savePeers(arrPeers);
+            for (let peer of arrPeers)
+                this.savePeer(peer)
         }
 
         async saveAllPeers() {
-            return await this._storage.savePeers([...this._allPeers.values()]);
+            return await this.savePeers(Array.from(this._allPeers.values()));
         }
         /**
          *
