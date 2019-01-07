@@ -56,9 +56,6 @@ module.exports = (factory) => {
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
-            // this._missbehaveScore = this._peerInfo.lifetimeMisbehaveScore;
-            // this._receivedBytes = this._peerInfo.lifetimeReceivedBytes;
-            //this._transmittedBytes = this._peerInfo.lifetimeTransmittedBytes;
 
             this._tock = new Tick(this);
             this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
@@ -282,13 +279,9 @@ module.exports = (factory) => {
                     this._cleanup();
                     this._lastDisconnectedAddress = this.address;
                     this._lastDisconnectionTime = Date.now();
-                    //console.log(this._peerInfo.lifetimeMisbehaveScore)
-                    //console.log(this._connection.remoteAddress)
-                    //**
                     this._peerInfo.lifetimeMisbehaveScore += this._missbehaveScore;
                     this._peerInfo.lifetimeTransmittedBytes += this._transmittedBytes;
                     this._peerInfo.lifetimeReceivedBytes += this._receivedBytes;
-                    //**
                     this._connection = undefined;
                     this.emit('disconnect', this);
                 });
@@ -346,11 +339,6 @@ module.exports = (factory) => {
 
         disconnect(reason) {
             debug(`${reason}. Closing connection to "${this._connection.remoteAddress}"`);
-            // this._cleanup();
-            // this._lastDisconnectedAddress = this._connection.remoteAddress;
-            // this._lastDisconnectionTime = Date.now();
-            // console.log('**'+this._peerInfo.lifetimeMisbehaveScore)
-            // console.log('**'+this._connection.remoteAddress)
             try {
                 this._connection.close();
             }
