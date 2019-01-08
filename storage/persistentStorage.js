@@ -48,7 +48,7 @@ const eraseDbContent = (db) => {
 };
 
 module.exports = (factory, factoryOptions) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition, Peer, Transport} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition} = factory;
     return class Storage {
         constructor(options) {
             options = {
@@ -449,56 +449,27 @@ module.exports = (factory, factoryOptions) => {
             });
         }
 
-        async getPeer(address) {
-            typeforce.oneOf(types.Address, String);
-
-            const strAddress = Buffer.isBuffer(address) ? Transport.addressToString(address) : address;
-            const peerInfo = await this._peerStorage.get(strAddress).catch(err => debug(err));
-            if (!peerInfo) throw new Error(`Storage: No peer found by address ${strAddress}`);
-
-            return new Peer({peerInfo});
-        }
-
-        async savePeer(peer) {
-            const peerInfo = peer.peerInfo;
-            const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
-            peer.saveLifetimeCounters();
-
-            await this._peerStorage.put(key, peerInfo.encode());
-        }
-
         async savePeers(arrPeers) {
             const arrOps = [];
 
             for (let peer of arrPeers) {
-                const peerInfo = peer.peerInfo;
-                const key = Buffer.isBuffer(peer.address) ? Transport.addressToString(peer.address) : peer.address;
+                const buffAddress = Buffer.isBuffer(peer.address) ? peer.address : Buffer.from(peer.address, 'hex');
+                const key = createKey('', buffAddress);
                 peer.saveLifetimeCounters();
-                arrOps.push({type: 'put', key, value: peerInfo.encode()});
+                arrOps.push({type: 'put', key, value: peer.peerInfo.encode()});
             }
             await this._peerStorage.batch(arrOps);
         }
 
-        async loadPeers(addresses) {
+        async loadPeers() {
             let arrPeers = [];
-            for (let address of addresses) {
-                try {
-                    const peer = await this.getPeer(address);
-                    arrPeers.push(peer);
-                }
-                catch(e) {}
-            }
+            await new Promise((resolve, reject) => {
+                this._peerStorage.createValueStream()
+                .on('data', peer => arrPeers.push(peer))
+                .on('close', () => resolve())
+                .on('error', () => reject())
+              });
             return arrPeers;
-        }
-        async hasPeer(address) {
-            typeforce.oneOf(types.Address, String);
-
-            try {
-                await this.getPeer(address);
-                return true;
-            } catch (e) {
-                return false;
-            }
         }
     };
 };

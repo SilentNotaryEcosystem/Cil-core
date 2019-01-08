@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const Tick = require('tick-tock');
 
 /**
  *
@@ -8,7 +9,7 @@ const EventEmitter = require('events');
  * @emits 'message' {peer, message}
  */
 module.exports = (factory) => {
-    const {Storage, Constants, Messages, Peer} = factory;
+    const {Constants, Messages, Peer} = factory;
 
     const {PeerInfo} = Messages;
 
@@ -26,6 +27,10 @@ module.exports = (factory) => {
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
             this._allPeers = new Map();
+            this._backupTimer = new Tick(this);
+            this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
+                Constants.PEERMANAGER_BACKUP_TIMEOUT
+            );
         }
 
         /**
@@ -117,7 +122,6 @@ module.exports = (factory) => {
         }
 
         _peerDisconnect(thisPeer) {
-            this.savePeer(thisPeer);
             this.emit('disconnect', thisPeer);
         }
 
@@ -156,17 +160,8 @@ module.exports = (factory) => {
             }
         }
 
-        async getPeer(address) {
-            return await this._storage.getPeer(address);
-        }
-
-        async savePeer(peer) {
-            return await this._storage.savePeer(peer);
-        }
-
-        async loadPeers(arrPeers) {
-
-            return await this._storage.loadPeers(arrPeers);
+        async loadPeers() {
+            return await this._storage.loadPeers();
         }
 
         async savePeers(arrPeers) {
@@ -185,6 +180,12 @@ module.exports = (factory) => {
             // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
             // it could be ripemd160
             return address + port.toString();
+        }
+
+        _backupTick() {
+            const arrPeers = Array.from(this._allPeers.values());
+            if(arrPeers.length)
+                this.savePeers(arrPeers);
         }
     };
 };
