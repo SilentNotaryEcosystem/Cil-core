@@ -268,9 +268,8 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
         }
 
-        // TODO: rename to hasTwoOutputs.
         /**
-         * Used to distinguish payment from contract call
+         * Used to distinguish payment from contract call (with possible false positives)
          *
          * @return {boolean}
          */

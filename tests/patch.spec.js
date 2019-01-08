@@ -252,7 +252,16 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
         const strCode = 'let a=10;';
         const objData = {a: 10};
-        patch.setContract(contractAddr, objData, strCode);
+
+        {
+            const contract = new factory.Contract({
+                contractData: objData,
+                contractCode: strCode,
+                groupId: 0
+            });
+            contract.storeAddress(contractAddr);
+            patch.setContract(contract);
+        }
 
         const contract = patch.getContract(contractAddr);
         assert.isOk(contract);
@@ -265,7 +274,14 @@ describe('PatchDB', () => {
         const objData = {a: 10};
 
         const patch = new factory.PatchDB(0);
-        patch.setContract(contractAddr, objData, '');
+        {
+            const contract = new factory.Contract({
+                contractData: objData,
+                groupId: 0
+            });
+            contract.storeAddress(contractAddr);
+            patch.setContract(contract);
+        }
 
         const patchDerived = patch.merge(new factory.PatchDB(0));
         patchDerived.setGroupId(1);
@@ -279,10 +295,18 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch1 = new factory.PatchDB(0);
-        patch1.setContract(contractAddr, {}, '');
+        {
+            const contract = new factory.Contract({groupId: 0});
+            contract.storeAddress(contractAddr);
+            patch1.setContract(contract);
+        }
 
         const patch2 = new factory.PatchDB(1);
-        patch2.setContract(contractAddr, {}, '');
+        {
+            const contract = new factory.Contract({groupId: 1});
+            contract.storeAddress(contractAddr);
+            patch2.setContract(contract);
+        }
 
         assert.throws(_ => patch1.merge(patch2));
     });
@@ -290,11 +314,16 @@ describe('PatchDB', () => {
     it('should merge 2 patches with contract data', async () => {
         const contractAddr = generateAddress().toString('hex');
         const patch = new factory.PatchDB(0);
-        patch.setContract(contractAddr, {value: 1}, '');
+
+        const contract1 = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        contract1.storeAddress(contractAddr);
+        patch.setContract(contract1);
 
         const patchDerived = patch.merge(new factory.PatchDB(0));
         patchDerived.setGroupId(0);
-        patchDerived.setContract(contractAddr, {value: 2}, '');
+        const contract2 = new factory.Contract({contractData: {value: 2}, groupId: 0});
+        contract2.storeAddress(contractAddr);
+        patchDerived.setContract(contract2);
 
         {
             const patchMerged = patch.merge(patchDerived);
@@ -313,7 +342,9 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
-        patch.setContract(contractAddr, {value: 1}, '');
+        const contract1 = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        contract1.storeAddress(contractAddr);
+        patch.setContract(contract1);
 
         {
             const patchDerived = patch.merge(new factory.PatchDB(0));
@@ -338,7 +369,9 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
-        patch.setContract(contractAddr, {value: 1}, '');
+        const contract = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        contract.storeAddress(contractAddr);
+        patch.setContract(contract);
 
         const patchDerived = patch.merge(new factory.PatchDB(0));
         patchDerived.setGroupId(1);
@@ -351,11 +384,16 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
-        patch.setContract(contractAddr, {value: 1}, '');
+        const contract = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        contract.storeAddress(contractAddr);
+        patch.setContract(contract);
 
         const patchDerived = patch.merge(new factory.PatchDB(0));
         patchDerived.setGroupId(0);
-        patch.setContract(contractAddr, {value: 2}, '');
+
+        const contract2 = new factory.Contract({contractData: {value: 2}, groupId: 0});
+        contract2.storeAddress(contractAddr);
+        patchDerived.setContract(contract2);
         patchDerived.purge(patch);
 
         assert.isOk(patchDerived.getContract(contractAddr));

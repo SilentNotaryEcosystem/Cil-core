@@ -12,6 +12,10 @@ const deSerializeContractData = (buffData) => {
     return v8.deserialize(buffData);
 };
 
+/**
+ * First we serialize data with serializeContractData and thus we have data to be encoded with protobuff
+ */
+
 module.exports = (factory, {contractProto}) =>
     class Contract {
 

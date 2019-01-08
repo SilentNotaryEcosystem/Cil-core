@@ -19,13 +19,12 @@ const strCodeSuffix = `
 `;
 const CONTEXT_NAME = '__MyContext';
 
-module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =>
+module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Contract}) =>
     class Application {
         constructor(options) {
         }
 
         /**
-         * TODO: lock DB for all UTXO with mutex right after forming mapUtxos and release it after applying patch or UTXO DB could be corrupted!
          *
          * @param {Transaction} tx
          * @param {Map} mapUtxos
@@ -38,7 +37,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
             const claimProofs = tx.claimProofs;
 
             let totalHas = 0;
-            const patch = patchForBlock ? patchForBlock : new PatchDB();
+
+            // this patch will hold exec result. merge it with patchForBlock ONLY if inputs processed successfully
+            const patch = new PatchDB();
+            if (!patchForBlock) patchForBlock = patch;
 
             for (let i = 0; i < txInputs.length; i++) {
 
@@ -48,7 +50,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
 
                 // input.txHash - UTXO
                 const strInputTxHash = input.txHash.toString('hex');
-                const utxo = patch.getUtxo(strInputTxHash) || mapUtxos[strInputTxHash];
+                const utxo = patchForBlock.getUtxo(strInputTxHash) || mapUtxos[strInputTxHash];
                 if (!utxo) throw new Error(`UTXO not found for ${strInputTxHash} neither in patch nor in mapUtxos`);
 
                 const coins = utxo.coinsAtIndex(input.nTxOutput);
@@ -92,11 +94,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
          * 3. Contract invocation - string. like functionName(...params)
          *
          * @param {String} strCode - contract code
-         * @param {PatchDB} patch - to store new contract & receipt
          * @param {Object} environment - global variables for contract (like contractAddr)
-         * @returns {TxReceipt}
+         * @returns {{receipt: TxReceipt, contract: Contract}
          */
-        createContract(strCode, patch, environment) {
+        createContract(strCode, environment) {
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
@@ -108,6 +109,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
             // TODO: implement fee! (wrapping contract)
             // prepend predefined classes to code
             let status;
+            let contract;
             try {
 
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
@@ -123,8 +125,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
                 // prepare methods for storing
                 const strCodeExportedFunctions = retVal.arrCode.join(Constants.CONTRACT_METHOD_SEPARATOR);
 
-                // save receipt & data & functions code to patch
-                patch.setContract(environment.contractAddr, objData, strCodeExportedFunctions);
+                contract = this._newContract(environment.contractAddr, objData, strCodeExportedFunctions);
 
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
@@ -134,23 +135,26 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
 
             // TODO: create TX with change to author!
             // TODO: return Fee (see coinsUsed)
-            return new TxReceipt({
-                contractAddress: Buffer.from(environment.contractAddr, 'hex'),
-                coinsUsed: Constants.MIN_CONTRACT_FEE,
-                status
-            });
+            return {
+                receipt: new TxReceipt({
+                    contractAddress: Buffer.from(environment.contractAddr, 'hex'),
+                    coinsUsed: Constants.MIN_CONTRACT_FEE,
+                    status
+                }),
+                contract
+            };
         }
 
         /**
+         * It will update contract in a case of success
          *
          * @param {String} strInvocationCode - code to invoke, like publicMethod(param1, param2)
-         * @param {PatchDB} patch - to store results & receipts
          * @param {Contract} contract - contract loaded from store (@see structures/contract.js)
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Function} funcToLoadNestedContracts - not used yet.
          * @returns {Promise<*>}
          */
-        async runContract(strInvocationCode, patch, contract, environment, funcToLoadNestedContracts) {
+        async runContract(strInvocationCode, contract, environment, funcToLoadNestedContracts) {
 
             // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
             // form context from contract data
@@ -172,13 +176,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
                 vm.run(strPreparedCode);
                 const newContractState = vm.run(`;${CONTEXT_NAME};`);
 
-                // TODO: create receipt here
                 // TODO: send rest of moneys to receiver (which one of input?!). Possibly output for change?
                 // this will keep only data (strip proxies & member functions that we inject to call like this.method)
                 const objData = JSON.parse(JSON.stringify(newContractState));
-
-                // save receipt & data & functions code to patch
-                patch.setContract(contract.getStoredAddress(), objData);
+                contract.updateData(objData);
 
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
@@ -242,4 +243,28 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt}) =
 
             return strContractCodePrepared + ';' + strInvocationCode;
         }
+
+        /**
+         *
+         * @param {String | Buffer} contractAddr - address of newly created contract
+         * @param {Object | Buffer} data - contract data
+         * @param {String} strCodeExportedFunctions - code of contract
+         * @returns {Contract}
+         */
+        _newContract(contractAddr, data, strCodeExportedFunctions) {
+            typeforce(typeforce.oneOf('String', types.Address), contractAddr);
+            typeforce(typeforce.oneOf('Buffer', 'Object'), data);
+
+            if (Buffer.isBuffer) contractAddr = contractAddr.toString('hex');
+
+            const contract = new Contract({
+                contractCode: strCodeExportedFunctions,
+                contractData: data,
+                groupId: this._groupId
+            });
+            contract.storeAddress(contractAddr);
+
+            return contract;
+        }
+
     };

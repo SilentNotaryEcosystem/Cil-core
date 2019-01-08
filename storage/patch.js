@@ -183,7 +183,11 @@ module.exports = ({UTXO, Contract}) =>
                     // no conflict
                     winnerContract = contractOne || contractTwo;
                 }
-                resultPatch.setContract(strAddr, winnerContract.getDataBuffer(), winnerContract.getCode());
+
+                // clone contract
+                const clonedContract = new Contract(winnerContract.encode());
+                clonedContract.storeAddress(strAddr);
+                resultPatch.setContract(clonedContract);
             }
 
             // merge receipts
@@ -300,28 +304,15 @@ module.exports = ({UTXO, Contract}) =>
 
         /**
          *
-         * @param {String | Buffer} contractAddr - address of newly created contract
-         * @param {Object | Buffer} data - contract data
-         * @param {String} strCodeExportedFunctions - code of contract
+         * @param {Contract} contract
          */
-        setContract(contractAddr, data, strCodeExportedFunctions) {
-            typeforce(typeforce.oneOf('String', types.Address), contractAddr);
-            typeforce(typeforce.oneOf('Buffer', 'Object'), data);
+        setContract(contract) {
+            const foundContract = this._mapContractStates.get(contract.getStoredAddress());
 
-            if (Buffer.isBuffer) contractAddr = contractAddr.toString('hex');
-
-            const contract = this._mapContractStates.get(contractAddr);
-            if (contract) {
-                contract.updateData(data);
+            if (foundContract) {
+                foundContract.updateData(contract.getData());
             } else {
-                const contract = new Contract({
-                    contractCode: strCodeExportedFunctions,
-                    contractData: data,
-                    groupId: this._groupId
-                });
-                contract.storeAddress(contractAddr);
-
-                this._mapContractStates.set(contractAddr, contract);
+                this._mapContractStates.set(contract.getStoredAddress(), contract);
             }
         }
 

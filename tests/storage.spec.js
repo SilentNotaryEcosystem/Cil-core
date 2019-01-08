@@ -315,7 +315,15 @@ describe('Storage tests', () => {
         const address = generateAddress();
         const data = {value: 10};
         const strCode = 'getData(){return this._data}';
-        patch.setContract(address, data, strCode);
+        {
+            const contract = new factory.Contract({
+                contractData: data,
+                contractCode: strCode,
+                groupId
+            });
+            contract.storeAddress(address);
+            patch.setContract(contract);
+        }
 
         const storage = new factory.Storage();
         await storage.applyPatch(patch);
@@ -335,7 +343,15 @@ describe('Storage tests', () => {
         const buffUtxoHash = pseudoRandomBuffer();
         patch.createCoins(buffUtxoHash, 1, new factory.Coins(1000, generateAddress()));
         const buffContractAddr = generateAddress();
-        patch.setContract(buffContractAddr, {data: 1}, `let code=1`);
+        {
+            const contract = new factory.Contract({
+                contractData: {data: 1},
+                contractCode: `let code=1`,
+                groupId
+            });
+            contract.storeAddress(buffContractAddr);
+            patch.setContract(contract);
+        }
         patch.setReceipt(buffUtxoHash, new factory.TxReceipt({
             contractAddress: buffContractAddr,
             coinsUsed: 1000
@@ -371,8 +387,15 @@ describe('Storage tests', () => {
         const contractAddress = generateAddress();
 
         const patch = new factory.PatchDB();
-        patch.setContract(contractAddress, contractData, contractCode);
-
+        {
+            const contract = new factory.Contract({
+                contractData,
+                contractCode,
+                groupId: 0
+            });
+            contract.storeAddress(contractAddress);
+            patch.setContract(contract);
+        }
         const storage = new factory.Storage();
         await storage.applyPatch(patch);
 
@@ -396,16 +419,20 @@ describe('Storage tests', () => {
         );
 
         const patch = new factory.PatchDB();
-        patch.setContract(
-            contractAddress,
-            {
-                _arrGroupDefinitions: [
-                    def1.toObject(),
-                    def2.toObject()
-                ]
-            },
-            ''
-        );
+        {
+            const contract = new factory.Contract({
+                contractData: {
+                    _arrGroupDefinitions: [
+                        def1.toObject(),
+                        def2.toObject()
+                    ]
+                },
+                contractCode: '',
+                groupId: 0
+            });
+            contract.storeAddress(contractAddress);
+            patch.setContract(contract);
+        }
 
         const storage = new factory.Storage();
         storage.applyPatch(patch);

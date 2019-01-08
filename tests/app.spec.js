@@ -260,42 +260,32 @@ describe('Application layer', () => {
             
             exports=new A(10);
             `;
-        const patch = new factory.PatchDB(0);
         const tx = factory.Transaction.createContract(strCode, 100000);
-        patch.setContract = sinon.fake();
         const env = {
             contractTx: tx.hash(),
             contractAddr: factory.Crypto.getAddress(tx.hash())
         };
-        app.createContract(tx.getCode(), patch, env);
+        const {receipt, contract} = app.createContract(tx.getCode(), env);
 
-        assert.isOk(patch.setContract.called);
+        assert.isOk(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+        assert.deepEqual(contract.getData(), {_data: 10, _contractAddr: contract.getStoredAddress()});
 
-        const [contractAddr, objData, strCodeExportedFunctions] = patch.setContract.args[0];
-
-        assert.deepEqual(objData, {_data: 10, _contractAddr: contractAddr});
         const resultCode = [strGetDataCode, strFunc2Code]
             .join(factory.Contract.CONTRACT_METHOD_SEPARATOR);
-        assert.equal(strCodeExportedFunctions, resultCode);
+        assert.equal(contract.getCode(), resultCode);
     });
 
     it('should run contract', async () => {
         const groupId = 10;
-        const contractAddr = generateAddress();
-
         const contract = new factory.Contract({
             contractData: {value: 100},
             contractCode: 'add(a){this.value+=a;}',
             groupId
         });
-        contract.storeAddress(contractAddr);
-
         const app = new factory.Application();
-        const patch = new factory.PatchDB(groupId);
 
-        await app.runContract('add(10)', patch, contract, {});
+        await app.runContract('add(10)', contract, {});
 
-        const storedContract = patch.getContract(contractAddr.toString('hex'));
-        assert.deepEqual(storedContract.getData(), {value: 110});
+        assert.deepEqual(contract.getData(), {value: 110});
     });
 });

@@ -471,7 +471,7 @@ describe('Node tests', () => {
         node._pendingBlocks.addBlock(parentBlock, new factory.PatchDB());
         await node._storeBlockAndInfo(parentBlock, new factory.BlockInfo(parentBlock.header));
 
-        node._app.processTxInputs = sinon.fake.returns({totalHas: 10000});
+        node._app.processTxInputs = sinon.fake.returns({totalHas: 10000, patch: new factory.PatchDB});
         node._app.processPayments = sinon.fake.returns(0);
 
         node._storage.applyPatch = sinon.fake();
@@ -1069,7 +1069,9 @@ describe('Node tests', () => {
         const node = new factory.Node();
         const tx = factory.Transaction.createContract('class A extends Base{}', 10000);
 
-        node._app.createContract = sinon.fake();
+        const contract = new factory.Contract({});
+        contract.storeAddress(generateAddress());
+        node._app.createContract = sinon.fake.returns({contract});
 
         // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
         await node._processTx(true, tx);
@@ -1094,9 +1096,8 @@ describe('Node tests', () => {
         await node._processTx(true, tx, new factory.PatchDB(groupId));
 
         assert.isOk(node._app.runContract.calledOnce);
-        const [strInvocationCode, patch, contract] = node._app.runContract.args[0];
+        const [strInvocationCode, contract] = node._app.runContract.args[0];
         assert.isOk(typeof strInvocationCode === 'string');
-        assert.isOk(patch instanceof factory.PatchDB);
         assert.isOk(contract instanceof factory.Contract);
     });
 

@@ -768,18 +768,16 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _processTx(isGenesis, tx, patchForBlock) {
-            const patch = patchForBlock ? patchForBlock : new PatchDB();
+            let patchThisTx = new PatchDB();
             let totalHas = 0;
 
             // process input (for regular block only)
             if (!isGenesis) {
                 tx.verify();
                 const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
-                ({totalHas} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
+                ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
             }
 
-            // TODO: check for TX type: payment or smart contract deploy/call and process separately
-            // TODO: for regular payment make "DB-transaction-like" behavior (revert spending coins in processTxInputs)
             let totalSent = 0;
             if (tx.hasOneReceiver()) {
 
@@ -793,8 +791,9 @@ module.exports = (factory, factoryOptions) => {
                     // Newly deployed contract address!
                     environment.contractAddr = Crypto.getAddress(tx.hash());
 
-                    const receipt = await this._app.createContract(tx.getCode(), patch, environment);
-                    patch.setReceipt(tx.hash(), receipt);
+                    const {receipt, contract} = await this._app.createContract(tx.getCode(), environment);
+                    patchThisTx.setReceipt(tx.hash(), receipt);
+                    patchThisTx.setContract(contract);
 
                     // TODO implement fee
                 } else {
@@ -804,7 +803,7 @@ module.exports = (factory, factoryOptions) => {
                     let contract;
                     if (patchForBlock && patchForBlock.getContract(coins.getReceiverAddr())) {
 
-                        // contract was changed in previous blocks
+                        // contract was changed in previous (pending) blocks
                         contract = patchForBlock.getContract(coins.getReceiverAddr());
                     } else {
 
@@ -813,26 +812,29 @@ module.exports = (factory, factoryOptions) => {
                     }
 
                     if (contract) {
+                        contract.storeAddress(coins.getReceiverAddr());
                         assert(
                             contract.getGroupId() === tx.witnessGroupId,
                             `TX groupId: "${tx.witnessGroupId}" != contract groupId`
                         );
 
                         environment.contractAddr = coins.getReceiverAddr().toString('hex');
-                        const receipt = await this._app.runContract(tx.getCode(), patch, contract, environment);
-                        patch.setReceipt(tx.hash(), receipt);
+
+                        const receipt = await this._app.runContract(tx.getCode(), contract, environment);
+                        patchThisTx.setReceipt(tx.hash(), receipt);
+                        patchThisTx.setContract(contract);
 
                         // TODO implement fee
                     } else {
 
                         // regular payment
-                        totalSent = this._app.processPayments(tx, patch);
+                        totalSent = this._app.processPayments(tx, patchThisTx);
                     }
                 }
             } else {
 
                 // regular payment
-                totalSent = this._app.processPayments(tx, patch);
+                totalSent = this._app.processPayments(tx, patchThisTx);
             }
             const fee = totalHas - totalSent;
 
@@ -840,7 +842,7 @@ module.exports = (factory, factoryOptions) => {
             // TODO: rework fee
             if (!isGenesis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
 
-            return fee;
+            return {fee, patchThisTx};
         }
 
         /**
@@ -870,7 +872,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _execBlock(block) {
 
-            const patchState = this._pendingBlocks.mergePatches(block.parentHashes);
+            let patchState = this._pendingBlocks.mergePatches(block.parentHashes);
             patchState.setGroupId(block.witnessGroupId);
             const isGenesis = this.isGenesisBlock(block);
 
@@ -880,8 +882,9 @@ module.exports = (factory, factoryOptions) => {
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
                 const tx = new Transaction(blockTxns[i]);
-                const fee = await this._processTx(isGenesis, tx, patchState);
+                const {fee, patchThisTx} = await this._processTx(isGenesis, tx, patchState);
                 blockFees += fee;
+                patchState = patchState.merge(patchThisTx);
             }
 
             // process coinbase tx
@@ -978,7 +981,7 @@ module.exports = (factory, factoryOptions) => {
          * You can add block reward checks here
          *
          * @param {Transaction} tx
-         * @param {Number} blockFees
+         * @param {Number} blockFees - calculated (for each TX) value
          * @private
          */
         _checkCoinbaseTx(tx, blockFees) {
