@@ -132,17 +132,18 @@ module.exports = (factory, factoryOptions) => {
             await this._mergeSeedPeers();
 
             // add seed peers to peerManager
-            const savedPeers = await this._peerManager.loadPeers(this._arrSeedAddresses);
-            for (let strAddr of this._arrSeedAddresses) {
-                let peer = savedPeers.find(p => p.address == strAddr);
-                if (!peer) {
-                    peer = new PeerInfo({
-                        address: Transport.strToAddress(strAddr),
-                        capabilities: [{service: Constants.NODE}]
-                    });
+            const savedPeers = await this._peerManager.loadPeers();
+            if (savedPeers.length) {
+                savedPeers.forEach(async (peer) => await this._peerManager.addPeer(peer));
+            }
+            else {
+                for (let strAddr of this._arrSeedAddresses) {
+                        const peer = new PeerInfo({
+                            address: Transport.strToAddress(strAddr),
+                            capabilities: [{service: Constants.NODE}]
+                        });
+                    await this._peerManager.addPeer(peer);
                 }
-
-                await this._peerManager.addPeer(peer);
             }
 
             // start connecting to peers
