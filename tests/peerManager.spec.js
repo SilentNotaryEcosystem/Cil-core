@@ -299,8 +299,9 @@ describe('Peer manager', () => {
         peer.misbehave(10);
         await pm.savePeers([peer]);
 
-        let newPeer = await pm.getPeer(peer.address);
-        
+        let arrPeers = await pm.loadPeers();
+        assert.isOk(arrPeers.length === 1);
+        let newPeer = new factory.Peer({peerInfo:arrPeers[0]});
         assert.deepEqual(peer.address, newPeer.address);
         assert.equal(peer.capabilities.length, newPeer.capabilities.length);
         assert.equal(peer.capabilities[0].service, newPeer.capabilities[0].service);
@@ -329,7 +330,7 @@ describe('Peer manager', () => {
             address
         });
         await pm.savePeers([new factory.Peer({peerInfo})]);
-        const arrPeers = await pm.loadPeers([address]);
+        const arrPeers = await pm.loadPeers();
         assert.isOk(arrPeers.length === 1);
     });
 
@@ -359,7 +360,6 @@ describe('Peer manager', () => {
         }
     });
 
-   
     it('should remove peer', async () => {
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
@@ -369,5 +369,4 @@ describe('Peer manager', () => {
         pm.removePeer(peer);
         assert.isNotOk(pm.hasPeer(peer));
     });
-
 });
