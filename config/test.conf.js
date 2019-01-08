@@ -88,6 +88,9 @@ module.exports = {
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
         PEER_RECONNECT_INTERVAL: 5 * 60 * 1000,
 
+        PEERMANAGER_BACKUP_TIMER_NAME: 'peerManagerBackupTimer',
+        PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
+        
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'test_chainstate',
         DB_BLOCKSTATE_DIR: 'test_blockstate',

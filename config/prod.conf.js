@@ -95,6 +95,9 @@ module.exports = {
 
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
         PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
+        
+        PEERMANAGER_BACKUP_TIMER_NAME: 'peerManagerBackupTimer',
+        PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 
 
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
