@@ -138,7 +138,9 @@ describe('Node integration tests', () => {
             ],
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
-        [peerInfo1, peerInfo2, peerInfo3, peerInfo4].forEach(peerInfo => seedNode._peerManager.addPeer(peerInfo));
+        for (let peerInfo of [peerInfo1, peerInfo2, peerInfo3, peerInfo4]) {
+            await seedNode._peerManager.addPeer(peerInfo);
+        }
 
         const testNode = new factory.Node({
             listenAddr: factory.Transport.generateAddress(),

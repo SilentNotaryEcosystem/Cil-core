@@ -74,7 +74,9 @@ describe('Witness tests', () => {
         const peer2 = createDummyPeer('notWitness1');
         const peer3 = createDummyPeer('1111');
         const peer4 = createDummyPeer(keyPair2.publicKey);
-        [peer1, peer2, peer3, peer4].forEach(peer => witness._peerManager.addPeer(peer));
+        for (let peer of [peer1, peer2, peer3, peer4]) {
+            await witness._peerManager.addPeer(peer);
+        }
 
         const result = await witness._getGroupPeers(groupDefinition);
         assert.isOk(Array.isArray(result));

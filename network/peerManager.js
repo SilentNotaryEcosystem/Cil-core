@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const Tick = require('tick-tock');
 
 /**
  *
@@ -8,7 +9,8 @@ const EventEmitter = require('events');
  * @emits 'message' {peer, message}
  */
 module.exports = (factory) => {
-    const {Storage, Constants, Messages, Peer} = factory;
+    const {Constants, Messages, Peer} = factory;
+
     const {PeerInfo} = Messages;
 
     return class PeerManager extends EventEmitter {
@@ -25,6 +27,10 @@ module.exports = (factory) => {
             // TODO: add load all peers from persistent store
             // keys - addesses, values - {timestamp of last peer action, PeerInfo}
             this._allPeers = new Map();
+            this._backupTimer = new Tick(this);
+            this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
+                Constants.PEERMANAGER_BACKUP_TIMEOUT
+            );
         }
 
         /**
@@ -47,7 +53,7 @@ module.exports = (factory) => {
          * @param {Object | PeerInfo | Peer} peer
          * @return {Peer | undefined} undefined if peer already connected
          */
-        addPeer(peer) {
+        async addPeer(peer) {
 
             // TODO: do we need mutex support here?
 
@@ -70,7 +76,7 @@ module.exports = (factory) => {
 
             this.updateHandlers(peer);
 
-            // TODO: store it in DB
+
             // TODO: emit new peer
             this._allPeers.set(key, peer);
             return peer;
@@ -141,11 +147,25 @@ module.exports = (factory) => {
             return arrResult;
         }
 
+        findBestPeers() {
+            return Array.from(this._allPeers.values())
+                .sort((a, b) => b.quality - a.quality)
+                .slice(0, Constants.MAX_PEERS);
+        }
+
         broadcastToConnected(tag, message) {
             const arrPeers = this.connectedPeers(tag);
             for (let peer of arrPeers) {
                 peer.pushMessage(message).catch(err => logger.error(err));
             }
+        }
+
+        async loadPeers() {
+            return await this._storage.loadPeers();
+        }
+
+        async savePeers(arrPeers) {
+            return await this._storage.savePeers(arrPeers);
         }
 
         /**
@@ -160,6 +180,13 @@ module.exports = (factory) => {
             // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
             // it could be ripemd160
             return address + port.toString();
+        }
+
+        _backupTick() {
+            const arrPeers = Array.from(this._allPeers.values());
+            if (arrPeers.length) {
+                this.savePeers(arrPeers);
+            }
         }
     };
 };

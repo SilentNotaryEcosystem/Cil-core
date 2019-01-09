@@ -229,13 +229,13 @@ describe('Peer tests', () => {
 
         assert.isNotOk(newPeer.disconnected);
         assert.isOk(newPeer._connection);
-        assert.isOk(newPeer._bytesCount);
+        assert.isOk(newPeer.amountBytes);
 
         newPeer._connection.emit('message', msg);
 
         assert.isOk(newPeer.disconnected);
         assert.isNotOk(newPeer._connection);
-        assert.isNotOk(newPeer._bytesCount);
+        assert.isNotOk(newPeer.amountBytes);
 
     });
 
@@ -249,7 +249,7 @@ describe('Peer tests', () => {
 
         assert.isNotOk(newPeer.disconnected);
         assert.isOk(newPeer._connection);
-        assert.isOk(newPeer._bytesCount);
+        assert.isOk(newPeer.amountBytes);
 
         newPeer._connection.emit('message', msg);
 
@@ -262,8 +262,8 @@ describe('Peer tests', () => {
 
         const newPeer = new factory.Peer({
             connection: {
-                remoteAddress: factory.Transport.strToAddress(factory.Transport.generateAddress()),
-                address: factory.Transport.strToAddress(factory.Transport.generateAddress()),
+                remoteAddress: factory.Transport.generateAddress(),
+                //address: factory.Transport.strToAddress(factory.Transport.generateAddress()),
                 listenerCount: () => 0,
                 on: () => {},
                 sendMessage: async () => {},

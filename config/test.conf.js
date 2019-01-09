@@ -84,12 +84,15 @@ module.exports = {
         PEER_MAX_BYTESCOUNT: 10 * 1024 * 1024,
         PEER_BANADDRESS_TIME: 1000,
         PEER_DEAD_TIMER_NAME: 'peerDeadTimer',
-        PEER_DEAD_TIMEOUT: 60 * 1000,
+        PEER_DEAD_TIMEOUT: 5 * 60 * 1000,
         PEER_DEAD_TIME: 5 * 60 * 1000,
         PEER_PING_TIMER_NAME: 'peerPingTimer',
         PEER_PING_TIMEOUT: 4 * 60 * 1000,
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
         PEER_RECONNECT_INTERVAL: 5 * 60 * 1000,
+
+        PEERMANAGER_BACKUP_TIMER_NAME: 'peerManagerBackupTimer',
+        PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
         TIMEOUT_CODE: 10000,
@@ -98,6 +101,8 @@ module.exports = {
 
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'test_chainstate',
-        DB_BLOCKSTATE_DIR: 'test_blockstate'
+        DB_BLOCKSTATE_DIR: 'test_blockstate',
+        DB_PEERSTATE_DIR: 'test_peerstate'
+
     }
 };

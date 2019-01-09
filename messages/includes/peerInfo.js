@@ -65,6 +65,29 @@ module.exports = (Constants, MessageProto) =>
             return this._data.capabilities;
         }
 
+        get lifetimeMisbehaveScore() {
+            return this._data.lifetimeMisbehaveScore;
+        }
+
+        set lifetimeMisbehaveScore(score) {
+            this._data.lifetimeMisbehaveScore = score;
+        }
+
+        get lifetimeTransmittedBytes() {
+            return this._data.lifetimeTransmittedBytes;
+        }
+
+        set lifetimeTransmittedBytes(bytesCount) {
+            this._data.lifetimeTransmittedBytes = bytesCount;
+        }
+
+        get lifetimeReceivedBytes() {
+            return this._data.lifetimeReceivedBytes;
+        }
+
+        set lifetimeReceivedBytes(bytesCount) {
+            this._data.lifetimeReceivedBytes = bytesCount;
+        }
         /**
          *
          * @param {Object} objAddress - {addr0, addr1, addr2, addr3}
