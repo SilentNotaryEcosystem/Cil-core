@@ -1216,6 +1216,7 @@ module.exports = (factory, factoryOptions) => {
         gracefulShutdown() {
 
             // TODO: implement flushing all in memory data to disk
+            this._peerManager.saveAllPeers();
             console.log('Shutting down');
             process.exit(1);
         }

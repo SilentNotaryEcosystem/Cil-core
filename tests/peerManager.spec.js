@@ -370,4 +370,32 @@ describe('Peer manager', () => {
         pm.removePeer(peer);
         assert.isNotOk(pm.hasPeer(peer));
     });
+
+    it('should save all peer', async () => {
+        const storage = new factory.Storage({});
+
+        const pm = new factory.PeerManager({storage});
+        let peerInfos = [];
+        peerInfos[0] = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE, data: null},
+                {service: factory.Constants.WITNESS, data: Buffer.from('asdasdasd')}
+            ],
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
+        });
+        peerInfos[1] = new factory.Messages.PeerInfo({
+            capabilities: [
+                {service: factory.Constants.NODE, data: null}
+            ],
+            address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
+        });
+
+        pm.addPeer(peerInfos[0]);
+        pm.addPeer(peerInfos[1]);
+        pm.saveAllPeers();
+        const arrPeers = await pm.loadPeers();
+
+        assert.isOk(arrPeers.length === 2);
+
+    });
 });
