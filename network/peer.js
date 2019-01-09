@@ -33,7 +33,8 @@ module.exports = (factory) => {
             this._lastActionTimestamp = lastActionTimestamp ? lastActionTimestamp : Date.now();
 
             this._tags = [];
-            this._bytesCount = 0;
+            this._transmittedBytes = 0;
+            this._receivedBytes = 0;
             this._msecOffsetDelta = 0;
             this._lastDisconnectedAddress = undefined;
             this._lastDisconnectionTime = undefined;
@@ -71,10 +72,32 @@ module.exports = (factory) => {
 
         }
 
+        get amountBytes() {
+            return this._transmittedBytes + this._receivedBytes;
+        }
+
+        get missbehaveScore() {
+            return this._missbehaveScore;
+        }
+
+        get transmittedBytes() {
+            return this._transmittedBytes;
+        }
+
+        get receivedBytes() {
+            return this._receivedBytes;
+        }
+        /**
+         * witness peers shouldn't be disconnected
+         */
+        markAsPersistent() {
+            this._persistent = true;
+        }
+
         get tempBannedAddress() {
             return !!this._lastDisconnectedAddress
-                   && this._lastDisconnectedAddress === this.address
-                   && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
+                && this._lastDisconnectedAddress === this.address
+                && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
         }
 
         get peerInfo() {
@@ -107,7 +130,7 @@ module.exports = (factory) => {
 
         get isWitness() {
             return Array.isArray(this._peerInfo.capabilities) &&
-                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
         get lastActionTimestamp() {
@@ -172,11 +195,9 @@ module.exports = (factory) => {
             this._msecOffsetDelta = delta;
         }
 
-        /**
-         * witness peers shouldn't be disconnected
-         */
-        markAsPersistent() {
-            this._persistent = true;
+        get quality() {
+            return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
+                / (this._peerInfo.lifetimeMisbehaveScore + this.missbehaveScore + 1);
         }
 
         addTag(tag) {
@@ -216,7 +237,8 @@ module.exports = (factory) => {
                 logger.error(`Peer ${this.address} already connected`);
                 return;
             }
-            this._bytesCount = 0;
+            this._transmittedBytes = 0;
+            this._receivedBytes = 0;
             this._connection = await this._transport.connect(this.address, this.port);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
@@ -228,8 +250,8 @@ module.exports = (factory) => {
 
                     // count incoming bytes
                     if (msg.payload && Buffer.isBuffer(msg.payload)) {
-                        this._bytesCount += msg.payload.length;
-                        if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
+                        this._receivedBytes += msg.payload.length;
+                        if (!this._persistent && this.amountBytes > Constants.PEER_MAX_BYTESCOUNT) {
                             this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
                         }
                     }
@@ -257,6 +279,9 @@ module.exports = (factory) => {
                     this._cleanup();
                     this._lastDisconnectedAddress = this.address;
                     this._lastDisconnectionTime = Date.now();
+                    this._peerInfo.lifetimeMisbehaveScore += this._missbehaveScore;
+                    this._peerInfo.lifetimeTransmittedBytes += this._transmittedBytes;
+                    this._peerInfo.lifetimeReceivedBytes += this._receivedBytes;
                     this._connection = undefined;
                     this.emit('disconnect', this);
                 });
@@ -281,13 +306,13 @@ module.exports = (factory) => {
                         await this._connection.sendMessage(nextMsg);
                     }
                     if (nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
-                        this._bytesCount += nextMsg.payload.length;
+                        this._transmittedBytes += nextMsg.payload.length;
                     }
                 }
                 this._queue = undefined;
 
                 // count outgoing bytes
-                if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
+                if (!this._persistent && this.amountBytes > Constants.PEER_MAX_BYTESCOUNT) {
                     this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
                 }
             }
@@ -312,21 +337,30 @@ module.exports = (factory) => {
             if (this._missbehaveScore >= Constants.BAN_PEER_SCORE) this.ban();
         }
 
-        disconnect(strReason) {
-            debug(`${strReason}. Closing connection to "${this._connection.remoteAddress}"`);
-            this._cleanup();
-            this._lastDisconnectedAddress = this._connection.remoteAddress;
-            this._lastDisconnectionTime = Date.now();
-
-            this._connection.close();
+        disconnect(reason) {
+            debug(`${reason}. Closing connection to "${this._connection.remoteAddress}"`);
+            try {
+                this._connection.close();
+            }
+            catch (err) {
+                logger.error(err);
+            }
             this._connection = undefined;
             this.emit('disconnect', this);
+        }
+
+        saveLifetimeCounters() {
+            this.peerInfo.lifetimeMisbehaveScore = this._missbehaveScore;
+            this.peerInfo.lifetimeTransmittedBytes = this._transmittedBytes;
+            this.peerInfo.lifetimeReceivedBytes = this._receivedBytes;
         }
 
         _cleanup() {
             this._bInbound = false;
             this.loadDone = true;
-            this._bytesCount = 0;
+            this._transmittedBytes = 0;
+            this._receivedBytes = 0;
+
             this._msecOffsetDelta = 0;
         }
 

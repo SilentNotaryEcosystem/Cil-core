@@ -77,6 +77,8 @@ module.exports = (factory, factoryOptions) => {
             // it could be levelDB also, but in different dir
             this._blockStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
 
+            this._peerStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
+
             this._mutex = mutex;
         }
 
@@ -445,6 +447,29 @@ module.exports = (factory, factoryOptions) => {
             return this._mutex.runExclusive(['pending_blocks'], async () => {
                 await this._db.put(key, (new ArrayOfHashes(arrBlockHashes)).encode());
             });
+        }
+
+        async savePeers(arrPeers) {
+            const arrOps = [];
+
+            for (let peer of arrPeers) {
+                const buffAddress = Buffer.isBuffer(peer.address) ? peer.address : Buffer.from(peer.address, 'hex');
+                const key = createKey('', buffAddress);
+                peer.saveLifetimeCounters();
+                arrOps.push({type: 'put', key, value: peer.peerInfo.encode()});
+            }
+            await this._peerStorage.batch(arrOps);
+        }
+
+        async loadPeers() {
+            let arrPeers = [];
+            await new Promise((resolve, reject) => {
+                this._peerStorage.createValueStream()
+                .on('data', peer => arrPeers.push(peer))
+                .on('close', () => resolve())
+                .on('error', () => reject())
+              });
+            return arrPeers;
         }
     };
 };

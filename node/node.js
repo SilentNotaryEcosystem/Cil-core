@@ -132,17 +132,23 @@ module.exports = (factory, factoryOptions) => {
             await this._mergeSeedPeers();
 
             // add seed peers to peerManager
-            for (let strAddr of this._arrSeedAddresses) {
-                const peer = new PeerInfo({
-                    address: Transport.strToAddress(strAddr),
-                    capabilities: [{service: Constants.NODE}]
-                });
-                this._peerManager.addPeer(peer);
+            const savedPeers = await this._peerManager.loadPeers();
+            if (savedPeers.length) {
+                savedPeers.forEach(async (peer) => await this._peerManager.addPeer(peer));
+            }
+            else {
+                for (let strAddr of this._arrSeedAddresses) {
+                        const peer = new PeerInfo({
+                            address: Transport.strToAddress(strAddr),
+                            capabilities: [{service: Constants.NODE}]
+                        });
+                    await this._peerManager.addPeer(peer);
+                }
             }
 
             // start connecting to peers
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
-            const arrBestPeers = this._findBestPeers();
+            const arrBestPeers = this._peerManager.findBestPeers();
             await this._connectToPeers(arrBestPeers);
             this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),
                 Constants.PEER_RECONNECT_INTERVAL
@@ -158,22 +164,7 @@ module.exports = (factory, factoryOptions) => {
         async _connectToPeer(peer) {
             debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
             return await peer.connect();
-        }
 
-        /**
-         *
-         * @return {Array} of Peers we decided to be best peers to connect
-         * @private
-         */
-        _findBestPeers() {
-
-            // we prefer witness nodes
-            // TODO: REWORK! it's not good idea to overload witnesses!
-            const arrWitnessNodes = this._peerManager.filterPeers({service: Constants.WITNESS});
-            if (arrWitnessNodes.length) return arrWitnessNodes;
-
-            // but if there is no such - use any nodes
-            return this._peerManager.filterPeers({service: Constants.NODE});
         }
 
         /**
@@ -217,7 +208,7 @@ module.exports = (factory, factoryOptions) => {
                 debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
                 const newPeer = new Peer({connection, transport: this._transport});
 
-                const result = this._peerManager.addPeer(newPeer);
+                const result = await this._peerManager.addPeer(newPeer);
                 if (result instanceof Peer) return;
 
                 // peer already connected or banned
@@ -258,7 +249,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _reconnectPeers() {
-            let bestPeers = this._findBestPeers().filter(p => p.disconnected);
+            let bestPeers = this._peerManager.findBestPeers().filter(p => p.disconnected);
             let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
             await this._connectToPeers(peers);
         }
@@ -708,7 +699,7 @@ module.exports = (factory, factoryOptions) => {
         async _handlePeerList(peer, message) {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
-                const newPeer = this._peerManager.addPeer(peerInfo);
+                const newPeer = await this._peerManager.addPeer(peerInfo);
                 if (newPeer instanceof Peer) {
                     debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
                 }
