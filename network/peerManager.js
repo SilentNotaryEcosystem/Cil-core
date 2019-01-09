@@ -168,6 +168,11 @@ module.exports = (factory) => {
             return await this._storage.savePeers(arrPeers);
         }
 
+        async saveAllPeers() {
+            const arrPeers = Array.from(this._allPeers.values());
+            if(arrPeers.length)
+                this.savePeers(arrPeers);
+        }
         /**
          *
          * @param {Buffer} address
@@ -183,9 +188,7 @@ module.exports = (factory) => {
         }
 
         _backupTick() {
-            const arrPeers = Array.from(this._allPeers.values());
-            if(arrPeers.length)
-                this.savePeers(arrPeers);
+            this.saveAllPeers();
         }
     };
 };
