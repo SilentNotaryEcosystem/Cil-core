@@ -6,6 +6,7 @@ const sinon = require('sinon');
 
 const factory = require('../testFactory');
 const {pseudoRandomBuffer, createDummyTx} = require('../testUtil');
+const {sleep} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -76,7 +77,7 @@ const createGenesisBlockAndSpendingTx = (witnessGroupId = 0) => {
 
     // create "genesis" tx
     const txGen = new factory.Transaction();
-    txGen.witnessGroupId = witnessGroupId;
+    txGen.witnessGroupId = 0;
     txGen.addInput(Buffer.alloc(32), 0);
     txGen.addReceiver(1000000, buffReceiverAddress);
 
@@ -239,7 +240,6 @@ describe('Witness integration tests', () => {
         const seedNode = new factory.Node({
             listenAddr: seedAddress,
             delay,
-            arrTestDefinition: [groupDefinition],
             rpcUser: 'test',
             rpcPass: 'test'
         });
@@ -276,7 +276,7 @@ describe('Witness integration tests', () => {
     });
 
     it('should NOT commit block (there is TX in mempool, but wrong witnessGroupId)', async function() {
-        this.timeout(maxConnections * 200000);
+        this.timeout(maxConnections * 60000);
 
         // it will create tx for groupId==2
         const {genesis, tx} = createGenesisBlockAndSpendingTx(2);
@@ -288,7 +288,7 @@ describe('Witness integration tests', () => {
             rpcUser: 'test',
             rpcPass: 'test'
         });
-        patchNodeForWitnesses(seedNode, groupDefinition);
+//        patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
@@ -303,6 +303,8 @@ describe('Witness integration tests', () => {
 
         const arrSuppressedBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
+            await arrWitnesses[i].ensureLoaded();
+            await arrWitnesses[i]._processBlock(genesis);
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
                 arrWitnesses[i]._acceptBlock = acceptBlockFake;
@@ -316,7 +318,6 @@ describe('Witness integration tests', () => {
         // all witnesses should call _suppressedBlockHandler
         await Promise.all(arrSuppressedBlocksPromises);
 
-        // ensure that no block was accepted
         assert.equal(acceptBlockFake.callCount, 0);
     });
 

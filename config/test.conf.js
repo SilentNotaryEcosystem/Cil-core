@@ -68,9 +68,12 @@ module.exports = {
         TOLERATED_TIME_DIFF: 60 * 60 * 1000,
 
         // how much we suppress creating empty blocks
-        WITNESS_HOLDOFF: 15 * 60 * 1000,
+        WITNESS_HOLDOFF: 5 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
+
+        // fees
         MIN_TX_FEE: 1000,
+        MIN_CONTRACT_FEE: 30000,
 
         PEER_CONNECTION_LIFETIME: 60 * 60 * 1000,
 
@@ -87,6 +90,11 @@ module.exports = {
         PEER_PING_TIMEOUT: 4 * 60 * 1000,
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
         PEER_RECONNECT_INTERVAL: 5 * 60 * 1000,
+
+        // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
+        TIMEOUT_CODE: 10000,
+
+        CONTRACT_METHOD_SEPARATOR: '\0',
 
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'test_chainstate',

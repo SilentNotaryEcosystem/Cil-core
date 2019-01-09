@@ -269,6 +269,8 @@ module.exports = (factory, factoryOptions) => {
          */
         async getUtxosCreateMap(arrUtxoHashes) {
             const mapUtxos = {};
+
+            // TODO: test it against batch read performance
             for (let coin of arrUtxoHashes) {
                 const utxo = await this.getUtxo(coin);
                 const strHash = Buffer.isBuffer(coin) ? coin.toString('hex') : coin;

@@ -7,6 +7,8 @@ const {sleep} = require('../utils');
 
 let msgCommon;
 
+process.on('warning', e => console.warn(e.stack));
+
 describe('TestTransport', () => {
     before(async function() {
         this.timeout(15000);

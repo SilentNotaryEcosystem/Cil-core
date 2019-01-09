@@ -354,7 +354,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._processReceivedTx(tx);
             } catch (e) {
                 logger.error(e);
-                peer.ban();
+                peer.misbehave(5);
                 throw e;
             }
         }
@@ -753,6 +753,11 @@ module.exports = (factory, factoryOptions) => {
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
+
+            if (this._mempool.hasTx(tx.hash())) return;
+
+            await this._storage.checkTxCollision([tx.hash()]);
+
             await this._processTx(false, tx);
 
             this._mempool.addTx(tx);

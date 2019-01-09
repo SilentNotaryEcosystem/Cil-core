@@ -73,11 +73,10 @@ module.exports = ({ Constants, Transaction }) =>
          */
         addTx(tx) {
             this.limitConstraints();
-            // TODO: check and forbid for duplicated TX hashes (@see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
+
             const strHash = tx.hash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
-            // TODO: implement check for double spend by different witness group
             this._mapTxns.set(strHash, { tx, arrived: Date.now() });
             debug(`TX ${strHash} added`);
         }
