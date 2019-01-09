@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 let keyPair;
 let privateKey;
@@ -285,13 +285,13 @@ describe('Transaction tests', () => {
     });
 
     it('should createContract TX', async () => {
-        const tx = factory.Transaction.createContract('', 1000);
+        const tx = factory.Transaction.createContract('', 1000, generateAddress());
         assert.isOk(tx.isContractCreation());
     });
 
     it('should get code', async () => {
         const strCode = 'var a=0;';
-        const tx = factory.Transaction.createContract(strCode, 1000);
+        const tx = factory.Transaction.createContract(strCode, 1000, generateAddress());
         const strGotCode = tx.getCode();
 
         assert.equal(strCode, strGotCode);

@@ -260,18 +260,21 @@ describe('Application layer', () => {
             
             exports=new A(10);
             `;
-        const tx = factory.Transaction.createContract(strCode, 100000);
+        const tx = factory.Transaction.createContract(strCode, 100000, generateAddress());
         const env = {
             contractTx: tx.hash(),
             contractAddr: factory.Crypto.getAddress(tx.hash())
         };
-        const {receipt, contract} = app.createContract(tx.getCode(), env);
+        const {receipt, contract} = app.createContract(1e5, tx.getCode(), env);
 
-        assert.isOk(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+//        assert.isOk(Array.isArray(receipt.getInternalTxns()));
+//        assert.equal(receipt.getInternalTxns().length, 1);
         assert.deepEqual(contract.getData(), {_data: 10, _contractAddr: contract.getStoredAddress()});
 
         const resultCode = [strGetDataCode, strFunc2Code]
-            .join(factory.Contract.CONTRACT_METHOD_SEPARATOR);
+            .join(factory.Constants.CONTRACT_METHOD_SEPARATOR);
         assert.equal(contract.getCode(), resultCode);
     });
 
@@ -284,8 +287,10 @@ describe('Application layer', () => {
         });
         const app = new factory.Application();
 
-        await app.runContract('add(10)', contract, {});
+        const receipt = await app.runContract(1e5, 'add(10)', contract, {});
 
+        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 110});
     });
 });

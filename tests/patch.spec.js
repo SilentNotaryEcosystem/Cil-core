@@ -11,7 +11,7 @@ const createUtxo = (arrIndexes) => {
     const txHash = pseudoRandomBuffer(32).toString('hex');
 
     const utxo = new factory.UTXO({txHash});
-    const coins = new factory.Coins(1000, Buffer.allocUnsafe(100));
+    const coins = new factory.Coins(1000, generateAddress());
     arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
 
     return utxo;
@@ -34,7 +34,7 @@ describe('PatchDB', () => {
     it('should add coins to same UTXO', async () => {
         const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer(32).toString('hex');
-        const coins = new factory.Coins(10, pseudoRandomBuffer(100));
+        const coins = new factory.Coins(10, generateAddress());
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 2, coins);
 
@@ -50,7 +50,7 @@ describe('PatchDB', () => {
         const txHash = pseudoRandomBuffer(32).toString('hex');
         const txHash2 = pseudoRandomBuffer(32).toString('hex');
 
-        const coins = new factory.Coins(10, pseudoRandomBuffer(11));
+        const coins = new factory.Coins(10, generateAddress());
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash2, 2, coins);
 
@@ -63,7 +63,7 @@ describe('PatchDB', () => {
 
     it('should remove coins', async () => {
         const patch = new factory.PatchDB(0);
-        const spendingTx = pseudoRandomBuffer(32).toString('hex');
+        const spendingTx = pseudoRandomBuffer().toString('hex');
 
         const utxo = createUtxo([12, 0, 431]);
         const utxo2 = createUtxo([12, 0]);

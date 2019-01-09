@@ -98,12 +98,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return coinbase;
         }
 
-        static createContract(strCode, maxCoins) {
+        static createContract(strCode, maxCoins, addrChangeReceiver) {
+            typeforce(typeforce.tuple(typeforce.String, typeforce.Number, types.Address), arguments);
+
             const tx = new this();
             tx._data.payload.outs.push({
                 amount: maxCoins,
                 receiverAddr: Crypto.getAddrContractCreation(),
-                contractCode: strCode
+                contractCode: strCode,
+                addrChangeReceiver
             });
             return tx;
         }
@@ -157,17 +160,19 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         /**
          *
          * @param {String} strCodeInvocation  - method name & parameters
-         * @param {Number} fee
-         * @param {Buffer} addr - receiver
+         * @param {Number} maxCoins
+         * @param {Buffer} addrContract
+         * @param {Buffer} addrChangeReceiver
          */
-        invokeContract(strCodeInvocation, fee, addr) {
+        invokeContract(strCodeInvocation, maxCoins, addrContract, addrChangeReceiver) {
             typeforce(typeforce.tuple('String', 'Number', types.Address), arguments);
 
             this._checkDone();
             this._data.payload.outs.push({
                 contractCode: strCodeInvocation,
-                amount: fee,
-                receiverAddr: Buffer.from(addr, 'hex')
+                amount: maxCoins,
+                receiverAddr: Buffer.from(addrContract, 'hex'),
+                addrChangeReceiver
             });
         }
 
@@ -277,12 +282,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return this.getOutCoins().length === 1;
         }
 
-        getCode() {
-            const outputs = this.outputs;
-            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
-            return outputs[0].contractCode;
-        }
-
         /**
          * Amount of coins to transfer with this TX
          *
@@ -290,5 +289,17 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          */
         amountOut() {
             return this.outputs.reduce((accum, out) => accum + out.amount, 0);
+        }
+
+        getCode() {
+            const outputs = this.outputs;
+            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
+            return outputs[0].contractCode;
+        }
+
+        getChangeReceiver() {
+            const outputs = this.outputs;
+            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
+            return outputs[0].addrChangeReceiver;
         }
     };

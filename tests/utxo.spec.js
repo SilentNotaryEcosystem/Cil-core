@@ -6,12 +6,12 @@ const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
-const {pseudoRandomBuffer} = require('./testUtil');
+const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 const createDummyUtxo = (arrIndexes) => {
     const txHash = pseudoRandomBuffer().toString('hex');
     const utxo = new factory.UTXO({txHash});
-    const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
+    const coins = new factory.Coins(10, generateAddress());
 
     arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
 

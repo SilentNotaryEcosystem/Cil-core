@@ -1067,11 +1067,16 @@ describe('Node tests', () => {
 
     it('should call createContract', async () => {
         const node = new factory.Node();
-        const tx = factory.Transaction.createContract('class A extends Base{}', 10000);
+        const tx = factory.Transaction.createContract(
+            'class A extends Base{}',
+            10000,
+            generateAddress(),
+            generateAddress()
+        );
 
         const contract = new factory.Contract({});
         contract.storeAddress(generateAddress());
-        node._app.createContract = sinon.fake.returns({contract});
+        node._app.createContract = sinon.fake.returns({contract, receipt: new factory.TxReceipt({coinsUsed: 1000})});
 
         // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
         await node._processTx(true, tx);
@@ -1083,20 +1088,22 @@ describe('Node tests', () => {
         const node = new factory.Node();
         const contractAddr = generateAddress();
         const groupId = 10;
+        const coinsLimit = 1000;
 
         const tx = new factory.Transaction();
         tx.witnessGroupId = groupId;
         tx.addInput(pseudoRandomBuffer(), 12);
-        tx.invokeContract('', 1000, contractAddr);
+        tx.invokeContract('', coinsLimit, contractAddr, generateAddress());
 
         node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
-        node._app.runContract = sinon.fake();
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
 
         // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
         await node._processTx(true, tx, new factory.PatchDB(groupId));
 
         assert.isOk(node._app.runContract.calledOnce);
-        const [strInvocationCode, contract] = node._app.runContract.args[0];
+        const [numCoins, strInvocationCode, contract] = node._app.runContract.args[0];
+        assert.equal(numCoins, coinsLimit);
         assert.isOk(typeof strInvocationCode === 'string');
         assert.isOk(contract instanceof factory.Contract);
     });
@@ -1105,12 +1112,12 @@ describe('Node tests', () => {
         const groupId = 10;
         const node = new factory.Node();
         node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
-        node._app.runContract = sinon.fake();
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
 
         const tx = new factory.Transaction();
         tx.witnessGroupId = groupId;
         tx.addInput(pseudoRandomBuffer(), 12);
-        tx.invokeContract('', 1000, generateAddress());
+        tx.invokeContract('', 1000, generateAddress(), generateAddress());
 
         const patch = new factory.PatchDB(groupId);
         patch.getContract = sinon.fake.returns(undefined);
@@ -1120,5 +1127,23 @@ describe('Node tests', () => {
         assert.isOk(patch.getContract.calledOnce);
         assert.isOk(node._storage.getContract.calledOnce);
         assert.isOk(node._app.runContract.calledOnce);
+    });
+
+    it('should create internal TX', async () => {
+        const node = new factory.Node();
+        const address = generateAddress();
+        const amount = 1000;
+        const patch = new factory.PatchDB();
+
+        const strHash = node._createInternalTx(address, amount, patch);
+
+        const utxo = patch.getUtxo(strHash);
+        assert.isOk(utxo);
+        assert.isNotOk(utxo.isEmpty());
+        assert.deepEqual(utxo.getIndexes(), [0]);
+        const coins = utxo.coinsAtIndex(0);
+        assert.isOk(coins);
+        assert.equal(coins.getAmount(), amount);
+        assert.isOk(address.equals(coins.getReceiverAddr()));
     });
 });

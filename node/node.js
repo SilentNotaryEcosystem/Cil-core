@@ -770,6 +770,7 @@ module.exports = (factory, factoryOptions) => {
         async _processTx(isGenesis, tx, patchForBlock) {
             let patchThisTx = new PatchDB();
             let totalHas = 0;
+            let fee = 0;
 
             // process input (for regular block only)
             if (!isGenesis) {
@@ -785,19 +786,24 @@ module.exports = (factory, factoryOptions) => {
                 const environment = {
                     contractTx: tx.hash()
                 };
+                const [coins] = tx.getOutCoins();
+                const coinsLimit = coins.getAmount();
 
                 if (tx.isContractCreation()) {
 
                     // Newly deployed contract address!
                     environment.contractAddr = Crypto.getAddress(tx.hash());
 
-                    const {receipt, contract} = await this._app.createContract(tx.getCode(), environment);
+                    const {receipt, contract} = await this._app.createContract(coinsLimit, tx.getCode(), environment);
+
+                    // no changeReceiver? ok - all become a fee
+                    fee = tx.getChangeReceiver() ? receipt.getCoinsUsed() : totalHas;
+                    const changeTxHash = this._createInternalTx(tx.getChangeReceiver(), totalHas - fee, patchThisTx);
+                    receipt.addInternalTx(changeTxHash);
+
                     patchThisTx.setReceipt(tx.hash(), receipt);
                     patchThisTx.setContract(contract);
-
-                    // TODO implement fee
                 } else {
-                    const [coins] = tx.getOutCoins();
 
                     // check: whether it's contract invocation
                     let contract;
@@ -810,8 +816,9 @@ module.exports = (factory, factoryOptions) => {
                         // try to load contract data from storage
                         contract = await this._storage.getContract(coins.getReceiverAddr());
                     }
-
                     if (contract) {
+
+                        // It's a contract call!
                         contract.storeAddress(coins.getReceiverAddr());
                         assert(
                             contract.getGroupId() === tx.witnessGroupId,
@@ -820,23 +827,31 @@ module.exports = (factory, factoryOptions) => {
 
                         environment.contractAddr = coins.getReceiverAddr().toString('hex');
 
-                        const receipt = await this._app.runContract(tx.getCode(), contract, environment);
+                        const receipt = await this._app.runContract(coinsLimit, tx.getCode(), contract, environment);
+
+                        // no changeReceiver? ok - all become a fee
+                        fee = tx.getChangeReceiver() ? receipt.getCoinsUsed() : totalHas;
+                        const changeTxHash = this._createInternalTx(tx.getChangeReceiver(), totalHas - fee,
+                            patchThisTx
+                        );
+                        receipt.addInternalTx(changeTxHash);
+
                         patchThisTx.setReceipt(tx.hash(), receipt);
                         patchThisTx.setContract(contract);
-
-                        // TODO implement fee
                     } else {
 
                         // regular payment
                         totalSent = this._app.processPayments(tx, patchThisTx);
+                        fee = totalHas - totalSent;
                     }
                 }
             } else {
 
                 // regular payment
                 totalSent = this._app.processPayments(tx, patchThisTx);
+                fee = totalHas - totalSent;
             }
-            const fee = totalHas - totalSent;
+
 
             // TODO: MIN_TX_FEE is fee per 1Kb of TX size
             // TODO: rework fee
@@ -1208,6 +1223,22 @@ module.exports = (factory, factoryOptions) => {
             // TODO: implement flushing all in memory data to disk
             console.log('Shutting down');
             process.exit(1);
+        }
+
+        /**
+         *
+         * @param {Buffer} buffReceiver
+         * @param {Number} amount
+         * @param {PatchDB} patch
+         * @returns {String} - new internal TX hash
+         * @private
+         */
+        _createInternalTx(buffReceiver, amount, patch) {
+            const coins = new Coins(amount, buffReceiver);
+            const txHash = Crypto.createHash(Crypto.randomBytes(32));
+            patch.createCoins(txHash, 0, coins);
+
+            return txHash;
         }
     };
 };

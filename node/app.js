@@ -93,11 +93,12 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * 2. Last code line - is creating instance of contract class
          * 3. Contract invocation - string. like functionName(...params)
          *
+         * @param {Number} coinsLimit - spend no more than this limit
          * @param {String} strCode - contract code
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @returns {{receipt: TxReceipt, contract: Contract}
          */
-        createContract(strCode, environment) {
+        createContract(coinsLimit, strCode, environment) {
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
@@ -148,13 +149,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
         /**
          * It will update contract in a case of success
          *
+         * @param {Number} coinsLimit - spend no more than this limit
          * @param {String} strInvocationCode - code to invoke, like publicMethod(param1, param2)
          * @param {Contract} contract - contract loaded from store (@see structures/contract.js)
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Function} funcToLoadNestedContracts - not used yet.
          * @returns {Promise<*>}
          */
-        async runContract(strInvocationCode, contract, environment, funcToLoadNestedContracts) {
+        async runContract(coinsLimit, strInvocationCode, contract, environment, funcToLoadNestedContracts) {
 
             // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
             // form context from contract data
@@ -188,7 +190,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             }
 
             // TODO: create TX with change to author!
-            // TODO: return Fee
+            // TODO: return Fee (see coinsUsed)
             return new TxReceipt({
                 coinsUsed: Constants.MIN_CONTRACT_FEE,
                 status

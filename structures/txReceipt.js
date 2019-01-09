@@ -57,4 +57,18 @@ module.exports = (factory, {txReceiptProto}) =>
         equals(receipt) {
             return this.encode().equals(receipt.encode());
         }
+
+        /**
+         *
+         * @param {String} txHash
+         */
+        addInternalTx(txHash) {
+            typeforce(types.Hash256bit, txHash);
+
+            this._data.internalTxns.push(Buffer.from(txHash, 'hex'));
+        }
+
+        getInternalTxns() {
+            return this._data.internalTxns;
+        }
     };
