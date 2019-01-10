@@ -791,13 +791,7 @@ module.exports = (factory, factoryOptions) => {
 
                     const {receipt, contract} = await this._app.createContract(coinsLimit, tx.getCode(), environment);
 
-                    // no changeReceiver? ok - all become a fee
-                    fee = tx.getChangeReceiver() ? receipt.getCoinsUsed() : totalHas;
-                    const changeTxHash = this._createInternalTx(tx.getChangeReceiver(), totalHas - fee, patchThisTx);
-                    receipt.addInternalTx(changeTxHash);
-
-                    patchThisTx.setReceipt(tx.hash(), receipt);
-                    patchThisTx.setContract(contract);
+                    fee = this._createContractChange(tx, totalHas, patchThisTx, contract, receipt);
                 } else {
 
                     // check: whether it's contract invocation
@@ -823,16 +817,7 @@ module.exports = (factory, factoryOptions) => {
                         environment.contractAddr = coins.getReceiverAddr().toString('hex');
 
                         const receipt = await this._app.runContract(coinsLimit, tx.getCode(), contract, environment);
-
-                        // no changeReceiver? ok - all become a fee
-                        fee = tx.getChangeReceiver() ? receipt.getCoinsUsed() : totalHas;
-                        const changeTxHash = this._createInternalTx(tx.getChangeReceiver(), totalHas - fee,
-                            patchThisTx
-                        );
-                        receipt.addInternalTx(changeTxHash);
-
-                        patchThisTx.setReceipt(tx.hash(), receipt);
-                        patchThisTx.setContract(contract);
+                        fee = this._createContractChange(tx, totalHas, patchThisTx, contract, receipt);
                     } else {
 
                         // regular payment
@@ -846,7 +831,6 @@ module.exports = (factory, factoryOptions) => {
                 totalSent = this._app.processPayments(tx, patchThisTx);
                 fee = totalHas - totalSent;
             }
-
 
             // TODO: MIN_TX_FEE is fee per 1Kb of TX size
             // TODO: rework fee
@@ -1230,11 +1214,45 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         _createInternalTx(buffReceiver, amount, patch) {
+            typeforce(typeforce.tuple(types.Address, typeforce.Number), [buffReceiver, amount]);
+
             const coins = new Coins(amount, buffReceiver);
             const txHash = Crypto.createHash(Crypto.randomBytes(32));
             patch.createCoins(txHash, 0, coins);
 
             return txHash;
+        }
+
+        /**
+         *
+         * @param {Transaction} tx
+         * @param {Number} totalHas
+         * @param {PatchDB} patch
+         * @param {Contract} contract
+         * @param {TxReceipt} receipt
+         * @returns {Number} - fee
+         * @private
+         */
+        _createContractChange(tx, totalHas, patch, contract, receipt) {
+            let fee;
+
+            // no changeReceiver? ok - all become a fee
+            const addrChangeReceiver = tx.getChangeReceiver();
+            fee = totalHas;
+            if (Buffer.isBuffer(addrChangeReceiver)) {
+                fee = receipt.getCoinsUsed();
+                const changeTxHash = this._createInternalTx(
+                    tx.getChangeReceiver(),
+                    totalHas - fee,
+                    patch
+                );
+                receipt.addInternalTx(changeTxHash);
+            }
+
+            patch.setReceipt(tx.hash(), receipt);
+            patch.setContract(contract);
+
+            return fee;
         }
     };
 };

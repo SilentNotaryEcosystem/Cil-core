@@ -99,7 +99,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         static createContract(strCode, maxCoins, addrChangeReceiver) {
-            typeforce(typeforce.tuple(typeforce.String, typeforce.Number, types.Address), arguments);
+            typeforce(typeforce.tuple(typeforce.String, typeforce.Number), [strCode, maxCoins]);
 
             const tx = new this();
             tx._data.payload.outs.push({
