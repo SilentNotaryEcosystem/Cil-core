@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const assert = require('assert');
 const Tick = require('tick-tock');
 
 /**
@@ -16,7 +17,10 @@ module.exports = (factory) => {
     return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {transport, storage} = options;
+            const {transport, storage, isSeed} = options;
+
+            // is this PeerManager belongs to seed node? if so - we'll return all peers, even "dead"
+            this._isSeed = isSeed;
 
             // to pass it to peers
             this._transport = transport;
@@ -24,9 +28,17 @@ module.exports = (factory) => {
             // to store address book
             this._storage = storage;
 
-            // TODO: add load all peers from persistent store
-            // keys - addesses, values - {timestamp of last peer action, PeerInfo}
-            this._allPeers = new Map();
+            // keys - @see _createKey, values - Peers
+            this._mapAllPeers = new Map();
+
+            // peers that were build from incoming connection. when we receive handshake with canonical peerInfo
+            // we'll associate it. it will allow us remove duplicates (because outbound connections are made from random
+            // addresses, but peer has one inbound port)
+            this._mapCandidatePeers = new Map();
+
+            // keys - addresses, values - date banned till
+            this._mapBannedAddresses = new Map();
+
             this._backupTimer = new Tick(this);
             this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
                 Constants.PEERMANAGER_BACKUP_TIMEOUT
@@ -41,7 +53,7 @@ module.exports = (factory) => {
          */
         connectedPeers(tag) {
             return Array
-                .from(this._allPeers.values())
+                .from(this._mapAllPeers.values())
                 .reduce((arrPeers, peer) => {
                     if (!peer.disconnected && peer.hasTag(tag)) arrPeers.push(peer);
                     return arrPeers;
@@ -51,58 +63,87 @@ module.exports = (factory) => {
         /**
          *
          * @param {Object | PeerInfo | Peer} peer
+         * @param {Boolean} bForceRewrite - if we already have this peer, will we rewrite it or no?
          * @return {Peer | undefined} undefined if peer already connected
          */
-        async addPeer(peer) {
-
-            // TODO: do we need mutex support here?
+        addPeer(peer, bForceRewrite) {
 
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
             const key = this._createKey(peer.address, peer.port);
-            const existingPeer = this._allPeers.get(key);
+            const existingPeer = this._mapAllPeers.get(key);
 
-            if (existingPeer && existingPeer.banned) return Constants.REJECT_BANNED;
+            if (existingPeer && existingPeer.isBanned()) return Constants.REJECT_BANNED;
+            if (existingPeer && existingPeer.isRestricted()) return Constants.REJECT_RESTRICTED;
 
-            if (existingPeer && !existingPeer.disconnected && !peer.disconnected) {
-                return Constants.REJECT_DUPLICATE;
-            }
+            // both peers are connected.
+            if (existingPeer && !existingPeer.disconnected && !peer.disconnected) return Constants.REJECT_DUPLICATE;
 
-            if (existingPeer && existingPeer.tempBannedAddress) {
-                return Constants.REJECT_BANNEDADDRESS;
-            }
+            // we'll keep existing info
+            if (existingPeer && !bForceRewrite) return existingPeer;
 
-            // we connected to that peer so we believe that this info more correct
-            if (existingPeer && (existingPeer.version || !existingPeer.disconnected)) return existingPeer;
-
+            if (existingPeer) existingPeer.removeAllListeners();
             this.updateHandlers(peer);
+            this.emit('newPeer', peer);
 
-
-            // TODO: emit new peer
-            this._allPeers.set(key, peer);
+            this._mapAllPeers.set(key, peer);
             return peer;
+        }
+
+        addCandidateConnection(connection) {
+            assert(!this.isBannedAddress(connection.remoteAddress), 'You are banned');
+
+            const newPeer = new Peer({connection, transport: this._transport});
+            const key = this._createKey(newPeer.address, newPeer.port);
+
+            this.updateHandlers(newPeer);
+            this._mapCandidatePeers.set(key, newPeer);
+        }
+
+        associatePeer(peer, peerInfo) {
+            const keyCandidate = this._createKey(peer.address, peer.port);
+            assert(this._mapCandidatePeers.get(keyCandidate), 'Unexpected peer not found in candidates!');
+
+            const cPeerInfo = new PeerInfo(peerInfo);
+            assert(peer.peerInfo.address.equals(cPeerInfo.address), 'Peer tries to forge its address!');
+
+            peer.peerInfo = peerInfo;
+            this._mapCandidatePeers.delete(keyCandidate);
+
+            return this.addPeer(peer, true);
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @returns {boolean}
+         */
+        isBannedAddress(strAddress) {
+            const msecBannedTill = this._mapBannedAddresses.get(strAddress);
+            return msecBannedTill > Date.now();
         }
 
         removePeer(peer) {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
             const key = this._createKey(peer.address, peer.port);
-            const foundPeer = this._allPeers.get(key);
-
-            foundPeer.removeAllListeners();
-            this._allPeers.delete(key);
+            const foundPeer = this._mapAllPeers.get(key);
+            if (foundPeer) foundPeer.removeAllListeners();
+            this._mapAllPeers.delete(key);
         }
 
         hasPeer(peer) {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
             const key = this._createKey(peer.address, peer.port);
-            return this._allPeers.has(key);
+            return this._mapAllPeers.has(key);
         }
 
         updateHandlers(peer) {
             if (!peer.listenerCount('message')) peer.on('message', this._incomingMessage.bind(this));
+
             if (peer.isWitness && !peer.listenerCount('witnessMessage')) {
                 peer.on('witnessMessage', this._incomingMessage.bind(this));
             }
             if (!peer.listenerCount('disconnect')) peer.on('disconnect', this._peerDisconnect.bind(this));
+            if (!peer.listenerCount('peerBanned')) peer.on('peerBanned', this._peerBaned.bind(this));
         }
 
         /**
@@ -121,6 +162,10 @@ module.exports = (factory) => {
             }
         }
 
+        _peerBaned(peer) {
+            this._mapBannedAddresses.set(peer.address, peer.bannedTill);
+        }
+
         _peerDisconnect(thisPeer) {
             this.emit('disconnect', thisPeer);
         }
@@ -133,12 +178,13 @@ module.exports = (factory) => {
          */
         filterPeers({service} = {}) {
             const arrResult = [];
-            const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
 
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
-            for (let [, peer] of this._allPeers.entries()) {
+            for (let [, peer] of this._mapAllPeers.entries()) {
                 if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
-                    if (!peer.banned && !peer.tempBannedAddress && peer.lastActionTimestamp > tsAlive) {
+
+                    // TODO: exclude "peer.isRestricted()"  is good for reconnect. but not for sending known nodes
+                    if (!peer.isBanned() && !peer.isRestricted() && (this._isSeed || !this._isSeed && peer.isAlive())) {
                         arrResult.push(peer);
                     }
                 }
@@ -148,7 +194,7 @@ module.exports = (factory) => {
         }
 
         findBestPeers() {
-            return Array.from(this._allPeers.values())
+            return Array.from(this._mapAllPeers.values())
                 .sort((a, b) => b.quality - a.quality)
                 .slice(0, Constants.MAX_PEERS);
         }
@@ -169,7 +215,7 @@ module.exports = (factory) => {
         }
 
         async saveAllPeers() {
-            const arrPeers = Array.from(this._allPeers.values());
+            const arrPeers = Array.from(this._mapAllPeers.values());
             if (arrPeers.length) {
                 this.savePeers(arrPeers);
             }

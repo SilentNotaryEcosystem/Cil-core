@@ -80,7 +80,7 @@ module.exports = (factory, factoryOptions) => {
             // used only for debugging purpose. Feel free to remove
             this._debugAddress = this._transport.myAddress;
 
-            this._peerManager = new PeerManager({transport: this._transport, storage: this._storage});
+            this._peerManager = new PeerManager({transport: this._transport, storage: this._storage, ...options});
 
             // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
             this._peerManager.on('message', this._incomingMessage.bind(this));
@@ -131,24 +131,26 @@ module.exports = (factory, factoryOptions) => {
         async bootstrap() {
             await this._mergeSeedPeers();
 
-            // add seed peers to peerManager
-            const savedPeers = await this._peerManager.loadPeers();
-            if (savedPeers.length) {
-                savedPeers.forEach(async (peer) => await this._peerManager.addPeer(peer));
+            // will try to load address book
+            const arrPeers = await this._peerManager.loadPeers();
+            if (arrPeers.length) {
+
+                // success, we have address book - let's deal with them
+                arrPeers.forEach(peer => this._peerManager.addPeer(peer, true));
             } else {
-                for (let strAddr of this._arrSeedAddresses) {
-                    const peer = new PeerInfo({
-                        address: Transport.strToAddress(strAddr),
-                        capabilities: [{service: Constants.NODE}]
-                    });
-                    await this._peerManager.addPeer(peer);
-                }
+
+                // empty address book. let's ask seeds for peer list
+                this._arrSeedAddresses.forEach(strAddr => this._peerManager.addPeer(new PeerInfo({
+                    address: Transport.strToAddress(strAddr),
+                    capabilities: [{service: Constants.NODE}]
+                })), true);
             }
 
             // start connecting to peers
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._peerManager.findBestPeers();
             await this._connectToPeers(arrBestPeers);
+
             this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),
                 Constants.PEER_RECONNECT_INTERVAL
             );
@@ -204,30 +206,10 @@ module.exports = (factory, factoryOptions) => {
 
         async _incomingConnection(connection) {
             try {
-                debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
-                const newPeer = new Peer({connection, transport: this._transport});
-
-                const result = await this._peerManager.addPeer(newPeer);
-                if (result instanceof Peer) return;
-
-                // peer already connected or banned
-                let reason;
-                if (result === Constants.REJECT_BANNED) {
-                    reason = 'You are banned';
-                } else if (result === Constants.REJECT_DUPLICATE) {
-                    reason = 'Duplicate connection';
-                } else if (result === Constants.REJECT_BANNEDADDRESS) reason = 'Address temporary banned';
-
-                const message = new MsgReject({
-                    code: result,
-                    reason
-                });
-                debugMsg(
-                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${newPeer.address}"`);
-                await newPeer.pushMessage(message);
-                newPeer.disconnect();
+                this._peerManager.addCandidateConnection(connection);
             } catch (err) {
                 logger.error(err);
+                connection.close();
             }
         }
 
@@ -268,11 +250,12 @@ module.exports = (factory, factoryOptions) => {
                     const rejectMsg = new MsgReject(message);
 
                     // connection will be closed by other end
-                    logger.log(`Peer: "${peer.address}" rejection reason: "${rejectMsg.reason}"`);
+                    logger.log(
+                        `(address: "${this._debugAddress}") peer: "${peer.address}" rejected with reason: "${rejectMsg.reason}"`);
 
                     // if it's just collision - 1 point not too much, but if peer is malicious - it will raise to ban
                     peer.misbehave(1);
-                    peer.loadDone = true;
+//                    peer.loadDone = true;
                     return;
                 }
 
@@ -563,7 +546,7 @@ module.exports = (factory, factoryOptions) => {
                     peer.misbehave(5);
 
                     // break loop
-                    if (peer.banned) return;
+                    if (peer.isBanned()) return;
                 }
             }
         }
@@ -591,7 +574,7 @@ module.exports = (factory, factoryOptions) => {
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
-
+                await sleep(1000);
                 peer.disconnect();
                 return;
             }
@@ -619,12 +602,34 @@ module.exports = (factory, factoryOptions) => {
 
                 // very beginning of inbound connection
                 if (peer.inbound) {
-                    peer.peerInfo = message.peerInfo;
-                    this._peerManager.updateHandlers(peer);
+                    const result = this._peerManager.associatePeer(peer, message.peerInfo);
+                    if (result instanceof Peer) {
 
-                    // send own version
-                    debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
-                    await peer.pushMessage(this._createMsgVersion());
+                        // send own version
+                        debugMsg(
+                            `(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
+                        await peer.pushMessage(this._createMsgVersion());
+                    } else {
+
+                        // we got an error
+                        let reason;
+                        if (result === Constants.REJECT_BANNED) {
+                            reason = 'You are banned';
+                        } else if (result === Constants.REJECT_DUPLICATE) {
+                            reason = 'Duplicate connection';
+                        } else if (result === Constants.REJECT_RESTRICTED) reason = 'Address temporary banned';
+
+                        const message = new MsgReject({
+                            code: result,
+                            reason
+                        });
+                        debugMsg(
+                            `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
+                        await peer.pushMessage(message);
+                        await sleep(1000);
+
+                        peer.disconnect();
+                    }
                 }
 
                 this._adjustNetworkTime(_offset);
@@ -676,7 +681,7 @@ module.exports = (factory, factoryOptions) => {
         async _handlePeerRequest(peer) {
 
             // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
-            const arrPeerInfos = this._peerManager.filterPeers().map(peer => peer.peerInfo.data);
+            const arrPeerInfos = this._peerManager.filterPeers().map(peer => peer.toObject());
 
             // add address of this node (it's absent in peerManager)
             arrPeerInfos.push(this._myPeerInfo.data);
@@ -698,7 +703,7 @@ module.exports = (factory, factoryOptions) => {
         async _handlePeerList(peer, message) {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
-                const newPeer = await this._peerManager.addPeer(peerInfo);
+                const newPeer = await this._peerManager.addPeer(peerInfo, false);
                 if (newPeer instanceof Peer) {
                     debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
                 }

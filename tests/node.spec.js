@@ -97,7 +97,7 @@ describe('Node tests', () => {
         await factory.asyncLoad();
 
         seedAddress = factory.Transport.generateAddress();
-        seedNode = new factory.Node({listenAddr: seedAddress, delay: 10});
+        seedNode = new factory.Node({listenAddr: seedAddress, delay: 10, isSeed: true});
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
@@ -167,6 +167,8 @@ describe('Node tests', () => {
 
     it('should prepare verAckMessage', async () => {
         const node = new factory.Node();
+        node._peerManager.associatePeer = sinon.fake.returns(new factory.Peer(createDummyPeer(factory)));
+
         const inMsg = new factory.Messages.MsgVersion({
             nonce: 12,
             peerInfo: {
@@ -187,8 +189,11 @@ describe('Node tests', () => {
                 sendMessage
             }
         });
+
         await node._handleVersionMessage(newPeer, msgCommon);
+
         assert.equal(sendMessage.callCount, 2);
+        assert.isOk(node._peerManager.associatePeer.calledOnce);
     });
 
     it('should prepare MsgAddr', async () => {

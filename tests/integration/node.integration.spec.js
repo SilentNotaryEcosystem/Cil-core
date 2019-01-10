@@ -48,7 +48,7 @@ const createNet = async (onlySeed = false) => {
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const seedAddress = factory.Transport.generateAddress();
-    const seedNode = new factory.Node({listenAddr: seedAddress, delay, rpcUser: 'test', rpcPass: 'test'});
+    const seedNode = new factory.Node({listenAddr: seedAddress, delay, rpcUser: 'test', rpcPass: 'test', isSeed: true});
     await seedNode.ensureLoaded();
 
     await seedNode._processBlock(genesis);
@@ -110,7 +110,7 @@ describe('Node integration tests', () => {
         this.timeout(20000);
 
         const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        const seedNode = new factory.Node({listenAddr: seedAddress, delay, isSeed: true});
         seedNode._handleGetBlocksMessage = sinon.fake();
 
         const peerInfo1 = new factory.Messages.PeerInfo({
@@ -144,7 +144,8 @@ describe('Node integration tests', () => {
 
         const testNode = new factory.Node({
             listenAddr: factory.Transport.generateAddress(),
-            delay, queryTimeout: 5000, arrSeedAddresses: [seedAddress]
+            delay, queryTimeout: 5000, arrSeedAddresses: [seedAddress],
+            isSeed: true
         });
         await testNode.bootstrap();
 

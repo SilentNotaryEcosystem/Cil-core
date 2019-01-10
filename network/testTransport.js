@@ -176,11 +176,11 @@ module.exports = (factory) => {
          */
         _exchangeAddresses(socket) {
             debug(`sending my address: ${this._address}`);
-            socket.write(this._address);
+            socket.write(TestTransport.strToAddress(this._address));
 
             return new Promise((resolve, reject) => {
                 socket.once('data', (addressBuff) => {
-                    debug(`got remote address: ${addressBuff}`);
+                    debug(`got remote address: ${TestTransport.addressToString(addressBuff)}`);
                     resolve(addressBuff);
                 });
             });

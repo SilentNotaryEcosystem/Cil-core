@@ -48,7 +48,7 @@ const eraseDbContent = (db) => {
 };
 
 module.exports = (factory, factoryOptions) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition} = factory;
+    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition, Peer} = factory;
     return class Storage {
         constructor(options) {
             options = {
@@ -456,22 +456,24 @@ module.exports = (factory, factoryOptions) => {
 
             for (let peer of arrPeers) {
                 const buffAddress = Buffer.isBuffer(peer.address) ? peer.address : Buffer.from(peer.address, 'hex');
-                const key = createKey('', buffAddress);
-                peer.saveLifetimeCounters();
+                const key = createKey(buffAddress);
                 arrOps.push({type: 'put', key, value: peer.peerInfo.encode()});
             }
             await this._peerStorage.batch(arrOps);
         }
 
-        async loadPeers() {
+        /**
+         *
+         * @returns {Promise<Array>} of Peers
+         */
+        loadPeers() {
             let arrPeers = [];
-            await new Promise((resolve, reject) => {
+            return new Promise((resolve, reject) => {
                 this._peerStorage.createValueStream()
-                    .on('data', peer => arrPeers.push(peer))
-                    .on('close', () => resolve())
-                    .on('error', () => reject());
+                    .on('data', buffPeer => arrPeers.push(new Peer({peerInfo: buffPeer})))
+                    .on('close', () => resolve(arrPeers))
+                    .on('error', err => reject(err));
             });
-            return arrPeers;
         }
     };
 };

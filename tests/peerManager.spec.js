@@ -35,7 +35,7 @@ describe('Peer manager', () => {
             port: 123
         });
         await pm.addPeer(peer);
-        const arrPeers = Array.from(pm._allPeers.keys());
+        const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 1);
         assert.equal(arrPeers[0], pm._createKey(factory.Transport.addressToString(peer.address), peer.port));
     });
@@ -53,13 +53,13 @@ describe('Peer manager', () => {
             }
         });
         await pm.addPeer(peer);
-        const arrPeers = Array.from(pm._allPeers.keys());
+        const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 1);
         assert.equal(arrPeers[0], pm._createKey(peer.address, peer.port));
     });
 
     it('should filter peers by capability', async () => {
-        const pm = new factory.PeerManager();
+        const pm = new factory.PeerManager({isSeed: true});
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
@@ -89,7 +89,7 @@ describe('Peer manager', () => {
             await pm.addPeer(peerInfo);
         }
         ;
-        const arrPeers = Array.from(pm._allPeers.keys());
+        const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 4);
 
         const arrWitnessNodes = pm.filterPeers({service: factory.Constants.WITNESS});
@@ -142,7 +142,7 @@ describe('Peer manager', () => {
         });
         await pm.addPeer(peer);
         await pm.addPeer(peer);
-        const arrPeers = Array.from(pm._allPeers.keys());
+        const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(Array.isArray(arrPeers));
         assert.equal(arrPeers.length, 1);
     });
@@ -187,7 +187,7 @@ describe('Peer manager', () => {
     });
 
     it('should REPLACE disconnected peers', async () => {
-        const pm = new factory.PeerManager();
+        const pm = new factory.PeerManager({isSeed: true});
 
         const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const peerDisconnected = new factory.Peer({
@@ -207,9 +207,9 @@ describe('Peer manager', () => {
             ],
             address
         });
-        await pm.addPeer(peerToReplace);
+        await pm.addPeer(peerToReplace, true);
 
-        // we replaced! not added peer
+        // we replace! not added peer
         assert.equal(pm.filterPeers().length, 1);
         const [peer] = pm.filterPeers();
         assert.equal(peer.capabilities.length, 2);
@@ -218,7 +218,7 @@ describe('Peer manager', () => {
     });
 
     it('should KEEP connected peers', async () => {
-        const pm = new factory.PeerManager();
+        const pm = new factory.PeerManager({isSeed: true});
         const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
 
         const peerConnected = new factory.Peer({
@@ -262,8 +262,7 @@ describe('Peer manager', () => {
             assert.equal(result, factory.Constants.REJECT_BANNED);
         }
     });
-    it('should NOT add peer with banned address (REJECT_BANNEDADDRESS)', async () => {
-//        const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
+    it('should NOT add peer with banned address (REJECT_RESTRICTED)', async () => {
         const address = factory.Transport.generateAddress();
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
@@ -273,13 +272,12 @@ describe('Peer manager', () => {
 
         assert.isOk(result instanceof factory.Peer);
 
-        peer._lastDisconnectedAddress = address;
-        peer._lastDisconnectionTime = Date.now();
+        peer._restrictedTill = Date.now() + 3000;
 
         result = await pm.addPeer(peer);
 
         assert.isNotOk(result instanceof factory.Peer);
-        assert.equal(result, factory.Constants.REJECT_BANNEDADDRESS);
+        assert.equal(result, factory.Constants.REJECT_RESTRICTED);
     });
 
     it('should save and restore peer ', async () => {
@@ -295,25 +293,24 @@ describe('Peer manager', () => {
         });
         const peer = new factory.Peer({peerInfo});
 
-        peer._transmittedBytes = 250;
-        peer._receivedBytes = 400;
+        peer._updateTransmitted(250);
+        peer._updateReceived(400);
         peer.misbehave(10);
         await pm.savePeers([peer]);
 
         let arrPeers = await pm.loadPeers();
         assert.isOk(arrPeers.length === 1);
-        let newPeer = new factory.Peer({peerInfo: arrPeers[0]});
-        assert.deepEqual(peer.address, newPeer.address);
-        assert.equal(peer.capabilities.length, newPeer.capabilities.length);
-        assert.equal(peer.capabilities[0].service, newPeer.capabilities[0].service);
-        assert.deepEqual(newPeer.capabilities[0].data, []);
+        assert.deepEqual(peer.address, arrPeers[0].address);
+        assert.equal(peer.capabilities.length, arrPeers[0].capabilities.length);
+        assert.equal(peer.capabilities[0].service, arrPeers[0].capabilities[0].service);
+        assert.deepEqual(arrPeers[0].capabilities[0].data, []);
 
-        assert.equal(peer.capabilities[1].service, newPeer.capabilities[1].service);
-        assert.deepEqual(peer.capabilities[1].data, newPeer.capabilities[1].data);
+        assert.equal(peer.capabilities[1].service, arrPeers[0].capabilities[1].service);
+        assert.deepEqual(peer.capabilities[1].data, arrPeers[0].capabilities[1].data);
 
-        assert.equal(peer.missbehaveScore, newPeer.peerInfo.lifetimeMisbehaveScore);
-        assert.equal(peer.transmittedBytes, newPeer.peerInfo.lifetimeTransmittedBytes);
-        assert.equal(peer.receivedBytes, newPeer.peerInfo.lifetimeReceivedBytes);
+        assert.equal(peer.misbehaveScore, arrPeers[0].peerInfo.lifetimeMisbehaveScore);
+        assert.equal(peer.transmittedBytes, arrPeers[0].peerInfo.lifetimeTransmittedBytes);
+        assert.equal(peer.receivedBytes, arrPeers[0].peerInfo.lifetimeReceivedBytes);
 
     });
 
@@ -348,7 +345,7 @@ describe('Peer manager', () => {
             peer._transmittedBytes = 10 - i;
             peer._receivedBytes = 10 - i;
 
-            peer._missbehaveScore = i;
+            peer._misbehaveScore = i;
             await pm.addPeer(peer);
         }
         const bestPeers = pm.findBestPeers();

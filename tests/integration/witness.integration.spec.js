@@ -117,7 +117,7 @@ describe('Witness integration tests', () => {
         const genesis = createGenesisBlock();
 
         const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        const seedNode = new factory.Node({listenAddr: seedAddress, delay, isSeed: true});
         await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
@@ -156,7 +156,7 @@ describe('Witness integration tests', () => {
         const genesis = createGenesisBlock();
 
         const seedAddress = factory.Transport.generateAddress();
-        const seedNode = new factory.Node({listenAddr: seedAddress, delay});
+        const seedNode = new factory.Node({listenAddr: seedAddress, delay, isSeed: true});
         await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
 
@@ -194,7 +194,8 @@ describe('Witness integration tests', () => {
             delay,
             arrTestDefinition: [groupDefinition],
             rpcUser: 'test',
-            rpcPass: 'test'
+            rpcPass: 'test',
+            isSeed: true
         });
         patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();
@@ -243,7 +244,8 @@ describe('Witness integration tests', () => {
             listenAddr: seedAddress,
             delay,
             rpcUser: 'test',
-            rpcPass: 'test'
+            rpcPass: 'test',
+            isSeed: true
         });
         patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();
@@ -288,7 +290,8 @@ describe('Witness integration tests', () => {
             listenAddr: seedAddress,
             delay: 10,
             rpcUser: 'test',
-            rpcPass: 'test'
+            rpcPass: 'test',
+            isSeed: true
         });
 //        patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();

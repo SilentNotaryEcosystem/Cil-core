@@ -18,7 +18,7 @@ module.exports = (factory, factoryOptions) => {
                 ...options
             };
 
-            super(options);
+            super({...options, isSeed: true});
             const {wallet} = options;
 
             // upgrade capabilities from regular Node to Witness
@@ -87,13 +87,14 @@ module.exports = (factory, factoryOptions) => {
                         peer.markAsPersistent();
 
                         // overwrite this peer definition with freshest data
-                        await this._peerManager.addPeer(peer);
-                        debugWitness(`----- "${this._debugAddress}" WITNESS handshake with "${peer.address}" DONE ---`);
+                        await this._peerManager.addPeer(peer, true);
+                        debugWitness(
+                            `----- "${this._debugAddress}". WITNESS handshake with "${peer.address}" DONE ---`);
                     } else {
-                        debugWitness(`----- "${this._debugAddress}" WITNESS "${peer.address}" TIMED OUT ---`);
+                        debugWitness(`----- "${this._debugAddress}". WITNESS peer "${peer.address}" TIMED OUT ---`);
                     }
                 } else {
-                    debugWitness(`----- "${this._debugAddress}" WITNESS "${peer.address}" DISCONNECTED ---`);
+                    debugWitness(`----- "${this._debugAddress}". WITNESS peer "${peer.address}" DISCONNECTED ---`);
                 }
 
                 // TODO: request mempool tx from neighbor with MSG_MEMPOOL (https://en.bitcoin.it/wiki/Protocol_documentation#mempool)
@@ -135,13 +136,6 @@ module.exports = (factory, factoryOptions) => {
             }
             return arrPeers;
         }
-
-        //TODO: fix duplicate connections handling
-//        async _connectToWitness(peer) {
-//            const address = this._transport.constructor.addressToString(peer.address);
-//            debugWitness(`(address: "${this._debugAddress}") connecting to witness ${address}`);
-//            return await peer.connect();
-//        }
 
         async _incomingWitnessMessage(peer, message) {
             try {
@@ -196,7 +190,6 @@ module.exports = (factory, factoryOptions) => {
                 await peer.pushMessage(response);
                 peer.addTag(messageWitness.groupId);
             } else {
-
                 peer.witnessLoadDone = true;
             }
         }

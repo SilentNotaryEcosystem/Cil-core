@@ -43,7 +43,7 @@ describe('TestTransport', () => {
     });
 
     it('should communicate each other (NO delay)', async () => {
-        const address = factory.Transport.addressToString('rendezvous1');
+        const address = factory.Transport.addressToString('dead');
         const endpoint1 = new factory.Transport({delay: 0, listenAddr: address});
         const endpoint2 = new factory.Transport({delay: 0});
 
@@ -60,11 +60,11 @@ describe('TestTransport', () => {
 
         const result = await msgPromise;
         assert.isOk(result.message);
-        assert.equal("" + connection2.remoteAddress, "" + address);
+        assert.equal(factory.Transport.addressToString(connection2.remoteAddress), "" + address);
     });
 
     it('should communicate each other', async () => {
-        const address = factory.Transport.addressToString('rendezvous2');
+        const address = factory.Transport.addressToString('dead02');
         const endpoint1 = new factory.Transport({delay: 200, listenAddr: address});
         const endpoint2 = new factory.Transport({delay: 200});
 
@@ -81,7 +81,7 @@ describe('TestTransport', () => {
 
         const result = await msgPromise;
         assert.isOk(result.message);
-        assert.equal("" + connection2.remoteAddress, "" + address);
+        assert.equal(factory.Transport.addressToString(connection2.remoteAddress), "" + address);
     });
 
     it('should receive only ONE message (timeout with second one)', async () => {
