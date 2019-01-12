@@ -38,8 +38,8 @@ const {readCmdLineOptions, sleep} = require('./utils');
         });
     }
 
-    process.on('SIGINT', node.gracefulShutdown.bind(this));
-    process.on('SIGTERM', node.gracefulShutdown.bind(this));
+    process.on('SIGINT', node.gracefulShutdown.bind(node));
+    process.on('SIGTERM', node.gracefulShutdown.bind(node));
 
     await node.ensureLoaded();
     await node.bootstrap();
