@@ -416,17 +416,14 @@ describe('Node tests', () => {
         assert.isOk(false, 'Unexpected success');
     });
 
-    it('should broadcast TX received via RPC', async () => {
-        const node = new factory.Node({rpcUser: 'test', rpcPass: 'test'});
+    it('should process received TX', async function() {
+        const node = new factory.Node();
         node._mempool.addTx = sinon.fake();
         node._informNeighbors = sinon.fake();
 
         const {tx} = createTxAddCoinsToNode(node);
 
-        node.rpc.sendRawTx(tx.encode());
-
-        // it's async call so, let's sleep a bit
-        await sleep(1000);
+        await node._processReceivedTx(tx);
 
         assert.isOk(node._mempool.addTx.calledOnce);
         assert.isOk(node._informNeighbors.calledOnce);
@@ -434,6 +431,27 @@ describe('Node tests', () => {
         const [txToSend] = node._informNeighbors.args[0];
         assert.isOk(txToSend);
         assert.isOk(txToSend.equals(tx));
+    });
+
+    it('pass TX, received via RPC, to processing', async function() {
+        this.timeout(5000);
+
+        const node = new factory.Node({rpcUser: 'test', rpcPass: 'test'});
+        node._mempool.addTx = sinon.fake();
+        node._informNeighbors = sinon.fake();
+
+        const {tx} = createTxAddCoinsToNode(node);
+        const donePromise = new Promise((resolve, reject) => {
+            node._processReceivedTx = async (cTx) => {
+                if (cTx.hash() === tx.hash()) {
+                    resolve();
+                } else {
+                    reject();
+                }
+            };
+        });
+        node.rpc.sendRawTx(tx.encode());
+        await donePromise;
     });
 
     it('should process NEW block from MsgBlock', async () => {
@@ -816,7 +834,8 @@ describe('Node tests', () => {
     it('should process MSG_GET_BLOCKS (simple chain)', async () => {
         const node = new factory.Node();
 
-        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+        const arrHashes = await createSimpleChain(
+            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
         // we expect receive INV message with all hashes except Genesis
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
@@ -877,7 +896,8 @@ describe('Node tests', () => {
 
     it('should process 2 good hashed from chain', async () => {
         const node = new factory.Node();
-        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+        const arrHashes = await createSimpleChain(
+            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
         msgGetBlock.arrHashes = [arrHashes[3], arrHashes[7]];
@@ -934,7 +954,8 @@ describe('Node tests', () => {
 
     it('should return full DAG (empty hash array received)', async () => {
         const node = new factory.Node();
-        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+        const arrHashes = await createSimpleChain(
+            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
         msgGetBlock.arrHashes = [];
@@ -955,7 +976,8 @@ describe('Node tests', () => {
 
     it('should return full DAG (bad hashes received)', async () => {
         const node = new factory.Node();
-        const arrHashes = await createSimpleChain(block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
+        const arrHashes = await createSimpleChain(
+            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
         msgGetBlock.arrHashes = [arrHashes[3], pseudoRandomBuffer()];
@@ -1083,7 +1105,8 @@ describe('Node tests', () => {
 
         const contract = new factory.Contract({});
         contract.storeAddress(generateAddress());
-        node._app.createContract = sinon.fake.returns({contract, receipt: new factory.TxReceipt({coinsUsed: 1000})});
+        node._app.createContract =
+            sinon.fake.returns({contract, receipt: new factory.TxReceipt({coinsUsed: 1000})});
 
         // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
         await node._processTx(true, tx);

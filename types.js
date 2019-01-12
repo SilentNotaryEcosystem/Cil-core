@@ -52,6 +52,7 @@ module.exports = {
     Patch: typeforce.quacksLike('PatchDB'),
     Block: typeforce.quacksLike('Block'),
     BlockInfo: typeforce.quacksLike('BlockInfo'),
+    Transaction: typeforce.quacksLike('Transaction'),
     Amount,
     Signature: typeforce.BufferN(65),
     Input: typeforce.compile({nTxOutput: 'Number', txHash: Hash256bit})

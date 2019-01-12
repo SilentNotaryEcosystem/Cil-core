@@ -230,7 +230,7 @@ module.exports = (factory) => {
                 return;
             }
             if (this.isRestricted()) {
-                logger.error('Trying to connect to temporary banned peer!');
+                logger.error('Trying to connect to temporary restricted peer!');
                 return;
             }
             if (!this.disconnected) {

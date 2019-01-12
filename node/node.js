@@ -153,7 +153,9 @@ module.exports = (factory, factoryOptions) => {
             const arrBestPeers = this._peerManager.findBestPeers();
             await this._connectToPeers(arrBestPeers);
 
-            this._reconnectTimer.setInterval(Constants.PEER_RECONNECT_TIMER, this._reconnectPeers.bind(this),
+            this._reconnectTimer.setInterval(
+                Constants.PEER_RECONNECT_TIMER,
+                this._reconnectPeers,
                 Constants.PEER_RECONNECT_INTERVAL
             );
         }
@@ -226,14 +228,14 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
-                    logger.error(e);
+                    logger.error(e.message);
                 }
             }
         }
 
         async _reconnectPeers() {
             let bestPeers = this._peerManager.findBestPeers().filter(p => p.disconnected);
-            let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
+            let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.getConnectedPeers().length);
             await this._connectToPeers(peers);
         }
 
@@ -745,7 +747,14 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        /**
+         *
+         * @param {Transaction} tx
+         * @returns {Promise<void>}
+         * @private
+         */
         async _processReceivedTx(tx) {
+            typeforce(types.Transaction, tx);
 
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
@@ -857,7 +866,7 @@ module.exports = (factory, factoryOptions) => {
             const inv = new Inventory();
             item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
-            debugNode(`Informing neighbors about new item ${item.hash()}`);
+            debugNode(`(address: "${this._debugAddress}") Informing neighbors about new item ${item.hash()}`);
             this._peerManager.broadcastToConnected(undefined, msgInv);
         }
 
@@ -1058,7 +1067,7 @@ module.exports = (factory, factoryOptions) => {
                     hash = hash.toString('hex');
                     let bi = this._mainDag.getBlockInfo(hash);
                     if (!bi) bi = await this._storage.getBlockInfo(hash);
-                    if (!bi) throw new Error('buildMainDag. Found missed blocks!');
+                    if (!bi) throw new Error('buildMainDag: Found missed blocks!');
                     if (bi.isBad()) throw new Error(`buildMainDag: found bad block ${hash} in final DAG!`);
 
                     this._mainDag.addBlock(bi);
