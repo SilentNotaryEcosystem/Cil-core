@@ -295,7 +295,7 @@ module.exports = (factory, factoryOptions) => {
                 const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
                 const key = createKey(UTXO_PREFIX, bufHash);
 
-                const buffUtxo = await this._db.get(key);
+                const buffUtxo = await this._db.get(key).catch(err => debug(err));
                 if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${bufHash.toString('hex')} not found !`);
 
                 return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});

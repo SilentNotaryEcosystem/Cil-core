@@ -450,4 +450,13 @@ describe('Storage tests', () => {
         }
     });
 
+    it('should NOT find UTXO', async () => {
+        const storage = new factory.Storage();
+        try {
+            await storage.getUtxo(pseudoRandomBuffer());
+        } catch (e) {
+            return;
+        }
+        throw 'Unexpected success';
+    });
 });
