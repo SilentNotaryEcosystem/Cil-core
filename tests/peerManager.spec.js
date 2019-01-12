@@ -159,9 +159,9 @@ describe('Peer manager', () => {
             });
             await pm.addPeer(peer);
         }
-        const result = pm.connectedPeers();
+        const result = pm.getConnectedPeers();
         assert.isOk(Array.isArray(result));
-        assert.equal(pm.connectedPeers().length, 10);
+        assert.equal(pm.getConnectedPeers().length, 10);
     });
 
     it('should get only TAGGED connected peers', async () => {
@@ -182,8 +182,8 @@ describe('Peer manager', () => {
             await pm.addPeer(peer);
         }
 
-        assert.equal(pm.connectedPeers('testTag').length, 5);
-        assert.equal(pm.connectedPeers('anotherTag').length, 5);
+        assert.equal(pm.getConnectedPeers('testTag').length, 5);
+        assert.equal(pm.getConnectedPeers('anotherTag').length, 5);
     });
 
     it('should REPLACE disconnected peers', async () => {

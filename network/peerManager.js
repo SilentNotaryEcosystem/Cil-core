@@ -51,7 +51,7 @@ module.exports = (factory) => {
          * @param {String | undefined} tag - count only tagged connected peers.
          * @return {Array} of connected peers with specified tag.
          */
-        connectedPeers(tag) {
+        getConnectedPeers(tag) {
             return Array
                 .from(this._mapAllPeers.values())
                 .reduce((arrPeers, peer) => {
@@ -200,7 +200,7 @@ module.exports = (factory) => {
         }
 
         broadcastToConnected(tag, message) {
-            const arrPeers = this.connectedPeers(tag);
+            const arrPeers = this.getConnectedPeers(tag);
             for (let peer of arrPeers) {
                 peer.pushMessage(message).catch(err => logger.error(err));
             }

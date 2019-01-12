@@ -202,7 +202,7 @@ module.exports = (factory) => {
         hasTag(tag) {
 
             // if tag === undefined - return true!
-            return !tag || this._tags.includes(tag);
+            return tag === undefined || this._tags.includes(tag);
         }
 
         isAlive() {

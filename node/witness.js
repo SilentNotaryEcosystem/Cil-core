@@ -5,6 +5,10 @@ const debugLib = require('debug');
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
+const createPeerTag = (nWitnessGroupId) => {
+    return `wg${nWitnessGroupId}`;
+};
+
 module.exports = (factory, factoryOptions) => {
     const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
@@ -81,7 +85,7 @@ module.exports = (factory, factoryOptions) => {
                     if (peer.witnessLoadDone) {
 
                         // mark it for broadcast
-                        peer.addTag(groupDefinition.getGroupId());
+                        peer.addTag(createPeerTag(groupDefinition.getGroupId()));
 
                         // prevent witness disconnect by timer or bytes threshold
                         peer.markAsPersistent();
@@ -188,7 +192,7 @@ module.exports = (factory, factoryOptions) => {
                 debugWitnessMsg(
                     `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
                 await peer.pushMessage(response);
-                peer.addTag(messageWitness.groupId);
+                peer.addTag(createPeerTag(messageWitness.groupId));
             } else {
                 peer.witnessLoadDone = true;
             }
@@ -356,13 +360,13 @@ module.exports = (factory, factoryOptions) => {
             msg.block = block;
             msg.sign(this._wallet.privateKey);
 
-            this._peerManager.broadcastToConnected(groupId, msg);
+            this._peerManager.broadcastToConnected(createPeerTag(groupId), msg);
             debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} broadcasted`);
         }
 
         _broadcastConsensusInitiatedMessage(msg) {
             const groupId = msg.groupId;
-            this._peerManager.broadcastToConnected(groupId, msg);
+            this._peerManager.broadcastToConnected(createPeerTag(groupId), msg);
             const consensusInstance = this._consensuses.get(groupId);
 
             // set my own view
