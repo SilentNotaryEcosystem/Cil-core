@@ -100,11 +100,13 @@ module.exports = (factory, factoryOptions) => {
 
             this._app = new Application(options);
 
-            this._rebuildPromise = this._storage.getPendingBlockHashes().then(arrOfHashes => {
+            this._rebuildPendingPromise = this._storage.getPendingBlockHashes().then(arrOfHashes => {
                 this._pendingBlocks = new PendingBlocksManager(arrOfHashes);
             });
 
             this._mainDag = new MainDag();
+            this._rebuildMainPromise = this.buildMainDag();
+
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
 
@@ -125,7 +127,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         ensureLoaded() {
-            return Promise.all([this._listenPromise, this._rebuildPromise]);
+            return Promise.all([this._listenPromise, this._rebuildPendingPromise, this._rebuildMainPromise]);
         }
 
         async bootstrap() {
