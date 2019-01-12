@@ -75,9 +75,10 @@ describe('IPv6 Transport', () => {
         this.timeout(5000);
 
         const name = 'ya.ru';
-        const addresses = await factory.Transport.resolveName(name);
-        assert.isOk(addresses);
-        assert.isOk(Array.isArray(addresses));
+        const arrAddresses = await factory.Transport.resolveName(name);
+        assert.isOk(arrAddresses);
+        assert.isOk(arrAddresses.every(addr => typeof addr === 'string'));
+        assert.isOk(Array.isArray(arrAddresses));
     });
 
     it('should get ipv6 address', async function() {

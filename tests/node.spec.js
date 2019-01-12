@@ -143,14 +143,14 @@ describe('Node tests', () => {
     });
 
     it('should resolve DNS seeds', async () => {
-        const node = new factory.Node({arrDnsSeeds: ['a:b', 'c:d']});
+        const node = new factory.Node({arrDnsSeeds: ['a-b', 'c-d']});
         assert.isOk(node);
-        const arrAddresses = await node._queryDnsRecords(['a:b', 'c:d']);
+        const arrAddresses = await node._queryDnsRecords(['a-b', 'c-d']);
         assert.deepEqual(arrAddresses, ['a', 'b', 'c', 'd']);
     });
 
     it('should merge seeds', async () => {
-        const node = new factory.Node({arrDnsSeeds: ['a:b', 'c:d'], arrSeedAddresses: ['e', 'f']});
+        const node = new factory.Node({arrDnsSeeds: ['a-b', 'c-d'], arrSeedAddresses: ['e', 'f']});
         assert.isOk(node);
         await node._mergeSeedPeers();
         assert.deepEqual(node._arrSeedAddresses, ['e', 'f', 'a', 'b', 'c', 'd']);

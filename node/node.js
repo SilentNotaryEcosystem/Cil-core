@@ -64,7 +64,7 @@ module.exports = (factory, factoryOptions) => {
             this._nonce = parseInt(Math.random() * 100000);
 
             this._arrSeedAddresses = arrSeedAddresses || [];
-            this._arrDnsSeeds = arrDnsSeeds;
+            this._arrDnsSeeds = arrDnsSeeds || [Constants.DNS_SEED];
 
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
             this._transport = new Transport(options);
@@ -142,10 +142,11 @@ module.exports = (factory, factoryOptions) => {
             } else {
 
                 // empty address book. let's ask seeds for peer list
-                this._arrSeedAddresses.forEach(strAddr => this._peerManager.addPeer(new PeerInfo({
-                    address: Transport.strToAddress(strAddr),
-                    capabilities: [{service: Constants.NODE}]
-                })), true);
+                this._arrSeedAddresses.forEach(strAddr =>
+                    this._peerManager.addPeer(new PeerInfo({
+                        address: Transport.strToAddress(factory.Transport.toIpV6Address(strAddr)),
+                        capabilities: [{service: Constants.NODE}]
+                    })), true);
             }
 
             // start connecting to peers

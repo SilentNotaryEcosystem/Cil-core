@@ -91,6 +91,16 @@ module.exports = (factory) => {
             return this.addressToString(this.strToAddress(uuid.v4().substring(0, 8)));
         }
 
+        /**
+         * Dummy. Not used in test transport
+         *
+         * @param address
+         * @returns {*}
+         */
+        static toIpV6Address(address) {
+            return address;
+        }
+
         static isPrivateAddress(address) {
             return false;
         }
@@ -102,7 +112,7 @@ module.exports = (factory) => {
          * @return {Promise<*|string[]>}
          */
         static async resolveName(name) {
-            return name.split(':');
+            return name.split('-');
         }
 
         /**

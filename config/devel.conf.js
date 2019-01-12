@@ -10,6 +10,8 @@ module.exports = {
 
         rpcPort: 8222,
 
+        DNS_SEED: 'cil.nadzor.online',
+
         // How many peers we'll send in one 'addr' message
         ADDR_MAX_LENGTH: 1000,
 

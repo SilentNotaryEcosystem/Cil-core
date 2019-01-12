@@ -85,7 +85,10 @@ module.exports = (factory) => {
          */
         static async resolveName(name) {
             try {
-                return await dnsResolveDelegate(name, 'ANY');
+                const arrRecords = await dnsResolveDelegate(name, 'ANY');
+                return arrRecords
+                    .filter(record => record.type === 'A' || record.type === 'AAAA')
+                    .map(record => record.address);
             } catch (err) {
                 debug(`dnsName: ${name}; error: ${err}`);
                 return null;
