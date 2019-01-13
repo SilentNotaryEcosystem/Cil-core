@@ -389,7 +389,7 @@ describe('Peer manager', () => {
 
         pm.addPeer(peerInfos[0]);
         pm.addPeer(peerInfos[1]);
-        pm.saveAllPeers();
+        await pm.saveAllPeers();
         const arrPeers = await pm.loadPeers();
 
         assert.isOk(arrPeers.length === 2);

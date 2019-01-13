@@ -218,7 +218,7 @@ module.exports = (factory) => {
         async saveAllPeers() {
             const arrPeers = Array.from(this._mapAllPeers.values());
             if (arrPeers.length) {
-                this.savePeers(arrPeers);
+                await this.savePeers(arrPeers);
             }
         }
 

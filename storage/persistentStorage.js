@@ -454,9 +454,10 @@ module.exports = (factory, factoryOptions) => {
         async savePeers(arrPeers) {
             const arrOps = [];
 
+            let i = 0;
             for (let peer of arrPeers) {
-                const buffAddress = Buffer.isBuffer(peer.address) ? peer.address : Buffer.from(peer.address, 'hex');
-                const key = createKey(buffAddress);
+                const key = Buffer.allocUnsafe(2);
+                key.writeInt16BE(i++);
                 arrOps.push({type: 'put', key, value: peer.peerInfo.encode()});
             }
             await this._peerStorage.batch(arrOps);
