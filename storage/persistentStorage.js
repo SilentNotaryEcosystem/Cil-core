@@ -408,21 +408,10 @@ module.exports = (factory, factoryOptions) => {
         async updateLastAppliedBlocks(arrBlockHashes) {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
-            const mapBlockInfo = new Map();
             const key = createKey(LAST_APPLIED_BLOCKS);
 
-            // get previous values.
-            const arrFinalBlocks = await this.getLastAppliedBlockHashes();
-
-            // replace old values for getWitnessId with new ones
-            const arrConcatedHashes = arrFinalBlocks.concat(arrBlockHashes);
-            for (let buffHash of arrConcatedHashes) {
-                const blockInfo = await this.getBlockInfo(buffHash);
-                mapBlockInfo.set(blockInfo.getWitnessId(), buffHash);
-            }
-
             // serialize and store
-            const cArr = new ArrayOfHashes([...mapBlockInfo.values()]);
+            const cArr = new ArrayOfHashes(arrBlockHashes);
             await this._db.put(key, cArr.encode());
         }
 

@@ -1176,4 +1176,40 @@ describe('Node tests', () => {
         assert.equal(coins.getAmount(), amount);
         assert.isOk(address.equals(coins.getReceiverAddr()));
     });
+
+    it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
+        const node = new factory.Node();
+        node._storage.getWitnessGroupsCount = sinon.fake.returns(11);
+
+        const block1 = createDummyBlock(factory, 0);
+        const block2 = createDummyBlock(factory, 1);
+        const block3 = createDummyBlock(factory, 10);
+
+        // add them to dag
+        node._mainDag.addBlock(new factory.BlockInfo(block1.header));
+        node._mainDag.addBlock(new factory.BlockInfo(block2.header));
+        node._mainDag.addBlock(new factory.BlockInfo(block3.header));
+
+        const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
+        await node._updateLastAppliedBlocks(arrLastBlocks);
+
+        // replace group 1 & 10 with new blocks
+        const block4 = createDummyBlock(factory, 1);
+        const block5 = createDummyBlock(factory, 10);
+
+        // and add new for group 5
+        const block6 = createDummyBlock(factory, 5);
+
+        // add them to dag
+        node._mainDag.addBlock(new factory.BlockInfo(block4.header));
+        node._mainDag.addBlock(new factory.BlockInfo(block5.header));
+        node._mainDag.addBlock(new factory.BlockInfo(block6.header));
+
+        await node._updateLastAppliedBlocks([block4.getHash(), block5.getHash(), block6.getHash()]);
+
+        const arrExpected = [block1.getHash(), block4.getHash(), block5.getHash(), block6.getHash()];
+        const arrFetched = await node._storage.getLastAppliedBlockHashes();
+        assert.isOk(arrayEquals(arrFetched, arrExpected));
+    });
+
 });

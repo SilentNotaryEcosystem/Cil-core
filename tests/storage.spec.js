@@ -233,38 +233,6 @@ describe('Storage tests', () => {
         assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrLastBlocks));
     });
 
-    it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
-        const storage = new factory.Storage();
-        const block1 = createDummyBlock(factory, 0);
-        const block2 = createDummyBlock(factory, 1);
-        const block3 = createDummyBlock(factory, 10);
-
-        // save them
-        await storage.saveBlock(block1);
-        await storage.saveBlock(block2);
-        await storage.saveBlock(block3);
-
-        const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
-        await storage.updateLastAppliedBlocks(arrLastBlocks);
-
-        // replace group 1 & 10 with new blocks
-        const block4 = createDummyBlock(factory, 1);
-        const block5 = createDummyBlock(factory, 10);
-
-        // and add new for group 5
-        const block6 = createDummyBlock(factory, 5);
-
-        // save them
-        await storage.saveBlock(block4);
-        await storage.saveBlock(block5);
-        await storage.saveBlock(block6);
-
-        await storage.updateLastAppliedBlocks([block4.getHash(), block5.getHash(), block6.getHash()]);
-
-        const arrExpected = [block1.getHash(), block4.getHash(), block5.getHash(), block6.getHash()];
-        assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrExpected));
-    });
-
     it('should removeBadBlocks', async () => {
         const storage = new factory.Storage();
         const block1 = createDummyBlock(factory, 0);

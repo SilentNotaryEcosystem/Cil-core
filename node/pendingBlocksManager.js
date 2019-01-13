@@ -221,7 +221,7 @@ module.exports = (factory) => {
          *
          * @param {String} newVertex
          * @param {Number} nMajority  nMajority how many witness required to mark as final (how many of them "saw" block)
-         * @returns {Array} of "top stable vertices"
+         * @returns {Array} of "top stable vertices" (hashes)
          * @private
          */
         _findTopStable(newVertex, nMajority) {

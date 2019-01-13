@@ -6,7 +6,7 @@ const sinon = require('sinon').createSandbox();
 
 const factory = require('../testFactory');
 const {pseudoRandomBuffer} = require('../testUtil');
-const {sleep} = require('../../utils');
+const {sleep, arrayEquals} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -87,7 +87,10 @@ describe('Genesis net tests (it runs one by one!)', () => {
         const wallet = new factory.Wallet(arrWitnesses[0].privateKey);
         witnessGroupOne = new factory.Witness({
             wallet,
-            delay
+            delay,
+            rpcUser: 'test',
+            rpcPass: 'test',
+            rpcPort: 14000
         });
 
         await witnessGroupOne.ensureLoaded();
@@ -138,7 +141,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         }));
         sinon.restore();
 
-        const txCode = createAnotherGroup(wallet.privateKey, wallet.publicKey, moneyIssueTx.hash(), 3);
+        const txCode = createAnotherGroup(wallet.privateKey, wallet.publicKey, moneyIssueTx.hash(), 4);
         witnessGroupTwo.rpc.sendRawTx(txCode.encode());
 
         // wait for witnessOne receive tx & produce block with new group def & send us (witnessGroupTwo) second block
@@ -180,7 +183,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         // create TX for new group (id: 1)
         const tx = new factory.Transaction();
         tx.witnessGroupId = 1;
-        tx.addInput(moneyIssueTx.hash(), 4);
+        tx.addInput(moneyIssueTx.hash(), 5);
         tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
         tx.sign(0, wallet.privateKey);
 
@@ -228,7 +231,102 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should create 3d node and load 3 blocks', async function() {
+    it('should be same LAST_APPLIED_BLOCKS for both witnesses', async () => {
+        const arrHashesOne = await witnessGroupOne._storage.getLastAppliedBlockHashes();
+        const arrHashesTwo = await witnessGroupTwo._storage.getLastAppliedBlockHashes();
+
+        assert.isOk(arrayEquals(arrHashesOne, arrHashesTwo));
+        assert.equal(arrHashesOne.length, 1);
+
+        stepDone = true;
+    });
+
+    it('should create one more block for each group', async function() {
+        this.timeout(300000);
+
+        const wallet = new factory.Wallet(arrWitnesses[0].privateKey);
+
+        {
+            // create TX for group (id: 0)
+            const tx = new factory.Transaction();
+            tx.witnessGroupId = 0;
+            tx.addInput(moneyIssueTx.hash(), 1);
+            tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
+            tx.sign(0, wallet.privateKey);
+
+            witnessGroupOne.rpc.sendRawTx(tx.encode());
+        }
+
+        {
+            // create TX for group (id: 1)
+            const tx = new factory.Transaction();
+            tx.witnessGroupId = 1;
+            tx.addInput(moneyIssueTx.hash(), 2);
+            tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
+            tx.sign(0, wallet.privateKey);
+
+            witnessGroupTwo.rpc.sendRawTx(tx.encode());
+        }
+
+        {
+            // wait for witnessGroupOne RECEIVE this block for group == 0
+            const donePromiseW1 = new Promise((resolve) => {
+                sinon.stub(witnessGroupOne, '_postAcceptBlock').callsFake((block) => {
+                    if (block.txns.length === 2 && block.witnessGroupId === 0) {
+                        resolve();
+                    }
+                });
+            });
+
+            // wait for witnessGroupTwo receive that block
+            const donePromiseW2 = new Promise((resolve) => {
+                sinon.stub(witnessGroupTwo, '_postAcceptBlock').callsFake((block) => {
+                    if (block.txns.length === 2 && block.witnessGroupId === 0) {
+                        resolve();
+                    }
+                });
+            });
+
+            await Promise.all([donePromiseW1, donePromiseW2]);
+            sinon.restore();
+        }
+
+        {
+            // wait for witnessGroupTwo PRODUCE block group ==1
+            const donePromiseW2 = new Promise((resolve) => {
+                sinon.stub(witnessGroupTwo, '_postAcceptBlock').callsFake((block) => {
+                    if (block.txns.length === 2 && block.witnessGroupId === 1) {
+                        resolve();
+                    }
+                });
+            });
+
+            // wait for witnessGroupOne receive that block
+            const donePromiseW1 = new Promise((resolve) => {
+                sinon.stub(witnessGroupOne, '_postAcceptBlock').callsFake((block) => {
+                    if (block.txns.length === 2 && block.witnessGroupId === 1) {
+                        resolve();
+                    }
+                });
+            });
+
+            await Promise.all([donePromiseW1, donePromiseW2]);
+        }
+
+        stepDone = true;
+    });
+
+    it('should be same LAST_APPLIED_BLOCKS for both witnesses (2 hashes)', async () => {
+        const arrHashesOne = await witnessGroupOne._storage.getLastAppliedBlockHashes();
+        const arrHashesTwo = await witnessGroupTwo._storage.getLastAppliedBlockHashes();
+
+        assert.isOk(arrayEquals(arrHashesOne, arrHashesTwo));
+        assert.equal(arrHashesOne.length, 2);
+
+        stepDone = true;
+    });
+
+    it('should create 3d node and load 4 blocks', async function() {
         this.timeout(300000);
 
         nodeThree = new factory.Node({
@@ -238,23 +336,23 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await nodeThree.ensureLoaded();
         await nodeThree.bootstrap();
 
-        // wait 3 blocks: Genesis, with definition of 2nd group, of new group
+        // wait 4 blocks: Genesis, with definition of 2nd group, of new group, and one more
         const donePromise = new Promise((resolve, reject) => {
             let i = 0;
             sinon.stub(nodeThree, '_postAcceptBlock').callsFake((block) => {
-                if (++i === 3) {resolve();}
+                if (++i === 4) {resolve();}
             });
         });
 
         await donePromise;
 
         assert.equal(nodeThree._pendingBlocks.getAllHashes().length, 1);
-        assert.equal(nodeThree._mainDag.order, 3);
+        assert.equal(nodeThree._mainDag.order, 4);
 
         stepDone = true;
     });
 
-    it('should create 4th node, that has Genesis, so it should load 2 blocks', async function() {
+    it('should create 4th node, that has Genesis, so it should load 3 blocks', async function() {
         this.timeout(300000);
 
         nodeFour = new factory.Node({
@@ -269,21 +367,22 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         await nodeFour.bootstrap();
 
-        // wait 3 blocks: Genesis, with definition of 2nd group, of new group
+        // wait 3 blocks: all except Genesis
         const donePromise = new Promise((resolve, reject) => {
             let i = 0;
             sinon.stub(nodeFour, '_postAcceptBlock').callsFake((block) => {
-                if (++i === 2) {resolve();}
+                if (++i === 3) {resolve();}
             });
         });
 
         await donePromise;
 
         assert.equal(nodeFour._pendingBlocks.getAllHashes().length, 1);
-        assert.equal(nodeFour._mainDag.order, 3);
+        assert.equal(nodeFour._mainDag.order, 4);
 
         stepDone = true;
     });
+
 });
 
 function createGenesisBlock() {
@@ -340,6 +439,7 @@ exports=new GroupDefinition(${strCommaSeparatedKeys});
     // witnessGroupId=0 is default
 
     const moneyIssueTx = new factory.Transaction();
+    moneyIssueTx.addReceiver(1e8, witnessOne.getAddress());
     moneyIssueTx.addReceiver(1e8, witnessOne.getAddress());
     moneyIssueTx.addReceiver(1e8, witnessOne.getAddress());
     moneyIssueTx.addReceiver(1e8, witnessOne.getAddress());

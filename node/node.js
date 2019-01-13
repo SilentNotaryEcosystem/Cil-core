@@ -547,7 +547,7 @@ module.exports = (factory, factoryOptions) => {
                     debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
-                    logger.error(e);
+                    logger.error(e.message);
                     peer.misbehave(5);
 
                     // break loop
@@ -961,8 +961,10 @@ module.exports = (factory, factoryOptions) => {
                 arrTopStable
             } = result;
 
+            logger.log(`Blocks ${Array.from(setStableBlocks.keys())} are stable now`);
+
             await this._storage.applyPatch(patchToApply);
-            await this._storage.updateLastAppliedBlocks(arrTopStable);
+            await this._updateLastAppliedBlocks(arrTopStable);
 
             for (let blockHash of setBlocksToRollback) {
                 await this._unwindBlock(await this._storage.getBlock(blockHash));
@@ -977,6 +979,32 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        async _updateLastAppliedBlocks(arrTopStable) {
+            const arrPrevTopStableBlocks = await this._storage.getLastAppliedBlockHashes();
+            const mapPrevGroupIdHash = new Map();
+            arrPrevTopStableBlocks.forEach(hash => {
+                const cBlockInfo = this._mainDag.getBlockInfo(hash);
+                mapPrevGroupIdHash.set(cBlockInfo.getWitnessId(), hash);
+            });
+
+            const mapNewGroupIdHash = new Map();
+            arrTopStable.forEach(hash => {
+                const cBlockInfo = this._mainDag.getBlockInfo(hash);
+                mapNewGroupIdHash.set(cBlockInfo.getWitnessId(), hash);
+            });
+
+            const arrNewLastApplied = [];
+            const nGroupCount = await this._storage.getWitnessGroupsCount();
+            for (let i = 0; i < nGroupCount; i++) {
+                const hash = mapNewGroupIdHash.get(i) || mapPrevGroupIdHash.get(i);
+
+                // group could be created, but still no final blocks
+                if (hash) arrNewLastApplied.push(hash);
+            }
+
+            await this._storage.updateLastAppliedBlocks(arrNewLastApplied);
+        }
+
         /**
          * post hook
          *
@@ -986,7 +1014,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _postAcceptBlock(block) {
             logger.log(
-                `Block ${block.hash()} with ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
+                `Block ${block.hash()}. GroupId: ${block.witnessGroupId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );
         }
 
@@ -1179,17 +1207,17 @@ module.exports = (factory, factoryOptions) => {
 
                 // parent is bad
                 if (blockInfo && blockInfo.isBad()) {
+
+                    // it will be marked as bad in _handleBlockMessage
                     throw new Error(
                         `Block ${block.getHash()} refer to bad parent ${hash}`);
                 }
 
                 // parent is not processed yet. block couldn't be executed
-                if (!blockInfo) {
-                    if (!this._setUnknownBlocks.has(hash)) {
+                if (!blockInfo && !this._setUnknownBlocks.has(hash)) {
 
-                        // we didn't heard about this block. let's add it for downloading
-                        this._setUnknownBlocks.add(hash);
-                    }
+                    // we didn't heard about this block. let's add it for downloading
+                    this._setUnknownBlocks.add(hash);
                 }
                 result = false;
             }
@@ -1272,6 +1300,13 @@ module.exports = (factory, factoryOptions) => {
             patch.setContract(contract);
 
             return fee;
+        }
+
+        /**
+         * Clean and rebuild DB (UTXO) from block storage
+         */
+        reIndex() {
+
         }
     };
 };
