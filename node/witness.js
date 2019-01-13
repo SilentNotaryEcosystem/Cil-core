@@ -22,7 +22,7 @@ module.exports = (factory, factoryOptions) => {
                 ...options
             };
 
-            super({...options, isSeed: true});
+            super(options);
             const {wallet} = options;
 
             // upgrade capabilities from regular Node to Witness
@@ -128,7 +128,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _getGroupPeers(groupDefinition) {
             const arrGroupKeys = groupDefinition.getPublicKeys();
-            const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS});
+            const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS}, true);
             const arrPeers = [];
             for (let peer of arrAllWitnessesPeers) {
                 if (~arrGroupKeys.findIndex(key => {

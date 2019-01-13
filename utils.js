@@ -70,7 +70,8 @@ module.exports = {
             {name: "genesisHash", type: String, multiple: false},
             {name: "groupDefContract", type: String, multiple: false},
             {name: "privateKey", type: String, multiple: false},
-            {name: "dbPath", type: String, multiple: false}
+            {name: "dbPath", type: String, multiple: false},
+            {name: "seed", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     }

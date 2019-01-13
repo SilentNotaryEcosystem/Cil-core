@@ -686,7 +686,9 @@ module.exports = (factory, factoryOptions) => {
         async _handlePeerRequest(peer) {
 
             // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
-            const arrPeerInfos = this._peerManager.filterPeers().map(peer => peer.toObject());
+            const arrPeerInfos = this._peerManager
+                .filterPeers()
+                .map(peer => peer.toObject());
 
             // add address of this node (it's absent in peerManager)
             arrPeerInfos.push(this._myPeerInfo.data);

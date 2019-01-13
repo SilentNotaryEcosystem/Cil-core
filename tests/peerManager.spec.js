@@ -59,7 +59,7 @@ describe('Peer manager', () => {
     });
 
     it('should filter peers by capability', async () => {
-        const pm = new factory.PeerManager({isSeed: true});
+        const pm = new factory.PeerManager();
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
@@ -92,12 +92,12 @@ describe('Peer manager', () => {
         const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 4);
 
-        const arrWitnessNodes = pm.filterPeers({service: factory.Constants.WITNESS});
+        const arrWitnessNodes = pm.filterPeers({service: factory.Constants.WITNESS}, true);
         assert.isOk(arrWitnessNodes.length === 3);
         arrWitnessNodes.forEach(peer => {
             assert.isOk(peer && peer.capabilities && peer.address && peer.port);
         });
-        const arrNodes = pm.filterPeers({service: factory.Constants.NODE});
+        const arrNodes = pm.filterPeers({service: factory.Constants.NODE}, true);
         assert.isOk(arrNodes.length === 2);
         arrWitnessNodes.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
@@ -187,7 +187,7 @@ describe('Peer manager', () => {
     });
 
     it('should REPLACE disconnected peers', async () => {
-        const pm = new factory.PeerManager({isSeed: true});
+        const pm = new factory.PeerManager();
 
         const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const peerDisconnected = new factory.Peer({
@@ -210,15 +210,15 @@ describe('Peer manager', () => {
         await pm.addPeer(peerToReplace, true);
 
         // we replace! not added peer
-        assert.equal(pm.filterPeers().length, 1);
-        const [peer] = pm.filterPeers();
+        assert.equal(pm.filterPeers(undefined, true).length, 1);
+        const [peer] = pm.filterPeers(undefined, true);
         assert.equal(peer.capabilities.length, 2);
         assert.isOk(peer.isWitness);
         assert.isOk(Buffer.from('1234').equals(peer.publicKey));
     });
 
     it('should KEEP connected peers', async () => {
-        const pm = new factory.PeerManager({isSeed: true});
+        const pm = new factory.PeerManager();
         const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
 
         const peerConnected = new factory.Peer({
@@ -241,8 +241,8 @@ describe('Peer manager', () => {
         await pm.addPeer(peerToReplace);
 
         // we aren't added new peer
-        assert.equal(pm.filterPeers().length, 1);
-        const [peer] = pm.filterPeers();
+        assert.equal(pm.filterPeers(undefined, true).length, 1);
+        const [peer] = pm.filterPeers(undefined, true);
 
         // peers created from connection only NODE
         assert.equal(peer.capabilities.length, 1);

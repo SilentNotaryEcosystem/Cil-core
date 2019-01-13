@@ -174,17 +174,18 @@ module.exports = (factory) => {
          * Return only alive & not banned peers
          *
          * @param {Number} service - @see Constants
+         * @param {Boolean} bIncludeInactive - whether include long time inactive peers or not
          * @return {Array} of Peers
          */
-        filterPeers({service} = {}) {
+        filterPeers({service} = {}, bIncludeInactive = false) {
             const arrResult = [];
 
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
             for (let [, peer] of this._mapAllPeers.entries()) {
                 if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
 
-                    // TODO: exclude "peer.isRestricted()"  is good for reconnect. but not for sending known nodes
-                    if (!peer.isBanned() && !peer.isRestricted() && (this._isSeed || !this._isSeed && peer.isAlive())) {
+                    if (!peer.isBanned() &&
+                        (bIncludeInactive || this._isSeed || !peer.isRestricted() || peer.isAlive())) {
                         arrResult.push(peer);
                     }
                 }

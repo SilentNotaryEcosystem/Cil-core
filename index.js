@@ -22,7 +22,8 @@ const {readCmdLineOptions, sleep} = require('./utils');
 
         // non matching names
         listenPort: objCmdLineParams.port,
-        arrSeedAddresses: objCmdLineParams.seedAddr ? [objCmdLineParams.seedAddr] : []
+        arrSeedAddresses: objCmdLineParams.seedAddr ? [objCmdLineParams.seedAddr] : [],
+        isSeed: objCmdLineParams.seed
     };
 
     let node;
