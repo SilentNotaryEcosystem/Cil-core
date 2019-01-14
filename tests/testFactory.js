@@ -93,7 +93,7 @@ class Factory {
                 this._messagesImplementation = MessagesWrapper(this, prototypes);
 
                 //
-                his._serializerImplementation = SerializerWrapper(this.Messages);
+                this._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
