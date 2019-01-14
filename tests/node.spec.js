@@ -159,6 +159,7 @@ describe('Node tests', () => {
     it('should _storeBlockAndInfo', async () => {
         const node = new factory.Node();
         const block = createDummyBlock(factory);
+        await node.ensureLoaded();
 
         await node._storeBlockAndInfo(block, new factory.BlockInfo(block.header));
         assert.isOk(await node._storage.getBlock(block.getHash()));
@@ -456,6 +457,7 @@ describe('Node tests', () => {
 
     it('should process NEW block from MsgBlock', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
 
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
@@ -469,6 +471,7 @@ describe('Node tests', () => {
 
     it('should omit KNOWN block from MsgBlock', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
 
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
@@ -737,7 +740,8 @@ describe('Node tests', () => {
             await node._storage.saveBlock(block);
         }
 
-        await node.buildMainDag();
+        const arrPendingHashes = await node._storage.getPendingBlockHashes();
+        await node._buildMainDag(arrPendingHashes);
         assert.equal(node._mainDag.order, 0);
         assert.equal(node._mainDag.size, 0);
     });
@@ -746,9 +750,12 @@ describe('Node tests', () => {
         const node = new factory.Node();
 
         const arrHashes = await createSimpleChain(async block => await node._storage.saveBlock(block));
-        await node._storage.updateLastAppliedBlocks([arrHashes[9]]);
+        await node._storage.updateLastAppliedBlocks([arrHashes[8]]);
+        await node._storage.updatePendingBlocks([arrHashes[9]]);
 
-        await node.buildMainDag();
+        const arrPendingHashes = await node._storage.getPendingBlockHashes();
+        await node._buildMainDag(arrPendingHashes);
+
         assert.equal(node._mainDag.order, 10);
         assert.equal(node._mainDag.size, 9);
     });
@@ -764,7 +771,12 @@ describe('Node tests', () => {
 
         await node._storage.updateLastAppliedBlocks([arrBlocks[3].getHash()]);
 
-        await node.buildMainDag();
+        // this is cheat. this block appears in stable & pending sections
+        await node._storage.updatePendingBlocks([arrBlocks[3].getHash()]);
+
+        const arrPendingHashes = await node._storage.getPendingBlockHashes();
+        await node._buildMainDag(arrPendingHashes);
+
         assert.equal(node._mainDag.order, 4);
         assert.equal(node._mainDag.size, 4);
 
@@ -788,7 +800,10 @@ describe('Node tests', () => {
         await node._storage.updatePendingBlocks(arrHashes);
         node._checkCoinbaseTx = sinon.fake();
 
-        await node.rebuildPending();
+        const arrPendingHashes = await node._storage.getPendingBlockHashes();
+        const arrStableHashes = await node._storage.getLastAppliedBlockHashes();
+        await node._rebuildPending(arrStableHashes, arrPendingHashes);
+
         assert.equal(node._pendingBlocks.getDag().order, 10);
         assert.equal(node._pendingBlocks.getDag().size, 9);
     });
@@ -810,7 +825,10 @@ describe('Node tests', () => {
         );
         node._checkCoinbaseTx = sinon.fake();
 
-        await node.rebuildPending();
+        const arrPendingHashes = await node._storage.getPendingBlockHashes();
+        const arrStableHashes = await node._storage.getLastAppliedBlockHashes();
+        await node._rebuildPending(arrStableHashes, arrPendingHashes);
+
         assert.equal(node._pendingBlocks.getDag().order, 4);
         assert.equal(node._pendingBlocks.getDag().size, 4);
     });
@@ -833,6 +851,7 @@ describe('Node tests', () => {
 
     it('should process MSG_GET_BLOCKS (simple chain)', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
 
         const arrHashes = await createSimpleChain(
             block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
@@ -863,6 +882,7 @@ describe('Node tests', () => {
 
     it('should process MSG_GET_BLOCKS (simple fork)', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
 
         const arrHashes = [];
         await createSimpleFork(block => {
@@ -877,6 +897,7 @@ describe('Node tests', () => {
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
         const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+
         await node._handleGetBlocksMessage(peer, msgCommon);
 
         assert.isOk(peer.pushMessage.calledOnce);
@@ -896,6 +917,8 @@ describe('Node tests', () => {
 
     it('should process 2 good hashed from chain', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         const arrHashes = await createSimpleChain(
             block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
@@ -927,6 +950,7 @@ describe('Node tests', () => {
 
     it('should process 2 good hashed from fork', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
 
         const arrHashes = [];
         await createSimpleFork(block => {
@@ -941,6 +965,7 @@ describe('Node tests', () => {
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
         const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+
         await node._handleGetBlocksMessage(peer, msgCommon);
 
         assert.isOk(peer.pushMessage.calledOnce);
@@ -954,6 +979,8 @@ describe('Node tests', () => {
 
     it('should return full DAG (empty hash array received)', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         const arrHashes = await createSimpleChain(
             block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
@@ -963,6 +990,7 @@ describe('Node tests', () => {
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
         const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+
         await node._handleGetBlocksMessage(peer, msgCommon);
 
         assert.isOk(peer.pushMessage.calledOnce);
@@ -976,6 +1004,8 @@ describe('Node tests', () => {
 
     it('should return full DAG (bad hashes received)', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         const arrHashes = await createSimpleChain(
             block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
 
@@ -985,13 +1015,13 @@ describe('Node tests', () => {
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
         const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
+
         await node._handleGetBlocksMessage(peer, msgCommon);
 
         assert.isOk(peer.pushMessage.calledOnce);
         const [msg] = peer.pushMessage.args[0];
         assert.isOk(msg.isInv());
         const vector = msg.inventory.vector;
-
         assert.equal(vector.length, 10);
         assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
     });
@@ -1179,6 +1209,8 @@ describe('Node tests', () => {
 
     it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         node._storage.getWitnessGroupsCount = sinon.fake.returns(11);
 
         const block1 = createDummyBlock(factory, 0);

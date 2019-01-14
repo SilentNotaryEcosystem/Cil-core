@@ -100,12 +100,7 @@ module.exports = (factory, factoryOptions) => {
 
             this._app = new Application(options);
 
-            this._rebuildPendingPromise = this._storage.getPendingBlockHashes().then(arrOfHashes => {
-                this._pendingBlocks = new PendingBlocksManager(arrOfHashes);
-            });
-
-            this._mainDag = new MainDag();
-            this._rebuildMainPromise = this.buildMainDag();
+            this._rebuildPromise = this._rebuildBlockDb();
 
             this._setUnknownBlocks = new Set();
             this._msecOffset = 0;
@@ -127,7 +122,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         ensureLoaded() {
-            return Promise.all([this._listenPromise, this._rebuildPendingPromise, this._rebuildMainPromise]);
+            return Promise.all([this._listenPromise, this._rebuildPromise]);
         }
 
         async bootstrap() {
@@ -229,7 +224,8 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
-                    logger.error(e.message);
+//                    logger.error(e.message);
+                    logger.error(e);
                 }
             }
         }
@@ -350,13 +346,12 @@ module.exports = (factory, factoryOptions) => {
             //TODO: make sure that's a block we requested! not pushed to us
 
             const msg = new MsgBlock(message);
-            let block;
+            const block = msg.block;
+            const lock = await this._mutex.acquire([`${block.getHash()}`]);
             try {
-                block = msg.block;
 
                 // since we building DAG, it's faster
                 if (await this._mainDag.getBlockInfo(block.hash())) {
-                    //                if (await this._storage.hasBlock(block.hash())) {
                     logger.error(`Block ${block.hash()} already known!`);
                     return;
                 }
@@ -371,6 +366,8 @@ module.exports = (factory, factoryOptions) => {
                 logger.error(e);
                 peer.ban();
                 throw e;
+            } finally {
+                this._mutex.release(lock);
             }
         }
 
@@ -423,6 +420,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         _requestUnknownBlocks() {
+            if (!this._setUnknownBlocks.size) return;
+
             const msgGetData = new MsgGetData();
             const invToRequest = new Inventory();
 
@@ -547,7 +546,8 @@ module.exports = (factory, factoryOptions) => {
                     debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
-                    logger.error(e.message);
+//                    logger.error(e.message);
+                    logger.error(e);
                     peer.misbehave(5);
 
                     // break loop
@@ -667,12 +667,12 @@ module.exports = (factory, factoryOptions) => {
                 peer.fullyConnected = true;
 
                 // if we initiated connection to peer, so let's ask for known peers
-                if (!peer.inbound) {
+//                if (!peer.inbound) {
                     const msgGetAddr = new MsgCommon();
                     msgGetAddr.getAddrMessage = true;
                     debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}"`);
                     await peer.pushMessage(msgGetAddr);
-                }
+//                }
             }
         }
 
@@ -717,12 +717,12 @@ module.exports = (factory, factoryOptions) => {
             }
 
             // if we initiated connection - let's request for new blocks
-            if (!peer.inbound) {
+//            if (!peer.inbound) {
                 const msg = new MsgGetBlocks();
                 msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
                 debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}"`);
                 await peer.pushMessage(msg);
-            }
+//            }
 
             // TODO: move loadDone after we got all we need from peer
             peer.loadDone = true;
@@ -1087,19 +1087,22 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
-         * Build DAG of FINAL blocks! The rest of blocks will be added upon processing INV requests
+         * Build DAG of all known blocks! The rest of blocks will be added upon processing INV requests
          *
+         * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
-        async buildMainDag() {
-            let arrCurrentLevel = await this._storage.getLastAppliedBlockHashes();
+        async _buildMainDag(arrPedingBlocksHashes) {
+            this._mainDag = new MainDag();
+
+            let arrCurrentLevel = arrPedingBlocksHashes;
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 for (let hash of arrCurrentLevel) {
                     hash = hash.toString('hex');
                     let bi = this._mainDag.getBlockInfo(hash);
                     if (!bi) bi = await this._storage.getBlockInfo(hash);
-                    if (!bi) throw new Error('buildMainDag: Found missed blocks!');
-                    if (bi.isBad()) throw new Error(`buildMainDag: found bad block ${hash} in final DAG!`);
+                    if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
+                    if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
 
                     this._mainDag.addBlock(bi);
 
@@ -1119,16 +1122,19 @@ module.exports = (factory, factoryOptions) => {
         /**
          * Used at startup to rebuild DAG of pending blocks
          *
+         * @param {Array} arrLastStableHashes - hashes of LAST stable blocks
+         * @param {Array} arrPendingBlocksHashes - hashes of all pending blocks
          * @returns {Promise<void>}
          */
-        async rebuildPending() {
-            const arrHashes = await this._storage.getPendingBlockHashes();
+        async _rebuildPending(arrLastStableHashes, arrPendingBlocksHashes) {
+            this._pendingBlocks = new PendingBlocksManager(arrLastStableHashes);
+
             const mapBlocks = new Map();
             const mapPatches = new Map();
-            for (let hash of arrHashes) {
+            for (let hash of arrPendingBlocksHashes) {
                 hash = hash.toString('hex');
-                const bi = await this._storage.getBlockInfo(hash);
-
+                let bi = this._mainDag.getBlockInfo(hash);
+                if (!bi) bi = await this._storage.getBlockInfo(hash);
                 if (!bi) throw new Error('rebuildPending. Found missed blocks!');
                 if (bi.isBad()) throw new Error(`rebuildPending: found bad block ${hash} in DAG!`);
                 mapBlocks.set(hash, await this._storage.getBlock(hash));
@@ -1146,7 +1152,7 @@ module.exports = (factory, factoryOptions) => {
                 mapPatches.set(hash, await this._execBlock(block));
             };
 
-            for (let hash of arrHashes) {
+            for (let hash of arrPendingBlocksHashes) {
                 await runBlock(hash);
             }
 
@@ -1307,6 +1313,14 @@ module.exports = (factory, factoryOptions) => {
          */
         reIndex() {
 
+        }
+
+        async _rebuildBlockDb() {
+            const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
+            await this._buildMainDag(arrPendingBlocksHashes);
+
+            const arrLastStableHashes = await this._storage.getLastAppliedBlockHashes();
+            await this._rebuildPending(arrLastStableHashes, arrPendingBlocksHashes);
         }
     };
 };
