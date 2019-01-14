@@ -93,12 +93,12 @@ class Factory {
                 this._messagesImplementation = MessagesWrapper(this, prototypes);
 
                 //
-                this._serializerImplementation = SerializerWrapper(this.Messages);
+                his._serializerImplementation = SerializerWrapper(this.Messages);
                 this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
                 this._transportImplemetation = TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
-                this._storageImplementation = StorageWrapper(this);
+                this._storageImplementation = StorageWrapper(this, options);
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
@@ -108,8 +108,8 @@ class Factory {
                 this._mainDagImplementation = MainDagWrapper(this);
 
                 // all componenst should be declared above
-                this._nodeImplementation = NodeWrapper(this);
-                this._witnessImplementation = WitnessWrapper(this);
+                this._nodeImplementation = NodeWrapper(this, options);
+                this._witnessImplementation = WitnessWrapper(this, options);
             }).catch(err => {
                 logger.error(err);
                 process.exit(10);
