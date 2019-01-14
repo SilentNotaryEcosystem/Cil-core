@@ -23,6 +23,7 @@ module.exports = (factory) => {
         Application,
         Transaction,
         Block,
+        SPVBlock,
         PatchDB,
         Coins,
         PendingBlocksManager,
@@ -520,6 +521,10 @@ module.exports = (factory) => {
                         msg = new MsgTx(tx);
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         const block = await this._storage.getBlock(objVector.hash);
+                        msg = new MsgBlock(block);
+                    } else if (objVector.type === Constants.INV_SPV_BLOCK) {
+                        const fullBlock = await this._storage.getBlock(objVector.hash);
+                        const spvBlock = new SPVBlock(block, peer.filter);
                         msg = new MsgBlock(block);
                     } else {
                         throw new Error(`Unknown inventory type: ${objVector.type}`);

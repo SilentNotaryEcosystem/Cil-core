@@ -52,11 +52,28 @@ message Block{
     repeated bytes signatures=3;
 }
 
+message SPVBlock{
+    BlockHeader header=1;
+    repeated Transaction txns=2;
+    repeated string txnsHashes=3;
+    repeated MerkleProof merkleProofs=4;
+}
+
+message MerkleProof{
+    repeated MerkleProofLeaf proofs=1;
+}
+
+message MerkleProofLeaf{
+    bytes data=1;
+    bytes position=2;
+}
+
 //------------------- Inventory ---------
 
 enum InventoryTypes{
     INV_TX = 11;
     INV_BLOCK = 21;
+    INV_SPV_BLOCK = 31;
 }
 
 message InventoryVector{

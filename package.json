@@ -4,6 +4,7 @@
   "dependencies": {
     "dagjs": "git+https://github.com/trueshura/DAG.git",
     "elliptic": "^6.4.0",
+    "ip": "^1.1.5",
     "ipaddr.js": "^1.8.0",
     "js-sha3": "^0.8.0",
     "merkletreejs": "0.0.11",
