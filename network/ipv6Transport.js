@@ -56,7 +56,8 @@ module.exports = (factory) => {
          * @return {Buffer}
          */
         static strToAddress(address) {
-            return Buffer.from(ipaddr.parse(address).toByteArray());
+            const addr = this.toIpV6Address(address);
+            return Buffer.from(ipaddr.parse(addr).toByteArray());
         }
 
         static addressToString(buffer) {
