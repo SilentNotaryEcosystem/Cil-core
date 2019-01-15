@@ -1,6 +1,6 @@
 {
   "name": "chain-in-law",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "dependencies": {
     "command-line-args": "^5.0.2",
     "dagjs": "git+https://github.com/trueshura/DAG.git",
@@ -8,6 +8,8 @@
     "ipaddr.js": "^1.8.0",
     "js-sha3": "^0.8.0",
     "json-rpc2": "^1.0.2",
+    "leveldown": "^4.0.1",
+    "levelup": "^4.0.0",
     "merkletreejs": "0.0.11",
     "mutex": "git+https://github.com/trueshura/MUTEX.git",
     "nat-upnp": "^1.1.1",
@@ -19,6 +21,7 @@
   "devDependencies": {
     "chai": "^4.1.2",
     "debug": "^3.1.0",
+    "memdown": "^3.0.0",
     "mocha": "^5.2.0",
     "node-uuid": "^1.4.8",
     "one-time": "0.0.4",

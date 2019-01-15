@@ -4,8 +4,11 @@ const debug = require('debug')('transport:');
 
 const factory = require('./testFactoryIpV6');
 const sinon = require('sinon').createSandbox();
+const {sleep} = require('./testUtil');
 
 let msgCommon;
+
+process.on('warning', e => console.warn(e.stack));
 
 const port = 8223;
 
@@ -177,8 +180,9 @@ describe('IPv6 Transport', () => {
         assert.isOk(endpoint.myAddress);
     });
 
-    it('should communicate each other', async () => {
-        const address = '::1';
+    it('should communicate each other', async function() {
+        this.timeout(5000);
+        const address = factory.Transport.getInterfacesIpV6Addresses()[0];
         const endpoint1 = new factory.Transport({listenPort: 1236, listenAddr: address});
         const endpoint2 = new factory.Transport();
 

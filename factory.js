@@ -5,9 +5,9 @@ const debugLib = require('debug');
 // Uncomment in prod!!
 const error = console.error;
 
-const log = console.error;
+const log = console.log;
 
-const info = console.error;
+const info = console.info;
 info.log = console.info.bind(console);
 
 const debug = debugLib('node:app');

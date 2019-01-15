@@ -2,6 +2,9 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
+        GROUP_DEFINITION_CONTRACT_ADDRESS: '9d31a4d655d48b61a26ce2ba17519295edf99f8d',
+        GENESIS_BLOCK: 'df7266eef5f45228b88fc196467cfd69a3e05a9226dc29219d7983c6b834d484',
+
         strIdent: 'Prod',
 
         network: 0x12882304,
@@ -10,7 +13,7 @@ module.exports = {
 
         rpcPort: 8222,
 
-        DNS_SEED: 'cil.nadzor.online',
+        DNS_SEED: 'seed.silentnotary.io',
 
         // How many peers we'll send in one 'addr' message
         ADDR_MAX_LENGTH: 1000,
