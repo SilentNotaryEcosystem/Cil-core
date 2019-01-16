@@ -17,10 +17,12 @@ module.exports = (factory) => {
     return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {transport, storage, isSeed} = options;
+            const {transport, storage, isSeed, strictAddresses} = options;
 
             // is this PeerManager belongs to seed node? if so - we'll return all peers, even "dead"
             this._isSeed = isSeed;
+
+            this._strictAddresses = strictAddresses || false;
 
             // to pass it to peers
             this._transport = transport;
@@ -104,7 +106,9 @@ module.exports = (factory) => {
             assert(this._mapCandidatePeers.get(keyCandidate), 'Unexpected peer not found in candidates!');
 
             const cPeerInfo = new PeerInfo(peerInfo);
-            assert(peer.peerInfo.address.equals(cPeerInfo.address), 'Peer tries to forge its address!');
+            if (this._strictAddresses) {
+                assert(peer.peerInfo.address.equals(cPeerInfo.address), 'Peer tries to forge its address!');
+            }
 
             peer.peerInfo = peerInfo;
             this._mapCandidatePeers.delete(keyCandidate);
