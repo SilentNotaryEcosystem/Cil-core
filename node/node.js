@@ -668,10 +668,10 @@ module.exports = (factory, factoryOptions) => {
 
                 // if we initiated connection to peer, so let's ask for known peers
 //                if (!peer.inbound) {
-                    const msgGetAddr = new MsgCommon();
-                    msgGetAddr.getAddrMessage = true;
-                    debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}"`);
-                    await peer.pushMessage(msgGetAddr);
+                const msgGetAddr = new MsgCommon();
+                msgGetAddr.getAddrMessage = true;
+                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}"`);
+                await peer.pushMessage(msgGetAddr);
 //                }
             }
         }
@@ -718,10 +718,10 @@ module.exports = (factory, factoryOptions) => {
 
             // if we initiated connection - let's request for new blocks
 //            if (!peer.inbound) {
-                const msg = new MsgGetBlocks();
-                msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
-                debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}"`);
-                await peer.pushMessage(msg);
+            const msg = new MsgGetBlocks();
+            msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
+            debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}"`);
+            await peer.pushMessage(msg);
 //            }
 
             // TODO: move loadDone after we got all we need from peer
@@ -948,7 +948,7 @@ module.exports = (factory, factoryOptions) => {
             // process depending blocks (they are unprocessed)
             const arrChildHashes = this._mainDag.getChildren(block.getHash());
             for (let hash of arrChildHashes) {
-                await this._processBlock(await this._storage.getBlock(hash));
+                if (await this._storage.hasBlock(hash)) await this._processBlock(await this._storage.getBlock(hash));
             }
         }
 

@@ -194,7 +194,7 @@ module.exports = (factory, factoryOptions) => {
             // no prefix needed (because we using separate DB)
             const key = createKey('', buffHash);
             const buffBlock = await this._blockStorage.get(key).catch(err => debug(err));
-            if (!buffBlock) logger.error(`Storage: No block found by hash ${buffHash.toString('hex')}`);
+            if (!buffBlock) throw new Errror(`Storage: No block found by hash ${buffHash.toString('hex')}`);
 
             return raw ? buffBlock : new Block(buffBlock);
         }
