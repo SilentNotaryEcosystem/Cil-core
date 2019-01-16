@@ -11,13 +11,7 @@ const {sleep} = require('../utils');
 const ConnectionWrapper = require('./ipv6Connection');
 const publicAddressesRange = require('./publicAddresses');
 
-/**
-
- */
-
 const dnsResolveDelegate = util.promisify(dns.resolve);
-
-const EventBus = new EventEmitter();
 
 module.exports = (factory) => {
     const {Serializer, MessageAssembler, Constants} = factory;
@@ -35,7 +29,7 @@ module.exports = (factory) => {
 
             this._timeout = options.timeout || Constants.CONNECTION_TIMEOUT;
 
-            this._address = options.listenAddr || this.constructor.getInterfacesIpV6Addresses()[0];
+            this._address = options.listenAddr || this._getRoutableInterfacesAddress();
             this._port = options.listenPort || Constants.port;
         }
 
@@ -98,11 +92,11 @@ module.exports = (factory) => {
 
         /**
          * Exists address in range "private"
-         * @param {String} address - IP address
+         * @param {String || IPv4} address - IP address
          * @return {boolean}
          */
         static isPrivateIpV4Address(address) {
-            const addr = ipaddr.parse(address);
+            const addr = typeof address === 'string' ? ipaddr.parse(address) : address;
             // TODO: May be need to check other ranges
             return addr.range() === 'private';
         }
@@ -135,6 +129,20 @@ module.exports = (factory) => {
             }
         }
 
+        static isRoutableAddress(strAddr) {
+            if (!ipaddr.isValid(strAddr)) throw new Error('Invalid IP address');
+            const addr = ipaddr.parse(strAddr);
+
+            // this means its one of:
+            // IPv6 and not IPv4 mapped
+            // or
+            // IPv4 mapped BUT not private address
+            return (ipaddr.IPv6.isIPv6(strAddr) && !addr.isIPv4MappedAddress()) ||
+                   (ipaddr.IPv6.isIPv6(strAddr) && addr.isIPv4MappedAddress() &&
+                    !Ipv6Transport.isPrivateIpV4Address(addr.toIPv4Address())) ||
+                   (ipaddr.IPv4.isIPv4(strAddr) && !Ipv6Transport.isPrivateIpV4Address(strAddr));
+        };
+
         /**
          * @param {String} address - IP address
          * @param {Number} port
@@ -158,17 +166,8 @@ module.exports = (factory) => {
          */
         async listen() {
             if (this._address) {
-                if (!ipaddr.isValid(this._address)) throw new Error('Invalid IP address');
 
-                let addr = ipaddr.parse(this._address);
-
-                // If IPv6 and not IPv4 mapped OR
-                // IPv4 mapped and not private address
-                if (
-                    ipaddr.IPv6.isIPv6(this._address) && !addr.isIPv4MappedAddress()
-                    || ipaddr.IPv6.isIPv6(this._address) && addr.isIPv4MappedAddress() &&
-                    !this.constructor.isPrivateIpV4Address(addr.toIPv4Address().toString())) {
-
+                if (this.constructor.isRoutableAddress(this._address)) {
                     this._setAddresses({privateAddress: this._address, routableAddress: this._address});
                     this._startListen();
                     return;
@@ -358,6 +357,6 @@ module.exports = (factory) => {
 
             server.listen({port: this.port, host: this._privateAddress});
         }
-
     };
 };
+

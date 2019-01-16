@@ -150,7 +150,7 @@ describe('IPv6 Transport', () => {
     });
 
     it('should MAP private ipv4 address', async () => {
-        const ipv4Address = '127.0.0.1';
+        const ipv4Address = '192.168.1.1';
         const endpoint = new factory.Transport({listenPort: 1234, listenAddr: ipv4Address});
 
         endpoint._startListen = sinon.fake();
