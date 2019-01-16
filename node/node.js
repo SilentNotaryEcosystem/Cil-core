@@ -481,6 +481,9 @@ module.exports = (factory, factoryOptions) => {
          */
         async _handleGetBlocksMessage(peer, message) {
 
+            // we'r empty. we have nothing to share with party
+            if (!this._mainDag.order) return;
+
             // TODO: implement better algo
             const msg = new MsgGetBlocks(message);
             let arrHashes = msg.arrHashes;
