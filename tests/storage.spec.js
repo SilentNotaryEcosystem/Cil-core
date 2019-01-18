@@ -320,7 +320,7 @@ describe('Storage tests', () => {
             contract.storeAddress(buffContractAddr);
             patch.setContract(contract);
         }
-        patch.setReceipt(buffUtxoHash, new factory.TxReceipt({
+        patch.setReceipt(buffUtxoHash.toString('hex'), new factory.TxReceipt({
             contractAddress: buffContractAddr,
             coinsUsed: 1000
         }));
@@ -426,5 +426,37 @@ describe('Storage tests', () => {
             return;
         }
         throw 'Unexpected success';
+    });
+
+    it('should set/get RECEIPT', async () => {
+        const storage = new factory.Storage();
+
+        const buffContractAddr = generateAddress();
+        const buffUtxoHash = pseudoRandomBuffer();
+        const coinsUsed = 1e5;
+        const arrInternalTxns = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+
+        const patch = new factory.PatchDB();
+        const rcpt = new factory.TxReceipt({
+            contractAddress: buffContractAddr,
+            coinsUsed
+        });
+        arrInternalTxns.forEach(tx => rcpt.addInternalTx(tx));
+        patch.setReceipt(buffUtxoHash.toString('hex'), rcpt);
+
+        // set
+        await storage.applyPatch(patch);
+
+        // get
+        const receipt = await storage.getTxReceipt(buffUtxoHash.toString('hex'));
+
+        assert.isOk(receipt);
+        assert.equal(coinsUsed, receipt.getCoinsUsed());
+        assert.isOk(buffContractAddr.equals(receipt.getContractAddress()));
+        assert.isOk(
+            receipt
+                .getInternalTxns()
+                .every(buffTxHash => arrInternalTxns.includes(buffTxHash.toString('hex')))
+        );
     });
 });

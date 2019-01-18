@@ -342,6 +342,8 @@ module.exports = ({UTXO, Contract}) =>
          * @returns {TxReceipt}
          */
         getReceipt(strTxHash) {
+            typeforce(types.Str64, strTxHash);
+
             return this._mapTxReceipts.get(strTxHash);
         }
 
@@ -351,6 +353,8 @@ module.exports = ({UTXO, Contract}) =>
          * @param {TxReceipt} receipt
          */
         setReceipt(strTxHash, receipt) {
+            typeforce(types.Str64, strTxHash);
+
             this._mapTxReceipts.set(strTxHash, receipt);
         }
 

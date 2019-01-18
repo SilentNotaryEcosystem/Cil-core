@@ -60,12 +60,12 @@ module.exports = (factory, {txReceiptProto}) =>
 
         /**
          *
-         * @param {String} txHash
+         * @param {String} strTxHash
          */
-        addInternalTx(txHash) {
-            typeforce(types.Hash256bit, txHash);
+        addInternalTx(strTxHash) {
+            typeforce(types.Str64, strTxHash);
 
-            this._data.internalTxns.push(Buffer.from(txHash, 'hex'));
+            this._data.internalTxns.push(Buffer.from(strTxHash, 'hex'));
         }
 
         getInternalTxns() {
