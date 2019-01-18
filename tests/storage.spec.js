@@ -452,7 +452,7 @@ describe('Storage tests', () => {
 
         assert.isOk(receipt);
         assert.equal(coinsUsed, receipt.getCoinsUsed());
-        assert.isOk(buffContractAddr.equals(receipt.getContractAddress()));
+        assert.isOk(buffContractAddr.equals(Buffer.from(receipt.getContractAddress(), 'hex')));
         assert.isOk(
             receipt
                 .getInternalTxns()

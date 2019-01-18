@@ -27,7 +27,7 @@ module.exports = (factory, {txReceiptProto}) =>
          * @return {String}
          */
         getContractAddress() {
-            return this._data.contractAddress;
+            return this._data.contractAddress.toString('hex');
         }
 
         /**
@@ -70,5 +70,13 @@ module.exports = (factory, {txReceiptProto}) =>
 
         getInternalTxns() {
             return this._data.internalTxns;
+        }
+
+        toObject() {
+            return {
+                ...this._data,
+                contractAddress: this._data.contractAddress ? this._data.contractAddress.toString('hex') : undefined,
+                internalTxns: this._data.internalTxns.map(buffHash => buffHash.toString('hex'))
+            };
         }
     };

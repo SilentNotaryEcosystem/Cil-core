@@ -27,21 +27,28 @@ module.exports = ({Constants, Transaction}) =>
             this._server.enableAuth(rpcUser, rpcPass);
 
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
+            this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
         sendRawTx(args) {
-            try {
-                const {buffTx} = args;
-                typeforce(typeforce.Buffer, buffTx);
+            const {buffTx} = args;
+            typeforce(typeforce.Buffer, buffTx);
 
-                const tx = new Transaction(buffTx);
-                this.emit('rpc', {
-                    event: 'tx',
-                    content: tx
-                });
-            } catch (e) {
-                logger.error('RPC. bad tx received', e);
-            }
+            const tx = new Transaction(buffTx);
+            this.emit('rpc', {
+                event: 'tx',
+                content: tx
+            });
+        }
+
+        getTxReceipt(args) {
+            const {strTxHash} = args;
+            typeforce(types.Str64, strTxHash);
+
+            this.emit('rpc', {
+                event: 'txReceipt',
+                content: strTxHash
+            });
         }
     };

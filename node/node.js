@@ -746,10 +746,19 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _rpcHandler({event, content}) {
-            switch (event) {
-                case 'tx':
-                    await this._processReceivedTx(content).catch(err => logger.error('RPC error:', err));
-                    break;
+            try {
+                switch (event) {
+                    case 'tx':
+                        await this._processReceivedTx(content);
+                        break;
+                    case 'txReceipt':
+                        const cReceipt = await this._storage.getTxReceipt(content);
+                        return cReceipt ? cReceipt.toObject() : undefined;
+                    default:
+                        throw new Error(`Unsupported method ${event}`);
+                }
+            } catch (e) {
+                logger.error('RPC error.', e);
             }
         }
 

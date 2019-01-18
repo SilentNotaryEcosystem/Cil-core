@@ -34,4 +34,18 @@ describe('RPC', () => {
 
         rpc.sendRawTx({buffTx: tx.encode()});
     });
+
+    it('should get TX receipt', (done) => {
+        const rpc = new factory.RPC({rpcAddress: factory.Transport.generateAddress()});
+        const strTxHash = pseudoRandomBuffer().toString('hex');
+        rpc.on('rpc', ({event, content}) => {
+            assert.isOk(event);
+            assert.isOk(content);
+            assert.equal(event, 'txReceipt');
+            assert.equal(content, strTxHash);
+            done();
+        });
+
+        rpc.getTxReceipt({strTxHash});
+    });
 });

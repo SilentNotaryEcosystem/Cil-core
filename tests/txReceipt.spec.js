@@ -3,7 +3,7 @@ const {assert} = require('chai');
 const sinon = require('sinon');
 const debug = require('debug')('peer:');
 
-const {pseudoRandomBuffer} = require('./testUtil');
+const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 factory = require('./testFactory');
 
@@ -19,32 +19,35 @@ describe('TX Receipt tests', () => {
 
     it('should create receipt', async () => {
         new factory.TxReceipt({
-            contractAddress: pseudoRandomBuffer(20),
+            contractAddress: generateAddress(),
             coinsUsed: 10000,
             status: factory.Constants.TX_STATUS_OK
         });
 
         new factory.TxReceipt({
-            contractAddress: pseudoRandomBuffer(20)
+            contractAddress: generateAddress()
         });
 
         new factory.TxReceipt({});
     });
 
     it('should get contractAddress', async () => {
-        const contractAddress = pseudoRandomBuffer(20);
+        const contractAddress = generateAddress();
         {
+
+            // good address
             const receipt = new factory.TxReceipt({
                 contractAddress
             });
-            assert.isOk(contractAddress.equals(receipt.getContractAddress()));
+            assert.isOk(contractAddress.equals(Buffer.from(receipt.getContractAddress(), 'hex')));
         }
         {
+
+            // empty address
             const receipt = new factory.TxReceipt({
                 contractAddress: undefined
             });
-            assert.isOk(Array.isArray(receipt.getContractAddress()));
-            assert.equal(receipt.getContractAddress().length, 0);
+            assert.isNotOk(receipt.getContractAddress());
         }
     });
 
@@ -82,7 +85,7 @@ describe('TX Receipt tests', () => {
 
     it('should encode/decode receipt', async () => {
         const receipt = new factory.TxReceipt({
-            contractAddress: pseudoRandomBuffer(20),
+            contractAddress: generateAddress(),
             coinsUsed: 10000,
             status: factory.Constants.TX_STATUS_OK
         });
@@ -96,7 +99,7 @@ describe('TX Receipt tests', () => {
 
     it('should be equal (with self)', async () => {
         const receipt = new factory.TxReceipt({
-            contractAddress: pseudoRandomBuffer(20),
+            contractAddress: generateAddress(),
             coinsUsed: 10000,
             status: factory.Constants.TX_STATUS_OK
         });
@@ -106,17 +109,47 @@ describe('TX Receipt tests', () => {
 
     it('should be unequal', async () => {
         const receipt = new factory.TxReceipt({
-            contractAddress: pseudoRandomBuffer(20),
+            contractAddress: generateAddress(),
             coinsUsed: 10000,
             status: factory.Constants.TX_STATUS_OK
         });
 
         const receipt2 = new factory.TxReceipt({
-            contractAddress: pseudoRandomBuffer(20),
+            contractAddress: generateAddress(),
             coinsUsed: 1000,
             status: factory.Constants.TX_STATUS_OK
         });
 
         assert.isNotOk(receipt.equals(receipt2));
+    });
+
+    it('should add internal tx', async () => {
+        const receipt = new factory.TxReceipt({});
+        const arrInternalTxns = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+        arrInternalTxns.forEach(tx => receipt.addInternalTx(tx));
+
+        const arrBuffTxns = receipt.getInternalTxns();
+        assert.equal(arrBuffTxns.length, 2);
+        assert.isOk(arrBuffTxns.every(buffTxns => arrInternalTxns.includes(buffTxns.toString('hex'))));
+    });
+
+    it('should convert to object', async () => {
+        const objReceipt = {
+            contractAddress: generateAddress(),
+            coinsUsed: 1000,
+            status: factory.Constants.TX_STATUS_OK,
+            internalTxns: [
+                pseudoRandomBuffer(),
+                pseudoRandomBuffer()
+            ]
+        };
+        const receipt2 = new factory.TxReceipt(objReceipt);
+        assert.deepEqual({
+                ...objReceipt,
+                contractAddress: objReceipt.contractAddress.toString('hex'),
+                internalTxns: objReceipt.internalTxns.map(buffHash => buffHash.toString('hex'))
+            },
+            receipt2.toObject()
+        );
     });
 });
