@@ -227,7 +227,7 @@ describe('Witness integration tests', () => {
         await Promise.all(arrWitnesses.map(witness => witness.start()));
 
         // inject TX into network
-        seedNode.rpc.sendRawTx(tx.encode());
+        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
 
         // all witnesses + seedNode should get block (_acceptBlock called)
         await Promise.all(arrBlocksPromises);
@@ -273,7 +273,7 @@ describe('Witness integration tests', () => {
         await witness.start();
 
         // inject TX into network
-        seedNode.rpc.sendRawTx(tx.encode());
+        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
 
         // all witnesses + seedNode should get block (_acceptBlock called)
         await Promise.all(arrBlocksPromises);
@@ -318,7 +318,7 @@ describe('Witness integration tests', () => {
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
         await Promise.all(arrWitnesses.map(witness => witness.start()));
 
-        seedNode.rpc.sendRawTx(tx.encode());
+        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
 
         // all witnesses should call _suppressedBlockHandler
         await Promise.all(arrSuppressedBlocksPromises);

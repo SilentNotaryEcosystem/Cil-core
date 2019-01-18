@@ -142,7 +142,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         sinon.restore();
 
         const txCode = createAnotherGroup(wallet.privateKey, wallet.publicKey, moneyIssueTx.hash(), 4);
-        witnessGroupTwo.rpc.sendRawTx(txCode.encode());
+        witnessGroupTwo.rpc.sendRawTx({buffTx: txCode.encode()});
 
         // wait for witnessOne receive tx & produce block with new group def & send us (witnessGroupTwo) second block
         const donePromise = new Promise((resolve, reject) => {
@@ -187,7 +187,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
         tx.sign(0, wallet.privateKey);
 
-        witnessGroupTwo.rpc.sendRawTx(tx.encode());
+        witnessGroupTwo.rpc.sendRawTx({buffTx: tx.encode()});
 
         {
             // wait for witnessGroupTwo PRODUCE block group ==1
@@ -254,7 +254,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
             tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
             tx.sign(0, wallet.privateKey);
 
-            witnessGroupOne.rpc.sendRawTx(tx.encode());
+            witnessGroupOne.rpc.sendRawTx({buffTx: tx.encode()});
         }
 
         {
@@ -265,7 +265,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
             tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
             tx.sign(0, wallet.privateKey);
 
-            witnessGroupTwo.rpc.sendRawTx(tx.encode());
+            witnessGroupTwo.rpc.sendRawTx({buffTx: tx.encode()});
         }
 
         {

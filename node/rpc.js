@@ -30,17 +30,18 @@ module.exports = ({Constants, Transaction}) =>
             this._server.listen(rpcPort, rpcAddress);
         }
 
-        sendRawTx(bufTx) {
-            typeforce('Buffer', bufTx);
-
+        sendRawTx(args) {
             try {
-                const tx = new Transaction(bufTx);
+                const {buffTx} = args;
+                typeforce(typeforce.Buffer, buffTx);
+
+                const tx = new Transaction(buffTx);
                 this.emit('rpc', {
                     event: 'tx',
                     content: tx
                 });
             } catch (e) {
-                logger.error('RPC: bad tx received');
+                logger.error('RPC. bad tx received', e);
             }
         }
     };

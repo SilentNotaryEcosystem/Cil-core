@@ -206,7 +206,7 @@ describe('Node integration tests', () => {
         }
         await Promise.all(arrBootrapPromises);
 
-        seedNode.rpc.sendRawTx(tx.encode());
+        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
 
         await Promise.all(arrTxPromises);
     });

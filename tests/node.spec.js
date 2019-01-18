@@ -451,7 +451,7 @@ describe('Node tests', () => {
                 }
             };
         });
-        node.rpc.sendRawTx(tx.encode());
+        node.rpc.sendRawTx({buffTx: tx.encode()});
         await donePromise;
     });
 

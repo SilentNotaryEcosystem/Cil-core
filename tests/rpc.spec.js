@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
-const {createDummyTx} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 
 describe('RPC', () => {
     before(async function() {
@@ -32,6 +32,6 @@ describe('RPC', () => {
             done();
         });
 
-        rpc.sendRawTx(tx.encode());
+        rpc.sendRawTx({buffTx: tx.encode()});
     });
 });
