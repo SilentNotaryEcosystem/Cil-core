@@ -129,8 +129,8 @@ module.exports = (factory) => {
 
                     // equal WitnessNum
                     if (!diff) {
-                        return this._dag.findPathsDown(arrWitnessNums[i2]).getLongestPathLength() -
-                               this._dag.findPathsDown(arrWitnessNums[i1]).getLongestPathLength();
+                        return this._dag.findPathsDown(arrTips[i2]).getLongestPathLength() -
+                               this._dag.findPathsDown(arrTips[i1]).getLongestPathLength();
                     } else {
                         return diff;
                     }
