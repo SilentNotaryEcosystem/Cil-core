@@ -8,6 +8,7 @@ message input{
     uint32 nTxOutput=2;
 }
 
+// TODO: change to oneOf ... one for regular payment another for Contracts
 message output{
 
     // possibly here should be uint64 or bytes (BN)
@@ -19,6 +20,7 @@ message output{
     // if receiverAddr is AddrContractCreation or function call (not user otherwise)
     string contractCode=3;
     bytes addrChangeReceiver=4;
+    fixed64 coinsLimit=5;
 }
 
 message TransactionPayload {

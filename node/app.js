@@ -71,16 +71,17 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
         /**
          * @param {Transaction} tx
          * @param {PatchDB} patch - to create new coins
+         * @param {Number} nStartFromIdx - if we want to skip some outputs, for contract for example
          * @returns {Number} - Amount to spend
          */
-        processPayments(tx, patch) {
+        processPayments(tx, patch, nStartFromIdx = 0) {
             const txHash = tx.hash();
 
             // TODO: change "amount" from Numbers to BN or uint64 to avoid floating point issues!
             let totalSent = 0;
             const txCoins = tx.getOutCoins();
 
-            for (let i = 0; i < txCoins.length; i++) {
+            for (let i = nStartFromIdx; i < txCoins.length; i++) {
                 patch.createCoins(txHash, i, txCoins[i]);
                 totalSent += txCoins[i].getAmount();
             }

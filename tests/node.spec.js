@@ -21,6 +21,25 @@ const {
 let seedAddress;
 let seedNode;
 
+const groupId = 10;
+
+const createContractInvocationTx = (maxFee = 1e3, hasChangeReceiver = true) => {
+    const contractAddr = generateAddress();
+
+    // prepare tx (for non genesis block)
+    const tx = new factory.Transaction();
+    tx.witnessGroupId = groupId;
+    tx.addInput(pseudoRandomBuffer(), 12);
+    if (hasChangeReceiver) {
+        tx.invokeContract(contractAddr, '', 0, maxFee, generateAddress());
+    } else {
+        tx.invokeContract(contractAddr, '', 0, maxFee);
+    }
+    tx.verify = sinon.fake();
+
+    return {tx, strContractAddr: contractAddr.toString('hex')};
+};
+
 const createTxAddCoinsToNode = (node) => {
     const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
@@ -1129,7 +1148,6 @@ describe('Node tests', () => {
         const tx = factory.Transaction.createContract(
             'class A extends Base{}',
             10000,
-            generateAddress(),
             generateAddress()
         );
 
@@ -1148,36 +1166,146 @@ describe('Node tests', () => {
         const node = new factory.Node();
         const contractAddr = generateAddress();
         const groupId = 10;
-        const coinsLimit = 1000;
 
-        const tx = new factory.Transaction();
-        tx.witnessGroupId = groupId;
-        tx.addInput(pseudoRandomBuffer(), 12);
-        tx.invokeContract('', coinsLimit, contractAddr, generateAddress());
+        const {tx} = createContractInvocationTx();
 
-        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, contractAddr.toString('hex')));
         node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
 
         // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
         await node._processTx(true, tx, new factory.PatchDB(groupId));
 
         assert.isOk(node._app.runContract.calledOnce);
-        const [numCoins, strInvocationCode, contract] = node._app.runContract.args[0];
-        assert.equal(numCoins, coinsLimit);
+        const [coinsLimit, strInvocationCode, contract] = node._app.runContract.args[0];
+        assert.equal(coinsLimit, Number.MAX_SAFE_INTEGER);
         assert.isOk(typeof strInvocationCode === 'string');
         assert.isOk(contract instanceof factory.Contract);
     });
 
-    it('should _processTx with contract invocation', async () => {
-        const groupId = 10;
+    it('should get contact from Patch', async () => {
         const node = new factory.Node();
-        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+        const {tx} = createContractInvocationTx();
+        const patch = new factory.PatchDB(groupId);
+
+        patch.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+        node._storage.getContract = sinon.fake();
+
+        const contract = await node._getContractFromTx(tx, patch);
+        assert.isOk(contract);
+        assert.isOk(patch.getContract.calledOnce);
+        assert.isNotOk(node._storage.getContract.calledOnce);
+    });
+
+    it('should get contact from Storage', async () => {
+        const node = new factory.Node();
+        const {tx} = createContractInvocationTx();
+        const patch = new factory.PatchDB(groupId);
+
+        patch.getContract = sinon.fake.returns(undefined);
+        node._storage.getContract = sinon.fake.resolves(new factory.Contract({groupId}));
+
+        const contract = await node._getContractFromTx(tx, patch);
+        assert.isOk(contract);
+        assert.isOk(patch.getContract.calledOnce);
+        assert.isOk(node._storage.getContract.calledOnce);
+    });
+
+    it('should FAIL to invoke contract (small fee)', async () => {
+        const node = new factory.Node();
+        const nTotalHas = 1e5;
+
+        const {tx, strContractAddr} = createContractInvocationTx(1e4);
+
+        node._storage.getUtxosCreateMap = sinon.fake();
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+
+        node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+
+        try {
+            await node._processTx(false, tx, new factory.PatchDB(groupId));
+        } catch (e) {
+            assert.isOk(e.message.match('CONTRACT fee .+ less than .+'));
+            return;
+        }
+        throw new Error('Unexpected success');
+    });
+
+    it('should invoke contract', async () => {
+        const node = new factory.Node();
+        const nTotalHas = 1e5;
+        const nChange = 1e4;
+
+        const {tx, strContractAddr} = createContractInvocationTx(nTotalHas);
+        tx.addReceiver(nChange, generateAddress());
+
+        node._storage.getUtxosCreateMap = sinon.fake();
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+
+        node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+
+        await node._processTx(false, tx, new factory.PatchDB(groupId));
+
+        assert.isOk(node._app.runContract.calledOnce);
+        const [coinsLimit, strInvocationCode, contract] = node._app.runContract.args[0];
+        assert.equal(coinsLimit, nTotalHas - nChange);
+        assert.isOk(typeof strInvocationCode === 'string');
+        assert.isOk(contract instanceof factory.Contract);
+    });
+
+    it('should use all INPUT coins as fee (no changeReceiver no change output)', async () => {
+        const node = new factory.Node();
+        const nTotalHas = 1e5;
+        const nChange = 1e4;
+
+        const {tx, strContractAddr} = createContractInvocationTx(nTotalHas, false);
+        tx.addReceiver(nChange, generateAddress());
+
+        node._storage.getUtxosCreateMap = sinon.fake();
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+
+        node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+
+        const {fee, patchThisTx} = await node._processTx(false, tx, new factory.PatchDB(groupId));
+
+        assert.equal(fee, nTotalHas - nChange);
+        assert.isOk(patchThisTx.getContract(strContractAddr));
+        assert.isOk(patchThisTx.getReceipt(tx.hash()));
+    });
+
+    it('should use all AVAIL coins as fee (no changeReceiver)', async () => {
+        const node = new factory.Node();
+        const nTotalHas = 1e5;
+
+        const {tx, strContractAddr} = createContractInvocationTx(nTotalHas, false);
+
+        node._storage.getUtxosCreateMap = sinon.fake();
+        node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+
+        node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+
+        const {fee, patchThisTx} = await node._processTx(false, tx, new factory.PatchDB(groupId));
+
+        assert.equal(fee, nTotalHas);
+        assert.isOk(patchThisTx.getContract(strContractAddr));
+        assert.isOk(patchThisTx.getReceipt(tx.hash()));
+    });
+
+    it('should invoke contract in Genesis block', async () => {
+        const node = new factory.Node();
+        const buffContractAddr = generateAddress();
+
+        node._storage.getContract =
+            sinon.fake.returns(new factory.Contract({groupId}, buffContractAddr.toString('hex')));
         node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
 
         const tx = new factory.Transaction();
         tx.witnessGroupId = groupId;
         tx.addInput(pseudoRandomBuffer(), 12);
-        tx.invokeContract('', 1000, generateAddress(), generateAddress());
+        tx.invokeContract(generateAddress(), '', 0, 1000, generateAddress());
 
         const patch = new factory.PatchDB(groupId);
         patch.getContract = sinon.fake.returns(undefined);
@@ -1268,3 +1396,4 @@ describe('Node tests', () => {
         assert.equal(rcpt.getContractAddress(), objTxReceipt.contractAddress);
     });
 });
+

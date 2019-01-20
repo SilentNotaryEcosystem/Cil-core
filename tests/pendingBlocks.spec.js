@@ -303,12 +303,13 @@ describe('Pending block manager', async () => {
                 assert.equal(setStableBlocks.size, 2);
             }
 
+            // from now test not connected to page "rejected block consensus"
             const block8 = createDummyBlock(factory, 1);
             {
                 const {arrParents} = await pbm.getBestParents();
                 assert.equal(arrParents.length, 2);
 
-                // chain through 7->1 (vs 6) will be more witnessed
+                // chain through 7->1 and through 6 have same witness numbers (1) but first chain is longer
                 assert.equal(arrParents[0], block7.getHash());
                 assert.equal(arrParents[1], block6.getHash());
 
