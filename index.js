@@ -2,6 +2,8 @@ const factory = require('./factory');
 
 const {readCmdLineOptions, sleep} = require('./utils');
 
+process.on('warning', e => console.warn(e.stack));
+
 (async () => {
     await factory.asyncLoad();
 

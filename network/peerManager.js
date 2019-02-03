@@ -80,7 +80,7 @@ module.exports = (factory) => {
             // both peers are connected.
             if (existingPeer && !existingPeer.disconnected && !peer.disconnected) return Constants.REJECT_DUPLICATE;
 
-            // we'll keep existing info
+            // we'll keep existing info (only for disconnected existing peers)
             if (existingPeer && !bForceRewrite) return existingPeer;
 
             if (existingPeer) existingPeer.removeAllListeners();
@@ -91,6 +91,12 @@ module.exports = (factory) => {
             return peer;
         }
 
+        /**
+         * It's a part of mechanism that will keep only "canonical" (which node listens) addresses
+         * while incoming connections have random ports
+         *
+         * @param {Connection} connection - TCP connection
+         */
         addCandidateConnection(connection) {
             assert(!this.isBannedAddress(connection.remoteAddress), 'You are banned');
 
@@ -101,6 +107,14 @@ module.exports = (factory) => {
             this._mapCandidatePeers.set(key, newPeer);
         }
 
+        /**
+         * It's a part of mechanism that will keep only "canonical" (which node listens) addresses
+         * while incoming connections have random ports
+         *
+         * @param {Peer} peer - connected peer
+         * @param {PeerInfo} peerInfo - from MSG_VERSION
+         * @returns {Peer | Number}
+         */
         associatePeer(peer, peerInfo) {
             const keyCandidate = this._createKey(peer.address, peer.port);
             assert(this._mapCandidatePeers.get(keyCandidate), 'Unexpected peer not found in candidates!');

@@ -167,10 +167,11 @@ module.exports = (factory) => {
         }
 
         /**
+         * Undefined means that no new stable vertices found
          *
          * @param {String} newVertex - blockHash of processed block
          * @param {Number} nGroupCount - how many groups definition existed now
-         * @return {{patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
+         * @return {undefined | {patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
          */
         checkFinality(newVertex, nGroupCount) {
             typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);

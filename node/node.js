@@ -301,7 +301,7 @@ module.exports = (factory, factoryOptions) => {
 
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
-                logger.error(err, `Peer ${peer.address}`);
+                logger.error(err, `Incoming message. Peer ${peer.address}`);
 
                 // TODO: implement state (like bitcoin) to keep misbehave score or penalize on each handler?
                 peer.misbehave(1);
@@ -327,7 +327,7 @@ module.exports = (factory, factoryOptions) => {
             try {
                 await this._processReceivedTx(tx);
             } catch (e) {
-                logger.error(e);
+                logger.error(e, `Bad TX received. Peer ${peer.address}`);
                 peer.misbehave(5);
                 throw e;
             }
@@ -364,7 +364,7 @@ module.exports = (factory, factoryOptions) => {
             } catch (e) {
                 await this._blockBad(block);
                 logger.error(e);
-                peer.ban();
+                peer.misbehave(10);
                 throw e;
             } finally {
                 this._mutex.release(lock);
@@ -550,7 +550,7 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(msg);
                 } catch (e) {
 //                    logger.error(e.message);
-                    logger.error(e);
+                    logger.error(e, `GetDataMessage. Peer ${peer.address}`);
                     peer.misbehave(5);
 
                     // break loop
@@ -604,6 +604,7 @@ module.exports = (factory, factoryOptions) => {
                 } else {
 
                     // we are already have it's version
+                    logger.log(`Version message already received. Peer ${peer.address}`);
                     peer.misbehave(1);
                     return;
                 }
@@ -625,7 +626,7 @@ module.exports = (factory, factoryOptions) => {
                             reason = 'You are banned';
                         } else if (result === Constants.REJECT_DUPLICATE) {
                             reason = 'Duplicate connection';
-                        } else if (result === Constants.REJECT_RESTRICTED) reason = 'Address temporary banned';
+                        } else if (result === Constants.REJECT_RESTRICTED) reason = 'Have a break';
 
                         const message = new MsgReject({
                             code: result,
