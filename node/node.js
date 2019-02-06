@@ -94,8 +94,7 @@ module.exports = (factory, factoryOptions) => {
 
             //start RPC
             if (options.rpcAddress) {
-                this._rpc = new RPC(options);
-                this._rpc.on('rpc', this._rpcHandler.bind(this));
+                this._rpc = new RPC(this, options);
             }
 
             this._app = new Application(options);
@@ -746,7 +745,7 @@ module.exports = (factory, factoryOptions) => {
          * @return {Promise<void>}
          * @private
          */
-        async _rpcHandler({event, content}) {
+        async rpcHandler({event, content}) {
             try {
                 switch (event) {
                     case 'tx':

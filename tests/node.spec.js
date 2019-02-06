@@ -1244,30 +1244,6 @@ describe('Node tests', () => {
         assert.isOk(arrayEquals(arrFetched, arrExpected));
     });
 
-    it('should get TX receipt', async () => {
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        const buffContractAddr = generateAddress();
-        const strUtxoHash = pseudoRandomBuffer().toString('hex');
-        const coinsUsed = 1e5;
-
-        const rcpt = new factory.TxReceipt({
-            contractAddress: buffContractAddr,
-            coinsUsed
-        });
-        node._storage.getTxReceipt = sinon.fake.resolves(rcpt);
-
-        const objTxReceipt = await node._rpcHandler({
-            event: 'txReceipt',
-            content: strUtxoHash
-        });
-
-        assert.isOk(objTxReceipt);
-        assert.equal(rcpt.getCoinsUsed(), objTxReceipt.coinsUsed);
-        assert.equal(rcpt.getContractAddress(), objTxReceipt.contractAddress);
-    });
-
     it('should NOT notify WS subscribes about new block (RPC is off)', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
@@ -1290,5 +1266,31 @@ describe('Node tests', () => {
 
         assert.equal(topic, 'newBlock');
         assert.deepEqual(objData, block.header);
+    });
+
+    describe('RPC tests', () => {
+        it('should get TX receipt', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const buffContractAddr = generateAddress();
+            const strUtxoHash = pseudoRandomBuffer().toString('hex');
+            const coinsUsed = 1e5;
+
+            const rcpt = new factory.TxReceipt({
+                contractAddress: buffContractAddr,
+                coinsUsed
+            });
+            node._storage.getTxReceipt = sinon.fake.resolves(rcpt);
+
+            const objTxReceipt = await node.rpcHandler({
+                event: 'txReceipt',
+                content: strUtxoHash
+            });
+
+            assert.isOk(objTxReceipt);
+            assert.equal(rcpt.getCoinsUsed(), objTxReceipt.coinsUsed);
+            assert.equal(rcpt.getContractAddress(), objTxReceipt.contractAddress);
+        });
     });
 });

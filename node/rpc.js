@@ -1,5 +1,4 @@
 'use strict';
-const EventEmitter = require('events');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 
@@ -11,16 +10,17 @@ const types = require('../types');
 const debug = debugLib('RPC:');
 
 module.exports = ({Constants, Transaction}) =>
-    class RPC extends EventEmitter {
+    class RPC {
         /**
          *
+         * @param {Node} cNodeInstance - to make requests to node
          * @param {Object} options
          * @param {String} options.addr - listen addr
          * @param {Number} options.port - listen port
          * @param {String} options.token - auth token
          */
-        constructor(options) {
-            super();
+        constructor(cNodeInstance, options) {
+            this._nodeInstance = cNodeInstance;
 
             const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
             this._server = rpc.Server.$create({websocket: true});
@@ -31,22 +31,22 @@ module.exports = ({Constants, Transaction}) =>
             this._server.listen(rpcPort, rpcAddress);
         }
 
-        sendRawTx(args) {
+        async sendRawTx(args) {
             const {buffTx} = args;
             typeforce(typeforce.Buffer, buffTx);
 
             const tx = new Transaction(buffTx);
-            this.emit('rpc', {
+            return await this._nodeInstance.rpcHandler({
                 event: 'tx',
                 content: tx
             });
         }
 
-        getTxReceipt(args) {
+        async getTxReceipt(args) {
             const {strTxHash} = args;
             typeforce(types.Str64, strTxHash);
 
-            this.emit('rpc', {
+            return await this._nodeInstance.rpcHandler({
                 event: 'txReceipt',
                 content: strTxHash
             });
