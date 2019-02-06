@@ -437,7 +437,7 @@ describe('Node tests', () => {
     it('pass TX, received via RPC, to processing', async function() {
         this.timeout(5000);
 
-        const node = new factory.Node({rpcUser: 'test', rpcPass: 'test'});
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
         node._mempool.addTx = sinon.fake();
         node._informNeighbors = sinon.fake();
 
@@ -1266,5 +1266,29 @@ describe('Node tests', () => {
         assert.isOk(objTxReceipt);
         assert.equal(rcpt.getCoinsUsed(), objTxReceipt.coinsUsed);
         assert.equal(rcpt.getContractAddress(), objTxReceipt.contractAddress);
+    });
+
+    it('should NOT notify WS subscribes about new block (RPC is off)', async () => {
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        const block = createDummyBlock(factory);
+
+        node._postAcceptBlock(block);
+    });
+
+    it('should NOTIFY WS subscribes about new block (RPC is on)', async () => {
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+        const block = createDummyBlock(factory);
+
+        const fake = sinon.fake();
+        node._rpc.informWsSubscribers = fake;
+        node._postAcceptBlock(block);
+
+        assert.isOk(fake.calledOnce);
+        const [topic, objData] = fake.args[0];
+
+        assert.equal(topic, 'newBlock');
+        assert.deepEqual(objData, block.header);
     });
 });

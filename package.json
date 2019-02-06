@@ -7,7 +7,7 @@
     "elliptic": "^6.4.0",
     "ipaddr.js": "^1.8.0",
     "js-sha3": "^0.8.0",
-    "json-rpc2": "^1.0.2",
+    "json-rpc2": "git+https://github.com/trueshura/node-jsonrpc2.git",
     "leveldown": "^4.0.1",
     "levelup": "^4.0.0",
     "merkletreejs": "0.0.11",
@@ -16,7 +16,7 @@
     "protobufjs": "^6.8.8",
     "tick-tock": "^1.0.0",
     "typeforce": "^1.12.0",
-    "vm2": "^3.6.4"
+    "vm2": "^3.6.10"
   },
   "devDependencies": {
     "chai": "^4.1.2",

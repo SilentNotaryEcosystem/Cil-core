@@ -23,8 +23,8 @@ module.exports = ({Constants, Transaction}) =>
             super();
 
             const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
-            this._server = rpc.Server.$create({websocket: false});
-            this._server.enableAuth(rpcUser, rpcPass);
+            this._server = rpc.Server.$create({websocket: true});
+            if (rpcUser && rpcPass) this._server.enableAuth(rpcUser, rpcPass);
 
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
@@ -50,5 +50,9 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'txReceipt',
                 content: strTxHash
             });
+        }
+
+        informWsSubscribers(topic, objData) {
+            this._server.broadcastToWS(topic, objData);
         }
     };

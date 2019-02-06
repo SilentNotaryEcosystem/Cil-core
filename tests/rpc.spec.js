@@ -48,4 +48,19 @@ describe('RPC', () => {
 
         rpc.getTxReceipt({strTxHash});
     });
+
+    it('should PASS informWsSubscribers (no subscribers)', async () => {
+        const rpc = new factory.RPC({rpcAddress: factory.Transport.generateAddress()});
+        rpc.informWsSubscribers('test', {a: 1, b: 2});
+    });
+
+    it('should PASS informWsSubscribers (has subscribers)', async () => {
+        const rpc = new factory.RPC({rpcAddress: factory.Transport.generateAddress()});
+        const fake = sinon.fake();
+        rpc._server._objConnections['test1'] = {send: fake};
+
+        rpc.informWsSubscribers('testTopic', {a: 1, b: 2});
+        assert.isOk(fake.calledOnce);
+    });
+
 });

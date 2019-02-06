@@ -93,7 +93,7 @@ module.exports = (factory, factoryOptions) => {
             this._mempool = new Mempool(options);
 
             //start RPC
-            if (options.rpcUser && options.rpcPass) {
+            if (options.rpcAddress) {
                 this._rpc = new RPC(options);
                 this._rpc.on('rpc', this._rpcHandler.bind(this));
             }
@@ -1029,6 +1029,9 @@ module.exports = (factory, factoryOptions) => {
             logger.log(
                 `Block ${block.hash()}. GroupId: ${block.witnessGroupId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );
+            if (this._rpc) {
+                this._rpc.informWsSubscribers('newBlock', block.header);
+            }
         }
 
         /**
