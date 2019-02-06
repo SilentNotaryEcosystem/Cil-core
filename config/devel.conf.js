@@ -40,7 +40,7 @@ module.exports = {
         PEER_RESTRICT_TIME: 2 * 60 * 1000,
 
         PEER_HEARTBEAT_TIMER_NAME: 'peerHeartbeatTimer',
-        PEER_HEARTBEAT_TIMEOUT: 5 * 60 * 1000,
+        PEER_HEARTBEAT_TIMEOUT: 2 * 60 * 1000,
         PEER_DEAD_TIME: 6 * 60 * 1000,
 
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
