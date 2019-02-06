@@ -754,6 +754,9 @@ module.exports = (factory, factoryOptions) => {
                     case 'txReceipt':
                         const cReceipt = await this._storage.getTxReceipt(content);
                         return cReceipt ? cReceipt.toObject() : undefined;
+                    case 'getBlock':
+                        const cBlock = await this._storage.getBlock(content);
+                        return cBlock ? cBlock.toObject() : undefined;
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }

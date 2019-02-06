@@ -158,4 +158,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             this._data.signatures = arrSignatures.slice();
         }
+
+        toObject() {
+            return this._data;
+        }
     };

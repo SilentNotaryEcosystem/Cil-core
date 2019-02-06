@@ -28,6 +28,7 @@ module.exports = ({Constants, Transaction}) =>
 
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
+            this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -49,6 +50,20 @@ module.exports = ({Constants, Transaction}) =>
             return await this._nodeInstance.rpcHandler({
                 event: 'txReceipt',
                 content: strTxHash
+            });
+        }
+
+        informWsSubscribers(topic, objData) {
+            this._server.broadcastToWS(topic, objData);
+        }
+
+        getBlock(args) {
+            const {strBlockHash} = args;
+            typeforce(types.Str64, strBlockHash);
+
+            this.emit('rpc', {
+                event: 'getBlock',
+                content: strBlockHash
             });
         }
 

@@ -1292,5 +1292,24 @@ describe('Node tests', () => {
             assert.equal(rcpt.getCoinsUsed(), objTxReceipt.coinsUsed);
             assert.equal(rcpt.getContractAddress(), objTxReceipt.contractAddress);
         });
+
+        it('should get block', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+            const strBlockHash = pseudoRandomBuffer().toString('hex');
+            const cBlock = createDummyBlock(factory);
+
+            const fake = sinon.fake.resolves(cBlock);
+            node._storage.getBlock = fake;
+            const objResult = await node.rpcHandler({event: 'getBlock', content: strBlockHash});
+
+            assert.isOk(fake.calledOnce);
+            const [strHash] = fake.args[0];
+            assert.equal(strHash, strBlockHash);
+
+            assert.isOk(objResult);
+            assert.isOk(objResult, cBlock.toObject());
+        });
     });
+
 });
