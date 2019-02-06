@@ -558,7 +558,7 @@ describe('Node tests', () => {
         node._informNeighbors = sinon.fake();
 
         const peer = new factory.Peer(createDummyPeer(factory));
-        peer.ban = sinon.fake();
+        peer.misbehave = sinon.fake();
 
         const msg = new factory.Messages.MsgBlock(block);
 
@@ -570,7 +570,7 @@ describe('Node tests', () => {
             assert.isNotOk(node._storage.saveBlock.called);
             assert.isNotOk(node._storage.applyPatch.called);
             assert.isNotOk(node._informNeighbors.called);
-            assert.isOk(peer.ban.calledOnce);
+            assert.isOk(peer.misbehave.calledOnce);
             return;
         }
         assert.isOk(false, 'Unexpected success');
