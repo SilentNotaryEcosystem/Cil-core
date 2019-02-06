@@ -98,23 +98,33 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return coinbase;
         }
 
-        static createContract(strCode, maxCoins, addrChangeReceiver) {
-            typeforce(typeforce.tuple(typeforce.String, typeforce.Number), [strCode, maxCoins]);
+        static createContract(strCode, coinsLimit, addrChangeReceiver) {
+            typeforce(
+                typeforce.tuple(typeforce.String, typeforce.Number),
+                [strCode, coinsLimit]
+            );
 
             const tx = new this();
             tx._data.payload.outs.push({
-                amount: maxCoins,
+                coinsLimit: coinsLimit,
                 receiverAddr: Crypto.getAddrContractCreation(),
                 contractCode: strCode,
-                addrChangeReceiver
+                addrChangeReceiver,
+                amount: 0
             });
             return tx;
         }
 
-        static invokeContract(strContractAddr, strCode, maxCoins) {
+        static invokeContract(strContractAddr, strCode, amount, maxCoins) {
+            typeforce(
+                typeforce.tuple(types.Address, typeforce.String, typeforce.Number, typeforce.Number),
+                arguments
+            );
+
             const tx = new this();
             tx._data.payload.outs.push({
-                amount: maxCoins,
+                amount,
+                coinsLimit: maxCoins,
                 receiverAddr: Buffer.from(strContractAddr, 'hex'),
                 contractCode: strCode
             });
@@ -159,18 +169,23 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         /**
          *
-         * @param {String} strCodeInvocation  - method name & parameters
-         * @param {Number} maxCoins
          * @param {Buffer} addrContract
+         * @param {String} strCodeInvocation  - method name & parameters
+         * @param {Number} amount - coins to send to contract
+         * @param {Number} coinsLimit - max contract fee
          * @param {Buffer} addrChangeReceiver
          */
-        invokeContract(strCodeInvocation, maxCoins, addrContract, addrChangeReceiver) {
-            typeforce(typeforce.tuple('String', 'Number', types.Address), arguments);
+        invokeContract(addrContract, strCodeInvocation, amount, coinsLimit, addrChangeReceiver) {
+            typeforce(
+                typeforce.tuple(types.Address, typeforce.String, typeforce.Number, typeforce.Number),
+                [addrContract, strCodeInvocation, amount, coinsLimit]
+            );
 
             this._checkDone();
             this._data.payload.outs.push({
                 contractCode: strCodeInvocation,
-                amount: maxCoins,
+                amount,
+                coinsLimit,
                 receiverAddr: Buffer.from(addrContract, 'hex'),
                 addrChangeReceiver
             });
@@ -246,7 +261,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             // check outputs
             const outputs = this.outputs;
             const outsValid = outputs && outputs.every(output => {
-                return output.amount > 0;
+                return output.contractCode || output.amount > 0;
             });
 
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
@@ -267,19 +282,9 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
                    && inputs[0].nTxOutput === 0;
         }
 
-        // TODO: see todo for hasOneReceiver
         isContractCreation() {
             const outCoins = this.getOutCoins();
             return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
-        }
-
-        /**
-         * Used to distinguish payment from contract call (with possible false positives)
-         *
-         * @return {boolean}
-         */
-        hasOneReceiver() {
-            return this.getOutCoins().length === 1;
         }
 
         /**
@@ -291,15 +296,24 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return this.outputs.reduce((accum, out) => accum + out.amount, 0);
         }
 
-        getCode() {
-            const outputs = this.outputs;
-            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
-            return outputs[0].contractCode;
+        getContractCode() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.contractCode;
         }
 
-        getChangeReceiver() {
+        getContractChangeReceiver() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.addrChangeReceiver;
+        }
+
+        getContractCoinsLimit() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.coinsLimit;
+        }
+
+        _getContractOutput() {
             const outputs = this.outputs;
-            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
-            return outputs[0].addrChangeReceiver;
+            assert(outputs[0].contractCode !== undefined, 'No contract found at tx.outputs[0]');
+            return outputs[0];
         }
     };

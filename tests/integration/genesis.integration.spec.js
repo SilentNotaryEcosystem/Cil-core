@@ -475,9 +475,10 @@ function createAnotherGroup(strClaimPrivateKey, witnessPubKey, utxo, idx) {
 
     // WARNING! it's just test/demo. All coins at this UTXO become fee
     const tx = factory.Transaction.invokeContract(
-        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS,
+        Buffer.from(factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'),
         contractCode,
-        10000
+        0,
+        1e5
     );
 
     // spend witness2 coins (WHOLE!)

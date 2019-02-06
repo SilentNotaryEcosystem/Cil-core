@@ -15,17 +15,17 @@
     "nat-upnp": "^1.1.1",
     "protobufjs": "^6.8.8",
     "tick-tock": "^1.0.0",
-    "typeforce": "^1.12.0",
-    "vm2": "^3.6.10"
+    "typeforce": "^1.18.0",
+    "vm2": "^3.6.6"
   },
   "devDependencies": {
-    "chai": "^4.1.2",
-    "debug": "^3.1.0",
+    "chai": "^4.2.0",
+    "debug": "^3.2.6",
     "memdown": "^3.0.0",
     "mocha": "^5.2.0",
     "node-uuid": "^1.4.8",
     "one-time": "0.0.4",
-    "sinon": "^6.1.5"
+    "sinon": "^6.3.5"
   },
   "scripts": {
     "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",

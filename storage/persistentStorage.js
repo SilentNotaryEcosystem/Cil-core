@@ -380,8 +380,7 @@ module.exports = (factory, factoryOptions) => {
                 const buffData = await this._db.get(key).catch(err => debug(err));
                 if (!buffData) return undefined;
 
-                const contract = new Contract(buffData);
-                contract.storeAddress(buffAddress);
+                const contract = new Contract(buffData, buffAddress.toString('hex'));
 
                 return raw ? buffData : contract;
             });

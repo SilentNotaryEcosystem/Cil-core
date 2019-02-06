@@ -22,8 +22,9 @@ module.exports = (factory, {contractProto}) =>
         /**
          *
          * @param {Object | Buffer} data
+         * @param {String | undefined} strContractAddr
          */
-        constructor(data) {
+        constructor(data, strContractAddr) {
             typeforce(typeforce.oneOf('Object', 'Buffer'), data);
 
             if (Buffer.isBuffer(data)) {
@@ -41,6 +42,8 @@ module.exports = (factory, {contractProto}) =>
 
             // just to show that we'll not use it after decode
             this._data.contractData = undefined;
+
+            this._strAddress = strContractAddr;
         }
 
         /**

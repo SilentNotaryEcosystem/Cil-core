@@ -292,8 +292,35 @@ describe('Transaction tests', () => {
     it('should get code', async () => {
         const strCode = 'var a=0;';
         const tx = factory.Transaction.createContract(strCode, 1000, generateAddress());
-        const strGotCode = tx.getCode();
+        const strGotCode = tx.getContractCode();
 
         assert.equal(strCode, strGotCode);
     });
+
+    it('should get coinsLimit', async () => {
+        const strCode = 'var a=0;';
+        const nCoinsLimit = 1e3;
+        const tx = factory.Transaction.createContract(strCode, nCoinsLimit, generateAddress());
+        const nGotCoinsLimit = tx.getContractCoinsLimit();
+
+        assert.equal(nGotCoinsLimit, nCoinsLimit);
+    });
+
+    it('should VERIFY tx with contract invocation', async () => {
+        const kp = factory.Crypto.createKeyPair();
+        const strCode = 'var a=0;';
+        const tx = factory.Transaction.invokeContract(
+            generateAddress(),
+            strCode,
+            0,
+            1e5
+        );
+
+        // spend witness2 coins (WHOLE!)
+        tx.addInput(pseudoRandomBuffer(), 0);
+        tx.sign(0, kp.privateKey);
+
+        tx.verify();
+    });
+
 });

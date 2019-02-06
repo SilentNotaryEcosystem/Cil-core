@@ -265,7 +265,7 @@ describe('Application layer', () => {
             contractTx: tx.hash(),
             contractAddr: factory.Crypto.getAddress(tx.hash())
         };
-        const {receipt, contract} = app.createContract(1e5, tx.getCode(), env);
+        const {receipt, contract} = app.createContract(1e5, tx.getContractCode(), env);
 
         assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
         assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
