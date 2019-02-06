@@ -328,6 +328,7 @@ module.exports = (factory) => {
         }
 
         misbehave(score) {
+            debug(`Peer ${this.address} misbehaving. Current score: ${this._misbehaveScore}. Will add: ${score}. `);
 
             // reset _misbehaveScore if it was Constants.BAN_PEER_TIME ago
             if (Date.now() - this._misbehavedAt > Constants.BAN_PEER_TIME) this._misbehaveScore = 0;
