@@ -580,7 +580,7 @@ module.exports = (factory, factoryOptions) => {
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
                 await sleep(1000);
-                peer.disconnect();
+                peer.disconnect(reason);
                 return;
             }
 
@@ -634,7 +634,7 @@ module.exports = (factory, factoryOptions) => {
                         await peer.pushMessage(message);
                         await sleep(1000);
 
-                        peer.disconnect();
+                        peer.disconnect(reason);
                     }
                 }
 
@@ -647,8 +647,9 @@ module.exports = (factory, factoryOptions) => {
                 await peer.pushMessage(msgVerack);
 
             } else {
-                debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
-                peer.disconnect();
+                const reason = `Has incompatible protocol version ${message.protocolVersion}`;
+                debugNode(reason);
+                peer.disconnect(reason);
             }
         }
 
