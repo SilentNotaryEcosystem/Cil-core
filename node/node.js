@@ -246,16 +246,17 @@ module.exports = (factory, factoryOptions) => {
 
                 debugMsg(
                     `(address: "${this._debugAddress}") received message "${message.message}" from "${peer.address}"`);
+
+                if (message.isPong()) {
+                    return;
+                }
+
                 if (message.isReject()) {
                     const rejectMsg = new MsgReject(message);
 
                     // connection will be closed by other end
                     logger.log(
                         `(address: "${this._debugAddress}") peer: "${peer.address}" rejected with reason: "${rejectMsg.reason}"`);
-
-                    // if it's just collision - 1 point not too much, but if peer is malicious - it will raise to ban
-                    peer.misbehave(1);
-//                    peer.loadDone = true;
                     return;
                 }
 
@@ -293,9 +294,6 @@ module.exports = (factory, factoryOptions) => {
                 }
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
-                }
-                if (message.isPong()) {
-                    return;
                 }
 
                 throw new Error(`Unhandled message type "${message.message}"`);
@@ -836,7 +834,7 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {Boolean} isGenesis
-         * @param {Contract} contract
+         * @param {Contract | undefined} contract
          * @param {Transaction} tx
          * @param {PatchDB} patchThisTx
          * @param {Number} nCoinsIn - sum of all inputs coins
