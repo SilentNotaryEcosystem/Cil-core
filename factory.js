@@ -50,6 +50,7 @@ const StorageWrapper = require('./storage/persistentStorage');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
+const RequestCacheWrapper = require('../node/requestsCache');
 
 const TransactionWrapper = require('./structures/transaction');
 const BlockWrapper = require('./structures/block');
@@ -109,6 +110,7 @@ class Factory {
                 this._appImplementation = AppWrapper(this);
                 this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
                 this._mainDagImplementation = MainDagWrapper(this);
+                this._requestCacheImplementation = RequestCacheWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this);
@@ -174,6 +176,10 @@ class Factory {
 
     get RPC() {
         return this._rpcImplementation;
+    }
+
+    get RequestCache() {
+        return this._requestCacheImplementation;
     }
 
     get Mempool() {

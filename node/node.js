@@ -29,7 +29,8 @@ module.exports = (factory, factoryOptions) => {
         PendingBlocksManager,
         MainDag,
         BlockInfo,
-        Mutex
+        Mutex,
+        RequestCache
     } = factory;
     const {
         MsgCommon,
@@ -106,6 +107,8 @@ module.exports = (factory, factoryOptions) => {
 
             this._reconnectTimer = new Tick(this);
             this._listenPromise = this._transport.listen().catch(err => console.error(err));
+
+            this._requestCache = new RequestCache();
         }
 
         get rpc() {
@@ -315,11 +318,17 @@ module.exports = (factory, factoryOptions) => {
          */
         async _handleTxMessage(peer, message) {
 
-            //TODO: make sure that's a tx we requested! not pushed to us
-
             // this will check syntactic correctness
             const msgTx = new MsgTx(message);
             const tx = msgTx.tx;
+            const strTxHash = tx.hash();
+
+            if (!this._requestCache.isRequested(strTxHash)) {
+                logger.log(`Peer ${peer.address} pushed unrequested TX ${strTxHash} to us`);
+                peer.misbehave(5);
+                return;
+            }
+            this._requestCache.done(strTxHash);
 
             try {
                 await this._processReceivedTx(tx);
@@ -340,10 +349,16 @@ module.exports = (factory, factoryOptions) => {
          */
         async _handleBlockMessage(peer, message) {
 
-            //TODO: make sure that's a block we requested! not pushed to us
-
             const msg = new MsgBlock(message);
             const block = msg.block;
+
+            if (!this._requestCache.isRequested(block.getHash())) {
+                logger.log(`Peer ${peer.address} pushed unrequested Block ${block.getHash()} to us`);
+                peer.misbehave(5);
+                return;
+            }
+            this._requestCache.done(block.getHash());
+
             const lock = await this._mutex.acquire([`${block.getHash()}`]);
             try {
 
@@ -455,7 +470,7 @@ module.exports = (factory, factoryOptions) => {
                     bShouldRequest = !await this._storage.hasBlock(objVector.hash);
                 }
 
-                if (bShouldRequest) invToRequest.addVector(objVector);
+                if (bShouldRequest && this._requestCache.request(objVector.hash)) invToRequest.addVector(objVector);
             }
 
             // TODO: add cache of already requested items to PeerManager, but this cache should expire, because node could fail
