@@ -50,7 +50,7 @@ const StorageWrapper = require('./storage/persistentStorage');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
-const RequestCacheWrapper = require('../node/requestsCache');
+const RequestCacheWrapper = require('./node/requestsCache');
 
 const TransactionWrapper = require('./structures/transaction');
 const BlockWrapper = require('./structures/block');
