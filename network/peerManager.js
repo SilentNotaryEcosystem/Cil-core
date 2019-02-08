@@ -72,7 +72,7 @@ module.exports = (factory) => {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
             // it's senseless to add private addresses. we couldn't connect them anyway
-            if (!Transport.isRoutableAddress(peer.address)) return;
+            if (!Transport.isRoutableAddress(peer.address)) return peer;
 
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
