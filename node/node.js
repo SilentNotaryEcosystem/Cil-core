@@ -1225,13 +1225,19 @@ module.exports = (factory, factoryOptions) => {
         async _blockBad(block) {
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsBad();
-            await this._storeBlockAndInfo(block, blockInfo);
+            if (!await this._mainDag.getBlockInfo(block.getHash()) ||
+                !await this._storage.hasBlock(block.getHash())) {
+                await this._storeBlockAndInfo(block, blockInfo);
+            }
         }
 
         async _blockInFlight(block) {
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsInFlight();
-            await this._storeBlockAndInfo(block, blockInfo);
+            if (!await this._mainDag.getBlockInfo(block.getHash()) ||
+                !await this._storage.hasBlock(block.getHash())) {
+                await this._storeBlockAndInfo(block, blockInfo);
+            }
         }
 
         /**
@@ -1244,7 +1250,6 @@ module.exports = (factory, factoryOptions) => {
         async _storeBlockAndInfo(block, blockInfo) {
             typeforce(typeforce.tuple(types.Block, types.BlockInfo), arguments);
 
-            this._mainDag.addBlock(blockInfo);
             if (blockInfo.isBad()) {
 
                 // we don't store entire of bad blocks, but store its headers (to prevent processing it again)
@@ -1254,6 +1259,7 @@ module.exports = (factory, factoryOptions) => {
                 // save block, and it's info
                 await this._storage.saveBlock(block, blockInfo);
             }
+            this._mainDag.addBlock(blockInfo);
         }
 
         /**
