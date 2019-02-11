@@ -29,7 +29,8 @@ module.exports = (factory, factoryOptions) => {
         PendingBlocksManager,
         MainDag,
         BlockInfo,
-        Mutex
+        Mutex,
+        RequestCache
     } = factory;
     const {
         MsgCommon,
@@ -107,6 +108,8 @@ module.exports = (factory, factoryOptions) => {
 
             this._reconnectTimer = new Tick(this);
             this._listenPromise = this._transport.listen().catch(err => console.error(err));
+
+            this._requestCache = new RequestCache();
         }
 
         get rpc() {
@@ -247,16 +250,17 @@ module.exports = (factory, factoryOptions) => {
 
                 debugMsg(
                     `(address: "${this._debugAddress}") received message "${message.message}" from "${peer.address}"`);
+
+                if (message.isPong()) {
+                    return;
+                }
+
                 if (message.isReject()) {
                     const rejectMsg = new MsgReject(message);
 
                     // connection will be closed by other end
                     logger.log(
                         `(address: "${this._debugAddress}") peer: "${peer.address}" rejected with reason: "${rejectMsg.reason}"`);
-
-                    // if it's just collision - 1 point not too much, but if peer is malicious - it will raise to ban
-                    peer.misbehave(1);
-//                    peer.loadDone = true;
                     return;
                 }
 
@@ -295,9 +299,6 @@ module.exports = (factory, factoryOptions) => {
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
-                if (message.isPong()) {
-                    return;
-                }
 
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
@@ -318,11 +319,17 @@ module.exports = (factory, factoryOptions) => {
          */
         async _handleTxMessage(peer, message) {
 
-            //TODO: make sure that's a tx we requested! not pushed to us
-
             // this will check syntactic correctness
             const msgTx = new MsgTx(message);
             const tx = msgTx.tx;
+            const strTxHash = tx.hash();
+
+            if (!this._requestCache.isRequested(strTxHash)) {
+                logger.log(`Peer ${peer.address} pushed unrequested TX ${strTxHash} to us`);
+                peer.misbehave(5);
+                return;
+            }
+            this._requestCache.done(strTxHash);
 
             try {
                 await this._processReceivedTx(tx);
@@ -343,10 +350,16 @@ module.exports = (factory, factoryOptions) => {
          */
         async _handleBlockMessage(peer, message) {
 
-            //TODO: make sure that's a block we requested! not pushed to us
-
             const msg = new MsgBlock(message);
             const block = msg.block;
+
+            if (!this._requestCache.isRequested(block.getHash())) {
+                logger.log(`Peer ${peer.address} pushed unrequested Block ${block.getHash()} to us`);
+                peer.misbehave(5);
+                return;
+            }
+            this._requestCache.done(block.getHash());
+
             const lock = await this._mutex.acquire([`${block.getHash()}`]);
             try {
 
@@ -458,7 +471,7 @@ module.exports = (factory, factoryOptions) => {
                     bShouldRequest = !await this._storage.hasBlock(objVector.hash);
                 }
 
-                if (bShouldRequest) invToRequest.addVector(objVector);
+                if (bShouldRequest && this._requestCache.request(objVector.hash)) invToRequest.addVector(objVector);
             }
 
             // TODO: add cache of already requested items to PeerManager, but this cache should expire, because node could fail
@@ -583,7 +596,7 @@ module.exports = (factory, factoryOptions) => {
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
                 await sleep(1000);
-                peer.disconnect();
+                peer.disconnect(reason);
                 return;
             }
 
@@ -637,7 +650,7 @@ module.exports = (factory, factoryOptions) => {
                         await peer.pushMessage(message);
                         await sleep(1000);
 
-                        peer.disconnect();
+                        peer.disconnect(reason);
                     }
                 }
 
@@ -650,8 +663,9 @@ module.exports = (factory, factoryOptions) => {
                 await peer.pushMessage(msgVerack);
 
             } else {
-                debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
-                peer.disconnect();
+                const reason = `Has incompatible protocol version ${message.protocolVersion}`;
+                debugNode(reason);
+                peer.disconnect(reason);
             }
         }
 
@@ -837,7 +851,7 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {Boolean} isGenesis
-         * @param {Contract} contract
+         * @param {Contract | undefined} contract
          * @param {Transaction} tx
          * @param {PatchDB} patchThisTx
          * @param {Number} nCoinsIn - sum of all inputs coins
@@ -1227,13 +1241,19 @@ module.exports = (factory, factoryOptions) => {
         async _blockBad(block) {
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsBad();
-            await this._storeBlockAndInfo(block, blockInfo);
+            if (!await this._mainDag.getBlockInfo(block.getHash()) ||
+                !await this._storage.hasBlock(block.getHash())) {
+                await this._storeBlockAndInfo(block, blockInfo);
+            }
         }
 
         async _blockInFlight(block) {
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsInFlight();
-            await this._storeBlockAndInfo(block, blockInfo);
+            if (!await this._mainDag.getBlockInfo(block.getHash()) ||
+                !await this._storage.hasBlock(block.getHash())) {
+                await this._storeBlockAndInfo(block, blockInfo);
+            }
         }
 
         /**
@@ -1246,7 +1266,6 @@ module.exports = (factory, factoryOptions) => {
         async _storeBlockAndInfo(block, blockInfo) {
             typeforce(typeforce.tuple(types.Block, types.BlockInfo), arguments);
 
-            this._mainDag.addBlock(blockInfo);
             if (blockInfo.isBad()) {
 
                 // we don't store entire of bad blocks, but store its headers (to prevent processing it again)
@@ -1256,6 +1275,7 @@ module.exports = (factory, factoryOptions) => {
                 // save block, and it's info
                 await this._storage.saveBlock(block, blockInfo);
             }
+            this._mainDag.addBlock(blockInfo);
         }
 
         /**

@@ -55,6 +55,9 @@ module.exports = {
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 500,
 
+        // we expect that peer will respond with requested INV
+        INV_REQUEST_HOLDOFF: 1 * 60 * 1000,
+
         messageTypes: {
             MSG_VERSION: 'version',
             MSG_VERACK: 'verack',

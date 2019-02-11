@@ -10,7 +10,7 @@ const Tick = require('tick-tock');
  * @emits 'message' {peer, message}
  */
 module.exports = (factory) => {
-    const {Constants, Messages, Peer} = factory;
+    const {Constants, Messages, Peer, Transport} = factory;
 
     const {PeerInfo} = Messages;
 
@@ -69,8 +69,11 @@ module.exports = (factory) => {
          * @return {Peer | undefined} undefined if peer already connected
          */
         addPeer(peer, bForceRewrite) {
-
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
+
+            // it's senseless to add private addresses. we couldn't connect them anyway
+            if (!Transport.isRoutableAddress(peer.address)) return peer;
+
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
 

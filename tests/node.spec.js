@@ -402,6 +402,8 @@ describe('Node tests', () => {
         const {tx} = createTxAddCoinsToNode(node);
         const msg = new factory.Messages.MsgTx(tx);
 
+        node._requestCache.request(tx.hash());
+
         await node._handleTxMessage(peer, msg);
 
         assert.isNotOk(peer.misbehave.called);
@@ -424,6 +426,8 @@ describe('Node tests', () => {
 
         const {tx} = createTxAddCoinsToNode(node);
         const msg = new factory.Messages.MsgTx(tx);
+
+        node._requestCache.request(tx.hash());
 
         try {
             await node._handleTxMessage(peer, msg);
@@ -483,6 +487,8 @@ describe('Node tests', () => {
 
         node._mainDag.getBlockInfo = sinon.fake.resolves(false);
         node._processBlock = sinon.fake();
+        node._requestCache.request(block.hash());
+
         await node._handleBlockMessage(undefined, msg);
 
         assert.isOk(node._processBlock.called);
@@ -494,8 +500,9 @@ describe('Node tests', () => {
 
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
-
+        node._requestCache.request(block.hash());
         node._mainDag.getBlockInfo = sinon.fake.resolves(true);
+
         await node._handleBlockMessage(undefined, msg);
 
         assert.isNotOk(node._processBlock.called);
@@ -525,6 +532,7 @@ describe('Node tests', () => {
         node._storage.getUtxosCreateMap = sinon.fake();
         node._informNeighbors = sinon.fake();
         node._checkCoinbaseTx = sinon.fake();
+        node._requestCache.request(block.hash());
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.ban = sinon.fake();
@@ -556,6 +564,7 @@ describe('Node tests', () => {
         node._verifyBlock = sinon.fake.returns(true);
         node._canExecuteBlock = sinon.fake.returns(true);
         node._informNeighbors = sinon.fake();
+        node._requestCache.request(block.hash());
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.misbehave = sinon.fake();

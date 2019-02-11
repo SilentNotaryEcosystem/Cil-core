@@ -81,6 +81,15 @@ module.exports = (factory) => {
         }
 
         /**
+         * Dummy
+         *
+         * @returns {boolean}
+         */
+        static isRoutableAddress() {
+            return true;
+        }
+
+        /**
          * Only for tests
          *
          * @return {String} !!
