@@ -95,6 +95,7 @@ module.exports = (factory, factoryOptions) => {
             //start RPC
             if (options.rpcAddress) {
                 this._rpc = new RPC(this, options);
+
             }
 
             this._app = new Application(options);
@@ -1130,7 +1131,6 @@ module.exports = (factory, factoryOptions) => {
          */
         async _verifyBlockSignatures(block) {
             const buffBlockHash = Buffer.from(block.hash(), 'hex');
-
             const witnessGroupDefinition = await this._storage.getWitnessGroupById(block.witnessGroupId);
             assert(witnessGroupDefinition, `Unknown witnessGroupId: ${block.witnessGroupId}`);
             const arrPubKeys = witnessGroupDefinition.getDelegatesPublicKeys();

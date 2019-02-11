@@ -5,6 +5,8 @@ const {readCmdLineOptions, sleep} = require('./utils');
 process.on('warning', e => console.warn(e.stack));
 
 (async () => {
+    console.log(process.env.NODE_ENV)
+
     await factory.asyncLoad();
 
     console.log(`Using ${factory.Constants.strIdent} config`);
@@ -40,7 +42,9 @@ process.on('warning', e => console.warn(e.stack));
             ...commonOptions
         });
     }
-
+//*
+console.log(objCmdLineParams)
+//*
     process.on('SIGINT', node.gracefulShutdown.bind(node));
     process.on('SIGTERM', node.gracefulShutdown.bind(node));
 

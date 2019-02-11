@@ -23,7 +23,11 @@ module.exports = ({Constants, Transaction}) =>
             this._nodeInstance = cNodeInstance;
 
             const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
-            this._server = rpc.Server.$create({websocket: true});
+            this._server = rpc.Server.$create({websocket: true,
+                'headers': { 
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
             if (rpcUser && rpcPass) this._server.enableAuth(rpcUser, rpcPass);
 
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
@@ -57,17 +61,21 @@ module.exports = ({Constants, Transaction}) =>
             this._server.broadcastToWS(topic, objData);
         }
 
-        getBlock(args) {
+        async getBlock(args) {
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
 
-            this.emit('rpc', {
+            return await this._nodeInstance.rpcHandler({
                 event: 'getBlock',
                 content: strBlockHash
             });
+           /*  this.emit('rpc', {
+                event: 'getBlock',
+                content: strBlockHash
+            }); */
         }
 
-        informWsSubscribers(topic, objData) {
+       /*  informWsSubscribers(topic, objData) {
             this._server.broadcastToWS(topic, objData);
-        }
+        } */
     };
