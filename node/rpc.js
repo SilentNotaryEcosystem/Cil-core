@@ -33,6 +33,8 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
+            this._server.expose('getLastBlock', asyncRPC(this.getLastBlock.bind(this)));
+
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -63,19 +65,17 @@ module.exports = ({Constants, Transaction}) =>
 
         async getBlock(args) {
             const {strBlockHash} = args;
-            typeforce(types.Str64, strBlockHash);
+            const base64Hash = Buffer.from(strBlockHash, 'base64').toString('hex');
+            typeforce(types.Str64, base64Hash);
 
             return await this._nodeInstance.rpcHandler({
                 event: 'getBlock',
-                content: strBlockHash
+                content: base64Hash
             });
-           /*  this.emit('rpc', {
-                event: 'getBlock',
-                content: strBlockHash
-            }); */
         }
-
-       /*  informWsSubscribers(topic, objData) {
-            this._server.broadcastToWS(topic, objData);
-        } */
+        async getLastBlock() {
+            return await this._nodeInstance.rpcHandler({
+                event: 'getLastBlock'
+            });
+        }
     };

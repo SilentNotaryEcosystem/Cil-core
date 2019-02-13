@@ -770,8 +770,12 @@ module.exports = (factory, factoryOptions) => {
                         const cReceipt = await this._storage.getTxReceipt(content);
                         return cReceipt ? cReceipt.toObject() : undefined;
                     case 'getBlock':
+                    
                         const cBlock = await this._storage.getBlock(content);
-                        return cBlock ? cBlock.toObject() : undefined;
+                        return cBlock ? {hash:Buffer.from(cBlock.getHash(),'hex').toString('base64'), block:cBlock.toObject()} : undefined;
+                    case 'getLastBlock':
+                        const lBlock = await this._storage.getLastBlock();
+                        return lBlock ? {hash:Buffer.from(lBlock.getHash(),'hex').toString('base64'), block:lBlock.toObject()} : undefined;
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1090,7 +1094,8 @@ module.exports = (factory, factoryOptions) => {
                 `Block ${block.hash()}. GroupId: ${block.witnessGroupId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );
             if (this._rpc) {
-                this._rpc.informWsSubscribers('newBlock', block.header);
+                this._rpc.informWsSubscribers('newBlock',
+                {hash:Buffer.from(block.getHash(),'hex').toString('base64'), block:block.toObject()});
             }
         }
 

@@ -53,8 +53,6 @@ module.exports = {
     },
 
     asyncRPC: fn => (arg, opt, cb) => {
-        console.log('**************************')
-        console.log(cb)
         fn(arg, opt)
             .then(result => cb(null, result))
             .catch(cb);

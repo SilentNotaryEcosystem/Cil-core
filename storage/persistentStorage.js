@@ -464,5 +464,22 @@ module.exports = (factory, factoryOptions) => {
                     .on('error', err => reject(err));
             });
         }
+
+        getLastBlock() {
+            let lastBlock;
+            let lastTimeStamp = 0;
+            return new Promise((resolve, reject) => {
+                this._blockStorage.createValueStream()
+                    .on('data', b => {
+                        let block = new Block(b);
+                        if (block.header.timestamp > lastTimeStamp){
+                            lastTimeStamp = block.header.timestamp;
+                            lastBlock = block;
+                        }
+                    })
+                    .on('close', () => resolve(lastBlock))
+                    .on('error', err => reject(err));
+            });
+        }
     };
 };
