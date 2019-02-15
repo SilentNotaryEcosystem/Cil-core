@@ -69,6 +69,7 @@ describe('Witness tests', () => {
         const groupId = 0;
         const {keyPair1, keyPair2, groupDefinition} = createDummyDefinitionWallet(groupId);
         const witness = new factory.Witness({wallet, arrTestDefinition: [groupDefinition], isSeed: true});
+        await witness.ensureLoaded();
 
         const peer1 = createDummyPeer(keyPair1.publicKey);
         const peer2 = createDummyPeer('notWitness1');

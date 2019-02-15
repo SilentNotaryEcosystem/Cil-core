@@ -12,12 +12,13 @@ process.on('warning', e => console.warn(e.stack));
 
 const debugWitness = debugLib('witness:app');
 
-const maxConnections = os.platform() === 'win32' ? 4 : 10;
-//const maxConnections = 2;
-
 // set to undefined to use random delays
 const delay = undefined;
 //const delay = 10;
+//const maxConnections = 2;
+const maxConnections = 4;
+//const maxConnections = os.platform() === 'win32' ? 4 : 8;
+
 
 let groupId = 11;
 let arrKeyPairs;
@@ -144,7 +145,7 @@ describe('Witness integration tests', () => {
         await Promise.all(arrWitnesses.map(witness => witness.ensureLoaded()));
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
 
-        // there should be maxConnections+2 peers added to seed
+        // there should be maxConnections  peers added to seed
         const arrPeers = seedNode._peerManager.filterPeers();
         assert.equal(arrPeers.length, maxConnections + 2);
 
@@ -153,6 +154,8 @@ describe('Witness integration tests', () => {
 
     it('should NOT commit block (empty mempool)', async function() {
         this.timeout(maxConnections * 60000);
+        factory.Constants.WITNESS_HOLDOFF = 2 * maxConnections * 60000;
+
         const genesis = createGenesisBlock();
 
         const seedAddress = factory.Transport.generateAddress();
@@ -175,7 +178,12 @@ describe('Witness integration tests', () => {
             }));
         }
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
-        await Promise.all(arrWitnesses.map(witness => witness.start()));
+        const arrStartPromises = [];
+        for (let i = 0; i < arrWitnesses.length; i++) {
+            await sleep(2000);
+            arrStartPromises.push(arrWitnesses[i].start());
+        }
+        await Promise.all(arrStartPromises);
 
         // all witnesses should call _suppressedBlockHandler
         await Promise.all(arrSuppressedBlocksPromises);
@@ -193,10 +201,9 @@ describe('Witness integration tests', () => {
             listenAddr: seedAddress,
             delay,
             arrTestDefinition: [groupDefinition],
-            rpcUser: 'test',
-            rpcPass: 'test',
             isSeed: true
         });
+
         patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();
         await seedNode._processBlock(genesis);
@@ -224,10 +231,15 @@ describe('Witness integration tests', () => {
 
         // run
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
-        await Promise.all(arrWitnesses.map(witness => witness.start()));
+        const arrStartPromises = [];
+        for (let i = 0; i < arrWitnesses.length; i++) {
+            await sleep(1000);
+            arrStartPromises.push(arrWitnesses[i].start());
+        }
+        await Promise.all(arrStartPromises);
 
         // inject TX into network
-        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
+        await seedNode.rpcHandler({event: 'tx', content: tx});
 
         // all witnesses + seedNode should get block (_acceptBlock called)
         await Promise.all(arrBlocksPromises);
@@ -273,7 +285,7 @@ describe('Witness integration tests', () => {
         await witness.start();
 
         // inject TX into network
-        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
+        await seedNode.rpcHandler({event: 'tx', content: tx});
 
         // all witnesses + seedNode should get block (_acceptBlock called)
         await Promise.all(arrBlocksPromises);
@@ -281,6 +293,9 @@ describe('Witness integration tests', () => {
 
     it('should NOT commit block (there is TX in mempool, but wrong witnessGroupId)', async function() {
         this.timeout(maxConnections * 60000);
+
+        // this will prevent generating empty block while we run this test
+        factory.Constants.WITNESS_HOLDOFF = 2 * maxConnections * 60000;
 
         // it will create tx for groupId==2
         const {genesis, tx} = createGenesisBlockAndSpendingTx(2);
@@ -299,10 +314,6 @@ describe('Witness integration tests', () => {
 
         // create 'maxConnections' witnesses for groupId (11 see global variable)
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
-        for (let witness of arrWitnesses) {
-            await witness.ensureLoaded();
-            await witness._processBlock(genesis);
-        }
 
         const acceptBlockFake = sinon.fake();
 
@@ -316,9 +327,14 @@ describe('Witness integration tests', () => {
             }));
         }
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
-        await Promise.all(arrWitnesses.map(witness => witness.start()));
+        const arrStartPromises = [];
+        for (let i = 0; i < arrWitnesses.length; i++) {
+            await sleep(1000);
+            arrStartPromises.push(arrWitnesses[i].start());
+        }
+        await Promise.all(arrStartPromises);
 
-        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
+        await seedNode.rpcHandler({event: 'tx', content: tx});
 
         // all witnesses should call _suppressedBlockHandler
         await Promise.all(arrSuppressedBlocksPromises);

@@ -17,7 +17,7 @@ module.exports = (factory) => {
     return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {transport, storage, isSeed, strictAddresses} = options;
+            const {transport, storage, isSeed, strictAddresses, useNonRoutableAddresses} = options;
 
             // is this PeerManager belongs to seed node? if so - we'll return all peers, even "dead"
             this._isSeed = isSeed;
@@ -45,6 +45,9 @@ module.exports = (factory) => {
             this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
                 Constants.PEERMANAGER_BACKUP_TIMEOUT
             );
+
+            // will we store non-routable addresses or no
+            this._useNonRoutableAddresses = useNonRoutableAddresses;
         }
 
         /**
@@ -72,7 +75,7 @@ module.exports = (factory) => {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
             // it's senseless to add private addresses. we couldn't connect them anyway
-            if (!Transport.isRoutableAddress(peer.address)) return peer;
+            if (!this._useNonRoutableAddresses && !Transport.isRoutableAddress(peer.address)) return peer;
 
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);

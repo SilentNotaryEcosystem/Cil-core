@@ -65,39 +65,45 @@ module.exports = (factory, factoryOptions) => {
             this._nonce = parseInt(Math.random() * 100000);
 
             this._arrSeedAddresses = arrSeedAddresses || [];
-            this._arrDnsSeeds = arrDnsSeeds || [Constants.DNS_SEED];
+            this._arrDnsSeeds = arrDnsSeeds || Constants.DNS_SEED;
 
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
-            this._transport = new Transport(options);
-
-            this._myPeerInfo = new PeerInfo({
-                capabilities: [
-                    {service: Constants.NODE}
-                ],
-                address: Transport.strToAddress(this._transport.myAddress),
-                port: this._transport.port
-            });
-
-            // used only for debugging purpose. Feel free to remove
-            this._debugAddress = this._transport.myAddress;
-
-            this._peerManager = new PeerManager({transport: this._transport, storage: this._storage, ...options});
-
-            // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
-            this._peerManager.on('message', this._incomingMessage.bind(this));
-            debugNode(`(address: "${this._debugAddress}") start listening`);
-            this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
-
-            this._transport.on('connect', this._incomingConnection.bind(this));
 
             // create mempool
             this._mempool = new Mempool(options);
 
-            //start RPC
-            if (options.rpcAddress) {
-                this._rpc = new RPC(this, options);
 
-            }
+            this._transport = new Transport(options);
+            this._transport.on('connect', this._incomingConnection.bind(this));
+            this._listenPromise = this._transport.listen()
+                .then(() => {
+
+                    this._myPeerInfo = new PeerInfo({
+                        capabilities: [
+                            {service: Constants.NODE}
+                        ],
+                        address: Transport.strToAddress(this._transport.myAddress),
+                        port: this._transport.port
+                    });
+
+                    // used only for debugging purpose. Feel free to remove
+                    this._debugAddress = this._transport.myAddress;
+
+                    this._peerManager =
+                        new PeerManager({transport: this._transport, storage: this._storage, ...options});
+
+                    // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
+                    this._peerManager.on('message', this._incomingMessage.bind(this));
+                    debugNode(`(address: "${this._debugAddress}") start listening`);
+                    this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
+
+                    //start RPC
+                    if (options.rpcAddress) {
+                        this._rpc = new RPC(this, options);
+                    }
+                })
+                .catch(err => console.error(err));
+
 
             this._app = new Application(options);
 
@@ -107,8 +113,6 @@ module.exports = (factory, factoryOptions) => {
             this._msecOffset = 0;
 
             this._reconnectTimer = new Tick(this);
-            this._listenPromise = this._transport.listen().catch(err => console.error(err));
-
             this._requestCache = new RequestCache();
         }
 
@@ -178,7 +182,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _mergeSeedPeers() {
-            if (this._arrDnsSeeds) {
+            if (this._arrDnsSeeds && this._arrDnsSeeds.length) {
                 const arrDnsPeers = await this._queryDnsRecords(this._arrDnsSeeds);
                 this._arrSeedAddresses = this._arrSeedAddresses.concat(arrDnsPeers);
             }
@@ -187,15 +191,15 @@ module.exports = (factory, factoryOptions) => {
         /**
          * Query DNS records for peerAddresses
          *
-         * @param {Array} dnsSeeds
-         * @param {String} dnsSeeds[0] - like 'dnsseed.bluematt.me'
+         * @param {Array} arrDnsSeeds
+         * @param {String} arrDnsSeeds[0] - like 'dnsseed.bluematt.me'
          * @return {Promise<Array>} - array of addresses of seed nodes
          * @private
          */
-        async _queryDnsRecords(dnsSeeds) {
+        async _queryDnsRecords(arrDnsSeeds) {
             let arrResult = [];
             const arrPromises = [];
-            for (let name of dnsSeeds) {
+            for (let name of arrDnsSeeds) {
                 const prom = Transport.resolveName(name)
                     .then(arrAddresses => {
                         arrResult = arrResult.concat(arrAddresses);
@@ -439,17 +443,15 @@ module.exports = (factory, factoryOptions) => {
             const invToRequest = new Inventory();
 
             for (let hash of this._setUnknownBlocks) {
-                invToRequest.addBlockHash(hash);
+                if (!this._requestCache.isRequested(hash)) invToRequest.addBlockHash(hash);
             }
 
             msgGetData.inventory = invToRequest;
-
-            // TODO: this will result a duplicate responses. Rewrite it.
             this._peerManager.broadcastToConnected(undefined, msgGetData);
         }
 
         /**
-         * Handler for MSG_INV message.
+         * Handler for MSG_INV message
          * Send MSG_GET_DATA for unknown hashes
          *
          * @param {Peer} peer - peer that send message
@@ -461,6 +463,10 @@ module.exports = (factory, factoryOptions) => {
             const invMsg = new MsgInv(message);
             const invToRequest = new Inventory();
             for (let objVector of invMsg.inventory.vector) {
+
+                // we already requested it (from another node), so let's skip it
+                if (this._requestCache.isRequested(objVector.hash)) continue;
+
                 let bShouldRequest = false;
                 if (objVector.type === Constants.INV_TX) {
 
@@ -471,14 +477,17 @@ module.exports = (factory, factoryOptions) => {
                     bShouldRequest = !await this._storage.hasBlock(objVector.hash);
                 }
 
-                if (bShouldRequest && this._requestCache.request(objVector.hash)) invToRequest.addVector(objVector);
+                if (bShouldRequest) {
+                    invToRequest.addVector(objVector);
+                    this._requestCache.request(objVector.hash);
+                }
             }
 
-            // TODO: add cache of already requested items to PeerManager, but this cache should expire, because node could fail
             if (invToRequest.vector.length) {
                 const msgGetData = new MsgGetData();
                 msgGetData.inventory = invToRequest;
-                debugMsg(`(address: "${this._debugAddress}") sending "${msgGetData.message}" to "${peer.address}"`);
+                debugMsg(
+                    `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
                 await peer.pushMessage(msgGetData);
             }
         }
@@ -639,7 +648,11 @@ module.exports = (factory, factoryOptions) => {
                             reason = 'You are banned';
                         } else if (result === Constants.REJECT_DUPLICATE) {
                             reason = 'Duplicate connection';
-                        } else if (result === Constants.REJECT_RESTRICTED) reason = 'Have a break';
+                        } else if (result === Constants.REJECT_RESTRICTED) {
+                            reason = 'Have a break';
+                        } else {
+                            reason = 'Check _peerManager.associatePeer!';
+                        }
 
                         const message = new MsgReject({
                             code: result,
@@ -651,6 +664,7 @@ module.exports = (factory, factoryOptions) => {
                         await sleep(1000);
 
                         peer.disconnect(reason);
+                        return;
                     }
                 }
 
@@ -728,19 +742,20 @@ module.exports = (factory, factoryOptions) => {
         async _handlePeerList(peer, message) {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
+
+                // don't add own address
+                if (this._myPeerInfo.address.equals(PeerInfo.toAddress(peerInfo.address))) continue;
+
                 const newPeer = await this._peerManager.addPeer(peerInfo, false);
                 if (newPeer instanceof Peer) {
                     debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
                 }
             }
 
-            // if we initiated connection - let's request for new blocks
-//            if (!peer.inbound) {
             const msg = new MsgGetBlocks();
             msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
             debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}"`);
             await peer.pushMessage(msg);
-//            }
 
             // TODO: move loadDone after we got all we need from peer
             peer.loadDone = true;

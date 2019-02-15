@@ -26,6 +26,15 @@ describe('Inventory', () => {
         assert.isOk(inv.vector[0].type, factory.Constants.INV_TX);
     });
 
+    it('should add TX (by hash)', async () => {
+        const inv = new factory.Inventory();
+        const txHash = pseudoRandomBuffer();
+        inv.addTxHash(txHash);
+        assert.isOk(inv.vector[0]);
+        assert.isOk(inv.vector[0].type, factory.Constants.INV_TX);
+
+    });
+
     it('should add block', async () => {
         const inv = new factory.Inventory();
         const tx = new factory.Transaction(createDummyTx());
@@ -37,6 +46,15 @@ describe('Inventory', () => {
         inv.addBlock(block);
         assert.isOk(inv.vector[0]);
         assert.isOk(inv.vector[0].type, factory.Constants.INV_BLOCK);
+    });
+
+    it('should add block (by hash)', async () => {
+        const inv = new factory.Inventory();
+        const blockHash = pseudoRandomBuffer();
+        inv.addBlockHash(blockHash);
+        assert.isOk(inv.vector[0]);
+        assert.isOk(inv.vector[0].type, factory.Constants.INV_BLOCK);
+
     });
 
     it('should encode/decode inventory', async () => {
@@ -56,6 +74,10 @@ describe('Inventory', () => {
         assert.isOk(restoredInv.vector[0].type, factory.Constants.INV_TX);
         assert.isOk(restoredInv.vector[1]);
         assert.isOk(restoredInv.vector[1].type, factory.Constants.INV_BLOCK);
+
+        // should restore internal cache upon decoding, to prevent adding element more than one time
+        restoredInv.addTx(tx);
+        assert.equal(restoredInv.vector.length, 2);
     });
 
 });

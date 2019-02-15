@@ -6,18 +6,20 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
         constructor(data) {
             typeforce(typeforce.oneOf('Number', 'Buffer', types.Empty), data);
 
+            this._setHashes = new Set();
             if (data === undefined) data = {};
 
             if (Buffer.isBuffer(data)) {
                 this._data = {...inventoryProto.decode(data)};
+                for (let elem of this._data.invVector) {
+                    this._setHashes.add(elem.hash.toString('hex'));
+                }
             } else if (typeof data === 'object') {
                 const errMsg = inventoryProto.verify(data);
                 if (errMsg) throw new Error(`Inventory: ${errMsg}`);
 
                 this._data = inventoryProto.create(data);
             }
-
-            this._setHashes = new Set();
         }
 
         encode() {
@@ -36,6 +38,21 @@ module.exports = ({Constants, Crypto}, {inventoryProto}) =>
             this._markAsAdded(tx.hash());
         }
 
+        /**
+         *
+         * @param {String | Buffer} hash
+         */
+        addTxHash(hash) {
+            typeforce(types.Hash256bit, hash);
+            hash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
+            const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
+
+            if (this._wasAlreadyAdded(strHash)) return;
+
+            const vector = {type: Constants.INV_TX, hash};
+            this._data.invVector.push(vector);
+            this._markAsAdded(strHash);
+        }
         /**
          *
          * @param {Block} block

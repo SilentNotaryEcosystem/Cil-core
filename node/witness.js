@@ -26,14 +26,27 @@ module.exports = (factory, factoryOptions) => {
             const {wallet} = options;
 
             // upgrade capabilities from regular Node to Witness
-            this._myPeerInfo.addCapability({service: Constants.WITNESS, data: Buffer.from(wallet.publicKey, 'hex')});
+            this._listenPromise.then(() => {
+                this._myPeerInfo.addCapability(
+                    {service: Constants.WITNESS, data: Buffer.from(wallet.publicKey, 'hex')});
+                this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
+            });
 
             this._wallet = wallet;
             if (!this._wallet) throw new Error('Pass wallet into witness');
 
-            this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
-
             this._consensuses = new Map();
+        }
+
+        async bootstrap() {
+
+            // try early initialization of consensus engines
+            const arrGroupDefinitions = await this._storage.getWitnessGroupsByKey(this._wallet.publicKey);
+
+            for (let def of arrGroupDefinitions) {
+                await this._createConsensusForGroup(def);
+            }
+            await super.bootstrap();
         }
 
         /**
@@ -44,8 +57,11 @@ module.exports = (factory, factoryOptions) => {
         async start() {
             const arrGroupDefinitions = await this._storage.getWitnessGroupsByKey(this._wallet.publicKey);
 
+            // this need only at very beginning when witness start without genesis. In this case
+            const wasInitialized = this._consensuses.size;
+
             for (let def of arrGroupDefinitions) {
-                await this._createConsensusForGroup(def);
+                if (!wasInitialized) await this._createConsensusForGroup(def);
                 await this.startWitnessGroup(def);
             }
 

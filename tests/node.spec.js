@@ -117,6 +117,7 @@ describe('Node tests', () => {
 
         seedAddress = factory.Transport.generateAddress();
         seedNode = new factory.Node({listenAddr: seedAddress, delay: 10, isSeed: true});
+        await seedNode.ensureLoaded();
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
@@ -161,6 +162,15 @@ describe('Node tests', () => {
         assert.isOk(node);
     });
 
+    it('should perform all async load', async () => {
+        const node = new factory.Node();
+        await node.ensureLoaded();
+
+        assert.isOk(node);
+        assert.isOk(node._myPeerInfo);
+        assert.isOk(node._peerManager);
+    });
+
     it('should resolve DNS seeds', async () => {
         const node = new factory.Node({arrDnsSeeds: ['a-b', 'c-d']});
         assert.isOk(node);
@@ -170,6 +180,7 @@ describe('Node tests', () => {
 
     it('should merge seeds', async () => {
         const node = new factory.Node({arrDnsSeeds: ['a-b', 'c-d'], arrSeedAddresses: ['e', 'f']});
+        await node.ensureLoaded();
         assert.isOk(node);
         await node._mergeSeedPeers();
         assert.deepEqual(node._arrSeedAddresses, ['e', 'f', 'a', 'b', 'c', 'd']);
@@ -187,6 +198,7 @@ describe('Node tests', () => {
 
     it('should prepare verAckMessage', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
         node._peerManager.associatePeer = sinon.fake.returns(new factory.Peer(createDummyPeer(factory)));
 
         const inMsg = new factory.Messages.MsgVersion({
@@ -461,6 +473,8 @@ describe('Node tests', () => {
         this.timeout(5000);
 
         const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+
         node._mempool.addTx = sinon.fake();
         node._informNeighbors = sinon.fake();
 
@@ -1056,6 +1070,8 @@ describe('Node tests', () => {
 
     it('should send Reject message if time offset very large', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         const inMsg = new factory.Messages.MsgVersion({
             nonce: 12,
             peerInfo: {
@@ -1102,6 +1118,8 @@ describe('Node tests', () => {
     it('should reconnect peers', async function() {
         this.timeout(4000);
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         const pushMessage = sinon.fake.returns(Promise.resolve(null));
         const loaded = sinon.fake.returns(Promise.resolve(null));
         const connectToPeer = sinon.fake.returns(Promise.resolve(null));
@@ -1404,6 +1422,50 @@ describe('Node tests', () => {
         assert.equal(topic, 'newBlock');
         assert.deepEqual(objData, block.header);
     });
+
+    it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
+        const fakePeer = {pushMessage: sinon.fake()};
+        const msgInv = new factory.Messages.MsgInv();
+
+        const inv = new factory.Inventory();
+        inv.addTxHash(pseudoRandomBuffer());
+        inv.addTxHash(pseudoRandomBuffer());
+        inv.addBlockHash(pseudoRandomBuffer());
+        inv.addBlockHash(pseudoRandomBuffer());
+        msgInv.inventory = inv;
+
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+        node._requestCache.isRequested = sinon.fake.returns(true);
+
+        await node._handleInvMessage(fakePeer, msgInv);
+
+        assert.equal(node._requestCache.isRequested.callCount, 4);
+        assert.equal(fakePeer.pushMessage.callCount, 0);
+    });
+
+    it('should REQUEST all items (_handleInvMessage)', async () => {
+        const fakePeer = {pushMessage: sinon.fake()};
+        const msgInv = new factory.Messages.MsgInv();
+
+        const inv = new factory.Inventory();
+        inv.addTxHash(pseudoRandomBuffer());
+        inv.addBlockHash(pseudoRandomBuffer());
+        inv.addBlockHash(pseudoRandomBuffer());
+        msgInv.inventory = inv;
+
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+        node._requestCache.isRequested = sinon.fake.returns(false);
+
+        await node._handleInvMessage(fakePeer, msgInv);
+
+        assert.equal(node._requestCache.isRequested.callCount, 3);
+        assert.equal(fakePeer.pushMessage.callCount, 1);
+        const [msgGetData] = fakePeer.pushMessage.args[0];
+        assert.equal(msgGetData.inventory.vector.length, 3);
+    });
+
 
     describe('RPC tests', () => {
         it('should get TX receipt', async () => {

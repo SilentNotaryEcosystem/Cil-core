@@ -38,6 +38,8 @@ module.exports = (factory) => {
             this._heartBeatTimer = new Tick(this);
             this._timerName = Constants.PEER_HEARTBEAT_TIMER_NAME + this._nonce;
 
+            this._randomMsecDelta = parseInt(Math.random() * 100000);
+
             // this means that we have incoming connection
             if (connection) {
                 this._connection = connection;
@@ -47,7 +49,7 @@ module.exports = (factory) => {
                     address: Transport.strToAddress(connection.remoteAddress),
                     port: connection.remotePort
                 });
-                this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
+                this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME + this._randomMsecDelta);
 
                 // run heartbeat timer
                 this._heartBeatTimer.setInterval(this._timerName, this._tick, Constants.PEER_HEARTBEAT_TIMEOUT);
@@ -353,7 +355,7 @@ module.exports = (factory) => {
             this._cleanup();
 
             // once we got disconnected - restrict it
-            this._restrictedTill = Date.now() + Constants.PEER_RESTRICT_TIME;
+            this._restrictedTill = Date.now() + Constants.PEER_RESTRICT_TIME + this._randomMsecDelta;
             this.emit('disconnect', this);
         }
 
