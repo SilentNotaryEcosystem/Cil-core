@@ -460,6 +460,10 @@ module.exports = (factory, factoryOptions) => {
             const invMsg = new MsgInv(message);
             const invToRequest = new Inventory();
             for (let objVector of invMsg.inventory.vector) {
+
+                // we already requested it (from another node), so let's skip it
+                if (this._requestCache.isRequested(objVector.hash)) continue;
+
                 let bShouldRequest = false;
                 if (objVector.type === Constants.INV_TX) {
 
@@ -470,14 +474,17 @@ module.exports = (factory, factoryOptions) => {
                     bShouldRequest = !await this._storage.hasBlock(objVector.hash);
                 }
 
-                if (bShouldRequest && this._requestCache.request(objVector.hash)) invToRequest.addVector(objVector);
+                if (bShouldRequest) {
+                    invToRequest.addVector(objVector);
+                    this._requestCache.request(objVector.hash);
+                }
             }
 
-            // TODO: add cache of already requested items to PeerManager, but this cache should expire, because node could fail
             if (invToRequest.vector.length) {
                 const msgGetData = new MsgGetData();
                 msgGetData.inventory = invToRequest;
-                debugMsg(`(address: "${this._debugAddress}") sending "${msgGetData.message}" to "${peer.address}"`);
+                debugMsg(
+                    `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
                 await peer.pushMessage(msgGetData);
             }
         }
