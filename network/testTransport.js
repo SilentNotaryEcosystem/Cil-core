@@ -17,6 +17,8 @@ const TestConnectionWrapper = require('./testConnection');
  */
 
 
+const createPipeName = (address) => path.join(`${pathPrefix}`, os.tmpdir(), `cil-addr-${address}`);
+
 const EventBus = new EventEmitter();
 
 module.exports = (factory) => {
@@ -130,7 +132,8 @@ module.exports = (factory) => {
          */
         connect(address) {
             if (Buffer.isBuffer(address)) address = this.constructor.addressToString(address, 'hex');
-            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), address);
+
+            const netAddr = createPipeName(address);
 
             return new Promise((resolve, reject) => {
                 const socket = net.createConnection(netAddr,
@@ -153,7 +156,7 @@ module.exports = (factory) => {
         async listen() {
 
             // for test only
-            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), this._address);
+            const netAddr = createPipeName(this._address);
 
             // Unix sockets are persistent, let's erase it first
             try {

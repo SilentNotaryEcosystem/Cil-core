@@ -10,7 +10,7 @@ module.exports = {
 
         rpcPort: 8222,
 
-        DNS_SEED: 'seed.silentnotary.io',
+        DNS_SEED: ['seed.silentnotary.io'],
 
         // How many peers we'll send in one 'addr' message
         ADDR_MAX_LENGTH: 1000,

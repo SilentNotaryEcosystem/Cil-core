@@ -8,7 +8,7 @@ module.exports = {
         protocolVersion: 0x0123,
         port: 8223,
 
-        DNS_SEED: '::1',
+        DNS_SEED: [],
 
         // How many peers we'll send in one 'addr' message
         ADDR_MAX_LENGTH: 1000,

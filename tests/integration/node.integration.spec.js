@@ -18,7 +18,8 @@ const debugNode = debugLib('node:app');
 // set to undefined to use random delays
 const delay = undefined;
 //const delay = 10;
-const maxConnections = os.platform() === 'win32' ? 4 : 10;
+const maxConnections = os.platform() === 'win32' ? 4 : 8;
+//const maxConnections=2;
 
 const createGenesisPatchAndSpendingTx = (factory) => {
     const patch = new factory.PatchDB(0);
@@ -48,7 +49,14 @@ const createNet = async (onlySeed = false) => {
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const seedAddress = factory.Transport.generateAddress();
-    const seedNode = new factory.Node({listenAddr: seedAddress, delay, rpcUser: 'test', rpcPass: 'test', isSeed: true});
+    const seedNode = new factory.Node({
+        listenAddr: seedAddress,
+        delay,
+        rpcAddress: '::1',
+        rpcUser: 'test',
+        rpcPass: 'test',
+        isSeed: true
+    });
     await seedNode.ensureLoaded();
 
     await seedNode._processBlock(genesis);
@@ -63,22 +71,34 @@ const createNet = async (onlySeed = false) => {
     return {seedNode, arrNodes};
 };
 
-const createLiveNet = async (onlySeed = false) => {
+const createLiveNet = async (onlySeedProcessBlock = false) => {
     const genesis = createDummyBlock(factoryIpV6);
     factoryIpV6.Constants.GENESIS_BLOCK = genesis.getHash();
 
-    const [seedAddress] = factoryIpV6.Transport.getInterfacesIpV6Addresses();
-    const seedNode = new factoryIpV6.Node({listenAddr: seedAddress, rpcUser: 'test', rpcPass: 'test'});
+    const seedNode = new factoryIpV6.Node({useNatTraversal: false, useNonRoutableAddresses: true});
     await seedNode.ensureLoaded();
-    await seedNode._processBlock(genesis);
+    const seedAddress = seedNode._transport.myAddress;
+
+    seedNode._rpc = new factoryIpV6.RPC(
+        seedNode,
+        {rpcAddress: seedAddress, rpcUser: 'test', rpcPass: 'test', useNatTraversal: false}
+    );
 
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
-        const node = new factoryIpV6.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
+        const node = new factoryIpV6.Node({
+            useNatTraversal: false,
+            useNonRoutableAddresses: true,
+            arrSeedAddresses: [seedAddress],
+            listenPort: 8000 + i
+        });
         await node.ensureLoaded();
-        if (!onlySeed) await node._processBlock(genesis);
+        if (!onlySeedProcessBlock) await node._processBlock(genesis);
         arrNodes.push(node);
     }
+
+    await seedNode._processBlock(genesis);
+
     return {seedNode, arrNodes};
 };
 
@@ -112,6 +132,7 @@ describe('Node integration tests', () => {
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay, isSeed: true});
         seedNode._handleGetBlocksMessage = sinon.fake();
+        await seedNode.ensureLoaded();
 
         const peerInfo1 = new factory.Messages.PeerInfo({
             capabilities: [
@@ -147,16 +168,16 @@ describe('Node integration tests', () => {
             delay, queryTimeout: 5000, arrSeedAddresses: [seedAddress],
             isSeed: true
         });
+
+        await testNode.ensureLoaded();
         await testNode.bootstrap();
 
         const peers = testNode._peerManager.filterPeers();
         assert.isOk(peers && peers.length);
 
-        // 4 from constructed object + seed + self
-        assert.equal(peers.length, 6);
-        peers.forEach(peerInfo => {
-            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
-        });
+        // 4 from constructed object + seed
+        assert.equal(peers.length, 5);
+        assert.isOk(peers.every(peerInfo => peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port));
     });
 
     it('should create nodes and get all of them connected and advertised to seed', async function() {
@@ -176,12 +197,13 @@ describe('Node integration tests', () => {
 
         const seedPeers = seedNode._peerManager.filterPeers();
         assert.isAtLeast(seedPeers.length, maxConnections);
-        seedPeers.forEach(peerInfo => {
-            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
+        assert.isOk(seedPeers.every(peerInfo =>
+            (peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port) &&
 
             // we define custom ports 8000+i
-            assert.isOk(peerInfo.port >= 8000 && peerInfo.port <= 8000 + maxConnections);
-        });
+            (peerInfo.port === factory.Constants.port ||
+             (peerInfo.port >= 8000 && peerInfo.port <= 8000 + maxConnections))
+        ));
     });
 
     it('should propagate TX over all nodes', async function() {
@@ -227,6 +249,15 @@ describe('Node integration tests', () => {
         }
         await Promise.all(arrBootstrapPromises);
         await Promise.all(arrBlockPromises);
+    });
+
+    it('should create LIVE node & perform all async load', async () => {
+        const node = new factoryIpV6.Node({useNatTraversal: false, listenPort: 1235});
+        await node.ensureLoaded();
+
+        assert.isOk(node);
+        assert.isOk(node._myPeerInfo);
+        assert.isOk(node._peerManager);
     });
 
     it('should create LIVE NET and propagate GENESIS block over all nodes', async function() {
