@@ -108,6 +108,8 @@ const createSimpleFork = async (callback) => {
     await callback(block1);
     await callback(block2);
     await callback(block3);
+
+    return [genesis, block1, block2, block3].map(block => block.getHash());
 };
 
 describe('Node tests', () => {
@@ -1466,6 +1468,43 @@ describe('Node tests', () => {
         assert.equal(msgGetData.inventory.vector.length, 3);
     });
 
+    it('should return GENESIS for empty MSG_GET_BLOCKS request', async () => {
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+
+        const setResult = node._getBlocksFromLastKnown([]);
+        assert.isOk(setResult);
+        assert.equal(setResult.size, 1);
+        assert.isOk(setResult.has(factory.Constants.GENESIS_BLOCK));
+    });
+
+    it('should return CHAIN for MSG_GET_BLOCKS request', async () => {
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+
+        const arrExpectedHashes = await createSimpleChain(
+            block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+        );
+
+        const setResult = node._getBlocksFromLastKnown([]);
+        assert.isOk(setResult);
+        assert.equal(setResult.size, 10);
+        assert.deepEqual(arrExpectedHashes, [...setResult]);
+    });
+
+    it('should return FORK for MSG_GET_BLOCKS request', async () => {
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+
+        const arrExpectedHashes = await createSimpleFork(
+            block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+        );
+
+        const setResult = node._getBlocksFromLastKnown([]);
+        assert.isOk(setResult);
+        assert.equal(setResult.size, 4);
+        assert.deepEqual(arrExpectedHashes, [...setResult]);
+    });
 
     describe('RPC tests', () => {
         it('should get TX receipt', async () => {

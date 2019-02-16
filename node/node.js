@@ -506,39 +506,60 @@ module.exports = (factory, factoryOptions) => {
             // we'r empty. we have nothing to share with party
             if (!this._mainDag.order) return;
 
-            // TODO: implement better algo
             const msg = new MsgGetBlocks(message);
-            let arrHashes = msg.arrHashes;
             const inventory = new Inventory();
 
-            if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
-
-                // we missed at least one of those hashes! so we think peer is at wrong DAG
-                // sent our version of DAG starting from Genesis
-                arrHashes = [Constants.GENESIS_BLOCK];
-
-                // Genesis wouldn't be included, so add it here
-                inventory.addBlockHash(Constants.GENESIS_BLOCK);
+            for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
+                inventory.addBlockHash(hash);
             }
-
-            let currentLevel = [];
-            arrHashes.map(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
-            do {
-                const nextLevel = [];
-                for (let hash of currentLevel) {
-                    inventory.addBlockHash(hash);
-                    this._mainDag.getChildren(hash).forEach(child => nextLevel.push(child));
-                    if (inventory.vector.length > Constants.MAX_BLOCKS_INV) break;
-                }
-                currentLevel = nextLevel;
-
-            } while (currentLevel.length && inventory.vector.length < Constants.MAX_BLOCKS_INV);
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
 
             debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
             await peer.pushMessage(msgInv);
+        }
+
+        /**
+         *
+         * @param {Array} arrHashes - last known hashes
+         * @returns {Set<any>} set of hashes descendants of arrHashes
+         * @private
+         */
+        _getBlocksFromLastKnown(arrHashes) {
+            const setBlocksToSend = new Set();
+
+            // TODO: implement better algo
+            if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
+
+                // we missed at least one of those hashes! so we think peer is at wrong DAG
+                // sent our version of DAG starting from Genesis
+                arrHashes = [Constants.GENESIS_BLOCK];
+
+                // Genesis wouldn't be included (same as all of arrHashes), so add it here
+                setBlocksToSend.add(Constants.GENESIS_BLOCK);
+            }
+
+            let currentLevel = [];
+            arrHashes.forEach(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
+            do {
+                const setNextLevel = new Set();
+                for (let hash of currentLevel) {
+
+                    this._mainDag.getChildren(hash).forEach(
+                        child => {
+
+                            // we already processed it
+                            if (!setBlocksToSend.has(child)) setNextLevel.add(child);
+                        });
+                    setBlocksToSend.add(hash);
+                    if (setBlocksToSend.size > Constants.MAX_BLOCKS_INV) break;
+                }
+                currentLevel = [...setNextLevel];
+
+            } while (currentLevel.length && setBlocksToSend.size < Constants.MAX_BLOCKS_INV);
+
+            return setBlocksToSend;
         }
 
         /**
