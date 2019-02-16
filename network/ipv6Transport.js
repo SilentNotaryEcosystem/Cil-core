@@ -116,16 +116,19 @@ module.exports = (factory) => {
          */
         static isRoutableIpV4Address(address) {
             const addr = typeof address === 'string' ? ipaddr.parse(address) : address;
-
             if (addr.kind() !== 'ipv4') return false;
 
             return !ipaddr.IPv4.prototype.SpecialRanges[addr.range()];
         }
 
         static isRoutableIpV6Address(address) {
-            const addr = typeof address === 'string' ? ipaddr.parse(address) : address;
-
+            let addr = typeof address === 'string' ? ipaddr.parse(address) : address;
             if (addr.kind() !== 'ipv6') return false;
+
+            if (addr.isIPv4MappedAddress()) {
+                addr = addr.toIPv4Address();
+                return this.isRoutableIpV4Address(addr);
+            }
 
             for (let publicAddress of publicAddressesRange) {
                 const addrSubnet = publicAddress.split('/');

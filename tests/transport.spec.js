@@ -38,9 +38,8 @@ describe('IPv6 Transport', () => {
     });
 
     it('should be ROUTABLE IPv6 address', async function() {
-        const address = '2001:4860:4860::8888';
-        const result = await factory.Transport.isRoutableIpV6Address(address);
-        assert.isOk(result);
+        assert.isOk(await factory.Transport.isRoutableIpV6Address('::ffff:4a77:c21a'));
+        assert.isOk(await factory.Transport.isRoutableIpV6Address('2001:4860:4860::8888'));
     });
 
     it('should be NON ROUTABLE IPv6 address', async function() {
