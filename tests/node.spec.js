@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
-const {sleep, arrayEquals} = require('../utils');
+const {sleep, arrayEquals, prepareForStringifyObject} = require('../utils');
 const debug = require('debug')('node:test');
 
 process.on('warning', e => console.warn(e.stack));
@@ -1420,7 +1420,7 @@ describe('Node tests', () => {
         const [topic, objData] = fake.args[0];
 
         assert.equal(topic, 'newBlock');
-        assert.deepEqual(objData, block.header);
+        assert.deepEqual(objData, prepareForStringifyObject(block.header));
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
@@ -1507,7 +1507,7 @@ describe('Node tests', () => {
             assert.equal(strHash, strBlockHash);
 
             assert.isOk(objResult);
-            assert.isOk(objResult, cBlock.toObject());
+            assert.deepEqual(objResult, prepareForStringifyObject(cBlock.toObject()));
         });
     });
 

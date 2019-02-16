@@ -17,17 +17,24 @@ describe('Utils', () => {
         it('should transform Buffer', async () => {
             assert.equal('dead', prepareForStringifyObject(Buffer.from('DEAD', 'hex')));
         });
-        it('should transform Buffer', async () => {
-            const result = prepareForStringifyObject({buffer: Buffer.from('DEAD', 'hex')});
-            assert.deepEqual({buffer: 'dead'}, result);
+        it('should transform Array of Buffers', async () => {
+            const result = prepareForStringifyObject([
+                Buffer.from('DEAD', 'hex'),
+                Buffer.from('EDAA', 'hex')
+            ]);
+            assert.deepEqual(['dead', 'edaa'], result);
         });
         it('should transform nested object', async () => {
             const result = prepareForStringifyObject({
                 object: {
-                    buffer: Buffer.from('DEAD', 'hex')
+                    buffer: Buffer.from('DEAD', 'hex'),
+                    arrBuffers: [
+                        Buffer.from('DEAD', 'hex'),
+                        Buffer.from('EDAA', 'hex')
+                    ]
                 }
             });
-            assert.deepEqual({object: {buffer: 'dead'}}, result);
+            assert.deepEqual({object: {buffer: 'dead', arrBuffers: ['dead', 'edaa']}}, result);
         });
         it('should leave primitives unchanged', async () => {
             const expected = {
