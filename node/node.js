@@ -1187,16 +1187,19 @@ module.exports = (factory, factoryOptions) => {
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 for (let hash of arrCurrentLevel) {
-                    hash = hash.toString('hex');
-                    let bi = this._mainDag.getBlockInfo(hash);
-                    if (!bi) bi = await this._storage.getBlockInfo(hash);
+                    debugNode(`Processing ${hash}`);
+
+                    // we already processed this block
+                    if (this._mainDag.getBlockInfo(hash)) continue;
+
+                    let bi = await this._storage.getBlockInfo(hash);
                     if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
 
                     this._mainDag.addBlock(bi);
 
                     for (let parentHash of bi.parentHashes) {
-                        setNextLevel.add(parentHash);
+                        if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
                     }
                 }
 

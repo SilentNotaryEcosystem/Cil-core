@@ -12,6 +12,7 @@ module.exports = ({Constants}) =>
     class MainDag {
         constructor() {
             this._dag = new Dag();
+            this._dag.testForCyclic = false;
         }
 
         get order() {
