@@ -8,6 +8,23 @@ const arrayIntersection = (array1, array2) => {
     return result;
 };
 
+const prepareForStringifyObject = (obj) => {
+    if (Buffer.isBuffer(obj)) return obj.toString('hex');
+    if (Array.isArray(obj) || !(obj instanceof Object)) return obj;
+
+    const resultObject = {};
+    for (let key of Object.keys(obj)) {
+        if (Buffer.isBuffer(obj[key])) {
+            resultObject[key] = obj[key].toString('hex');
+        } else if (obj[key] instanceof Object) {
+            resultObject[key] = prepareForStringifyObject(obj[key]);
+        } else {
+            resultObject[key] = obj[key];
+        }
+    }
+    return resultObject;
+};
+
 /**
  * Duplicates are possible!
  *
@@ -75,5 +92,7 @@ module.exports = {
             {name: "strictAddresses", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
-    }
+    },
+
+    prepareForStringifyObject
 };

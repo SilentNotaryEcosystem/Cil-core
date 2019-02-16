@@ -6,6 +6,8 @@ const {sleep} = require('../utils');
 const types = require('../types');
 const Tick = require('tick-tock');
 
+const {prepareForStringifyObject} = require('../utils');
+
 const debugNode = debugLib('node:app');
 const debugMsg = debugLib('node:messages');
 
@@ -781,10 +783,10 @@ module.exports = (factory, factoryOptions) => {
                         break;
                     case 'txReceipt':
                         const cReceipt = await this._storage.getTxReceipt(content);
-                        return cReceipt ? cReceipt.toObject() : undefined;
+                        return prepareForStringifyObject(cReceipt ? cReceipt.toObject() : undefined);
                     case 'getBlock':
                         const cBlock = await this._storage.getBlock(content);
-                        return cBlock ? cBlock.toObject() : undefined;
+                        return prepareForStringifyObject(cBlock ? cBlock.toObject() : undefined);
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1103,7 +1105,7 @@ module.exports = (factory, factoryOptions) => {
                 `Block ${block.hash()}. GroupId: ${block.witnessGroupId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );
             if (this._rpc) {
-                this._rpc.informWsSubscribers('newBlock', block.header);
+                this._rpc.informWsSubscribers('newBlock', prepareForStringifyObject(block.header));
             }
         }
 
