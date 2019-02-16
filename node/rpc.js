@@ -29,9 +29,16 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
+            this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
+        /**
+         *
+         * @param {Object} args
+         * @param {String} args.buffTx
+         * @returns {Promise<void>}
+         */
         async sendRawTx(args) {
             const {buffTx} = args;
             typeforce(typeforce.Buffer, buffTx);
@@ -43,6 +50,12 @@ module.exports = ({Constants, Transaction}) =>
             });
         }
 
+        /**
+         *
+         * @param {Object} args
+         * @param {String} args.strTxHash
+         * @returns {Promise<TxReceipt>}
+         */
         async getTxReceipt(args) {
             const {strTxHash} = args;
             typeforce(types.Str64, strTxHash);
@@ -57,17 +70,29 @@ module.exports = ({Constants, Transaction}) =>
             this._server.broadcastToWS(topic, objData);
         }
 
-        getBlock(args) {
+        /**
+         *
+         * @param {Object} args
+         * @param {String} args.strBlockHash
+         * @returns {Promise<Block>}
+         */
+        async getBlock(args) {
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
 
-            this.emit('rpc', {
+            return await this._nodeInstance.rpcHandler({
                 event: 'getBlock',
                 content: strBlockHash
             });
         }
 
-        informWsSubscribers(topic, objData) {
-            this._server.broadcastToWS(topic, objData);
+        /**
+         *
+         * @returns {Promise<Array>} of blockInfos (headers)
+         */
+        async getTips() {
+            return await this._nodeInstance.rpcHandler({
+                event: 'getTips'
+            });
         }
     };

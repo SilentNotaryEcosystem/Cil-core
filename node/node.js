@@ -808,6 +808,9 @@ module.exports = (factory, factoryOptions) => {
                     case 'getBlock':
                         const cBlock = await this._storage.getBlock(content);
                         return prepareForStringifyObject(cBlock ? cBlock.toObject() : undefined);
+                    case 'getTips':
+                        const arrHashes = this._pendingBlocks.getTips();
+                        return prepareForStringifyObject(arrHashes.map(hash => this._mainDag.getBlockInfo(hash)));
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }

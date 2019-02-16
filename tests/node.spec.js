@@ -1548,6 +1548,26 @@ describe('Node tests', () => {
             assert.isOk(objResult);
             assert.deepEqual(objResult, prepareForStringifyObject(cBlock.toObject()));
         });
+
+        it('should get TIPS', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const arrExpectedHashes = await createSimpleChain(
+                block => {
+                    node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header));
+                }
+            );
+
+            const [cOneTip] = await node.rpcHandler({event: 'getTips'});
+            assert.isOk(cOneTip);
+            assert.deepEqual(
+                prepareForStringifyObject(node._mainDag.getBlockInfo(arrExpectedHashes[9])),
+                prepareForStringifyObject(cOneTip)
+            );
+        });
+
     });
 
 });
