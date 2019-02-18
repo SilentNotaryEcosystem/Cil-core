@@ -4,7 +4,7 @@ const debugLib = require('debug');
 
 const rpc = require('json-rpc2');
 
-const {sleep, asyncRPC} = require('../utils');
+const {asyncRPC, prepareForStringifyObject} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('RPC:');
@@ -60,14 +60,15 @@ module.exports = ({Constants, Transaction}) =>
             const {strTxHash} = args;
             typeforce(types.Str64, strTxHash);
 
-            return await this._nodeInstance.rpcHandler({
+            const cReceipt = await this._nodeInstance.rpcHandler({
                 event: 'txReceipt',
                 content: strTxHash
             });
+            return prepareForStringifyObject(cReceipt ? cReceipt.toObject() : undefined);
         }
 
         informWsSubscribers(topic, objData) {
-            this._server.broadcastToWS(topic, objData);
+            this._server.broadcastToWS(topic, prepareForStringifyObject(objData));
         }
 
         /**
@@ -80,10 +81,11 @@ module.exports = ({Constants, Transaction}) =>
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
 
-            return await this._nodeInstance.rpcHandler({
+            const cBlock = await this._nodeInstance.rpcHandler({
                 event: 'getBlock',
                 content: strBlockHash
             });
+            return cBlock ? {hash: cBlock.getHash(), block: prepareForStringifyObject(cBlock.toObject())} : undefined;
         }
 
         /**
@@ -91,8 +93,13 @@ module.exports = ({Constants, Transaction}) =>
          * @returns {Promise<Array>} of blockInfos (headers)
          */
         async getTips() {
-            return await this._nodeInstance.rpcHandler({
+            const arrBlockInfos = await this._nodeInstance.rpcHandler({
                 event: 'getTips'
             });
+
+            return arrBlockInfos.map(blockInfo => ({
+                hash: blockInfo.getHash(),
+                blockHeader: prepareForStringifyObject(blockInfo.getHeader())
+            }));
         }
     };

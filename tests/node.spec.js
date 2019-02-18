@@ -1422,7 +1422,7 @@ describe('Node tests', () => {
         const [topic, objData] = fake.args[0];
 
         assert.equal(topic, 'newBlock');
-        assert.deepEqual(objData, prepareForStringifyObject(block.header));
+        assert.deepEqual(objData, block.header);
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
@@ -1521,10 +1521,12 @@ describe('Node tests', () => {
             });
             node._storage.getTxReceipt = sinon.fake.resolves(rcpt);
 
-            const objTxReceipt = await node.rpcHandler({
+            const cTxReceipt = await node.rpcHandler({
                 event: 'txReceipt',
                 content: strUtxoHash
             });
+
+            const objTxReceipt = prepareForStringifyObject(cTxReceipt.toObject());
 
             assert.isOk(objTxReceipt);
             assert.equal(rcpt.getCoinsUsed(), objTxReceipt.coinsUsed);
@@ -1546,7 +1548,7 @@ describe('Node tests', () => {
             assert.equal(strHash, strBlockHash);
 
             assert.isOk(objResult);
-            assert.deepEqual(objResult, prepareForStringifyObject(cBlock.toObject()));
+            assert.deepEqual(prepareForStringifyObject(objResult), prepareForStringifyObject(cBlock.toObject()));
         });
 
         it('should get TIPS', async () => {
