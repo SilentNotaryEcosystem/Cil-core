@@ -90,7 +90,7 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getBlock',
                 content: strBlockHash
             });
-            return cBlock ? {hash: cBlock.getHash(), block: prepareForStringifyObject(cBlock.toObject())} : undefined;
+            return cBlock ? {hash: cBlock.getHash(), block: prepareForStringifyObject(cBlock)} : undefined;
         }
 
         /**
@@ -98,13 +98,13 @@ module.exports = ({Constants, Transaction}) =>
          * @returns {Promise<Array>} of blockInfos (headers)
          */
         async getTips() {
-            const arrBlockInfos = await this._nodeInstance.rpcHandler({
+            const arrBlocks = await this._nodeInstance.rpcHandler({
                 event: 'getTips'
             });
-console.log(arrBlockInfos)
-            return arrBlockInfos.map(blockInfo => ({
-                hash: blockInfo.getHash(),
-                blockHeader: prepareForStringifyObject(blockInfo.getHeader())
+
+            return arrBlocks.map(block => ({
+                hash: block.getHash(),
+                block: prepareForStringifyObject(block)
             }));
         }
     };
