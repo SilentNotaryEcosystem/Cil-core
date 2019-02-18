@@ -229,7 +229,7 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
-//                    logger.error(e.message);
+                    //                    logger.error(e.message);
                     logger.error(e);
                 }
             }
@@ -590,7 +590,7 @@ module.exports = (factory, factoryOptions) => {
                     debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
-//                    logger.error(e.message);
+                    //                    logger.error(e.message);
                     logger.error(e, `GetDataMessage. Peer ${peer.address}`);
                     peer.misbehave(5);
 
@@ -718,12 +718,12 @@ module.exports = (factory, factoryOptions) => {
                 peer.fullyConnected = true;
 
                 // if we initiated connection to peer, so let's ask for known peers
-//                if (!peer.inbound) {
+                //                if (!peer.inbound) {
                 const msgGetAddr = new MsgCommon();
                 msgGetAddr.getAddrMessage = true;
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}"`);
                 await peer.pushMessage(msgGetAddr);
-//                }
+                //                }
             }
         }
 
@@ -804,10 +804,10 @@ module.exports = (factory, factoryOptions) => {
                         return await this._storage.getTxReceipt(content);
                     case 'getBlock':
                         const cBlock = await this._storage.getBlock(content);
-                        return cBlock.toObject();
+                        return cBlock;
                     case 'getTips':
                         const arrHashes = this._pendingBlocks.getTips();
-                        return arrHashes.map(hash => this._mainDag.getBlockInfo(hash));
+                        return await Promise.all(arrHashes.map(async (hash) => {return await this._storage.getBlock(hash)}));
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
