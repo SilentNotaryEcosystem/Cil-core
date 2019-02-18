@@ -819,7 +819,11 @@ module.exports = (factory, factoryOptions) => {
                         const cBlock = await this._storage.getBlock(content);
                         return cBlock.toObject();
                     case 'getTips':
-                        const arrHashes = this._pendingBlocks.getTips();
+                        let arrHashes = this._pendingBlocks.getTips();
+                        if (!arrHashes || !arrHashes.length) {
+                            arrHashes =
+                                await this._storage.getLastAppliedBlockHashes();
+                        }
                         return arrHashes.map(hash => this._mainDag.getBlockInfo(hash));
                     default:
                         throw new Error(`Unsupported method ${event}`);

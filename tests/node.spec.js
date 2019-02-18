@@ -1575,6 +1575,19 @@ describe('Node tests', () => {
             );
         });
 
+        it('should get TIPS', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+            const expectedResult = {fake: 1};
+
+            node._storage.getLastAppliedBlockHashes = sinon.fake.resolves(['dead']);
+            node._mainDag.getBlockInfo = sinon.fake.returns(expectedResult);
+
+            const [cOneTip] = await node.rpcHandler({event: 'getTips'});
+            assert.isOk(cOneTip);
+            assert.deepEqual(expectedResult, cOneTip);
+        });
+
     });
 
 });
