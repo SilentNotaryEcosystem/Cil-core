@@ -8,7 +8,7 @@ const types = require('../types');
 const debug = debugLib('requestsCache:');
 
 module.exports = ({Constants}) =>
-    class MainDag {
+    class RequestCache {
         constructor() {
             this._mapRequests = new Map();
         }
