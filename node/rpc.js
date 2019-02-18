@@ -72,8 +72,8 @@ module.exports = ({Constants, Transaction}) =>
             return prepareForStringifyObject(cReceipt ? cReceipt.toObject() : undefined);
         }
 
-        informWsSubscribers(topic, objData) {
-            this._server.broadcastToWS(topic, prepareForStringifyObject(objData));
+        informWsSubscribers(topic, block) {
+            this._server.broadcastToWS(topic, {hash: block.getHash(), block: prepareForStringifyObject(block.toObject())});
         }
 
         /**
@@ -101,7 +101,7 @@ module.exports = ({Constants, Transaction}) =>
             const arrBlockInfos = await this._nodeInstance.rpcHandler({
                 event: 'getTips'
             });
-
+console.log(arrBlockInfos)
             return arrBlockInfos.map(blockInfo => ({
                 hash: blockInfo.getHash(),
                 blockHeader: prepareForStringifyObject(blockInfo.getHeader())

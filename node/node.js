@@ -807,6 +807,7 @@ module.exports = (factory, factoryOptions) => {
                         return cBlock.toObject();
                     case 'getTips':
                         const arrHashes = this._pendingBlocks.getTips();
+                        console.log(this._pendingBlocks._dag)
                         return arrHashes.map(hash => this._mainDag.getBlockInfo(hash));
                     default:
                         throw new Error(`Unsupported method ${event}`);
@@ -1126,7 +1127,7 @@ module.exports = (factory, factoryOptions) => {
                 `Block ${block.hash()}. GroupId: ${block.witnessGroupId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );
             if (this._rpc) {
-                this._rpc.informWsSubscribers('newBlock', block.header);
+                this._rpc.informWsSubscribers('newBlock', block);
             }
         }
 
