@@ -335,6 +335,13 @@ module.exports = (factory, factoryOptions) => {
 
             try {
                 await this._processReceivedTx(tx);
+
+                // inform other about good TX
+                const inv = new Inventory();
+                inv.addTx(tx);
+                const msgInv = new MsgInv();
+                msgInv.inventory = inv;
+                await peer.pushMessage(msgInv);
             } catch (e) {
                 logger.error(e, `Bad TX received. Peer ${peer.address}`);
                 peer.misbehave(5);
@@ -376,6 +383,12 @@ module.exports = (factory, factoryOptions) => {
 
                 await this._processBlock(block);
 
+                // inform other about good block
+                const inv = new Inventory();
+                inv.addBlock(block);
+                const msgInv = new MsgInv();
+                msgInv.inventory = inv;
+                await peer.pushMessage(msgInv);
             } catch (e) {
                 await this._blockBad(block);
                 logger.error(e);
@@ -441,7 +454,10 @@ module.exports = (factory, factoryOptions) => {
             const invToRequest = new Inventory();
 
             for (let hash of this._setUnknownBlocks) {
-                if (!this._requestCache.isRequested(hash)) invToRequest.addBlockHash(hash);
+                if (!this._requestCache.isRequested(hash)) {
+                    this._requestCache.request(hash);
+                    invToRequest.addBlockHash(hash);
+                }
             }
 
             msgGetData.inventory = invToRequest;
@@ -587,7 +603,9 @@ module.exports = (factory, factoryOptions) => {
                     } else {
                         throw new Error(`Unknown inventory type: ${objVector.type}`);
                     }
-                    debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+                    debugMsg(
+                        `(address: "${this._debugAddress}") sending "${msg.message}" with "${objVector.hash.toString(
+                            'hex')}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
                     //                    logger.error(e.message);
@@ -721,7 +739,7 @@ module.exports = (factory, factoryOptions) => {
                 //                if (!peer.inbound) {
                 const msgGetAddr = new MsgCommon();
                 msgGetAddr.getAddrMessage = true;
-                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}"`);
+                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}" to "${peer.address}"`);
                 await peer.pushMessage(msgGetAddr);
                 //                }
             }
@@ -773,7 +791,7 @@ module.exports = (factory, factoryOptions) => {
 
             const msg = new MsgGetBlocks();
             msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
-            debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}"`);
+            debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
             await peer.pushMessage(msg);
 
             // TODO: move loadDone after we got all we need from peer
@@ -807,7 +825,12 @@ module.exports = (factory, factoryOptions) => {
                         return cBlock;
                     case 'getTips':
                         const arrHashes = this._pendingBlocks.getTips();
+                        if (!arrHashes || !arrHashes.length) {
+                            arrHashes =
+                                await this._storage.getLastAppliedBlockHashes();
+                        }
                         return await Promise.all(arrHashes.map(async (hash) => {return await this._storage.getBlock(hash)}));
+
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1341,7 +1364,7 @@ module.exports = (factory, factoryOptions) => {
                 }
 
                 // parent is not processed yet. block couldn't be executed
-                if (!blockInfo && !this._setUnknownBlocks.has(hash)) {
+                if (!blockInfo && !this._setUnknownBlocks.has(hash) && !this._storage.hasBlock(hash)) {
 
                     // we didn't heard about this block. let's add it for downloading
                     this._setUnknownBlocks.add(hash);

@@ -497,6 +497,9 @@ describe('Node tests', () => {
     it('should process NEW block from MsgBlock', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
+        const fakePeer = {
+            pushMessage: sinon.fake()
+        };
 
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
@@ -505,9 +508,11 @@ describe('Node tests', () => {
         node._processBlock = sinon.fake();
         node._requestCache.request(block.hash());
 
-        await node._handleBlockMessage(undefined, msg);
+        await node._handleBlockMessage(fakePeer, msg);
 
-        assert.isOk(node._processBlock.called);
+        assert.isOk(node._processBlock.calledOnce);
+        assert.isOk(fakePeer.pushMessage.calledOnce);
+
     });
 
     it('should omit KNOWN block from MsgBlock', async () => {
@@ -1568,6 +1573,19 @@ describe('Node tests', () => {
                 prepareForStringifyObject(node._mainDag.getBlockInfo(arrExpectedHashes[9])),
                 prepareForStringifyObject(cOneTip)
             );
+        });
+
+        it('should get TIPS', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+            const expectedResult = {fake: 1};
+
+            node._storage.getLastAppliedBlockHashes = sinon.fake.resolves(['dead']);
+            node._mainDag.getBlockInfo = sinon.fake.returns(expectedResult);
+
+            const [cOneTip] = await node.rpcHandler({event: 'getTips'});
+            assert.isOk(cOneTip);
+            assert.deepEqual(expectedResult, cOneTip);
         });
 
     });
