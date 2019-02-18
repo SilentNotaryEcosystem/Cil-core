@@ -34,7 +34,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.expose('getLastBlock', asyncRPC(this.getLastBlock.bind(this)));
-
+            this._server.expose('ping',asyncRPC(this.pong.bind(this)))
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -48,7 +48,10 @@ module.exports = ({Constants, Transaction}) =>
                 content: tx
             });
         }
-
+        async pong(){
+            //console.log("pong")
+            return {result:"__pong__"};
+        }
         async getTxReceipt(args) {
             const {strTxHash} = args;
             typeforce(types.Str64, strTxHash);
@@ -64,6 +67,8 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         async getBlock(args) {
+            console.log('getBlock')
+            console.log(args)
             const {strBlockHash} = args;
             const base64Hash = Buffer.from(strBlockHash, 'base64').toString('hex');
             typeforce(types.Str64, base64Hash);
