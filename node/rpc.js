@@ -23,7 +23,12 @@ module.exports = ({Constants, Transaction}) =>
             this._nodeInstance = cNodeInstance;
 
             const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
-            this._server = rpc.Server.$create({websocket: true});
+            this._server = rpc.Server.$create({
+                websocket: true,
+                headers: {
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
             if (rpcUser && rpcPass) this._server.enableAuth(rpcUser, rpcPass);
 
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
