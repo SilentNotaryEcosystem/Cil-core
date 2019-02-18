@@ -824,14 +824,13 @@ module.exports = (factory, factoryOptions) => {
                         const cBlock = await this._storage.getBlock(content);
                         return cBlock;
                     case 'getTips':
-                        const arrHashes = this._pendingBlocks.getTips();
+                        let arrHashes = this._pendingBlocks.getTips();
 
                         if (!arrHashes || !arrHashes.length) {
                             arrHashes =
                                 await this._storage.getLastAppliedBlockHashes();
                         }
                         return await Promise.all(arrHashes.map(async (hash) => {return await this._storage.getBlock(hash)}));
-
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
