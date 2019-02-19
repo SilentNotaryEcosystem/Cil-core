@@ -2,6 +2,8 @@ const EventEmitter = require('events');
 const assert = require('assert');
 const Tick = require('tick-tock');
 
+const debug = require('debug')('peerManager:');
+
 /**
  *
  * @param {Factory} factory
@@ -150,7 +152,10 @@ module.exports = (factory) => {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
             const key = this._createKey(peer.address, peer.port);
             const foundPeer = this._mapAllPeers.get(key);
-            if (foundPeer) foundPeer.removeAllListeners();
+            if (foundPeer) {
+                foundPeer.removeAllListeners();
+                foundPeer.disconnect();
+            }
             this._mapAllPeers.delete(key);
         }
 
@@ -226,6 +231,7 @@ module.exports = (factory) => {
 
         broadcastToConnected(tag, message) {
             const arrPeers = this.getConnectedPeers(tag);
+            debug(`Found ${arrPeers.length} connected peers for tag "${tag}"`);
             for (let peer of arrPeers) {
                 peer.pushMessage(message).catch(err => logger.error(err));
             }
