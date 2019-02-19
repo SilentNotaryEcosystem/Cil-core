@@ -361,6 +361,7 @@ module.exports = (factory, factoryOptions) => {
 
             const msg = new MsgBlock(message);
             const block = msg.block;
+            debugNode(`Received block ${block.getHash()}`);
 
             if (!this._requestCache.isRequested(block.getHash())) {
                 logger.log(`Peer ${peer.address} pushed unrequested Block ${block.getHash()} to us`);
@@ -373,7 +374,7 @@ module.exports = (factory, factoryOptions) => {
             try {
 
                 // since we building DAG, it's faster
-                if (await this._mainDag.getBlockInfo(block.hash())) {
+                if (this._mainDag.getBlockInfo(block.hash())) {
                     logger.error(`Block ${block.hash()} already known!`);
                     return;
                 }
@@ -414,7 +415,7 @@ module.exports = (factory, factoryOptions) => {
 
             const lock = await this._mutex.acquire(['block']);
             try {
-                debugLib(`Processing block ${block.hash()}`);
+                debugNode(`Processing block ${block.hash()}`);
 
                 // check: whether we already processed this block?
                 const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
@@ -460,7 +461,7 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
-            debugNode(`Requested unknown blocks: ${invToRequest.vector.map(v => `"${v.hash}"`)}`);
+            debugNode(`Requested unknown blocks: ${invToRequest.vector.map(v => `"${v.hash.toString('hex')}"`)}`);
 
             msgGetData.inventory = invToRequest;
             this._peerManager.broadcastToConnected(undefined, msgGetData);
@@ -737,14 +738,17 @@ module.exports = (factory, factoryOptions) => {
             if (peer.version) {
                 peer.fullyConnected = true;
 
-                // if we initiated connection to peer, so let's ask for known peers
-//                if (!peer.inbound) {
-                const msgGetAddr = new MsgCommon();
-                msgGetAddr.getAddrMessage = true;
+                // next stage
+                const msgGetAddr = this._createGetAddrMessage();
                 debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}" to "${peer.address}"`);
                 await peer.pushMessage(msgGetAddr);
-//                }
             }
+        }
+
+        _createGetAddrMessage() {
+            const msgGetAddr = new MsgCommon();
+            msgGetAddr.getAddrMessage = true;
+            return msgGetAddr;
         }
 
         /**
@@ -791,13 +795,19 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
-            const msg = new MsgGetBlocks();
-            msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
+            // next stage
+            const msg = await this._createRequestBlocksMsg();
             debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
             await peer.pushMessage(msg);
 
             // TODO: move loadDone after we got all we need from peer
             peer.loadDone = true;
+        }
+
+        async _createRequestBlocksMsg() {
+            const msg = new MsgGetBlocks();
+            msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
+            return msg;
         }
 
         _createMsgVersion() {
