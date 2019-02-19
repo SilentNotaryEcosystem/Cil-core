@@ -460,6 +460,8 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
+            debugNode(`Requested unknown blocks: ${invToRequest.vector.map(v => `"${v.hash}"`)}`);
+
             msgGetData.inventory = invToRequest;
             this._peerManager.broadcastToConnected(undefined, msgGetData);
         }
@@ -1363,10 +1365,10 @@ module.exports = (factory, factoryOptions) => {
                 }
 
                 // parent is not processed yet. block couldn't be executed
-                if (!blockInfo && !this._setUnknownBlocks.has(hash) && !this._storage.hasBlock(hash)) {
+                if (!blockInfo && !this._setUnknownBlocks.has(hash) && !await this._storage.hasBlock(hash)) {
 
                     // we didn't heard about this block. let's add it for downloading
-                    this._setUnknownBlocks.add(hash);
+                    this._queueBlockRequest(hash);
                 }
                 result = false;
             }
@@ -1374,6 +1376,13 @@ module.exports = (factory, factoryOptions) => {
             // mark block for future processing
             if (!result) await this._blockInFlight(block);
             return result;
+        }
+
+        _queueBlockRequest(hash) {
+            typeforce(types.Hash256bit, hash);
+            const strHash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
+
+            this._setUnknownBlocks.add(strHash);
         }
 
         /**

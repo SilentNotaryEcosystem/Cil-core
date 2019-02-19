@@ -241,7 +241,8 @@ module.exports = (factory, factoryOptions) => {
                         const patchState = await this._execBlock(block);
                         consensus.processValidBlock(block, patchState);
                     } else {
-                        throw new Error(`Block ${block.hash()} couldn't be executed right now!`);
+                        this._requestUnknownBlocks();
+                        throw new Error(`Proposed block ${block.hash()} couldn't be executed right now!`);
                     }
 
                     // no _accept here, because this block should be voted before
