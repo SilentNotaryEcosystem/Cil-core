@@ -368,7 +368,6 @@ module.exports = (factory, factoryOptions) => {
                 peer.misbehave(5);
                 return;
             }
-            this._requestCache.done(block.getHash());
 
             const lock = await this._mutex.acquire([`${block.getHash()}`]);
             try {
