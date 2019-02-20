@@ -76,8 +76,12 @@ module.exports = (factory) => {
         addPeer(peer, bForceRewrite) {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
-            // it's senseless to add private addresses. we couldn't connect them anyway
-            if (!this._useNonRoutableAddresses && !Transport.isRoutableAddress(peer.address)) return peer;
+            // it's senseless to store DISCONNECTED peer with private addresses. we couldn't connect them anyway
+            if (peer.disconnected &&
+                !this._useNonRoutableAddresses &&
+                !Transport.isRoutableAddress(peer.address)) {
+                return peer;
+            }
 
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
@@ -154,7 +158,7 @@ module.exports = (factory) => {
             const foundPeer = this._mapAllPeers.get(key);
             if (foundPeer) {
                 foundPeer.removeAllListeners();
-                foundPeer.disconnect();
+                if (!peer.disconnected) foundPeer.disconnect();
             }
             this._mapAllPeers.delete(key);
         }
