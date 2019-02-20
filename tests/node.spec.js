@@ -504,14 +504,15 @@ describe('Node tests', () => {
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
 
-        node._mainDag.getBlockInfo = sinon.fake.resolves(false);
-        node._processBlock = sinon.fake();
+        node._mainDag.getBlockInfo = sinon.fake.returns(false);
+        node._processBlock = sinon.fake.returns(new factory.PatchDB());
         node._requestCache.request(block.hash());
+        node._peerManager.broadcastToConnected = sinon.fake();
 
         await node._handleBlockMessage(fakePeer, msg);
 
         assert.isOk(node._processBlock.calledOnce);
-        assert.isOk(fakePeer.pushMessage.calledOnce);
+        assert.isOk(node._peerManager.broadcastToConnected.calledOnce);
 
     });
 

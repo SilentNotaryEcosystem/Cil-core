@@ -336,12 +336,13 @@ module.exports = (factory, factoryOptions) => {
             try {
                 await this._processReceivedTx(tx);
 
+                // TODO: choose random 2 to inform (to prevent overspam)
                 // inform other about good TX
                 const inv = new Inventory();
                 inv.addTx(tx);
                 const msgInv = new MsgInv();
                 msgInv.inventory = inv;
-                await peer.pushMessage(msgInv);
+                await this._peerManager.broadcastToConnected(undefined, msgInv);
             } catch (e) {
                 logger.error(e, `Bad TX received. Peer ${peer.address}`);
                 peer.misbehave(5);
@@ -383,12 +384,14 @@ module.exports = (factory, factoryOptions) => {
 
                 await this._processBlock(block);
 
-                // inform other about good block
-                const inv = new Inventory();
-                inv.addBlock(block);
-                const msgInv = new MsgInv();
-                msgInv.inventory = inv;
-                await peer.pushMessage(msgInv);
+                    // TODO: choose random 2 to inform (to prevent overspam)
+                    // inform other about good block
+                    const inv = new Inventory();
+                    inv.addBlock(block);
+                    const msgInv = new MsgInv();
+                    msgInv.inventory = inv;
+                    await this._peerManager.broadcastToConnected(undefined, msgInv);
+                }
             } catch (e) {
                 await this._blockBad(block);
                 logger.error(e);
