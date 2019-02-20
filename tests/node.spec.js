@@ -497,9 +497,7 @@ describe('Node tests', () => {
     it('should process NEW block from MsgBlock', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
-        const fakePeer = {
-            pushMessage: sinon.fake()
-        };
+        const fakePeer = {};
 
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
@@ -892,9 +890,9 @@ describe('Node tests', () => {
         node._requestUnknownBlocks = sinon.fake();
         node._verifyBlockSignatures = sinon.fake();
 
-        await node._processBlock(block);
+        const result = await node._processBlock(block);
 
-        assert.isOk(node._requestUnknownBlocks.calledOnce);
+        assert.isOk(typeof result === 'number');
         assert.isOk(node._setUnknownBlocks.size, 1);
         assert.isOk(node._setUnknownBlocks.has(block.parentHashes[0]));
     });

@@ -382,7 +382,10 @@ module.exports = (factory, factoryOptions) => {
                 // remove it (if was there)
                 this._setUnknownBlocks.delete(block.getHash());
 
-                await this._processBlock(block);
+                const result = await this._processBlock(block);
+                if (typeof result === 'number') {
+                    await this._requestUnknownBlocks(peer);
+                } else if (result instanceof PatchDB) {
 
                     // TODO: choose random 2 to inform (to prevent overspam)
                     // inform other about good block
@@ -410,22 +413,24 @@ module.exports = (factory, factoryOptions) => {
          * 2. we don't have all parents -> mark as InFlight, request that block
          *
          * @param {Block} block
-         * @return {Promise <PatchDB | undefined>}
+         * @return {Promise <PatchDB | Number | null >} Number means _requestUnknownBlocks
          * @private
          */
         async _processBlock(block) {
+            let retVal = null;
+            debugNode(`Processing block ${block.hash()}`);
 
+            // check: whether we already processed this block?
+            const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
+
+            if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
+                logger.error(`Trying to process ${block.getHash()} more than one time!`);
+                return retVal;
+            }
+
+            // NO RETURN BEYOND THIS POINT before lock release ! or we'll have a dead lock
             const lock = await this._mutex.acquire(['block']);
             try {
-                debugNode(`Processing block ${block.hash()}`);
-
-                // check: whether we already processed this block?
-                const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
-
-                if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
-                    logger.error(`Trying to process ${block.getHash()} more than one time!`);
-                    return;
-                }
 
                 await this._verifyBlock(block);
 
@@ -437,20 +442,22 @@ module.exports = (factory, factoryOptions) => {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
 
-                    return patchState;
+                    retVal = patchState;
                 } else {
 
                     // not ready, so we should request unknown blocks
-                    this._requestUnknownBlocks();
+                    retVal = 1;
                 }
             } catch (e) {
                 throw e;
             } finally {
                 this._mutex.release(lock);
             }
+
+            return retVal;
         }
 
-        _requestUnknownBlocks() {
+        async _requestUnknownBlocks(peer) {
             if (!this._setUnknownBlocks.size) return;
 
             const msgGetData = new MsgGetData();
@@ -463,10 +470,12 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
-            debugNode(`Requested unknown blocks: ${invToRequest.vector.map(v => `"${v.hash.toString('hex')}"`)}`);
+            if (invToRequest.vector.length) {
+                debugNode(`Requested unknown blocks: ${invToRequest.vector.map(v => `"${v.hash.toString('hex')}"`)}`);
 
-            msgGetData.inventory = invToRequest;
-            this._peerManager.broadcastToConnected(undefined, msgGetData);
+                msgGetData.inventory = invToRequest;
+                peer.pushMessage(msgGetData);
+            }
         }
 
         /**
@@ -1034,6 +1043,8 @@ module.exports = (factory, factoryOptions) => {
             patchState.setGroupId(block.witnessGroupId);
             const isGenesis = this.isGenesisBlock(block);
 
+            debugNode(`Block ${block.getHash()} being executed`);
+
             let blockFees = 0;
             const blockTxns = block.txns;
 
@@ -1070,6 +1081,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _acceptBlock(block, patchState) {
+
+            debugNode(`Block ${block.getHash()} accepted`);
 
             // write block to storage & DAG
             await this._storeBlockAndInfo(block, new BlockInfo(block.header));
