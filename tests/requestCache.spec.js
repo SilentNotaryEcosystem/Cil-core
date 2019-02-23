@@ -48,4 +48,14 @@ describe('Request Cache', () => {
         // we can request it again
         assert.isOk(cache.request(hash));
     });
+
+    it('should PASS isRequested for HOLDOFF period', async () => {
+        const strHash = pseudoRandomBuffer().toString('hex');
+        cache.request(strHash);
+
+        assert.isOk(cache.isRequested(strHash));
+
+        cache._mapRequests.set(strHash, Date.now() - 1);
+        assert.isNotOk(cache.isRequested(strHash));
+    });
 });
