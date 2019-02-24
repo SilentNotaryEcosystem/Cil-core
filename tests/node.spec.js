@@ -497,21 +497,20 @@ describe('Node tests', () => {
     it('should process NEW block from MsgBlock', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
-        const fakePeer = {};
+        const fakePeer = {fake: 1};
 
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
 
-        node._mainDag.getBlockInfo = sinon.fake.returns(false);
-        node._processBlock = sinon.fake.returns(new factory.PatchDB());
         node._requestCache.request(block.hash());
-        node._peerManager.broadcastToConnected = sinon.fake();
+        node._mainDag.getBlockInfo = sinon.fake.returns(false);
+        node._verifyBlock = sinon.fake.resolves(true);
+        node._blockInFlight = sinon.fake();
 
         await node._handleBlockMessage(fakePeer, msg);
 
-        assert.isOk(node._processBlock.calledOnce);
-        assert.isOk(node._peerManager.broadcastToConnected.calledOnce);
-
+        assert.equal(node._mapBlocksToExec.size, 1);
+        assert.deepEqual(node._mapBlocksToExec.get(block.getHash()), fakePeer);
     });
 
     it('should omit KNOWN block from MsgBlock', async () => {
@@ -525,81 +524,23 @@ describe('Node tests', () => {
 
         await node._handleBlockMessage(undefined, msg);
 
-        assert.isNotOk(node._processBlock.called);
+        assert.equal(node._mapBlocksToExec.size, 0);
     });
 
-    it('should process good block', async () => {
-        const tx = new factory.Transaction(createDummyTx());
-        const tx2 = new factory.Transaction(createDummyTx());
-        const parentBlock = createDummyBlock(factory);
-        const block = new factory.Block(0);
-        block.addTx(tx);
-        block.addTx(tx2);
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
-        block.parentHashes = [parentBlock.getHash()];
-
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        node._verifyBlockSignatures = sinon.fake.resolves(true);
-        node._pendingBlocks.addBlock(parentBlock, new factory.PatchDB());
-        await node._storeBlockAndInfo(parentBlock, new factory.BlockInfo(parentBlock.header));
-
-        node._app.processTxInputs = sinon.fake.returns({totalHas: 10000, patch: new factory.PatchDB});
-        node._app.processPayments = sinon.fake.returns(0);
-
-        node._storage.applyPatch = sinon.fake();
-        node._storage.getUtxosCreateMap = sinon.fake();
-        node._informNeighbors = sinon.fake();
-        node._checkCoinbaseTx = sinon.fake();
-        node._requestCache.request(block.hash());
-
-        const peer = new factory.Peer(createDummyPeer(factory));
-        peer.ban = sinon.fake();
-
-        const msg = new factory.Messages.MsgBlock(block);
-
-        await node._handleBlockMessage(peer, msg);
-
-        assert.isOk(node._app.processPayments.called);
-        assert.isOk(node._app.processPayments.callCount, 2);
-        assert.isOk(await node._storage.getBlock(block.getHash()));
-        assert.isOk(node._informNeighbors.calledOnce);
-
-        assert.isNotOk(peer.ban.called);
-    });
-
-    it('should process BAD block from MsgBlock', async () => {
+    it('should discard INVALID block from MsgBlock', async () => {
         const block = createDummyBlockWithTx(factory);
 
         const groupDef = createGroupDefAndSignBlock(block);
         const node = new factory.Node({arrTestDefinition: [groupDef]});
         await node.ensureLoaded();
 
-        // make this block BAD
-        node._app.processTxInputs = sinon.fake.throws('error');
-
-        node._storage.applyPatch = sinon.fake();
-        node._storage.getUtxosCreateMap = sinon.fake();
-        node._verifyBlock = sinon.fake.returns(true);
-        node._canExecuteBlock = sinon.fake.returns(true);
-        node._informNeighbors = sinon.fake();
         node._requestCache.request(block.hash());
-
-        const peer = new factory.Peer(createDummyPeer(factory));
-        peer.misbehave = sinon.fake();
-
-        const msg = new factory.Messages.MsgBlock(block);
+        node._mainDag.getBlockInfo = sinon.fake.returns(false);
+        node._verifyBlock = sinon.fake.throws('error');
 
         try {
             await node._handleBlockMessage(peer, msg);
         } catch (e) {
-            assert.isOk(node._app.processTxInputs.called);
-            assert.isOk(node._app.processTxInputs.callCount, 2);
-            assert.isNotOk(node._storage.saveBlock.called);
-            assert.isNotOk(node._storage.applyPatch.called);
-            assert.isNotOk(node._informNeighbors.called);
-            assert.isOk(peer.misbehave.calledOnce);
             return;
         }
         assert.isOk(false, 'Unexpected success');
@@ -879,22 +820,6 @@ describe('Node tests', () => {
 
         assert.equal(node._pendingBlocks.getDag().order, 4);
         assert.equal(node._pendingBlocks.getDag().size, 4);
-    });
-
-    it('should request unknown parent', async () => {
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        const block = createDummyBlock(factory);
-
-        node._requestUnknownBlocks = sinon.fake();
-        node._verifyBlockSignatures = sinon.fake();
-
-        const result = await node._processBlock(block);
-
-        assert.isOk(typeof result === 'number');
-        assert.isOk(node._setUnknownBlocks.size, 1);
-        assert.isOk(node._setUnknownBlocks.has(block.parentHashes[0]));
     });
 
     it('should process MSG_GET_BLOCKS (simple chain)', async () => {
@@ -1589,5 +1514,166 @@ describe('Node tests', () => {
 
     });
 
+    describe('BlockProcessor', () => {
+        let node;
+        beforeEach(async () => {
+            node = new factory.Node();
+            await node.ensureLoaded();
+        });
+
+        describe('_isBlockKnown', () => {
+            it('should be Ok (in DAG)', async () => {
+                node._mainDag.getBlockInfo = sinon.fake.returns(true);
+                assert.isOk(await node._isBlockKnown('hash'));
+            });
+            it('should be Ok (in storage)', async () => {
+                node._mainDag.getBlockInfo = sinon.fake.returns(false);
+                node._storage.hasBlock = sinon.fake.resolves(new factory.Block(0));
+                assert.isOk(await node._isBlockKnown('hash'));
+            });
+        });
+        describe('_isBlockExecuted', () => {
+            it('should be Ok (final block is in DAG)', async () => {
+                node._mainDag.getBlockInfo = sinon.fake.returns({isFinal: () => true});
+                assert.isOk(node._isBlockExecuted('hash'));
+            });
+            it('should be Ok (final block is in DAG)', async () => {
+                node._mainDag.getBlockInfo = sinon.fake.returns(undefined);
+                node._pendingBlocks.hasBlock = sinon.fake.returns(true);
+                assert.isOk(node._isBlockExecuted('hash'));
+            });
+        });
+        describe('_createMapBlockPeer', () => {
+            it('should query all hashes from one peer', async () => {
+                const peer = {address: 'addr1', port: 1234};
+                node._mapUnknownBlocks = new Map();
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
+
+                const resultMap = node._createMapBlockPeer();
+                assert.isOk(resultMap);
+                assert.equal(resultMap.size, 1);
+                const [[, setHashes]] = [...resultMap];
+                assert.equal(setHashes.size, 3);
+            });
+            it('should query all hashes from different peer', async () => {
+                const peer = {address: 'addr1', port: 1234};
+                const peer2 = {address: 'addr2', port: 1234};
+                const peer3 = {address: 'addr3', port: 1234};
+                node._mapUnknownBlocks = new Map();
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer3);
+
+                const resultMap = node._createMapBlockPeer();
+                assert.isOk(resultMap);
+                assert.equal(resultMap.size, 3);
+            });
+        });
+        describe('_sendMsgGetDataToPeers', () => {
+            let mapBlockPeers;
+            const peer = {address: 'addr1', port: 1234};
+            const peer2 = {address: 'addr2', port: 1234};
+            const peer3 = {address: 'addr3', port: 1234};
+
+            beforeEach(() => {
+
+                node._mapUnknownBlocks = new Map();
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer3);
+
+                [peer, peer2, peer3].forEach(p => p.pushMessage = sinon.fake());
+
+                mapBlockPeers = node._createMapBlockPeer();
+            });
+
+            it('should request all hashes', async () => {
+                node._peerManager.getConnectedPeers = sinon.fake.returns([peer, peer2, peer3]);
+                await node._sendMsgGetDataToPeers(mapBlockPeers);
+
+                assert.isOk(peer.pushMessage.calledOnce);
+                assert.isOk(peer2.pushMessage.calledOnce);
+                assert.isOk(peer3.pushMessage.calledOnce);
+
+                {
+                    const [msg] = peer.pushMessage.args[0];
+                    assert.equal(msg.inventory.vector.length, 1);
+                }
+                {
+                    const [msg] = peer2.pushMessage.args[0];
+                    assert.equal(msg.inventory.vector.length, 3);
+                }
+                {
+                    const [msg] = peer3.pushMessage.args[0];
+                    assert.equal(msg.inventory.vector.length, 1);
+                }
+            });
+        });
+
+        describe('_blockProcessorExecBlock', () => {
+            it('should process from hash (fail to exec)', async () => {
+                const peer = {misbehave: sinon.fake()};
+                node._storage.getBlock = sinon.fake.resolves(createDummyBlock(factory));
+                node._execBlock = sinon.fake.throws(new Error('error'));
+                node._blockBad = sinon.fake();
+
+                await node._blockProcessorExecBlock(pseudoRandomBuffer(), peer);
+                assert.isOk(node._blockBad.calledOnce);
+                assert.isOk(peer.misbehave.calledOnce);
+            });
+
+            it('should process from block (fail to exec)', async () => {
+                const peer = {misbehave: sinon.fake()};
+                node._storage.getBlock = sinon.fake();
+                node._execBlock = sinon.fake.throws(new Error('error'));
+                node._blockBad = sinon.fake();
+
+                await node._blockProcessorExecBlock(createDummyBlock(factory), peer);
+                assert.isNotOk(node._storage.getBlock.called);
+                assert.isOk(node._blockBad.calledOnce);
+            });
+        });
+
+        describe('_blockProcessorProcessParents', () => {
+            it('should mark toExec', async () => {
+                node._isBlockKnown = sinon.fake.returns(true);
+                node._isBlockExecuted = sinon.fake.returns(false);
+
+                const block = createDummyBlock(factory);
+                const {arrToRequest, arrToExec} = await node._blockProcessorProcessParents(
+                    new factory.BlockInfo(block.header)
+                );
+                assert.equal(arrToRequest.length, 0);
+                assert.equal(arrToExec.length, 1);
+            });
+
+            it('should mark toRequest', async () => {
+                node._isBlockKnown = sinon.fake.returns(false);
+
+                const block = createDummyBlock(factory);
+                const {arrToRequest, arrToExec} = await node._blockProcessorProcessParents(
+                    new factory.BlockInfo(block.header)
+                );
+                assert.equal(arrToRequest.length, 1);
+                assert.equal(arrToExec.length, 0);
+            });
+
+            it('should do nothing (already executed)', async () => {
+                node._isBlockKnown = sinon.fake.returns(true);
+                node._isBlockExecuted = sinon.fake.returns(true);
+
+                const block = createDummyBlock(factory);
+                const {arrToRequest, arrToExec} = await node._blockProcessorProcessParents(
+                    new factory.BlockInfo(block.header)
+                );
+                assert.equal(arrToRequest.length, 0);
+                assert.equal(arrToExec.length, 0);
+            });
+        });
+    });
 });
 

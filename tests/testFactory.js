@@ -112,7 +112,7 @@ class Factory {
                 this._requestCacheImplementation = RequestCacheWrapper(this);
 
                 // all componenst should be declared above
-                this._nodeImplementation = NodeWrapper(this, options);
+                this._nodeImplementation = NodeWrapper(this, {...options, workerSuspended: true});
                 this._witnessImplementation = WitnessWrapper(this, options);
             })
             .catch(err => {
