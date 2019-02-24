@@ -21,6 +21,7 @@ module.exports = (factory) => {
     return class PendingBlocksManager {
         constructor(arrTopStable) {
             this._dag = new Dag();
+            this._dag.testForCyclic = false;
 
             this._topStable = arrTopStable;
 
