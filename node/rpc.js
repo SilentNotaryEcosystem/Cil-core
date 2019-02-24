@@ -72,8 +72,8 @@ module.exports = ({Constants, Transaction}) =>
             return prepareForStringifyObject(cReceipt ? cReceipt.toObject() : undefined);
         }
 
-        informWsSubscribers(topic, objData) {
-            this._server.broadcastToWS(topic, prepareForStringifyObject(objData));
+        informWsSubscribers(topic, block) {
+            this._server.broadcastToWS(topic, {hash: block.getHash(), block: prepareForStringifyObject(block.toObject())});
         }
 
         /**
@@ -90,7 +90,7 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getBlock',
                 content: strBlockHash
             });
-            return cBlock ? {hash: cBlock.getHash(), block: prepareForStringifyObject(cBlock.toObject())} : undefined;
+            return cBlock ? {hash: cBlock.getHash(), block: prepareForStringifyObject(cBlock)} : undefined;
         }
 
         /**
@@ -98,13 +98,13 @@ module.exports = ({Constants, Transaction}) =>
          * @returns {Promise<Array>} of blockInfos (headers)
          */
         async getTips() {
-            const arrBlockInfos = await this._nodeInstance.rpcHandler({
+            const arrBlocks = await this._nodeInstance.rpcHandler({
                 event: 'getTips'
             });
 
-            return arrBlockInfos.map(blockInfo => ({
-                hash: blockInfo.getHash(),
-                blockHeader: prepareForStringifyObject(blockInfo.getHeader())
+            return arrBlocks.map(block => ({
+                hash: block.getHash(),
+                block: prepareForStringifyObject(block)
             }));
         }
     };

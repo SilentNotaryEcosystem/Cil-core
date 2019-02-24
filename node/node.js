@@ -238,7 +238,7 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
-//                    logger.error(e.message);
+                    //                    logger.error(e.message);
                     logger.error(e);
                 }
             }
@@ -541,7 +541,7 @@ module.exports = (factory, factoryOptions) => {
                             'hex')}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
-//                    logger.error(e.message);
+                    //                    logger.error(e.message);
                     logger.error(e, `GetDataMessage. Peer ${peer.address}`);
                     peer.misbehave(5);
 
@@ -778,14 +778,15 @@ module.exports = (factory, factoryOptions) => {
                         return await this._storage.getTxReceipt(content);
                     case 'getBlock':
                         const cBlock = await this._storage.getBlock(content);
-                        return cBlock.toObject();
+                        return cBlock;
                     case 'getTips':
                         let arrHashes = this._pendingBlocks.getTips();
+
                         if (!arrHashes || !arrHashes.length) {
                             arrHashes =
                                 await this._storage.getLastAppliedBlockHashes();
                         }
-                        return arrHashes.map(hash => this._mainDag.getBlockInfo(hash));
+                        return await Promise.all(arrHashes.map(async (hash) => {return await this._storage.getBlock(hash)}));
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1105,7 +1106,7 @@ module.exports = (factory, factoryOptions) => {
             );
 
             if (this._rpc) {
-                this._rpc.informWsSubscribers('newBlock', block.header);
+                this._rpc.informWsSubscribers('newBlock', block);
             }
         }
 
