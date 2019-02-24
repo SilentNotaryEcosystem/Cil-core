@@ -395,4 +395,63 @@ describe('Peer manager', () => {
         assert.isOk(arrPeers.length === 2);
 
     });
+
+    it('should addCandidateConnection', async () => {
+        const storage = new factory.Storage({});
+        const pm = new factory.PeerManager({storage});
+
+        const connection = {
+            remoteAddress: () => 'edaa',
+            listenerCount: () => 1
+        };
+        pm.addCandidateConnection(connection);
+    });
+
+    it('should addCandidateConnection', async () => {
+        const storage = new factory.Storage({});
+        const pm = new factory.PeerManager({storage});
+
+        const connection = {
+            remoteAddress: () => 'edaa',
+            listenerCount: () => 1
+        };
+        pm.addCandidateConnection(connection);
+
+        assert.equal(pm._mapCandidatePeers.size, 1);
+    });
+
+    it('should associatePeer', async () => {
+        const storage = new factory.Storage({});
+        const pm = new factory.PeerManager({storage});
+
+        const connection = {
+            remoteAddress: () => 'edaa',
+            listenerCount: () => 1
+        };
+        pm.addCandidateConnection(connection);
+        const peer = new factory.Peer({connection});
+        pm.addPeer = sinon.fake();
+
+        pm.associatePeer(peer, createDummyPeer(factory));
+
+        assert.equal(pm._mapCandidatePeers.size, 0);
+        assert.isOk(pm.addPeer.calledOnce);
+    });
+
+    it('should getConnectedPeers (incoming connection)', async () => {
+        const storage = new factory.Storage({});
+        const pm = new factory.PeerManager({storage});
+
+        const connection = {
+            remoteAddress: () => 'edaa',
+            listenerCount: () => 1
+        };
+        const peer = new factory.Peer({connection});
+        pm.addPeer(peer, true);
+
+        const arrPeers = pm.getConnectedPeers(undefined);
+
+        assert.isOk(arrPeers);
+        assert.equal(arrPeers.length, 1);
+    });
 });

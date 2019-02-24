@@ -34,7 +34,8 @@ module.exports = ({Constants}) =>
             typeforce(types.Hash256bit, hash);
 
             hash = Buffer.isBuffer(hash) ? hash.toString('hex') : hash;
-            return this._mapRequests.has(hash);
+            const awaitTill = this._mapRequests.get(hash);
+            return awaitTill && awaitTill > Date.now();
         }
 
         /**

@@ -50,7 +50,7 @@ module.exports = {
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 
         // maximum block hashes in MSG_INV
-        MAX_BLOCKS_INV: 500,
+        MAX_BLOCKS_INV: 100,
 
         // we expect that peer will respond with requested INV
         INV_REQUEST_HOLDOFF: 1 * 60 * 1000,

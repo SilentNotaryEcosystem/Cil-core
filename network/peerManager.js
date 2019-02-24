@@ -2,6 +2,8 @@ const EventEmitter = require('events');
 const assert = require('assert');
 const Tick = require('tick-tock');
 
+const debug = require('debug')('peerManager:');
+
 /**
  *
  * @param {Factory} factory
@@ -74,8 +76,12 @@ module.exports = (factory) => {
         addPeer(peer, bForceRewrite) {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
-            // it's senseless to add private addresses. we couldn't connect them anyway
-            if (!this._useNonRoutableAddresses && !Transport.isRoutableAddress(peer.address)) return peer;
+            // it's senseless to store DISCONNECTED peer with private addresses. we couldn't connect them anyway
+            if (peer.disconnected &&
+                !this._useNonRoutableAddresses &&
+                !Transport.isRoutableAddress(peer.address)) {
+                return peer;
+            }
 
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
@@ -150,7 +156,10 @@ module.exports = (factory) => {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
             const key = this._createKey(peer.address, peer.port);
             const foundPeer = this._mapAllPeers.get(key);
-            if (foundPeer) foundPeer.removeAllListeners();
+            if (foundPeer) {
+                foundPeer.removeAllListeners();
+                if (!peer.disconnected) foundPeer.disconnect();
+            }
             this._mapAllPeers.delete(key);
         }
 
@@ -226,6 +235,7 @@ module.exports = (factory) => {
 
         broadcastToConnected(tag, message) {
             const arrPeers = this.getConnectedPeers(tag);
+            debug(`Found ${arrPeers.length} connected peers for tag "${tag}"`);
             for (let peer of arrPeers) {
                 peer.pushMessage(message).catch(err => logger.error(err));
             }
