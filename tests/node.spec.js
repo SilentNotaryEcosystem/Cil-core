@@ -14,6 +14,7 @@ const {
     createDummyPeer,
     createDummyBlock,
     createDummyBlockWithTx,
+    createDummyBlockInfo,
     pseudoRandomBuffer,
     generateAddress
 } = require('./testUtil');
@@ -1351,7 +1352,7 @@ describe('Node tests', () => {
         const [topic, objData] = fake.args[0];
 
         assert.equal(topic, 'newBlock');
-        assert.deepEqual(objData, block.header);
+        assert.deepEqual(objData, block);
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
@@ -1477,7 +1478,7 @@ describe('Node tests', () => {
             assert.equal(strHash, strBlockHash);
 
             assert.isOk(objResult);
-            assert.deepEqual(prepareForStringifyObject(objResult), prepareForStringifyObject(cBlock.toObject()));
+            assert.deepEqual(prepareForStringifyObject(objResult), prepareForStringifyObject(cBlock));
         });
 
         it('should get TIPS', async () => {
@@ -1490,6 +1491,8 @@ describe('Node tests', () => {
                     node._mainDag.addBlock(new factory.BlockInfo(block.header));
                 }
             );
+
+            node._storage.getBlock = sinon.fake.resolves(node._mainDag.getBlockInfo(arrExpectedHashes[9]));
 
             const [cOneTip] = await node.rpcHandler({event: 'getTips'});
             assert.isOk(cOneTip);
@@ -1505,7 +1508,7 @@ describe('Node tests', () => {
             const expectedResult = {fake: 1};
 
             node._storage.getLastAppliedBlockHashes = sinon.fake.resolves(['dead']);
-            node._mainDag.getBlockInfo = sinon.fake.returns(expectedResult);
+            node._storage.getBlock = sinon.fake.resolves(expectedResult);
 
             const [cOneTip] = await node.rpcHandler({event: 'getTips'});
             assert.isOk(cOneTip);
@@ -1521,6 +1524,51 @@ describe('Node tests', () => {
             await node.ensureLoaded();
         });
 
+        describe('_storeBlockAndInfo', () => {
+            it('should rewrite BlockInfo and remove block from storage (we mark it as bad)', async () => {
+                const bi = createDummyBlockInfo(factory);
+                const badBi = new factory.BlockInfo(bi.encode());
+                badBi.markAsBad();
+
+                node._storage.getBlockInfo = sinon.fake.resolves(bi);
+                node._storage.saveBlockInfo = sinon.fake();
+                node._storage.removeBlock = sinon.fake();
+
+                await node._storeBlockAndInfo(undefined, badBi);
+
+                assert.isOk(node._storage.getBlockInfo.calledOnce);
+                assert.isOk(node._storage.saveBlockInfo.calledOnce);
+                assert.isOk(node._storage.removeBlock.calledOnce);
+
+            });
+
+            it('should save only BlockInfo (no previously stored block)', async () => {
+                const badBi = createDummyBlockInfo(factory);
+                badBi.markAsBad();
+
+                node._storage.getBlockInfo = sinon.fake.rejects('err');
+                node._storage.saveBlockInfo = sinon.fake();
+                node._storage.removeBlock = sinon.fake();
+
+                await node._storeBlockAndInfo(undefined, badBi);
+
+                assert.isOk(node._storage.getBlockInfo.calledOnce);
+                assert.isOk(node._storage.saveBlockInfo.calledOnce);
+                assert.isNotOk(node._storage.removeBlock.calledOnce);
+
+            });
+
+            it('should save both: BlockInfo & Block (good block)', async () => {
+                const block = createDummyBlock(factory);
+                const bi = new factory.BlockInfo(block.header);
+
+                node._storage.saveBlock = sinon.fake.resolves();
+
+                await node._storeBlockAndInfo(block, bi);
+
+                assert.isOk(node._storage.saveBlock.calledOnce);
+            });
+        });
         describe('_isBlockKnown', () => {
             it('should be Ok (in DAG)', async () => {
                 node._mainDag.getBlockInfo = sinon.fake.returns(true);
@@ -1613,7 +1661,6 @@ describe('Node tests', () => {
                 }
             });
         });
-
         describe('_blockProcessorExecBlock', () => {
             it('should process from hash (fail to exec)', async () => {
                 const peer = {misbehave: sinon.fake()};
@@ -1637,7 +1684,6 @@ describe('Node tests', () => {
                 assert.isOk(node._blockBad.calledOnce);
             });
         });
-
         describe('_blockProcessorProcessParents', () => {
             it('should mark toExec', async () => {
                 node._isBlockKnown = sinon.fake.returns(true);

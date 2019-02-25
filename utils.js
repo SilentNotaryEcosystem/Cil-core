@@ -16,6 +16,7 @@ const prepareForStringifyObject = (obj) => {
 
     const resultObject = {};
     for (let key of Object.keys(obj)) {
+        if (typeof obj[key] === 'function') continue;
         if (Buffer.isBuffer(obj[key])) {
             resultObject[key] = obj[key].toString('hex');
         } else if (Array.isArray(obj[key])) {

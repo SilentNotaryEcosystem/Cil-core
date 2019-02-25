@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
 const {prepareForStringifyObject} = require('../utils');
 
 let fakeResult = {
@@ -75,7 +75,7 @@ describe('RPC', () => {
 
     it('should PASS informWsSubscribers (no subscribers)', async () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
-        rpc.informWsSubscribers('test', {a: 1, b: 2});
+        rpc.informWsSubscribers('test', createDummyBlock(factory));
     });
 
     it('should PASS informWsSubscribers (has subscribers)', async () => {
@@ -83,7 +83,7 @@ describe('RPC', () => {
         const fake = sinon.fake();
         rpc._server._objConnections['test1'] = {send: fake};
 
-        rpc.informWsSubscribers('testTopic', {a: 1, b: 2});
+        rpc.informWsSubscribers('testTopic', createDummyBlock(factory));
         assert.isOk(fake.calledOnce);
     });
 
@@ -105,13 +105,13 @@ describe('RPC', () => {
 
     it('should get tips', async () => {
         const fakeRpcHandler = [
-            {getHash: () => 'dead', getHeader: () => ({fake: 1})},
-            {getHash: () => 'edaa', getHeader: () => ({fake: 2})}
+            {getHash: () => 'dead'},
+            {getHash: () => 'edaa'}
         ];
 
         const fakeResult = [
-            {hash: 'dead', blockHeader: {fake: 1}},
-            {hash: 'edaa', blockHeader: {fake: 2}}
+            {hash: 'dead', block: {}},
+            {hash: 'edaa', block: {}}
         ];
         const node = {
             rpcHandler: sinon.fake.resolves(fakeRpcHandler)
@@ -119,7 +119,7 @@ describe('RPC', () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
 
         const result = await rpc.getTips();
-        assert.deepEqual(prepareForStringifyObject(fakeResult), prepareForStringifyObject(result));
+        assert.deepEqual(result, prepareForStringifyObject(fakeResult));
     });
 
 });
