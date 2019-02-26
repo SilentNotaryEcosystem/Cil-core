@@ -398,15 +398,15 @@ module.exports = (factory) => {
 
                 if (this._block) {
                     if (consensusValue.blockHash.equals(Buffer.from(this._block.hash(), 'hex'))) {
-                        const signatures = this._getSignaturesForBlock();
+                        const arrSignatures = this._getSignaturesForBlock();
 
-                        if (!signatures) {
+                        if (!arrSignatures || !arrSignatures.length) {
                             logger.error(
                                 `Consensus reached for block ${consensusValue.blockHash}, but fail to get signatures!`);
                             return this._nextRound();
                         }
 
-                        this._block.addWitnessSignatures(signatures);
+                        this._block.addWitnessSignatures(arrSignatures);
                         this.emit('commitBlock', this._block, this._patch);
                     } else {
 
@@ -539,10 +539,15 @@ module.exports = (factory) => {
                     && votedValue.signature
                     && Crypto.verify(buffBlockHash, votedValue.signature, pubKeyI)
                 ) {
+
+                    // this will suppress empty elements in result array
                     arrSignatures.push(votedValue.signature);
                 }
             });
             const quorum = this._groupDefinition.getQuorum();
+
+            assert(quorum, `Quorum couldn't be zero!`);
+
             return arrSignatures.length >= quorum ? arrSignatures.slice(0, quorum) : undefined;
         }
     };

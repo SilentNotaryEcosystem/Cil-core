@@ -760,10 +760,83 @@ describe('BFT general tests', () => {
         assert.throws(() => newBft._getSignaturesForBlock());
     });
 
-//    it('should move to COMMIT stage', async () => {
-//        const {newBft} = createDummyBFT(groupId,1);
-//        const block= createDummyBlock(factory, groupId);
-//
-//        newBft._voteStateHandler(true, {blockHash: })
-//    });
+    it('should get signatures', async () => {
+        const {arrKeyPairs, newBft, groupDefinition} = createDummyBFT(groupId, 2);
+        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+
+        newBft._resetState();
+        newBft._block = createDummyBlock(factory);
+        const buffHash = Buffer.from(newBft._block.getHash(), 'hex');
+
+        // my node put own version
+        newBft._addViewOfNodeWithPubKey(
+            arrKeyPairs[0].publicKey,
+            arrKeyPairs[0].publicKey,
+            {
+                blockHash: buffHash,
+                signature: factory.Crypto.sign(buffHash, arrKeyPairs[0].privateKey, 'hex')
+            }
+        );
+
+        // my node got version of party
+        newBft._addViewOfNodeWithPubKey(
+            arrKeyPairs[0].publicKey,
+            arrKeyPairs[1].publicKey,
+            {
+                blockHash: buffHash,
+                signature: factory.Crypto.sign(buffHash, arrKeyPairs[1].privateKey, 'hex')
+            }
+        );
+
+        // receive party view my version
+        newBft._addViewOfNodeWithPubKey(
+            arrKeyPairs[1].publicKey,
+            arrKeyPairs[0].publicKey,
+            {
+                blockHash: buffHash,
+                signature: factory.Crypto.sign(buffHash, arrKeyPairs[0].privateKey, 'hex')
+            }
+        );
+
+        // receive party view of own version
+        newBft._addViewOfNodeWithPubKey(
+            arrKeyPairs[1].publicKey,
+            arrKeyPairs[1].publicKey,
+            {
+                blockHash: buffHash,
+                signature: factory.Crypto.sign(buffHash, arrKeyPairs[1].privateKey, 'hex')
+            }
+        );
+
+        // move this state to "archive". _getSignaturesForBlock works with it
+        newBft._resetState();
+
+        const arrSignatures = newBft._getSignaturesForBlock();
+        assert.isOk(arrSignatures);
+        assert.equal(arrSignatures.length, 2);
+    });
+
+    it('should FAIL get signatures (bad quorum)', async () => {
+        const {newBft} = createDummyBFT(groupId, 2);
+        newBft._block = createDummyBlock(factory);
+
+        newBft._groupDefinition.getQuorum = sinon.fake.returns(0);
+
+        try {
+            newBft._getSignaturesForBlock();
+        } catch (e) {
+            return;
+        }
+        throw new Error('Unexpected success');
+    });
+
+    it('should FAIL get signatures no votes', async () => {
+        const {newBft} = createDummyBFT(groupId, 2);
+        newBft._resetState();
+        newBft._block = createDummyBlock(factory);
+
+        const result = newBft._getSignaturesForBlock();
+        assert.isNotOk(result);
+    });
+
 });
