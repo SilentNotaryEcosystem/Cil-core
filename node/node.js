@@ -1444,6 +1444,7 @@ module.exports = (factory, factoryOptions) => {
 
         async _nodeWorker() {
             await this._blockProcessor().catch(err => console.error(err));
+            await sleep(1000);
             return setImmediate(this._nodeWorker.bind(this));
         }
 
