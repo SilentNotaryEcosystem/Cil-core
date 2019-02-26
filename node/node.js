@@ -450,9 +450,6 @@ module.exports = (factory, factoryOptions) => {
          */
         async _handleGetBlocksMessage(peer, message) {
 
-            // we'r empty. we have nothing to share with party
-            if (!this._mainDag.order) return;
-
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
 
@@ -1084,6 +1081,11 @@ module.exports = (factory, factoryOptions) => {
             });
 
             const arrNewLastApplied = [];
+
+            if (arrTopStable.length === 1 && arrTopStable[0] === Constants.GENESIS_BLOCK) {
+                arrNewLastApplied.push(Constants.GENESIS_BLOCK);
+            }
+
             const nGroupCount = await this._storage.getWitnessGroupsCount();
             for (let i = 0; i < nGroupCount; i++) {
                 const hash = mapNewGroupIdHash.get(i) || mapPrevGroupIdHash.get(i);
@@ -1237,7 +1239,18 @@ module.exports = (factory, factoryOptions) => {
                 mapBlocks.set(hash, await this._storage.getBlock(hash));
             }
 
-            const runBlock = async (hash) => {
+            // TODO: check can be this 2 cycles merged ?! or we should build tree and only then process it recursively?
+            for (let hash of arrPendingBlocksHashes) {
+                await runBlock(hash);
+            }
+
+            if (mapBlocks.size !== mapPatches.size) throw new Error('rebuildPending. Failed to process all blocks!');
+
+            for (let [hash, block] of mapBlocks) {
+                this._pendingBlocks.addBlock(block, mapPatches.get(hash));
+            }
+
+            async function runBlock(hash) {
 
                 // are we already executed this block
                 if (!mapBlocks.get(hash) || mapPatches.has(hash)) return;
@@ -1248,16 +1261,6 @@ module.exports = (factory, factoryOptions) => {
                 }
                 mapPatches.set(hash, await this._execBlock(block));
             };
-
-            for (let hash of arrPendingBlocksHashes) {
-                await runBlock(hash);
-            }
-
-            if (mapBlocks.size !== mapPatches.size) throw new Error('rebuildPending. Failed to process all blocks!');
-
-            for (let [hash, block] of mapBlocks) {
-                this._pendingBlocks.addBlock(block, mapPatches.get(hash));
-            }
         }
 
         async _blockBad(blockOrBlockInfo) {
@@ -1483,8 +1486,12 @@ module.exports = (factory, factoryOptions) => {
                 await this._requestUnknownBlocks();
             } else {
 
-                // TODO: make it more delicate?
-                this._peerManager.broadcastToConnected('fullyConnected', await this._createGetBlocksMsg());
+                // each 20 cycles - request blocks
+                const tickCount = 20;
+                if (this._getBlocksCounter === undefined) this._getBlocksCounter = 0;
+                if (!(this._getBlocksCounter++) % tickCount) {
+                    this._peerManager.broadcastToConnected('fullyConnected', await this._createGetBlocksMsg());
+                }
             }
         }
 
