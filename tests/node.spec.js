@@ -3,8 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
-const {sleep, arrayEquals, prepareForStringifyObject} = require('../utils');
-const debug = require('debug')('node:test');
+const {arrayEquals, prepareForStringifyObject} = require('../utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -1027,7 +1026,7 @@ describe('Node tests', () => {
                 close: () => {}
             }
         });
-        const peer = await node._peerManager.addPeer(newPeer);
+        await node._peerManager.addPeer(newPeer);
 
         await node._handleVersionMessage(newPeer, msgCommon);
         assert.equal(sendMessage.callCount, 1);
@@ -1095,6 +1094,7 @@ describe('Node tests', () => {
         peers.forEach((peer) => {
             peer.pushMessage = pushMessage;
             peer.loaded = loaded;
+            peer.fullyConnected = false;
             node._peerManager.addPeer(peer);
         });
         await node._reconnectPeers();
@@ -1569,6 +1569,7 @@ describe('Node tests', () => {
                 assert.isOk(node._storage.saveBlock.calledOnce);
             });
         });
+
         describe('_isBlockKnown', () => {
             it('should be Ok (in DAG)', async () => {
                 node._mainDag.getBlockInfo = sinon.fake.returns(true);
@@ -1591,6 +1592,7 @@ describe('Node tests', () => {
                 assert.isOk(node._isBlockExecuted('hash'));
             });
         });
+
         describe('_createMapBlockPeer', () => {
             it('should query all hashes from one peer', async () => {
                 const peer = {address: 'addr1', port: 1234};
@@ -1619,6 +1621,7 @@ describe('Node tests', () => {
                 assert.equal(resultMap.size, 3);
             });
         });
+
         describe('_sendMsgGetDataToPeers', () => {
             let mapBlockPeers;
             const peer = {address: 'addr1', port: 1234};
@@ -1637,6 +1640,12 @@ describe('Node tests', () => {
                 [peer, peer2, peer3].forEach(p => p.pushMessage = sinon.fake());
 
                 mapBlockPeers = node._createMapBlockPeer();
+            });
+
+            it('should do nothing since no connected peers', async () => {
+                node._peerManager.getConnectedPeers = sinon.fake.returns([]);
+                const map = new Map([['key', 'value']]);
+                await node._sendMsgGetDataToPeers(map);
             });
 
             it('should request all hashes', async () => {
@@ -1661,6 +1670,7 @@ describe('Node tests', () => {
                 }
             });
         });
+
         describe('_blockProcessorExecBlock', () => {
             it('should process from hash (fail to exec)', async () => {
                 const peer = {misbehave: sinon.fake()};
@@ -1684,6 +1694,7 @@ describe('Node tests', () => {
                 assert.isOk(node._blockBad.calledOnce);
             });
         });
+
         describe('_blockProcessorProcessParents', () => {
             it('should mark toExec', async () => {
                 node._isBlockKnown = sinon.fake.returns(true);

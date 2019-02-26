@@ -7,11 +7,12 @@ const types = require('../types');
 const Tick = require('tick-tock');
 
 const debugNode = debugLib('node:app');
+const debugBlock = debugLib('node:block');
 const debugMsg = debugLib('node:messages');
 
 function createPeerKey(peer) {
     return peer.address + peer.port;
-};
+}
 
 module.exports = (factory, factoryOptions) => {
     const {
@@ -238,7 +239,6 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
-                    //                    logger.error(e.message);
                     logger.error(e);
                 }
             }
@@ -786,7 +786,9 @@ module.exports = (factory, factoryOptions) => {
                             arrHashes =
                                 await this._storage.getLastAppliedBlockHashes();
                         }
-                        return await Promise.all(arrHashes.map(async (hash) => {return await this._storage.getBlock(hash)}));
+                        return await Promise.all(
+                            arrHashes.map(async (hash) => {return await this._storage.getBlock(hash);})).catch(
+                            err => logger.error(err));
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -957,7 +959,7 @@ module.exports = (factory, factoryOptions) => {
             item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
             debugNode(`(address: "${this._debugAddress}") Informing neighbors about new item ${item.hash()}`);
-            this._peerManager.broadcastToConnected(undefined, msgInv);
+            this._peerManager.broadcastToConnected('fullyConnected', msgInv);
         }
 
         /**
@@ -1190,7 +1192,7 @@ module.exports = (factory, factoryOptions) => {
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 for (let hash of arrCurrentLevel) {
-                    debugNode(`Processing ${hash}`);
+                    debugNode(`Added ${hash} into dag`);
 
                     // we already processed this block
                     if (this._mainDag.getBlockInfo(hash)) continue;
@@ -1258,13 +1260,15 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        async _blockBad(block) {
-            const blockInfo = new BlockInfo(block.header);
+        async _blockBad(blockOrBlockInfo) {
+            typeforce(typeforce.oneOf(types.BlockInfo, types.Block), blockOrBlockInfo);
+
+            const blockInfo = blockOrBlockInfo instanceof Block
+                ? new BlockInfo(blockOrBlockInfo.header)
+                : blockOrBlockInfo;
+
             blockInfo.markAsBad();
-            if (!await this._mainDag.getBlockInfo(block.getHash()) ||
-                !await this._storage.hasBlock(block.getHash())) {
-                await this._storeBlockAndInfo(block, blockInfo);
-            }
+            await this._storeBlockAndInfo(undefined, blockInfo);
         }
 
         async _blockInFlight(block) {
@@ -1272,10 +1276,7 @@ module.exports = (factory, factoryOptions) => {
 
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsInFlight();
-            if (!await this._mainDag.getBlockInfo(block.getHash()) ||
-                !await this._storage.hasBlock(block.getHash())) {
-                await this._storeBlockAndInfo(block, blockInfo);
-            }
+            await this._storeBlockAndInfo(block, blockInfo);
         }
 
         _isBlockExecuted(hash) {
@@ -1291,21 +1292,32 @@ module.exports = (factory, factoryOptions) => {
         /**
          * Depending of BlockInfo flag - store block & it's info in _mainDag & _storage
          *
-         * @param {Block} block
+         * @param {Block | undefined} block
          * @param {BlockInfo} blockInfo
          * @private
          */
         async _storeBlockAndInfo(block, blockInfo) {
-            typeforce(typeforce.tuple(types.Block, types.BlockInfo), arguments);
+            typeforce(typeforce.tuple(typeforce.oneOf(types.Block, undefined), types.BlockInfo), arguments);
 
             if (blockInfo.isBad()) {
 
-                // we don't store entire of bad blocks, but store its headers (to prevent processing it again)
-                await this._storage.saveBlockInfo(blockInfo);
+                const storedBI = await this._storage.getBlockInfo(blockInfo.getHash()).catch(err => debugNode(err));
+                if (storedBI && !storedBI.isBad()) {
+
+                    // rewrite it's blockInfo
+                    await this._storage.saveBlockInfo(blockInfo);
+
+                    // remove block (it was marked as good block)
+                    await this._storage.removeBlock(blockInfo.getHash());
+                } else {
+
+                    // we don't store entire of bad blocks, but store its headers (to prevent processing it again)
+                    await this._storage.saveBlockInfo(blockInfo);
+                }
             } else {
 
                 // save block, and it's info
-                await this._storage.saveBlock(block, blockInfo);
+                await this._storage.saveBlock(block, blockInfo).catch(err => debugNode(err));
             }
             this._mainDag.addBlock(blockInfo);
         }
@@ -1359,9 +1371,10 @@ module.exports = (factory, factoryOptions) => {
         gracefulShutdown() {
 
             // TODO: implement flushing all in memory data to disk
-            this._peerManager.saveAllPeers();
-            console.log('Shutting down');
-            process.exit(1);
+            this._peerManager.saveAllPeers().then(_ => {
+                console.log('Shutting down');
+                process.exit(1);
+            });
         }
 
         /**
@@ -1431,8 +1444,6 @@ module.exports = (factory, factoryOptions) => {
 
         async _nodeWorker() {
             await this._blockProcessor().catch(err => console.error(err));
-            ;
-            await sleep(1000);
             return setImmediate(this._nodeWorker.bind(this));
         }
 
@@ -1443,28 +1454,36 @@ module.exports = (factory, factoryOptions) => {
          */
         async _blockProcessor() {
             if (this._mapBlocksToExec.size) {
-                debugNode(`Block processor started. ${this._mapBlocksToExec.size} blocks awaiting to exec`);
+                debugBlock(`Block processor started. ${this._mapBlocksToExec.size} blocks awaiting to exec`);
 
 //                const arrReversed=[...this._mapBlocksToExec].reverse();
                 for (let [hash, peer] of this._mapBlocksToExec) {
-                    const blockInfo = this._mainDag.getBlockInfo(hash);
+                    let blockOrInfo = this._mainDag.getBlockInfo(hash);
+                    if (!blockOrInfo) blockOrInfo = await this._storage.getBlock(hash).catch(err => debugBlock(err));
 
-                    // we are here to exec existing block
-                    if (blockInfo) {
+                    try {
+                        if (!blockOrInfo || (blockOrInfo.isBad && blockOrInfo.isBad())) {
+                            throw new Error(`Block ${hash} is not found or bad`);
+                        }
 
-                        // if it in dag - good!
-                        await this._processBlock(blockInfo, peer);
-                    } else {
+                        await this._processBlock(blockOrInfo, peer);
 
-                        // no? let's load it from storage
-                        const block = await this._storage.getBlock(hash);
-                        await this._processBlock(block, peer);
+                    } catch (e) {
+                        logger.error(e);
+                        if (blockOrInfo) await this._blockBad(blockOrInfo);
+                    } finally {
+                        debugBlock(`Removing block ${hash} from BlocksToExec`);
+                        this._mapBlocksToExec.delete(hash);
                     }
                 }
             }
 
             if (this._mapUnknownBlocks.size) {
                 await this._requestUnknownBlocks();
+            } else {
+
+                // TODO: make it more delicate?
+                this._peerManager.broadcastToConnected('fullyConnected', await this._createGetBlocksMsg());
             }
         }
 
@@ -1478,7 +1497,7 @@ module.exports = (factory, factoryOptions) => {
         async _processBlock(block, peer) {
             typeforce(typeforce.oneOf(types.Block, types.BlockInfo), block);
 
-//            debugNode(`Attempting to exec block "${block.getHash()}"`);
+//            debugBlock(`Attempting to exec block "${block.getHash()}"`);
 
             if (await this._canExecuteBlock(block)) {
                 if (!this._isBlockExecuted(block.getHash())) {
@@ -1490,19 +1509,27 @@ module.exports = (factory, factoryOptions) => {
 
                     const arrChildrenHashes = this._mainDag.getChildren(block.getHash());
                     for (let hash of arrChildrenHashes) {
-                        this._mapBlocksToExec.set(hash, peer);
+                        this._queueBlockExec(hash, peer);
 
                         //consume too much memory
 //                        await this._processBlock(await this._storage.getBlock(hash));
                     }
                 }
-                this._mapBlocksToExec.delete(block.getHash());
             } else {
-                this._mapBlocksToExec.set(block.getHash(), peer);
+                this._queueBlockExec(block.getHash(), peer);
                 const {arrToRequest, arrToExec} = await this._blockProcessorProcessParents(block);
                 arrToRequest.forEach(hash => this._mapUnknownBlocks.set(hash, peer));
-                arrToExec.forEach(hash => this._mapBlocksToExec.set(hash, peer));
+                arrToExec.forEach(hash => this._queueBlockExec(hash, peer));
             }
+        }
+
+        _queueBlockExec(hash, peer) {
+            debugBlock(`Adding block ${hash} from BlocksToExec`);
+
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            if (blockInfo && blockInfo.isBad()) return;
+
+            this._mapBlocksToExec.set(hash, peer);
         }
 
         async _blockProcessorProcessParents(blockInfo) {
@@ -1530,7 +1557,7 @@ module.exports = (factory, factoryOptions) => {
 
             const block = blockOrHash instanceof Block ? blockOrHash : await this._storage.getBlock(blockOrHash);
 
-            debugNode(`Executing block "${block.getHash()}"`);
+            debugBlock(`Executing block "${block.getHash()}"`);
 
             const lock = await this._mutex.acquire(['blockExec']);
             try {
@@ -1565,7 +1592,7 @@ module.exports = (factory, factoryOptions) => {
             const mapPeerBlocks = new Map();
 
             for (let [hash, peer] of this._mapUnknownBlocks) {
-                if (this._requestCache.isRequested(hash)) continue;
+                if (this._requestCache.isRequested(hash) || this._mainDag.getBlockInfo(hash)) continue;
 
                 const key = createPeerKey(peer);
                 let setBlocks = mapPeerBlocks.get(key);
@@ -1580,6 +1607,8 @@ module.exports = (factory, factoryOptions) => {
 
         async _sendMsgGetDataToPeers(mapPeerBlocks) {
             const arrConnectedPeers = this._peerManager.getConnectedPeers();
+            if (!arrConnectedPeers || !arrConnectedPeers.length) return;
+
             for (let [key, setBlocks] of mapPeerBlocks) {
                 if (!setBlocks.size) continue;
 
@@ -1592,8 +1621,10 @@ module.exports = (factory, factoryOptions) => {
 
                 msg.inventory.vector.forEach(v => this._requestCache.request(v.hash));
 
-                debugMsg(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
-                await peer.pushMessage(msg);
+                if (peer && !peer.disconnected) {
+                    debugMsg(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
+                    await peer.pushMessage(msg);
+                }
             }
         }
 

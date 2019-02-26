@@ -5,15 +5,12 @@ const {assert} = require('chai');
 const os = require('os');
 const sinon = require('sinon');
 const debugLib = require('debug');
-const util = require('util');
 
 const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
-const {createDummyTx, pseudoRandomBuffer, createDummyBlock} = require('../testUtil');
+const {pseudoRandomBuffer, createDummyBlock, processBlock} = require('../testUtil');
 
 process.on('warning', e => console.warn(e.stack));
-
-const debugNode = debugLib('node:app');
 
 // set to undefined to use random delays
 const delay = undefined;
@@ -44,7 +41,7 @@ const createGenesisPatchAndSpendingTx = (factory) => {
     return {patch, tx};
 };
 
-const createNet = async (onlySeed = false) => {
+const createNet = async (onlySeedProcessBlock = false) => {
     const genesis = createDummyBlock(factory);
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
@@ -58,14 +55,14 @@ const createNet = async (onlySeed = false) => {
         isSeed: true
     });
     await seedNode.ensureLoaded();
-
-    await seedNode._processBlock(genesis);
+    await processBlock(seedNode, genesis);
 
     const arrNodes = [];
     for (let i = 0; i < maxConnections; i++) {
         const node = new factory.Node({arrSeedAddresses: [seedAddress], listenPort: 8000 + i});
         await node.ensureLoaded();
-        if (!onlySeed) await node._processBlock(genesis);
+
+        if (!onlySeedProcessBlock) await processBlock(node, genesis);
         arrNodes.push(node);
     }
     return {seedNode, arrNodes};
@@ -93,11 +90,11 @@ const createLiveNet = async (onlySeedProcessBlock = false) => {
             listenPort: 8000 + i
         });
         await node.ensureLoaded();
-        if (!onlySeedProcessBlock) await node._processBlock(genesis);
+        if (!onlySeedProcessBlock) await processBlock(node, genesis);
         arrNodes.push(node);
     }
 
-    await seedNode._processBlock(genesis);
+    await processBlock(seedNode, genesis);
 
     return {seedNode, arrNodes};
 };

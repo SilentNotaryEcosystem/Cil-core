@@ -10,7 +10,7 @@ const createPeerTag = (nWitnessGroupId) => {
 };
 
 module.exports = (factory, factoryOptions) => {
-    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB} = factory;
+    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB, BlockInfo} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {
@@ -277,7 +277,6 @@ module.exports = (factory, factoryOptions) => {
             messageWitness = new MsgWitnessCommon(message);
             const consensus = this._consensuses.get(messageWitness.groupId);
             if (!consensus) {
-                peer.ban();
                 throw new Error(`Witness: "${this._debugAddress}" send us message for UNKNOWN GROUP!`);
             }
 
@@ -319,6 +318,7 @@ module.exports = (factory, factoryOptions) => {
                 }
             });
             consensus.on('commitBlock', async (block, patch) => {
+                await this._storeBlockAndInfo(block, new BlockInfo(block.header));
                 await this._acceptBlock(block, patch);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);

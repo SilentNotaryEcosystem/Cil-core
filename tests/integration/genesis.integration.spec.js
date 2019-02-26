@@ -1,16 +1,13 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const os = require('os');
 const debugLib = require('debug');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('../testFactory');
-const {pseudoRandomBuffer} = require('../testUtil');
-const {sleep, arrayEquals} = require('../../utils');
+const {pseudoRandomBuffer, processBlock} = require('../testUtil');
+const {arrayEquals} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
-
-const debug = debugLib('genesis:app');
 
 // set to undefined to use random delays
 const delay = undefined;
@@ -65,8 +62,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         assert.isOk(Array.isArray(arrWitnesses) && arrWitnesses.length === 2);
 
         factory.Constants.GENESIS_BLOCK = genesis.getHash();
-        const patch = await genesisNode._processBlock(genesis);
-        let receipt;
+        const patch = await processBlock(genesisNode, genesis);
 
         if (patch) {
             receipt = patch.getReceipt(strGroupDefContractTx);
@@ -331,9 +327,9 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await nodeThree.bootstrap();
 
         // wait 4 blocks: Genesis, with definition of 2nd group, of new group, and one more
-        const donePromise = new Promise((resolve, reject) => {
+        const donePromise = new Promise((resolve) => {
             let i = 0;
-            sinon.stub(nodeThree, '_postAcceptBlock').callsFake((block) => {
+            sinon.stub(nodeThree, '_postAcceptBlock').callsFake(() => {
                 if (++i === 4) {resolve();}
             });
         });
@@ -354,7 +350,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
             delay
         });
         await nodeFour.ensureLoaded();
-        await nodeFour._processBlock(genesis);
+        await processBlock(nodeFour, genesis);
 
         assert.equal(nodeFour._pendingBlocks.getAllHashes().length, 0);
         assert.equal(nodeFour._mainDag.order, 1);
@@ -362,9 +358,9 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await nodeFour.bootstrap();
 
         // wait 3 blocks: all except Genesis
-        const donePromise = new Promise((resolve, reject) => {
+        const donePromise = new Promise((resolve) => {
             let i = 0;
-            sinon.stub(nodeFour, '_postAcceptBlock').callsFake((block) => {
+            sinon.stub(nodeFour, '_postAcceptBlock').callsFake(() => {
                 if (++i === 3) {resolve();}
             });
         });

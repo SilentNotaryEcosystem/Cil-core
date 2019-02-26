@@ -24,7 +24,6 @@ module.exports = (factory) => {
             const {connection, peerInfo, transport} = options;
 
             this._persistent = false;
-            this._tags = [];
             this._nonce = parseInt(Math.random() * 100000);
             this._transport = transport ? transport : new Transport(options);
 
@@ -134,6 +133,7 @@ module.exports = (factory) => {
         }
 
         set fullyConnected(trueVal) {
+            this.addTag('fullyConnected');
             this._handshakeDone = true;
         }
 
@@ -360,6 +360,7 @@ module.exports = (factory) => {
         }
 
         _cleanup() {
+            this._tags = [];
             this._connection = undefined;
 
             this._handshakeDone = false;

@@ -5,12 +5,10 @@ const debugLib = require('debug');
 const sinon = require('sinon');
 
 const factory = require('../testFactory');
-const {pseudoRandomBuffer, createDummyTx} = require('../testUtil');
+const {pseudoRandomBuffer, createDummyTx, processBlock} = require('../testUtil');
 const {sleep} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
-
-const debugWitness = debugLib('witness:app');
 
 // set to undefined to use random delays
 const delay = undefined;
@@ -18,7 +16,6 @@ const delay = undefined;
 //const maxConnections = 2;
 const maxConnections = 4;
 //const maxConnections = os.platform() === 'win32' ? 4 : 8;
-
 
 let groupId = 11;
 let arrKeyPairs;
@@ -120,7 +117,8 @@ describe('Witness integration tests', () => {
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay, isSeed: true});
         await seedNode.ensureLoaded();
-        await seedNode._processBlock(genesis);
+
+        await processBlock(seedNode, genesis);
 
         // Peers already known by seedNode
         const peerInfo1 = new factory.Messages.PeerInfo({
@@ -161,7 +159,7 @@ describe('Witness integration tests', () => {
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({listenAddr: seedAddress, delay, isSeed: true});
         await seedNode.ensureLoaded();
-        await seedNode._processBlock(genesis);
+        await processBlock(seedNode, genesis);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
@@ -171,7 +169,7 @@ describe('Witness integration tests', () => {
         const arrSuppressedBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
             await arrWitnesses[i].ensureLoaded();
-            await arrWitnesses[i]._processBlock(genesis);
+            await processBlock(arrWitnesses[i], genesis);
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
                 arrWitnesses[i]._acceptBlock = createBlockFake;
@@ -206,7 +204,7 @@ describe('Witness integration tests', () => {
 
         patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();
-        await seedNode._processBlock(genesis);
+        await processBlock(seedNode, genesis);
 
         // create 'maxConnections' witnesses
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
@@ -215,7 +213,7 @@ describe('Witness integration tests', () => {
         const arrBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
             await arrWitnesses[i].ensureLoaded();
-            await arrWitnesses[i]._processBlock(genesis);
+            await processBlock(arrWitnesses[i], genesis);
 
             arrBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._postAcceptBlock = resolve;
@@ -261,12 +259,12 @@ describe('Witness integration tests', () => {
         });
         patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();
-        await seedNode._processBlock(genesis);
+        await processBlock(seedNode, genesis);
 
         // create ONE witnesses
         const [witness] = createWitnesses(1, seedAddress);
         await witness.ensureLoaded();
-        await witness._processBlock(genesis);
+        await processBlock(witness, genesis);
 
         const arrBlocksPromises = [];
         arrBlocksPromises.push(new Promise(resolve => {
@@ -310,7 +308,7 @@ describe('Witness integration tests', () => {
         });
 //        patchNodeForWitnesses(seedNode, groupDefinition);
         await seedNode.ensureLoaded();
-        await seedNode._processBlock(genesis);
+        await processBlock(seedNode, genesis);
 
         // create 'maxConnections' witnesses for groupId (11 see global variable)
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
@@ -320,7 +318,7 @@ describe('Witness integration tests', () => {
         const arrSuppressedBlocksPromises = [];
         for (let i = 0; i < arrWitnesses.length; i++) {
             await arrWitnesses[i].ensureLoaded();
-            await arrWitnesses[i]._processBlock(genesis);
+            await processBlock(arrWitnesses[i], genesis);
             arrSuppressedBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._suppressedBlockHandler = resolve;
                 arrWitnesses[i]._acceptBlock = acceptBlockFake;
