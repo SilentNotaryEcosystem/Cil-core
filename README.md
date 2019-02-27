@@ -1,9 +1,12 @@
 # cil-core
 
-## Test
-
 - download this repo 
 - install dependencies `npm i`
+
+## Join current testnet
+- run `node index.js`
+
+## Test
 - run tests `npm test` 
 
 if you want tonns of debug info 
