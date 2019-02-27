@@ -9,6 +9,7 @@ const Tick = require('tick-tock');
 const debugNode = debugLib('node:app');
 const debugBlock = debugLib('node:block');
 const debugMsg = debugLib('node:messages');
+const debugMsgFull = debugLib('node:messages:full');
 
 function createPeerKey(peer) {
     return peer.address + peer.port;
@@ -381,7 +382,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._verifyBlock(block);
 
                 this._mapUnknownBlocks.delete(block.getHash());
-                this._requestCache.done(block.getHash());
 
                 // store it in DAG & disk
                 await this._blockInFlight(block);
@@ -409,33 +409,43 @@ module.exports = (factory, factoryOptions) => {
         async _handleInvMessage(peer, message) {
             const invMsg = new MsgInv(message);
             const invToRequest = new Inventory();
-            for (let objVector of invMsg.inventory.vector) {
 
-                // we already requested it (from another node), so let's skip it
-                if (this._requestCache.isRequested(objVector.hash)) continue;
+            const lock = await this._mutex.acquire(['inventory']);
+            try {
+                for (let objVector of invMsg.inventory.vector) {
 
-                let bShouldRequest = false;
-                if (objVector.type === Constants.INV_TX) {
+                    // we already requested it (from another node), so let's skip it
+                    if (this._requestCache.isRequested(objVector.hash)) continue;
 
-                    // TODO: more checks? for example search this hash in UTXOs?
-                    bShouldRequest = !this._mempool.hasTx(objVector.hash);
-                } else if (objVector.type === Constants.INV_BLOCK) {
+                    let bShouldRequest = false;
+                    if (objVector.type === Constants.INV_TX) {
 
-                    bShouldRequest = !await this._storage.hasBlock(objVector.hash);
+                        // TODO: more checks? for example search this hash in UTXOs?
+                        bShouldRequest = !this._mempool.hasTx(objVector.hash);
+                    } else if (objVector.type === Constants.INV_BLOCK) {
+
+                        bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
+                                         !await this._storage.hasBlock(objVector.hash);
+                    }
+
+                    if (bShouldRequest) {
+                        invToRequest.addVector(objVector);
+                        this._requestCache.request(objVector.hash);
+                        debugMsgFull(`Requesting "${objVector.hash.toString('hex')}" from "${peer.address}"`);
+                    }
                 }
 
-                if (bShouldRequest) {
-                    invToRequest.addVector(objVector);
-                    this._requestCache.request(objVector.hash);
+                if (invToRequest.vector.length) {
+                    const msgGetData = new MsgGetData();
+                    msgGetData.inventory = invToRequest;
+                    debugMsg(
+                        `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
+                    await peer.pushMessage(msgGetData);
                 }
-            }
-
-            if (invToRequest.vector.length) {
-                const msgGetData = new MsgGetData();
-                msgGetData.inventory = invToRequest;
-                debugMsg(
-                    `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
-                await peer.pushMessage(msgGetData);
+            } catch (e) {
+                throw e;
+            } finally {
+                this._mutex.release(lock);
             }
         }
 
@@ -462,9 +472,10 @@ module.exports = (factory, factoryOptions) => {
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
-
-            debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
-            await peer.pushMessage(msgInv);
+            if (inventory.vector.length) {
+                debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+                await peer.pushMessage(msgInv);
+            }
         }
 
         /**
