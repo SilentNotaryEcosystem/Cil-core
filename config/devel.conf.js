@@ -44,7 +44,7 @@ module.exports = {
         PEER_DEAD_TIME: 6 * 60 * 1000,
 
         PEER_RECONNECT_TIMER: 'peerReconnectTimer',
-        PEER_RECONNECT_INTERVAL: 20 * 60 * 1000,
+        PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
 
         PEERMANAGER_BACKUP_TIMER_NAME: 'peerManagerBackupTimer',
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,

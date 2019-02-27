@@ -450,6 +450,9 @@ module.exports = (factory, factoryOptions) => {
          */
         async _handleGetBlocksMessage(peer, message) {
 
+            // we'r empty. we have nothing to share with party
+            if (!this._mainDag.order) return;
+
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
 
@@ -465,6 +468,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
+         * Return Set of hashes that are descendants of arrHashes
          *
          * @param {Array} arrHashes - last known hashes
          * @returns {Set<any>} set of hashes descendants of arrHashes
@@ -737,10 +741,10 @@ module.exports = (factory, factoryOptions) => {
             return msg;
         }
 
-        _createGetDataMsg(arrBlocks) {
+        _createGetDataMsg(arrBlockHashes) {
             const msg = new MsgGetData();
             const inv = new Inventory();
-            arrBlocks.forEach(hash => {
+            arrBlockHashes.forEach(hash => {
                 if (!this._requestCache.isRequested(hash)) {
                     inv.addBlockHash(hash);
                     this._requestCache.request(hash);
@@ -1082,12 +1086,8 @@ module.exports = (factory, factoryOptions) => {
 
             const arrNewLastApplied = [];
 
-            if (arrTopStable.length === 1 && arrTopStable[0] === Constants.GENESIS_BLOCK) {
-                arrNewLastApplied.push(Constants.GENESIS_BLOCK);
-            }
-
             const nGroupCount = await this._storage.getWitnessGroupsCount();
-            for (let i = 0; i < nGroupCount; i++) {
+            for (let i = 0; i <= nGroupCount; i++) {
                 const hash = mapNewGroupIdHash.get(i) || mapPrevGroupIdHash.get(i);
 
                 // group could be created, but still no final blocks
@@ -1185,12 +1185,17 @@ module.exports = (factory, factoryOptions) => {
         /**
          * Build DAG of all known blocks! The rest of blocks will be added upon processing INV requests
          *
+         * @param {Array} arrLastStableHashes - hashes of all stable blocks
          * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
-        async _buildMainDag(arrPedingBlocksHashes) {
+        async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
             this._mainDag = new MainDag();
 
-            let arrCurrentLevel = arrPedingBlocksHashes;
+            // if we have only one group - all blocks becomes stable, and no pending!
+            // so we need to start from stables
+            let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
+                ? arrPedingBlocksHashes
+                : arrLastStableHashes;
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 for (let hash of arrCurrentLevel) {
@@ -1239,18 +1244,7 @@ module.exports = (factory, factoryOptions) => {
                 mapBlocks.set(hash, await this._storage.getBlock(hash));
             }
 
-            // TODO: check can be this 2 cycles merged ?! or we should build tree and only then process it recursively?
-            for (let hash of arrPendingBlocksHashes) {
-                await runBlock(hash);
-            }
-
-            if (mapBlocks.size !== mapPatches.size) throw new Error('rebuildPending. Failed to process all blocks!');
-
-            for (let [hash, block] of mapBlocks) {
-                this._pendingBlocks.addBlock(block, mapPatches.get(hash));
-            }
-
-            async function runBlock(hash) {
+            const runBlock = async (hash) => {
 
                 // are we already executed this block
                 if (!mapBlocks.get(hash) || mapPatches.has(hash)) return;
@@ -1261,6 +1255,16 @@ module.exports = (factory, factoryOptions) => {
                 }
                 mapPatches.set(hash, await this._execBlock(block));
             };
+
+            for (let hash of arrPendingBlocksHashes) {
+                await runBlock(hash);
+            }
+
+            if (mapBlocks.size !== mapPatches.size) throw new Error('rebuildPending. Failed to process all blocks!');
+
+            for (let [hash, block] of mapBlocks) {
+                this._pendingBlocks.addBlock(block, mapPatches.get(hash));
+            }
         }
 
         async _blockBad(blockOrBlockInfo) {
@@ -1439,9 +1443,9 @@ module.exports = (factory, factoryOptions) => {
 
         async _rebuildBlockDb() {
             const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
-            await this._buildMainDag(arrPendingBlocksHashes);
-
             const arrLastStableHashes = await this._storage.getLastAppliedBlockHashes();
+
+            await this._buildMainDag(arrLastStableHashes, arrPendingBlocksHashes);
             await this._rebuildPending(arrLastStableHashes, arrPendingBlocksHashes);
         }
 

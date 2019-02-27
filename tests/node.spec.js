@@ -730,7 +730,7 @@ describe('Node tests', () => {
         }
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
-        await node._buildMainDag(arrPendingHashes);
+        await node._buildMainDag([], arrPendingHashes);
         assert.equal(node._mainDag.order, 0);
         assert.equal(node._mainDag.size, 0);
     });
@@ -743,7 +743,7 @@ describe('Node tests', () => {
         await node._storage.updatePendingBlocks([arrHashes[9]]);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
-        await node._buildMainDag(arrPendingHashes);
+        await node._buildMainDag([], arrPendingHashes);
 
         assert.equal(node._mainDag.order, 10);
         assert.equal(node._mainDag.size, 9);
@@ -764,7 +764,7 @@ describe('Node tests', () => {
         await node._storage.updatePendingBlocks([arrBlocks[3].getHash()]);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
-        await node._buildMainDag(arrPendingHashes);
+        await node._buildMainDag([], arrPendingHashes);
 
         assert.equal(node._mainDag.order, 4);
         assert.equal(node._mainDag.size, 4);
@@ -777,6 +777,17 @@ describe('Node tests', () => {
             node._mainDag.getChildren(arrBlocks[0].getHash()),
             [arrBlocks[1].getHash(), arrBlocks[2].getHash()]
         );
+    });
+
+    it('should build MainDag from single Genesis (stable)', async () => {
+        const node = new factory.Node();
+        const block = createDummyBlock(factory);
+
+        node._storage.getBlockInfo = sinon.fake.resolves(new factory.BlockInfo(block.header));
+        factory.Constants.GENESIS_BLOCK = block.getHash();
+
+        await node._buildMainDag([block.getHash()], []);
+        assert.equal(node._mainDag.order, 1);
     });
 
     it('should build PendingBlocks upon startup (from simple chain)', async () => {
@@ -1294,6 +1305,23 @@ describe('Node tests', () => {
         assert.isOk(address.equals(coins.getReceiverAddr()));
     });
 
+    it('should CREATE LAST_APPLIED_BLOCKS', async () => {
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._storage.updateLastAppliedBlocks = sinon.fake();
+
+        const block = createDummyBlock(factory, 0);
+        node._mainDag.getBlockInfo = sinon.fake.returns(new factory.BlockInfo(block.header));
+
+        await node._updateLastAppliedBlocks([block.getHash()]);
+
+        assert.isOk(node._storage.updateLastAppliedBlocks.calledOnce);
+
+        const [arrHashes] = node._storage.updateLastAppliedBlocks.args[0];
+        assert.isOk(arrHashes);
+        assert.equal(arrHashes.length, 1);
+    });
+
     it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
@@ -1403,6 +1431,7 @@ describe('Node tests', () => {
         await node.ensureLoaded();
 
         const setResult = node._getBlocksFromLastKnown([]);
+
         assert.isOk(setResult);
         assert.equal(setResult.size, 1);
         assert.isOk(setResult.has(factory.Constants.GENESIS_BLOCK));
