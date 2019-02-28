@@ -90,4 +90,8 @@ module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
             return blockInfoProto.encode(this._data).finish();
         }
 
+        getState() {
+            return this._data.flags;
+        }
+
     };

@@ -781,6 +781,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async rpcHandler({event, content}) {
+
             try {
                 switch (event) {
                     case 'tx':
@@ -789,18 +790,20 @@ module.exports = (factory, factoryOptions) => {
                     case 'txReceipt':
                         return await this._storage.getTxReceipt(content);
                     case 'getBlock':
-                        const cBlock = await this._storage.getBlock(content);
-                        return cBlock;
+
+                        // content is hash
+                        return await this._getBlockAndState(content);
                     case 'getTips':
                         let arrHashes = this._pendingBlocks.getTips();
 
                         if (!arrHashes || !arrHashes.length) {
-                            arrHashes =
-                                await this._storage.getLastAppliedBlockHashes();
+                            arrHashes = await this._storage.getLastAppliedBlockHashes();
                         }
+                        if (!arrHashes) return [];
+
                         return await Promise.all(
-                            arrHashes.map(async (hash) => {return await this._storage.getBlock(hash);})).catch(
-                            err => logger.error(err));
+                            arrHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
+                        );
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1651,6 +1654,14 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        async _getBlockAndState(hash) {
+            typeforce(types.Str64, hash);
+
+            const cBlock = await this._storage.getBlock(hash);
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+
+            return {block: cBlock, state: blockInfo ? blockInfo.getState() : undefined};
+        }
     };
 };
 

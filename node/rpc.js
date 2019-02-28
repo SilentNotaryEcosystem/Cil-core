@@ -73,7 +73,9 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         informWsSubscribers(topic, block) {
-            this._server.broadcastToWS(topic, {hash: block.getHash(), block: prepareForStringifyObject(block.toObject())});
+            this._server.broadcastToWS(topic,
+                {hash: block.getHash(), block: prepareForStringifyObject(block.toObject())}
+            );
         }
 
         /**
@@ -86,11 +88,16 @@ module.exports = ({Constants, Transaction}) =>
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
 
-            const cBlock = await this._nodeInstance.rpcHandler({
+            const result = await this._nodeInstance.rpcHandler({
                 event: 'getBlock',
                 content: strBlockHash
             });
-            return cBlock ? {hash: cBlock.getHash(), block: prepareForStringifyObject(cBlock)} : undefined;
+
+            return result ? {
+                hash: result.block.getHash(),
+                block: prepareForStringifyObject(result.block),
+                state: result.state
+            } : undefined;
         }
 
         /**
@@ -98,13 +105,14 @@ module.exports = ({Constants, Transaction}) =>
          * @returns {Promise<Array>} of blockInfos (headers)
          */
         async getTips() {
-            const arrBlocks = await this._nodeInstance.rpcHandler({
+            const arrBlockState = await this._nodeInstance.rpcHandler({
                 event: 'getTips'
             });
 
-            return arrBlocks.map(block => ({
-                hash: block.getHash(),
-                block: prepareForStringifyObject(block)
+            return arrBlockState.map(objBlockState => ({
+                hash: objBlockState.block.getHash(),
+                block: prepareForStringifyObject(objBlockState.block),
+                state: objBlockState.state
             }));
         }
     };
