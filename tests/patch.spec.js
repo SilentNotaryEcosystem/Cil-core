@@ -59,6 +59,41 @@ describe('PatchDB', () => {
         assert.isOk(mapCoinsToAdd.get(txHash));
         assert.isOk(mapCoinsToAdd.get(txHash2));
         assert.equal(mapCoinsToAdd.size, 2);
+
+        assert.isOk(patch.getUtxo(txHash));
+    });
+
+    it('should SET Coins and GET UTXO', async () => {
+        const patch = new factory.PatchDB(0);
+        const txHash = pseudoRandomBuffer(32).toString('hex');
+        const txHash2 = pseudoRandomBuffer(32).toString('hex');
+
+        const coins = new factory.Coins(10, generateAddress());
+        patch.createCoins(txHash, 0, coins);
+        patch.createCoins(txHash2, 2, coins);
+
+        const utxo1 = patch.getUtxo(txHash);
+        const utxo2 = patch.getUtxo(txHash2);
+
+        assert.isOk(utxo1);
+        assert.isOk(utxo2);
+
+        assert.isOk(coins.equals(utxo1.coinsAtIndex(0)));
+        assert.isOk(coins.equals(utxo2.coinsAtIndex(2)));
+    });
+
+    it('should SET/GET UTXO', async () => {
+        const txHash = pseudoRandomBuffer(32);
+
+        const utxo = new factory.UTXO({txHash});
+        const coins = new factory.Coins(10, generateAddress());
+        utxo.addCoins(0, coins);
+
+        const patch = new factory.PatchDB(0);
+
+        patch.setUtxo(txHash, utxo);
+
+        assert.isOk(utxo.equals, patch.getUtxo(txHash));
     });
 
     it('should remove coins', async () => {

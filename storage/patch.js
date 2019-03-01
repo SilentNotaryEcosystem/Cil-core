@@ -76,13 +76,26 @@ module.exports = ({UTXO, Contract}) =>
 
         /**
          *
-         * @param {String} txHash
+         * @param {String | Buffer} txHash
          * @returns {UTXO}
          */
         getUtxo(txHash) {
-            typeforce(types.Str64, txHash);
+            typeforce(types.Hash256bit, txHash);
 
-            return this._data.coins.get(txHash);
+            const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+            return this._data.coins.get(strHash);
+        }
+
+        /**
+         *
+         * @param {String | Buffer} txHash
+         * @param {UTXO} utxo
+         */
+        setUtxo(txHash, utxo) {
+            typeforce(typeforce.tuple(types.Hash256bit, types.UTXO), arguments);
+
+            const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+            this._data.coins.set(strHash, utxo);
         }
 
         /**

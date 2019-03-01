@@ -53,6 +53,7 @@ module.exports = {
     Block: typeforce.quacksLike('Block'),
     BlockInfo: typeforce.quacksLike('BlockInfo'),
     Transaction: typeforce.quacksLike('Transaction'),
+    UTXO: typeforce.quacksLike('UTXO'),
     Amount,
     Signature: typeforce.BufferN(65),
     Input: typeforce.compile({nTxOutput: 'Number', txHash: Hash256bit})
