@@ -2,7 +2,12 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debug = require('debug')('storage:test');
+
+const debugChannel = 'storage:*';
+process.env['DEBUG'] = `${debugChannel},` + process.env['DEBUG'];
+
+const debugLib = require('debug');
+const debug = debugLib(debugChannel);
 
 const factory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
@@ -165,12 +170,12 @@ describe('Storage tests', () => {
 
         await storage.applyPatch(patch);
 
-        const mapUtxos = await storage.getUtxosCreateMap([txHash, txHash2, txHash3]);
+        const patchWithUtxos = await storage.getUtxosPatch([txHash, txHash2, txHash3]);
 
-        assert.isOk(mapUtxos);
-        assert.isOk(mapUtxos[txHash.toString('hex')]);
-        assert.isOk(mapUtxos[txHash2.toString('hex')]);
-        assert.isOk(mapUtxos[txHash3.toString('hex')]);
+        assert.isOk(patchWithUtxos);
+        assert.isOk(patchWithUtxos.getUtxo(txHash));
+        assert.isOk(patchWithUtxos.getUtxo(txHash2));
+        assert.isOk(patchWithUtxos.getUtxo(txHash3));
     });
 
     // if we find UTXO with same hash

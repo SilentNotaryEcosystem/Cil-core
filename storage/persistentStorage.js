@@ -48,7 +48,10 @@ const eraseDbContent = (db) => {
 };
 
 module.exports = (factory, factoryOptions) => {
-    const {Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition, Peer} = factory;
+    const {
+        Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition, Peer, PatchDB
+    } = factory;
+
     return class Storage {
         constructor(options) {
             options = {
@@ -267,19 +270,22 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {Array} arrUtxoHashes -
-         * @returns {Promise<Object>}  keys are txHashes, values - UTXOs
+         * @returns {Promise<PatchDB>}  patch with coins from that UTXOs
          */
-        async getUtxosCreateMap(arrUtxoHashes) {
-            const mapUtxos = {};
+        async getUtxosPatch(arrUtxoHashes) {
+            const patch = new PatchDB();
 
             // TODO: test it against batch read performance
-            for (let coin of arrUtxoHashes) {
-                const utxo = await this.getUtxo(coin);
-                const strHash = Buffer.isBuffer(coin) ? coin.toString('hex') : coin;
-                mapUtxos[strHash] = utxo;
+            for (let hash of arrUtxoHashes) {
+                try {
+                    const utxo = await this.getUtxo(hash);
+                    patch.setUtxo(hash, utxo);
+                } catch (e) {
+                    debug(e);
+                }
             }
 
-            return mapUtxos;
+            return patch;
         }
 
         /**

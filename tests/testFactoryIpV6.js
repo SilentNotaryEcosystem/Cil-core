@@ -101,11 +101,11 @@ class Factory {
                 this._transportImplemetation = Ipv6TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
+                this._patchImplementation = PatchWrapper(this);
                 this._storageImplementation = StorageWrapper(this, options);
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
-                this._patchImplementation = PatchWrapper(this);
                 this._appImplementation = AppWrapper(this);
                 this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
                 this._mainDagImplementation = MainDagWrapper(this);
