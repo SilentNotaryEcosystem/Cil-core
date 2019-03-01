@@ -27,11 +27,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
         /**
          *
          * @param {Transaction} tx
-         * @param {Map} mapUtxos
          * @param {PatchDB} patchForBlock
          * @return {{patch: *, totalHas: number}}
          */
-        processTxInputs(tx, mapUtxos, patchForBlock) {
+        processTxInputs(tx, patchForBlock) {
             const txHash = tx.hash();
             const txInputs = tx.inputs;
             const claimProofs = tx.claimProofs;
@@ -39,8 +38,9 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let totalHas = 0;
 
             // this patch will hold exec result. merge it with patchForBlock ONLY if inputs processed successfully
+            // we wouldn't modify patchForBlock!
             const patch = new PatchDB();
-            if (!patchForBlock) patchForBlock = patch;
+            if (!patchForBlock) patchForBlock || new PatchDB();
 
             for (let i = 0; i < txInputs.length; i++) {
 
@@ -50,8 +50,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
                 // input.txHash - UTXO
                 const strInputTxHash = input.txHash.toString('hex');
-                const utxo = patchForBlock.getUtxo(strInputTxHash) || mapUtxos[strInputTxHash];
-                if (!utxo) throw new Error(`UTXO not found for ${strInputTxHash} neither in patch nor in mapUtxos`);
+                const utxo = patchForBlock.getUtxo(strInputTxHash);
+                if (!utxo) throw new Error(`UTXO for ${strInputTxHash} not found in patch`);
 
                 const coins = utxo.coinsAtIndex(input.nTxOutput);
 

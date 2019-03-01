@@ -57,10 +57,9 @@ describe('Application layer', () => {
         tx.sign(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patch = await storage.getUtxosPatch(tx.utxos);
 
-        await app.processTxInputs(tx, mapUtxos);
-
+        await app.processTxInputs(tx, patch);
     });
 
     it('should process TX', async () => {
@@ -81,9 +80,9 @@ describe('Application layer', () => {
         tx.sign(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
 
-        const {patch} = app.processTxInputs(tx, mapUtxos);
+        const {patch} = app.processTxInputs(tx, patchUtxos);
         app.processPayments(tx, patch);
     });
 
@@ -101,10 +100,10 @@ describe('Application layer', () => {
         tx.sign(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
 
         try {
-            app.processTxInputs(tx, mapUtxos);
+            app.processTxInputs(tx, patchUtxos);
         } catch (e) {
             debug(e);
             assert.equal(e.message, `Output #17 of Tx ${utxoHash} already spent!`);
@@ -128,10 +127,10 @@ describe('Application layer', () => {
         tx.sign(0, anotherKeyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
 
         try {
-            app.processTxInputs(tx, mapUtxos);
+            app.processTxInputs(tx, patchUtxos);
         } catch (e) {
             debug(e);
             assert.equal(e.message, 'Claim failed!');
@@ -179,14 +178,13 @@ describe('Application layer', () => {
         tx.sign(1, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const utxo = await storage.getUtxo(utxoHash);
-        const mapUtxos = {[utxoHash]: utxo};
+        const patchUtxos = await storage.getUtxosPatch([utxoHash]);
 
         try {
-            app.processTxInputs(tx, mapUtxos);
+            app.processTxInputs(tx, patchUtxos);
         } catch (e) {
             debug(e);
-            assert.equal(e.message, `Output #12 of Tx ${utxoHash} already spent!`);
+            assert.equal(e.message, `Tx ${utxoHash} index 12 already deleted!`);
             return;
         }
         throw new Error('Unexpected success');
@@ -206,8 +204,8 @@ describe('Application layer', () => {
         tx.sign(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
-        const {patch} = app.processTxInputs(tx, mapUtxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
+        const {patch} = app.processTxInputs(tx, patchUtxos);
         app.processPayments(tx, patch);
 
         // create tx
@@ -218,10 +216,11 @@ describe('Application layer', () => {
         tx2.addReceiver(1000, buffAddress2);
         tx2.sign(0, keyPair.privateKey);
 
-        const mapUtxos2 = await storage.getUtxosCreateMap(tx2.utxos);
+        const patchUtxos2 = await storage.getUtxosPatch(tx2.utxos);
 
         try {
-            app.processTxInputs(tx2, mapUtxos2, patch);
+            const patchMerged = patch.merge(patchUtxos2);
+            app.processTxInputs(tx2, patchMerged);
         } catch (e) {
             debug(e);
             assert.equal(e.message, `Output #12 of Tx ${utxoHash} already spent!`);
