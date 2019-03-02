@@ -8,7 +8,7 @@ const debugLib = require('debug');
 
 const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
-const {pseudoRandomBuffer, createDummyBlock, processBlock} = require('../testUtil');
+const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress} = require('../testUtil');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -273,5 +273,139 @@ describe('Node integration tests', () => {
         }
         await Promise.all(arrBootstrapPromises);
         await Promise.all(arrBlockPromises);
+    });
+
+    it('should prevent double spend in fork', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._storage.getWitnessGroupsCount = () => 3;
+        node._unwindBlock = sinon.fake();
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+
+        // "create" G
+        let gBlock;
+        {
+            const tx = new factory.Transaction();
+            tx.witnessGroupId = 1;
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.finish(0, pseudoRandomBuffer(33));
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+            txHash = tx.hash();
+        }
+        const gPatch = await processBlock(node, gBlock);
+        assert.isOk(gPatch);
+        {
+            const utxo = gPatch.getUtxo(txHash);
+            assert.isOk(utxo);
+            const coins1 = utxo.coinsAtIndex(0);
+            assert.isOk(coins1);
+            assert.equal(coins1.getAmount(), amount);
+            const coins2 = utxo.coinsAtIndex(1);
+            assert.isOk(coins2);
+            assert.equal(coins2.getAmount(), amount);
+            assert.throws(() => utxo.coinsAtIndex(2));
+        }
+
+        // create block 2-1
+        let block21;
+        {
+            const tx = new factory.Transaction();
+            tx.witnessGroupId = 1;
+            tx.addInput(txHash, 0);
+            tx.addReceiver(1e3, generateAddress());
+            tx.addReceiver(1e3, kpReceiver.getAddress(true));
+            tx.sign(0, kpReceiver.privateKey);
+
+            block21 = new factory.Block(1);
+            block21.parentHashes = [gBlock.getHash()];
+            block21.addTx(tx);
+            block21.finish(1e6 - 2e3, pseudoRandomBuffer(33));
+        }
+        const patch21 = await processBlock(node, block21);
+
+        assert.isOk(patch21);
+        {
+            const utxo = patch21.getUtxo(txHash);
+            assert.isOk(utxo);
+            const coins2 = utxo.coinsAtIndex(1);
+            assert.isOk(coins2);
+            assert.equal(coins2.getAmount(), amount);
+
+            assert.throws(() => utxo.coinsAtIndex(0));
+        }
+
+        // create block 1-0
+        let block10;
+        {
+            const tx = new factory.Transaction();
+            tx.witnessGroupId = 0;
+
+            // spend idx 0
+            tx.addInput(txHash, 0);
+            tx.addReceiver(1e3, generateAddress());
+            tx.addReceiver(1e3, kpReceiver.getAddress(true));
+            tx.sign(0, kpReceiver.privateKey);
+
+            block10 = new factory.Block(0);
+            block10.parentHashes = [gBlock.getHash()];
+            block10.addTx(tx);
+            block10.finish(1e6 - 2e3, pseudoRandomBuffer(33));
+        }
+        const patch10 = await processBlock(node, block10);
+
+        // same for 2-1
+        {
+            const utxo = patch10.getUtxo(txHash);
+            assert.isOk(utxo);
+            const coins2 = utxo.coinsAtIndex(1);
+            assert.isOk(coins2);
+            assert.equal(coins2.getAmount(), amount);
+
+            assert.throws(() => utxo.coinsAtIndex(0));
+        }
+
+        // create block 3-2
+        let block32;
+        {
+            block32 = new factory.Block(2);
+            block32.parentHashes = [block21.getHash()];
+            block32.finish(0, pseudoRandomBuffer(33));
+        }
+        const patch32 = await processBlock(node, block32);
+        {
+
+            // 2-1 become stable, utxo was flushed to storage
+            let utxo = patch32.getUtxo(txHash);
+            assert.isNotOk(utxo);
+
+            // let's find it in storage
+            const patchUtxo = await node._storage.getUtxosPatch([txHash]);
+            assert.isOk(patchUtxo);
+
+            utxo = patchUtxo.getUtxo(txHash);
+            assert.isOk(utxo);
+            const coins2 = utxo.coinsAtIndex(1);
+            assert.isOk(coins2);
+            assert.equal(coins2.getAmount(), amount);
+
+            assert.throws(() => utxo.coinsAtIndex(0));
+
+            // block 1-0 unwinded!
+            assert.isOk(node._unwindBlock.calledOnce);
+            const [block] = node._unwindBlock.args[0];
+            assert.equal(block.getHash(), block10.getHash());
+        }
     });
 });
