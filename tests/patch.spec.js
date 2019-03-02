@@ -161,17 +161,32 @@ describe('PatchDB', () => {
         const patch2 = new factory.PatchDB(0);
         patch2.spendCoins(utxo, 0, spendingTx);
 
-        const mergedPatch = patch.merge(patch2);
+        {
+            const mergedPatch = patch.merge(patch2);
 
-        const mapSpentOutputs = mergedPatch._getSpentOutputs(utxo.getTxHash());
-        assert.isOk(mapSpentOutputs);
-        assert.isOk(arrayEquals(Array.from(mapSpentOutputs.keys()), [0, 12]));
+            const mapSpentOutputs = mergedPatch._getSpentOutputs(utxo.getTxHash());
+            assert.isOk(mapSpentOutputs);
+            assert.isOk(arrayEquals(Array.from(mapSpentOutputs.keys()), [0, 12]));
 
-        const resultUtxo = mergedPatch.getUtxo(utxo.getTxHash());
-        assert.isOk(resultUtxo);
-        assert.isOk(resultUtxo.coinsAtIndex(431));
-        assert.throws(() => resultUtxo.coinsAtIndex(0));
-        assert.throws(() => resultUtxo.coinsAtIndex(12));
+            const resultUtxo = mergedPatch.getUtxo(utxo.getTxHash());
+            assert.isOk(resultUtxo);
+            assert.isOk(resultUtxo.coinsAtIndex(431));
+            assert.throws(() => resultUtxo.coinsAtIndex(0));
+            assert.throws(() => resultUtxo.coinsAtIndex(12));
+        }
+        {
+            const mergedPatch = patch2.merge(patch);
+
+            const mapSpentOutputs = mergedPatch._getSpentOutputs(utxo.getTxHash());
+            assert.isOk(mapSpentOutputs);
+            assert.isOk(arrayEquals(Array.from(mapSpentOutputs.keys()), [0, 12]));
+
+            const resultUtxo = mergedPatch.getUtxo(utxo.getTxHash());
+            assert.isOk(resultUtxo);
+            assert.isOk(resultUtxo.coinsAtIndex(431));
+            assert.throws(() => resultUtxo.coinsAtIndex(0));
+            assert.throws(() => resultUtxo.coinsAtIndex(12));
+        }
     });
 
     it('should MERGE patches (same outputs same spending TX)', async () => {
@@ -184,6 +199,73 @@ describe('PatchDB', () => {
         patch2.spendCoins(utxo.clone(), 12, spendingTx);
 
         patch.merge(patch2);
+    });
+
+    it('should MERGE patches and maintain _mapSpentUtxos (2 patches, same utxo)', async () => {
+        const patch = new factory.PatchDB(12);
+        const patch2 = new factory.PatchDB(0);
+
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer();
+        const spendingTx2 = pseudoRandomBuffer();
+
+        patch.spendCoins(utxo.clone(), 12, spendingTx);
+        patch2.spendCoins(utxo.clone(), 0, spendingTx2);
+
+        test(patch.merge(patch2));
+        test(patch2.merge(patch));
+
+        function test(patchMerged) {
+            assert.equal(patchMerged._mapSpentUtxos.size, 1);
+            const mapUtxo = patchMerged._mapSpentUtxos.get(utxo.getTxHash());
+            assert.isOk(spendingTx.equals(mapUtxo.get(12)));
+            assert.isOk(spendingTx2.equals(mapUtxo.get(0)));
+        }
+    });
+
+    it('should MERGE patches and maintain _mapSpentUtxos (2 patches, different utxo)', async () => {
+        const patch = new factory.PatchDB(12);
+        const patch2 = new factory.PatchDB(0);
+
+        const utxo = createUtxo([12, 0, 431]);
+        const utxo2 = createUtxo([0]);
+        const spendingTx = pseudoRandomBuffer();
+        const spendingTx2 = pseudoRandomBuffer();
+
+        patch.spendCoins(utxo.clone(), 12, spendingTx);
+
+        // whole spend!
+        patch2.spendCoins(utxo2.clone(), 0, spendingTx2);
+
+        test(patch.merge(patch2));
+        test(patch2.merge(patch));
+
+        function test(patchMerged) {
+            assert.equal(patchMerged._mapSpentUtxos.size, 2);
+            const mapUtxo = patchMerged._mapSpentUtxos.get(utxo.getTxHash());
+            const mapUtxo2 = patchMerged._mapSpentUtxos.get(utxo2.getTxHash());
+            assert.isOk(spendingTx.equals(mapUtxo.get(12)));
+            assert.isOk(spendingTx2.equals(mapUtxo2.get(0)));
+        }
+    });
+
+    it('should MERGE patches and maintain _mapSpentUtxos (epmty patch)', async () => {
+        const patch = new factory.PatchDB(12);
+        const patchEmpty = new factory.PatchDB(0);
+
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer();
+
+        patch.spendCoins(utxo.clone(), 12, spendingTx);
+
+        test(patch.merge(patchEmpty));
+        test(patchEmpty.merge(patch));
+
+        function test(patchMerged) {
+            assert.equal(patchMerged._mapSpentUtxos.size, 1);
+            const mapUtxo = patchMerged._mapSpentUtxos.get(utxo.getTxHash());
+            assert.isOk(spendingTx.equals(mapUtxo.get(12)));
+        }
     });
 
     it('should fail MERGE patches (same outputs different spending TX)', async () => {
@@ -235,6 +317,45 @@ describe('PatchDB', () => {
         level3Patch.purge(patch);
 
         assert.isOk(level3Patch.getCoins().size === level3PatchSize);
+    });
+
+    it('should NOT PURGE UTXO from patch (UTXO was spent in different TXns)', async () => {
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer().toString('hex');
+        const spendingTx2 = pseudoRandomBuffer().toString('hex');
+
+        const patch = new factory.PatchDB(0);
+        patch.spendCoins(utxo, 12, spendingTx);
+
+        const patch2 = new factory.PatchDB(0);
+        patch2.spendCoins(utxo, 12, spendingTx2);
+
+        const patchDerived = patch.merge(new factory.PatchDB());
+
+        // purge patch from FORK!
+        patch2.purge(patch);
+
+        assert.isOk(patch2.getUtxo(utxo.getTxHash()));
+
+        patch2.purge(patchDerived);
+
+        assert.isOk(patch2.getUtxo(utxo.getTxHash()));
+    });
+
+    it('should PURGE UTXO from patch (UTXO was spent in same TXns)', async () => {
+        const utxo = createUtxo([12, 0, 431]);
+        const spendingTx = pseudoRandomBuffer().toString('hex');
+
+        const patch = new factory.PatchDB(0);
+        patch.spendCoins(utxo, 12, spendingTx);
+
+        const patch2 = new factory.PatchDB(0);
+        patch2.spendCoins(utxo, 12, spendingTx);
+
+        // purge patch from FORK!
+        patch2.purge(patch);
+
+        assert.isNotOk(patch2.getUtxo(utxo.getTxHash()));
     });
 
     it('should get patch COMPLEXITY', async () => {
@@ -482,4 +603,58 @@ describe('PatchDB', () => {
         assert.equal(Array.from(patch2.getReceipts()).length, 1);
     });
 
+    it('should FAIL _validateAgainstStable (spend already spended stable index)', async () => {
+        const utxo = createUtxo([0, 1, 2, 3, 4]);
+
+        // store in patchStable UTXO with 0 index spent
+        const utxoClone = utxo.clone();
+        utxoClone.spendCoins(0);
+        const patchStable = new factory.PatchDB(0);
+        patchStable.setUtxo(utxoClone);
+
+        // spend index 0 in pending blocks
+        const patch = new factory.PatchDB(0);
+        patch.spendCoins(utxo, 0, pseudoRandomBuffer());
+
+        assert.throws(() => patch.validateAgainstStable(patchStable));
+    });
+
+    it('should PASS _validateAgainstStable (spend stable index)', async () => {
+        const utxo = createUtxo([0, 1, 2, 3, 4]);
+
+        const patchStable = new factory.PatchDB(0);
+        patchStable.setUtxo(utxo);
+
+        // spend index 0 in pending blocks
+        const patch = new factory.PatchDB(0);
+        patch.spendCoins(utxo, 0, pseudoRandomBuffer());
+
+        patch.validateAgainstStable(patchStable);
+    });
+
+    it('should PASS _validateAgainstStable (empty stable patch)', async () => {
+        const patchStable = new factory.PatchDB(0);
+
+        // spend index 0 in pending blocks
+        const utxo = createUtxo([0, 1, 2, 3, 4]);
+        const patch = new factory.PatchDB(0);
+        patch.spendCoins(utxo, 0, pseudoRandomBuffer());
+
+        patch.validateAgainstStable(patchStable);
+    });
+
+    it('should PASS _validateAgainstStable (not found in stable patch)', async () => {
+        const utxo = createUtxo([0, 1, 2, 3, 4]);
+        const utxo2 = createUtxo([0, 1, 2, 3, 4]);
+
+        // stable has different TX
+        const patchStable = new factory.PatchDB(0);
+        patchStable.setUtxo(utxo2);
+
+        // spend index 0 in pending blocks
+        const patch = new factory.PatchDB(0);
+        patch.spendCoins(utxo, 0, pseudoRandomBuffer());
+
+        patch.validateAgainstStable(patchStable);
+    });
 });

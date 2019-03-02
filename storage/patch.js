@@ -16,6 +16,7 @@ module.exports = ({UTXO, Contract}) =>
                 coins: new Map()
             };
 
+            // it will keep tracks which tx spend particular output
             this._mapSpentUtxos = new Map();
 
             this._mapGroupLevel = new Map();
@@ -119,12 +120,14 @@ module.exports = ({UTXO, Contract}) =>
 
             const setUnionHashes = new Set(arrThisCoinsHashes.concat(arrAnotherCoinsHashes));
             for (let coinHash of setUnionHashes) {
+
                 if ((this._data.coins.has(coinHash) && !patch._data.coins.has(coinHash)) ||
                     (!this._data.coins.has(coinHash) && patch._data.coins.has(coinHash))) {
 
                     // only one patch have this utxo -> put it in result
                     const utxo = this._data.coins.get(coinHash) || patch._data.coins.get(coinHash);
-                    const mapSpentOutputs = this._getSpentOutputs(coinHash) || patch._getSpentOutputs(coinHash);
+                    const mapSpentOutputs = this._getSpentOutputs(coinHash).size ?
+                        this._getSpentOutputs(coinHash) : patch._getSpentOutputs(coinHash);
 
                     resultPatch._data.coins.set(coinHash, utxo.clone());
                     for (let [idx, hash] of mapSpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
@@ -139,6 +142,8 @@ module.exports = ({UTXO, Contract}) =>
                     // if only one has - this means it's spent -> don't put it in result
                     // if both doesn't have - check it for double spend. if found - throws
                     // so if we need only intersection we could travers any for indexes
+
+                    // process common (both has) indexes. we could choose any to pick indexes
                     for (let idx of utxoMy.getIndexes()) {
                         try {
                             const coins = utxoHis.coinsAtIndex(idx);
@@ -165,7 +170,7 @@ module.exports = ({UTXO, Contract}) =>
                         );
                     }
 
-                    // no conflicts - store all spendings into resulting patch
+                    // no conflicts - store all spending into resulting patch
                     for (let [idx, hash] of mapMySpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
                     for (let [idx, hash] of mapHisSpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
                 }
@@ -235,7 +240,12 @@ module.exports = ({UTXO, Contract}) =>
 
                 // keep UTXO if it was changed
                 const utxo = this.getUtxo(hash);
-                if (!utxo || !utxo.equals(patch.getUtxo(hash))) continue;
+                if (!utxo ||
+                    !utxo.equals(patch.getUtxo(hash)) ||
+                    !this._spendingTnxsEqual(this._getSpentOutputs(hash), patch._getSpentOutputs(hash))
+                ) {
+                    continue;
+                }
 
                 // remove it, if unchanged since (patch)
                 this._data.coins.delete(utxo.getTxHash());
@@ -265,6 +275,14 @@ module.exports = ({UTXO, Contract}) =>
             }
         }
 
+        /**
+         * We'll keep tracks in which {buffTxHashSpent} output {nTxOutput} of utxo with {strUtxoHash} was spent!
+         *
+         * @param {String} strUtxoHash
+         * @param {Number} nTxOutput
+         * @param {Buffer} buffTxHashSpent - TX that spent nTxOutput of strUtxoHash
+         * @private
+         */
         _setSpentOutput(strUtxoHash, nTxOutput, buffTxHashSpent) {
             let mapSpent = this._mapSpentUtxos.get(strUtxoHash);
             if (!mapSpent) mapSpent = new Map();
@@ -272,8 +290,32 @@ module.exports = ({UTXO, Contract}) =>
             this._mapSpentUtxos.set(strUtxoHash, mapSpent);
         }
 
+        /**
+         *
+         * @param {String} strUtxoHash
+         * @returns {Map<Number, Buffer>} map <Index, buffTxHashSpentThisIndex>
+         * @private
+         */
         _getSpentOutputs(strUtxoHash) {
             return this._mapSpentUtxos.get(strUtxoHash) || new Map();
+        }
+
+        /**
+         * this function used to compare maps of spended outputs @see _getSpentOutputs
+         *
+         * @param {Map} thisMapSpent - @see this._getSpentOutputs
+         * @param {Map} patchMapSpent - @see this._getSpentOutputs
+         * @returns {boolean} - true - equal. i.e. output indexes was spen in same txns
+         * @private
+         */
+        _spendingTnxsEqual(thisMapSpent, patchMapSpent) {
+            if (thisMapSpent.size !== patchMapSpent.size) return false;
+
+            for (let [nTxOutput, buffTxHashSpent] of thisMapSpent) {
+                const patchBuffSpendingTx = patchMapSpent.get(nTxOutput);
+                if (!patchBuffSpendingTx || !patchBuffSpendingTx.equals(buffTxHashSpent)) return false;
+            }
+            return true;
         }
 
         /**
@@ -375,6 +417,27 @@ module.exports = ({UTXO, Contract}) =>
          */
         getReceipts() {
             return this._mapTxReceipts.entries();
+        }
+
+        /**
+         *
+         * @param {PatchDB} stablePatch - @see Storage.getUtxosPatch
+         * @throws assertion error if find spending of indexes that already absent in stablePatch
+         */
+        validateAgainstStable(stablePatch) {
+            for (let hash of this.getCoins().keys()) {
+
+                // it could be UTXO from pending parent blocks. we'll check in later, when it become stable
+                const utxo = stablePatch.getUtxo(hash);
+                if (!utxo) continue;
+
+                const mapPatchSpentOutputs = this._getSpentOutputs(hash);
+
+                // we can't spend indexes that aren't on "stable" utxo (utxo on disk)
+                for (let [idx] of mapPatchSpentOutputs) {
+                    assert(utxo.coinsAtIndex(idx));
+                }
+            }
         }
 
     };
