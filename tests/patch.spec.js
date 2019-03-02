@@ -91,7 +91,7 @@ describe('PatchDB', () => {
 
         const patch = new factory.PatchDB(0);
 
-        patch.setUtxo(txHash, utxo);
+        patch.setUtxo(utxo);
 
         assert.isOk(utxo.equals, patch.getUtxo(txHash));
     });

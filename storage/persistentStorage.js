@@ -279,7 +279,7 @@ module.exports = (factory, factoryOptions) => {
             for (let hash of arrUtxoHashes) {
                 try {
                     const utxo = await this.getUtxo(hash);
-                    patch.setUtxo(hash, utxo);
+                    patch.setUtxo(utxo);
                 } catch (e) {
                     debug(e);
                 }

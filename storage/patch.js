@@ -88,14 +88,12 @@ module.exports = ({UTXO, Contract}) =>
 
         /**
          *
-         * @param {String | Buffer} txHash
          * @param {UTXO} utxo
          */
-        setUtxo(txHash, utxo) {
-            typeforce(typeforce.tuple(types.Hash256bit, types.UTXO), arguments);
+        setUtxo(utxo) {
+            typeforce(types.UTXO, utxo);
 
-            const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-            this._data.coins.set(strHash, utxo);
+            this._data.coins.set(utxo.getTxHash(), utxo.clone());
         }
 
         /**
