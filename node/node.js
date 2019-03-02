@@ -850,8 +850,9 @@ module.exports = (factory, factoryOptions) => {
             // process input (for regular block only)
             if (!isGenesis) {
                 tx.verify();
-                const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
-                ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
+                const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
+                const patchMerged = patchForBlock ? patchForBlock.merge(patchUtxos) : patchUtxos;
+                ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
             }
 
             let totalSent = 0;
@@ -1379,7 +1380,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _unwindBlock(block) {
-            debugNode(`(address: "${this._debugAddress}") Unwinding txns from block: "${block.getHash()}"`);
+            logger.log(`(address: "${this._debugAddress}") Unwinding txns from block: "${block.getHash()}"`);
             for (let objTx of block.txns) {
                 this._mempool.addTx(new Transaction(objTx));
             }
