@@ -35,6 +35,9 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
+            this._server.expose('getNext', asyncRPC(this.getNext.bind(this)));
+            this._server.expose('getPrev', asyncRPC(this.getPrev.bind(this)))
+
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -72,9 +75,13 @@ module.exports = ({Constants, Transaction}) =>
             return prepareForStringifyObject(cReceipt ? cReceipt.toObject() : undefined);
         }
 
-        informWsSubscribers(topic, block) {
+        informWsSubscribers(topic, result) {
             this._server.broadcastToWS(topic,
-                {hash: block.getHash(), block: prepareForStringifyObject(block.toObject())}
+                {
+                    hash: result.block.getHash(),
+                    block: prepareForStringifyObject(result.block),
+                    state: result.state
+                }
             );
         }
 
@@ -109,6 +116,45 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getTips'
             });
 
+            return arrBlockState.map(objBlockState => ({
+                hash: objBlockState.block.getHash(),
+                block: prepareForStringifyObject(objBlockState.block),
+                state: objBlockState.state
+            }));
+        }
+        /**
+         *
+         * @returns {Promise<Array>} of blockInfos (headers)
+         */
+        async getNext(args) {
+            const {strBlockHash} = args;
+            typeforce(types.Str64, strBlockHash);
+
+            const arrBlockState = await this._nodeInstance.rpcHandler({
+                event: 'getNext',
+                content: strBlockHash
+            });
+
+            return arrBlockState.map(objBlockState => ({
+                hash: objBlockState.block.getHash(),
+                block: prepareForStringifyObject(objBlockState.block),
+                state: objBlockState.state
+            }));
+        }
+        /**
+         *
+         * @returns {Promise<Array>} of blockInfos (headers)
+         */
+        async getPrev(args) {
+            const {strBlockHash} = args;
+            typeforce(types.Str64, strBlockHash);
+
+
+            const arrBlockState = await this._nodeInstance.rpcHandler({
+                event: 'getPrev',
+                content: strBlockHash
+            });
+//console.log(arrBlockState)
             return arrBlockState.map(objBlockState => ({
                 hash: objBlockState.block.getHash(),
                 block: prepareForStringifyObject(objBlockState.block),
