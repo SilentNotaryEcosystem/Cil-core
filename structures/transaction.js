@@ -115,9 +115,18 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return tx;
         }
 
-        static invokeContract(strContractAddr, strCode, amount, maxCoins) {
+        /**
+         *
+         * @param {String} strContractAddr
+         * @param {String} strCode
+         * @param {Number} amount - coins to send to contract address
+         * @param {Number} maxCoins - to use as exec fee
+         * @param {Address} addrChangeReceiver - to use as exec fee
+         * @returns {Transaction}
+         */
+        static invokeContract(strContractAddr, strCode, amount, maxCoins, addrChangeReceiver) {
             typeforce(
-                typeforce.tuple(types.Address, typeforce.String, typeforce.Number, typeforce.Number),
+                typeforce.tuple(types.StrAddress, typeforce.String, typeforce.Number, typeforce.Number),
                 arguments
             );
 
@@ -126,7 +135,8 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
                 amount,
                 coinsLimit: maxCoins,
                 receiverAddr: Buffer.from(strContractAddr, 'hex'),
-                contractCode: strCode
+                contractCode: strCode,
+                addrChangeReceiver
             });
             return tx;
         }

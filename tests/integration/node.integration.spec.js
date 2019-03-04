@@ -110,6 +110,201 @@ describe('Node integration tests', () => {
         this.timeout(15000);
     });
 
+    describe('Contract tests', async () => {
+        it('should NOT DEPLOY contract (constructor throws)', async () => {
+            const nCoinsIn = 1e5;
+            const node = new factory.Node();
+            const patchTx = new factory.PatchDB();
+            const contractCode = `
+            class TestContract extends Base{
+                constructor(answer) {
+                    super();
+                    this._someData=answer;
+                    throw (1);
+                }
+            };
+
+            exports=new TestContract(42);
+            `;
+            const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+
+            await node._processContract(false, undefined, tx, patchTx, nCoinsIn);
+
+            const receipt = patchTx.getReceipt(tx.hash());
+            assert.isOk(receipt);
+            assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
+
+            // despite terminated invocation we should send fee to miner and send change to invoker
+            assert.isOk(receipt.getCoinsUsed() > 0);
+            assert.isNotOk(patchTx.getContract(receipt.getContractAddress()));
+            assert.equal(receipt.getInternalTxns().length, 1);
+            const [changeTxHash] = receipt.getInternalTxns();
+            assert.isOk(changeTxHash);
+            const changeUxo = patchTx.getUtxo(changeTxHash);
+            assert.isOk(changeUxo);
+            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+        });
+
+        it('should deploy contract', async () => {
+            const nCoinsIn = 1e5;
+            const node = new factory.Node();
+            const patchTx = new factory.PatchDB();
+            const contractCode = `
+            class TestContract extends Base{
+                constructor(answer) {
+                    super();
+                    this._someData=answer;
+                }
+            };
+
+            exports=new TestContract(42);
+            `;
+            const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+
+            await node._processContract(false, undefined, tx, patchTx, nCoinsIn);
+
+            const receipt = patchTx.getReceipt(tx.hash());
+            assert.isOk(receipt);
+            assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+            assert.isOk(receipt.getCoinsUsed() > 0);
+            const contract = patchTx.getContract(receipt.getContractAddress());
+            assert.isOk(contract);
+            assert.deepEqual(contract.getData(), {_someData: 42});
+            assert.equal(receipt.getInternalTxns().length, 1);
+            const [changeTxHash] = receipt.getInternalTxns();
+            assert.isOk(changeTxHash);
+            const changeUxo = patchTx.getUtxo(changeTxHash);
+            assert.isOk(changeUxo);
+            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+        });
+
+        it('should INVOKE contract', async () => {
+            const nCoinsIn = 1e5;
+            const node = new factory.Node();
+            const patchTx = new factory.PatchDB();
+
+            const contractCode = `
+            class TestContract extends Base{
+                constructor(answer) {
+                    super();
+                    this._someData=answer;
+                }
+                someFunction(value){
+                    this._someData=value;
+                }
+            };
+
+            exports=new TestContract(42);
+            `;
+            const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+
+            // deploy contract and check success
+            await node._processContract(false, undefined, tx, patchTx, nCoinsIn);
+
+            let contract;
+            {
+                const receipt = patchTx.getReceipt(tx.hash());
+                assert.isOk(receipt);
+                assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+                assert.isOk(receipt.getCoinsUsed() > 0);
+
+                contract = patchTx.getContract(receipt.getContractAddress());
+                assert.isOk(contract);
+            }
+
+            // call for it
+            const strCodeToRun = 'someFunction(1000);';
+            const txRun = factory.Transaction.invokeContract(
+                contract.getStoredAddress(),
+                strCodeToRun,
+                0,
+                1e5,
+                generateAddress()
+            );
+            const patchRun = new factory.PatchDB();
+
+            await node._processContract(false, contract, txRun, patchRun, nCoinsIn);
+            {
+                const receipt = patchRun.getReceipt(txRun.hash());
+                assert.isOk(receipt);
+                assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+                assert.isOk(receipt.getCoinsUsed() > 0);
+                assert.deepEqual(contract.getData(), {_someData: 1000});
+                assert.equal(receipt.getInternalTxns().length, 1);
+                const [changeTxHash] = receipt.getInternalTxns();
+                assert.isOk(changeTxHash);
+                const changeUxo = patchRun.getUtxo(changeTxHash);
+                assert.isOk(changeUxo);
+                assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+            }
+        });
+
+        it('should TERMINATE contract INVOCATION (throws error)', async () => {
+            const nCoinsIn = 1e5;
+            const node = new factory.Node();
+            const patchTx = new factory.PatchDB();
+
+            const contractCode = `
+            class TestContract extends Base{
+                constructor(answer) {
+                    super();
+                    this._someData=answer;
+                }
+                someFunction(){
+                    throw(1);
+                }
+            };
+
+            exports=new TestContract(42);
+            `;
+            const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+            let contract;
+
+            // deploy contract and check success
+            await node._processContract(false, undefined, tx, patchTx, nCoinsIn);
+
+            {
+                const receipt = patchTx.getReceipt(tx.hash());
+                assert.isOk(receipt);
+                assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+                assert.isOk(receipt.getCoinsUsed() > 0);
+
+                contract = patchTx.getContract(receipt.getContractAddress());
+                assert.isOk(contract);
+            }
+
+            // call for it
+            const strCodeToRun = 'someFunction();';
+            const txRun = factory.Transaction.invokeContract(
+                contract.getStoredAddress(),
+                strCodeToRun,
+                0,
+                1e5,
+                generateAddress()
+            );
+            const patchRun = new factory.PatchDB();
+
+            await node._processContract(false, contract, txRun, patchRun, nCoinsIn);
+
+            {
+                const receipt = patchRun.getReceipt(txRun.hash());
+                assert.isOk(receipt);
+                assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
+
+                // despite terminated invocation we should send fee to miner and send change to invoker
+                assert.isOk(receipt.getCoinsUsed() > 0);
+                contract = patchRun.getContract(receipt.getContractAddress());
+                assert.isNotOk(contract);
+                assert.equal(receipt.getInternalTxns().length, 1);
+                const [changeTxHash] = receipt.getInternalTxns();
+                assert.isOk(changeTxHash);
+                const changeUxo = patchRun.getUtxo(changeTxHash);
+                assert.isOk(changeUxo);
+                assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+            }
+        });
+    });
+
     it('should disconnect from self', async function() {
         this.timeout(20000);
 

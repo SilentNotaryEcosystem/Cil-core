@@ -913,7 +913,8 @@ module.exports = (factory, factoryOptions) => {
                 coinsLimit = maxFee < coinsLimit ? maxFee : coinsLimit;
 
                 if (coinsLimit < Constants.MIN_CONTRACT_FEE) {
-                    throw new Error(`Tx ${tx.hash()} CONTRACT fee ${maxFee} less than ${Constants.MIN_CONTRACT_FEE}!`);
+                    throw new Error(
+                        `Tx ${tx.hash()} CONTRACT fee ${coinsLimit} less than ${Constants.MIN_CONTRACT_FEE}!`);
                 }
 
             } else {
@@ -944,7 +945,7 @@ module.exports = (factory, factoryOptions) => {
                 fee = this._createContractChange(tx, maxFee, patchThisTx, contract, receipt);
             }
             patchThisTx.setReceipt(tx.hash(), receipt);
-            patchThisTx.setContract(contract);
+            if (contract) patchThisTx.setContract(contract);
 
             return fee;
         }

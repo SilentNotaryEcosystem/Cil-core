@@ -310,7 +310,7 @@ describe('Transaction tests', () => {
         const kp = factory.Crypto.createKeyPair();
         const strCode = 'var a=0;';
         const tx = factory.Transaction.invokeContract(
-            generateAddress(),
+            generateAddress().toString('hex'),
             strCode,
             0,
             1e5
