@@ -1,6 +1,5 @@
 const typeforce = require('typeforce');
 const assert = require('assert');
-const types = require('../types');
 
 const v8 = require('v8');
 
@@ -102,5 +101,24 @@ module.exports = (factory, {contractProto}) =>
         getStoredAddress() {
             assert(this._strAddress, 'Contract address not specified!');
             return this._strAddress;
+        }
+
+        getBalance() {
+            return this._data.balance === undefined ? 0 : this._data.balance;
+        }
+
+        deposit(amount) {
+            if (typeof this._data.balance !== 'number') {
+                this._data.balance = amount;
+            } else {
+                this._data.balance += amount;
+            }
+        }
+
+        withdraw(amount) {
+            if (typeof this._data.balance !== 'number') throw new Error('Balance uninitialized!');
+            if (this._data.balance < amount) throw new Error('Insufficient funds!');
+
+            this._data.balance -= amount;
         }
     };

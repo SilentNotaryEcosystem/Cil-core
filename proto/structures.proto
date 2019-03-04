@@ -102,6 +102,7 @@ message Contract{
     bytes contractData =1;
     string contractCode=2;
     uint32 groupId=3;
+    fixed64 balance=4;
 }
 
 //--------------- TX Receipt -----

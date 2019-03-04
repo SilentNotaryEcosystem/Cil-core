@@ -1,9 +1,5 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon');
-const debug = require('debug')('peer:');
-
-const {pseudoRandomBuffer} = require('./testUtil');
 
 factory = require('./testFactory');
 
@@ -72,6 +68,58 @@ describe('Contract tests', () => {
         const decodedContract = new factory.Contract(buffer);
 
         assert.deepEqual(data, decodedContract.getData());
+    });
+
+    describe('Balance', () => {
+        it('should get balance', async () => {
+            {
+                // not initialized
+                const contract = new factory.Contract({});
+                assert.equal(contract.getBalance(), 0);
+            }
+            {
+                const contract = new factory.Contract({balance: 100});
+                assert.equal(contract.getBalance(), 100);
+            }
+            {
+                const contract = new factory.Contract({balance: 100});
+                const recoveredContract = new factory.Contract(contract.encode());
+                assert.equal(recoveredContract.getBalance(), 100);
+            }
+        });
+
+        it('should add moneys to balance', async () => {
+            {
+                // not initialized
+                const contract = new factory.Contract({});
+                contract.deposit(112);
+                assert.equal(contract.getBalance(), 112);
+            }
+            {
+                const contract = new factory.Contract({balance: 100});
+                contract.deposit(112);
+                assert.equal(contract.getBalance(), 212);
+            }
+        });
+
+        it('should deduce moneys from balance', async () => {
+            {
+                // not initialized
+                const contract = new factory.Contract({});
+                assert.throws(() => contract.withdraw(112));
+            }
+            {
+                const contract = new factory.Contract({balance: 100});
+
+                // too much
+                assert.throws(() => contract.withdraw(112));
+            }
+            {
+                const contract = new factory.Contract({balance: 100});
+                contract.withdraw(23);
+                assert.equal(contract.getBalance(), 77);
+            }
+        });
     });
 
 });
