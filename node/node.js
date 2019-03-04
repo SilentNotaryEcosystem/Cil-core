@@ -804,6 +804,16 @@ module.exports = (factory, factoryOptions) => {
                         return await Promise.all(
                             arrHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
+                    case 'getNext':
+                        let arrChildHashes = this._mainDag.getChildren(content);
+                        return await Promise.all(
+                            arrChildHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
+                        );
+                    case 'getPrev':
+                        const childBlockInfo = this._mainDag.getBlockInfo(content);
+                        return await Promise.all(   
+                            childBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
+                        );
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1125,7 +1135,8 @@ module.exports = (factory, factoryOptions) => {
             );
 
             if (this._rpc) {
-                this._rpc.informWsSubscribers('newBlock', block);
+                const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
+                this._rpc.informWsSubscribers('newBlock', blockAndState);
             }
         }
 
