@@ -98,6 +98,13 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return coinbase;
         }
 
+        /**
+         *
+         * @param {String} strCode
+         * @param {Number} coinsLimit
+         * @param {Buffer} addrChangeReceiver
+         * @returns {Transaction}
+         */
         static createContract(strCode, coinsLimit, addrChangeReceiver) {
             typeforce(
                 typeforce.tuple(typeforce.String, typeforce.Number),
@@ -294,7 +301,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         isContractCreation() {
             const outCoins = this.getOutCoins();
-            return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
+            return outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
         }
 
         /**
@@ -319,6 +326,11 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         getContractCoinsLimit() {
             const contractOutput = this._getContractOutput();
             return contractOutput.coinsLimit;
+        }
+
+        getContractSentAmount() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.amount;
         }
 
         _getContractOutput() {

@@ -265,14 +265,14 @@ describe('Transaction tests', () => {
         assert.isNotOk(tx.isContractCreation());
     });
 
-    it('should be NON contractCreation (2 outputs)', async () => {
+    it('should be contractCreation (2 outputs)', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 0);
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(1, factory.Crypto.getAddrContractCreation());
         tx.addReceiver(1, pseudoRandomBuffer(20));
 
-        assert.isNotOk(tx.isContractCreation());
+        assert.isOk(tx.isContractCreation());
     });
 
     it('should be contractCreation', async () => {
@@ -321,6 +321,19 @@ describe('Transaction tests', () => {
         tx.sign(0, kp.privateKey);
 
         tx.verify();
+    });
+
+    it('should get amount sent to contract', async () => {
+        const tx = factory.Transaction.invokeContract(
+            generateAddress().toString('hex'),
+            '',
+            100,
+            1e5
+        );
+        tx.addReceiver(1000, generateAddress());
+        tx.addReceiver(2000, generateAddress());
+
+        assert.equal(tx.getContractSentAmount(), 100);
     });
 
 });
