@@ -216,6 +216,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @return {String} !!
          */
         hash(idx) {
+            return this.getHash();
+        }
+
+        /**
+         * SIGHASH_ALL
+         *
+         * @return {String} !!
+         */
+        getHash() {
             return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());
         }
 
@@ -227,7 +236,10 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         _checkDone() {
 
             // it's only for SIGHASH_ALL, if implement other - change it!
-            if (this._data.claimProofs.length) throw new Error('Tx is already signed, you can\'t modify it');
+            if (this.getTxSignature() || this._data.claimProofs.length) {
+                throw new Error(
+                    'Tx is already signed, you can\'t modify it');
+            }
         }
 
         /**
@@ -243,6 +255,36 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
             const hash = this.hash(idx);
             this._data.claimProofs[idx] = Crypto.sign(hash, key, enc);
+        }
+
+        /**
+         * Used to prove ownership of contract
+         *
+         * @param {Buffer | String} key - private key
+         * @param {String} enc -encoding of key
+         */
+        signForContract(key, enc = 'hex') {
+            typeforce(types.PrivateKey, key);
+
+            const hash = this.getHash();
+            this._data.txSignature = Crypto.sign(hash, key, enc);
+        }
+
+        getTxSignature() {
+            return Buffer.isBuffer(this._data.txSignature) ||
+                   (Array.isArray(this._data.txSignature) && this._data.txSignature.length) ?
+                this._data.txSignature : undefined;
+        }
+
+        getTxSignerAddress(needBuffer = false) {
+            if (!this.getTxSignature()) return undefined;
+            try {
+                const pubKey = Crypto.recoverPubKey(this.getHash(), this.getTxSignature());
+                return Crypto.getAddress(pubKey, needBuffer);
+            } catch (e) {
+                logger.error(e);
+            }
+            return undefined;
         }
 
         /**

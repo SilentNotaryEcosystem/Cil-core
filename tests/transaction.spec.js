@@ -336,4 +336,32 @@ describe('Transaction tests', () => {
         assert.equal(tx.getContractSentAmount(), 100);
     });
 
+    it('should sign whole Tx (for contract usage)', async () => {
+        const kp = factory.Crypto.createKeyPair();
+        const tx = new factory.Transaction(createDummyTx());
+        tx.signForContract(kp.privateKey);
+
+        assert.equal(tx.getTxSignerAddress(), kp.address);
+
+        assert.throws(tx._checkDone);
+    });
+
+    it('should get empty address (empty tx)', async () => {
+        const tx = new factory.Transaction();
+
+        assert.equal(tx.getTxSignerAddress(), undefined);
+    });
+
+    it('should get empty address (no signature)', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+
+        assert.equal(tx.getTxSignerAddress(), undefined);
+    });
+
+    it('should get empty address (random bytes as signature)', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+        tx._data.txSignature = pseudoRandomBuffer();
+
+        assert.equal(tx.getTxSignerAddress(), undefined);
+    });
 });

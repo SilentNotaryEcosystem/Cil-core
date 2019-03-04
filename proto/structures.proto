@@ -37,6 +37,9 @@ message Transaction {
     // place here non hashed fields
     TransactionPayload payload=1;
     repeated bytes claimProofs=2;
+
+    // used only when contractOwner plan to send moneys or transfer ownership
+    bytes txSignature=3;
 }
 
 //------------------- Block ---------
