@@ -126,4 +126,16 @@ module.exports = ({Coins}, {utxoProto}) =>
             return arrayEquals(this.getIndexes(), utxo.getIndexes()) &&
                    this.getIndexes().every(idx => this.coinsAtIndex(idx).equals(utxo.coinsAtIndex(idx)));
         }
+
+        /**
+         * Amount of coins to transfer with this UTXO
+         *
+         * @returns {Number}
+         */
+        amountOut() {
+            return this._data.arrIndexes.reduce((accum, idx) => {
+                const coins = this.coinsAtIndex(idx);
+                return accum + coins.getAmount();
+            }, 0);
+        }
     };
