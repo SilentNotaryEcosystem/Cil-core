@@ -72,7 +72,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Transaction} tx
          * @param {PatchDB} patch - to create new coins
          * @param {Number} nStartFromIdx - if we want to skip some outputs, for contract for example
-         * @returns {Number} - Amount to spend
+         * @returns {Number} - to send (used to calculate fee)
          */
         processPayments(tx, patch, nStartFromIdx = 0) {
             const txHash = tx.hash();
@@ -155,9 +155,13 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Contract} contract - contract loaded from store (@see structures/contract.js)
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Function} funcToLoadNestedContracts - not used yet.
-         * @returns {Promise<*>}
+         * @returns {Promise<TxReceipt>}
          */
         async runContract(coinsLimit, strInvocationCode, contract, environment, funcToLoadNestedContracts) {
+
+            // if code it empty - call default function.
+            // No "default" - throws error, coins that sent to contract will be lost
+            if (!strInvocationCode || strInvocationCode === '') strInvocationCode = '_default()';
 
             // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
             // form context from contract data

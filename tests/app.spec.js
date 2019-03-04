@@ -292,4 +292,49 @@ describe('Application layer', () => {
         assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 110});
     });
+
+    it('should throw (unknown method)', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: 'add(a){this.value+=a;}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, 'subtract(10)', contract, {});
+        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 100});
+    });
+
+    it('should throw (no default function)', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: 'add(a){this.value+=a;}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, '', contract, {});
+        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 100});
+    });
+
+    it('should call default function', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: '_default(){this.value+=17;}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, '', contract, {});
+        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 117});
+    });
 });
