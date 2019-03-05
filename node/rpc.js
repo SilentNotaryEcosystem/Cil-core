@@ -129,12 +129,10 @@ module.exports = ({Constants, Transaction}) =>
         async getNext(args) {
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
-
             const arrBlockState = await this._nodeInstance.rpcHandler({
                 event: 'getNext',
                 content: strBlockHash
             });
-
             return arrBlockState.map(objBlockState => ({
                 hash: objBlockState.block.getHash(),
                 block: prepareForStringifyObject(objBlockState.block),
@@ -149,12 +147,11 @@ module.exports = ({Constants, Transaction}) =>
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
 
-
             const arrBlockState = await this._nodeInstance.rpcHandler({
                 event: 'getPrev',
                 content: strBlockHash
             });
-//console.log(arrBlockState)
+
             return arrBlockState.map(objBlockState => ({
                 hash: objBlockState.block.getHash(),
                 block: prepareForStringifyObject(objBlockState.block),

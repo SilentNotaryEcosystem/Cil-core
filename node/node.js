@@ -806,13 +806,22 @@ module.exports = (factory, factoryOptions) => {
                         );
                     case 'getNext':
                         let arrChildHashes = this._mainDag.getChildren(content);
+                        if(!arrChildHashes || !arrChildHashes.length) {
+                            arrChildHashes = this._pendingBlocks.getDag().edgesTo(content).tips;
+                        }
+                        if (!arrChildHashes) return [];
                         return await Promise.all(
                             arrChildHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
                     case 'getPrev':
-                        const childBlockInfo = this._mainDag.getBlockInfo(content);
+                        let cBlockInfo = this._mainDag.getBlockInfo(content);
+                        if(!cBlockInfo) {
+                            cBlockInfo = this._pendingBlocks.getDag().readObj(content).blockHeader;
+                        }
+                        if(!cBlockInfo) return [];
                         return await Promise.all(   
-                            childBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
+                            cBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
+
                         );
                     default:
                         throw new Error(`Unsupported method ${event}`);
@@ -1668,8 +1677,13 @@ module.exports = (factory, factoryOptions) => {
 
         async _getBlockAndState(hash) {
             typeforce(types.Str64, hash);
-
-            const cBlock = await this._storage.getBlock(hash);
+            let cBlock;
+            try {
+                cBlock = await this._storage.getBlock(hash);
+            }
+            catch (err) {
+                return {};
+            }
             const blockInfo = this._mainDag.getBlockInfo(hash);
 
             return {block: cBlock, state: blockInfo ? blockInfo.getState() : undefined};
