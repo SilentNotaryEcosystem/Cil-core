@@ -936,8 +936,14 @@ module.exports = (factory, factoryOptions) => {
                     `TX groupId: "${tx.witnessGroupId}" != contract groupId`
                 );
 
+                const invocationCode = tx.getContractCode();
                 environment.contractAddr = contract.getStoredAddress();
-                receipt = await this._app.runContract(coinsLimit, tx.getContractCode(), contract, environment);
+                receipt = await this._app.runContract(
+                    coinsLimit,
+                    invocationCode && invocationCode.length ? JSON.parse(tx.getContractCode()) : {},
+                    contract,
+                    environment
+                );
             }
 
             // send change (not for Genesis)

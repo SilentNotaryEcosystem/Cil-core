@@ -308,10 +308,10 @@ describe('Transaction tests', () => {
 
     it('should VERIFY tx with contract invocation', async () => {
         const kp = factory.Crypto.createKeyPair();
-        const strCode = 'var a=0;';
+        const objCode = {};
         const tx = factory.Transaction.invokeContract(
             generateAddress().toString('hex'),
-            strCode,
+            objCode,
             0,
             1e5
         );
@@ -326,7 +326,7 @@ describe('Transaction tests', () => {
     it('should get amount sent to contract', async () => {
         const tx = factory.Transaction.invokeContract(
             generateAddress().toString('hex'),
-            '',
+            {},
             100,
             1e5
         );

@@ -455,17 +455,19 @@ exports=new GroupDefinition(${strCommaSeparatedKeys});
 
 function createAnotherGroup(strClaimPrivateKey, witnessPubKey, utxo, idx) {
 
-    const contractCode = `
-        addDefinition({
-            quorum: 1,
-            publicKeys: ['${witnessPubKey}'],
-            delegatesPublicKeys: ['${witnessPubKey}'],
-        });
-    `;
+    const contractCode = {
+        method: 'addDefinition',
+        arrArguments: [
+            {
+                quorum: 1,
+                publicKeys: [witnessPubKey],
+                delegatesPublicKeys: [witnessPubKey]
+            }]
+    };
 
     // WARNING! it's just test/demo. All coins at this UTXO become fee
     const tx = factory.Transaction.invokeContract(
-        Buffer.from(factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'),
+        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS,
         contractCode,
         0,
         1e5

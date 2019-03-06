@@ -213,10 +213,10 @@ describe('Node integration tests', () => {
             }
 
             // call for it
-            const strCodeToRun = 'someFunction(1000);';
+            const objCodeToRun = {method: 'someFunction', arrArguments: [1000]};
             const txRun = factory.Transaction.invokeContract(
                 contract.getStoredAddress(),
-                strCodeToRun,
+                objCodeToRun,
                 0,
                 1e5,
                 generateAddress()
@@ -274,10 +274,10 @@ describe('Node integration tests', () => {
             }
 
             // call for it
-            const strCodeToRun = 'someFunction();';
+            const objCodeToRun = {method: 'someFunction', arrArguments: []};
             const txRun = factory.Transaction.invokeContract(
                 contract.getStoredAddress(),
-                strCodeToRun,
+                objCodeToRun,
                 0,
                 1e5,
                 generateAddress()

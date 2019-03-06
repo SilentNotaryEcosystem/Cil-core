@@ -125,15 +125,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         /**
          *
          * @param {String} strContractAddr
-         * @param {String} strCode
+         * @param {Object} objInvokeCode {method, arrArguments}
          * @param {Number} amount - coins to send to contract address
          * @param {Number} maxCoins - to use as exec fee
          * @param {Address} addrChangeReceiver - to use as exec fee
          * @returns {Transaction}
          */
-        static invokeContract(strContractAddr, strCode, amount, maxCoins, addrChangeReceiver) {
+        static invokeContract(strContractAddr, objInvokeCode, amount, maxCoins, addrChangeReceiver) {
             typeforce(
-                typeforce.tuple(types.StrAddress, typeforce.String, typeforce.Number, typeforce.Number),
+                typeforce.tuple(types.StrAddress, typeforce.Object, typeforce.Number, typeforce.Number),
                 arguments
             );
 
@@ -142,7 +142,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
                 amount,
                 coinsLimit: maxCoins,
                 receiverAddr: Buffer.from(strContractAddr, 'hex'),
-                contractCode: strCode,
+                contractCode: JSON.stringify(objInvokeCode),
                 addrChangeReceiver
             });
             return tx;
@@ -182,30 +182,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
             this._checkDone();
             this._data.payload.outs.push({amount, receiverAddr: Buffer.from(addr, 'hex')});
-        }
-
-        /**
-         *
-         * @param {Buffer} addrContract
-         * @param {String} strCodeInvocation  - method name & parameters
-         * @param {Number} amount - coins to send to contract
-         * @param {Number} coinsLimit - max contract fee
-         * @param {Buffer} addrChangeReceiver
-         */
-        invokeContract(addrContract, strCodeInvocation, amount, coinsLimit, addrChangeReceiver) {
-            typeforce(
-                typeforce.tuple(types.Address, typeforce.String, typeforce.Number, typeforce.Number),
-                [addrContract, strCodeInvocation, amount, coinsLimit]
-            );
-
-            this._checkDone();
-            this._data.payload.outs.push({
-                contractCode: strCodeInvocation,
-                amount,
-                coinsLimit,
-                receiverAddr: Buffer.from(addrContract, 'hex'),
-                addrChangeReceiver
-            });
         }
 
         /**
