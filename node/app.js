@@ -185,6 +185,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let status;
             try {
 
+                if (!objMethods[objInvocationCode.method]) {
+                    throw new Error(`Method ${objInvocationCode.method} not found`);
+                }
+
                 const strPreparedCode = `
                     ${this._prepareCode(objMethods)}
                     ${objInvocationCode.method}(
