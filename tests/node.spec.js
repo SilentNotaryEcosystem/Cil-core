@@ -1205,13 +1205,15 @@ describe('Node tests', () => {
             throw new Error('Unexpected success');
         });
 
-        it('should invoke contract', async () => {
+        it('should invoke contract with environment', async () => {
             const node = new factory.Node();
             const nTotalHas = 1e5;
             const nChange = 1e4;
 
+            const kp = factory.Crypto.createKeyPair();
             const {tx, strContractAddr} = createContractInvocationTx({}, nTotalHas);
             tx.addReceiver(nChange, generateAddress());
+            tx.signForContract(kp.privateKey);
 
             node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
 
@@ -1221,10 +1223,13 @@ describe('Node tests', () => {
             await node._processTx(false, tx, new factory.PatchDB(groupId));
 
             assert.isOk(node._app.runContract.calledOnce);
-            const [coinsLimit, strInvocationCode, contract] = node._app.runContract.args[0];
+            const [coinsLimit, strInvocationCode, contract, environment] = node._app.runContract.args[0];
             assert.equal(coinsLimit, nTotalHas - nChange);
             assert.isOk(typeof strInvocationCode === 'object');
             assert.isOk(contract instanceof factory.Contract);
+
+            assert.equal(environment.callerAddress, kp.address);
+            assert.equal(environment.contractTx, tx.getHash());
         });
 
         it('should use all INPUT coins as fee (no changeReceiver no change output)', async () => {

@@ -16,7 +16,7 @@ describe('Contract tests', () => {
     it('should create contract', async () => {
         new factory.Contract({
             contractData: {a: 1},
-            contractCode: 'let a=1;',
+            contractCode: '{"add": "(a){this.value+=a;}"}',
             groupId: 1
         });
 
@@ -31,14 +31,14 @@ describe('Contract tests', () => {
         const data = {a: 1};
         const contract = new factory.Contract({
             contractData: data,
-            contractCode: 'let a=1;',
+            contractCode: '{"add": "(a){this.value+=a;}"}',
             groupId: 1
         });
         assert.deepEqual(data, contract.getData());
     });
 
     it('should get code', async () => {
-        const code = 'let a=1;';
+        const code = '{"add": "(a){this.value+=a;}"}';
         const contract = new factory.Contract({
             contractCode: code,
             groupId: 1
