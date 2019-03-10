@@ -858,6 +858,8 @@ module.exports = (factory, factoryOptions) => {
             let totalSent = 0;
             let contract;
 
+            // TODO: move it to per output processing. So we could use multiple contract invocation in one TX
+            //  it's useful for mass payments, where some of addresses could be contracts!
             if (tx.isContractCreation() || (contract = await this._getContractFromTx(tx, patchForBlock))) {
 
                 // process contract creation/invocation
@@ -881,6 +883,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
+         * Contract creation/invocation tx MUST have zero-index output with code, coins and so on
+         * the rest of outputs could have change output(s)
          *
          * @param {Boolean} isGenesis
          * @param {Contract | undefined} contract
@@ -900,7 +904,8 @@ module.exports = (factory, factoryOptions) => {
 
             // global variables for contract
             const environment = {
-                contractTx: tx.hash()
+                contractTx: tx.hash(),
+                callerAddress: tx.getTxSignerAddress()
             };
 
             // get max contract fee
@@ -951,7 +956,12 @@ module.exports = (factory, factoryOptions) => {
                 fee = this._createContractChange(tx, maxFee, patchThisTx, contract, receipt);
             }
             patchThisTx.setReceipt(tx.hash(), receipt);
-            if (contract) patchThisTx.setContract(contract);
+
+            // contract could throw, so it could be undefined
+            if (contract) {
+                patchThisTx.setContract(contract);
+                if (receipt.getStatus() === Constants.TX_STATUS_OK) contract.deposit(tx.getContractSentAmount());
+            }
 
             return fee;
         }

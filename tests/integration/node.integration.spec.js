@@ -143,6 +143,9 @@ describe('Node integration tests', () => {
             const changeUxo = patchTx.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
             assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+
+            // no UTXO created for transferred coins
+            assert.isNotOk(patchTx.getUtxo(tx.getHash()));
         });
 
         it('should deploy contract', async () => {
@@ -176,12 +179,17 @@ describe('Node integration tests', () => {
             const changeUxo = patchTx.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
             assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+
+            // no UTXO created for transferred coins
+            assert.isNotOk(patchTx.getUtxo(tx.getHash()));
         });
 
-        it('should INVOKE contract', async () => {
+        it('should DEPLOY & INVOKE contract', async () => {
             const nCoinsIn = 1e5;
             const node = new factory.Node();
             const patchTx = new factory.PatchDB();
+
+            const sentToContract = 1e3;
 
             const contractCode = `
             class TestContract extends Base{
@@ -217,7 +225,7 @@ describe('Node integration tests', () => {
             const txRun = factory.Transaction.invokeContract(
                 contract.getStoredAddress(),
                 objCodeToRun,
-                0,
+                sentToContract,
                 1e5,
                 generateAddress()
             );
@@ -229,13 +237,25 @@ describe('Node integration tests', () => {
                 assert.isOk(receipt);
                 assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
                 assert.isOk(receipt.getCoinsUsed() > 0);
+
+                assert.isOk(patchRun.getContract(contract.getStoredAddress()));
+
+                // balance had changed
+                assert.equal(contract.getBalance(), sentToContract);
+
+                // data had changed
                 assert.deepEqual(contract.getData(), {_someData: 1000});
+
+                // change transferred as internal TX
                 assert.equal(receipt.getInternalTxns().length, 1);
                 const [changeTxHash] = receipt.getInternalTxns();
                 assert.isOk(changeTxHash);
                 const changeUxo = patchRun.getUtxo(changeTxHash);
                 assert.isOk(changeUxo);
                 assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+
+                // no UTXO created for transferred coins
+                assert.isNotOk(patchRun.getUtxo(tx.getHash()));
             }
         });
 
@@ -293,14 +313,20 @@ describe('Node integration tests', () => {
 
                 // despite terminated invocation we should send fee to miner and send change to invoker
                 assert.isOk(receipt.getCoinsUsed() > 0);
-                contract = patchRun.getContract(receipt.getContractAddress());
-                assert.isNotOk(contract);
+                assert.isNotOk(patchRun.getContract(receipt.getContractAddress()));
+
+                // balance of contract is unchanged
+                assert.equal(contract.getBalance(), 0);
+
                 assert.equal(receipt.getInternalTxns().length, 1);
                 const [changeTxHash] = receipt.getInternalTxns();
                 assert.isOk(changeTxHash);
                 const changeUxo = patchRun.getUtxo(changeTxHash);
                 assert.isOk(changeUxo);
                 assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+
+                // no UTXO created for transferred coins
+                assert.isNotOk(patchRun.getUtxo(tx.getHash()));
             }
         });
     });

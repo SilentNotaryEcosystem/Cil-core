@@ -201,8 +201,7 @@ module.exports = ({UTXO, Contract}) =>
                 }
 
                 // clone contract
-                const clonedContract = new Contract(winnerContract.encode());
-                clonedContract.storeAddress(strAddr);
+                const clonedContract = new Contract(winnerContract.encode(), strAddr);
                 resultPatch.setContract(clonedContract);
             }
 
