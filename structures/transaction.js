@@ -219,12 +219,14 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         /**
+         * Add clamProofs (signature of hash(idx)) for input with idx
+         *
          *
          * @param {Number} idx - index of input to sign
          * @param {Buffer | String} key - private key
          * @param {String} enc -encoding of key
          */
-        sign(idx, key, enc = 'hex') {
+        claim(idx, key, enc = 'hex') {
             typeforce(typeforce.tuple('Number', types.PrivateKey), [idx, key]);
 
             if (idx > this._data.payload.ins.length) throw new Error('Bad index: greater than inputs length');

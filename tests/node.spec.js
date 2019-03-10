@@ -59,7 +59,7 @@ const createTxAddCoinsToNode = (node) => {
     const tx = new factory.Transaction();
     tx.addInput(txHash, 12);
     tx.addReceiver(1000, buffAddress);
-    tx.sign(0, keyPair.privateKey);
+    tx.claim(0, keyPair.privateKey);
 
     return {tx, keyPair};
 };
@@ -559,7 +559,7 @@ describe('Node tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(txHash, 12);
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         try {
             await node._processReceivedTx(tx);
@@ -586,7 +586,7 @@ describe('Node tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(txHash, 12);
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         try {
             await node._processReceivedTx(tx);

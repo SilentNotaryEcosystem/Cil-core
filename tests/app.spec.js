@@ -53,9 +53,9 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 0);
         tx.addInput(utxoHash, 80);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
-        tx.sign(2, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
+        tx.claim(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patch = await storage.getUtxosPatch(tx.utxos);
@@ -76,9 +76,9 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 0);
         tx.addInput(utxoHash, 80);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
-        tx.sign(2, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
+        tx.claim(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -98,7 +98,7 @@ describe('Application layer', () => {
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 17);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -125,7 +125,7 @@ describe('Application layer', () => {
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 12);
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, anotherKeyPair.privateKey);
+        tx.claim(0, anotherKeyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -151,7 +151,7 @@ describe('Application layer', () => {
         // create tx
         const tx = new factory.Transaction();
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, anotherKeyPair.privateKey);
+        tx.claim(0, anotherKeyPair.privateKey);
 
         const patch = new factory.PatchDB(0);
 
@@ -175,8 +175,8 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 12);
         tx.addInput(utxoHash, 12);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch([utxoHash]);
@@ -202,7 +202,7 @@ describe('Application layer', () => {
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 12);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -215,7 +215,7 @@ describe('Application layer', () => {
         const tx2 = new factory.Transaction();
         tx2.addInput(utxoHash, 12);
         tx2.addReceiver(1000, buffAddress2);
-        tx2.sign(0, keyPair.privateKey);
+        tx2.claim(0, keyPair.privateKey);
 
         const patchUtxos2 = await storage.getUtxosPatch(tx2.utxos);
 

@@ -36,7 +36,7 @@ const createGenesisPatchAndSpendingTx = (factory) => {
     const tx = new factory.Transaction();
     tx.addInput(utxoHash, 12);
     tx.addReceiver(1000, buffAddress);
-    tx.sign(0, receiverKeyPair.privateKey);
+    tx.claim(0, receiverKeyPair.privateKey);
 
     return {patch, tx};
 };

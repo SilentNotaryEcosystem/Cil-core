@@ -35,7 +35,7 @@ describe('Message Transaction', () => {
 
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         msg.tx = tx;
 
         assert.isOk(Buffer.isBuffer(msg.payload));
@@ -51,7 +51,7 @@ describe('Message Transaction', () => {
 
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         msg.tx = tx;
 
         const buffMsg = msg.encode();

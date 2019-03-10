@@ -175,7 +175,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         tx.witnessGroupId = 1;
         tx.addInput(moneyIssueTx.hash(), 5);
         tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-        tx.sign(0, wallet.privateKey);
+        tx.claim(0, wallet.privateKey);
 
         await witnessGroupTwo.rpcHandler({event: 'tx', content: tx});
 
@@ -242,7 +242,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
             tx.witnessGroupId = 0;
             tx.addInput(moneyIssueTx.hash(), 1);
             tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-            tx.sign(0, wallet.privateKey);
+            tx.claim(0, wallet.privateKey);
 
             await witnessGroupOne.rpcHandler({event: 'tx', content: tx});
         }
@@ -276,7 +276,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
             tx.witnessGroupId = 1;
             tx.addInput(moneyIssueTx.hash(), 2);
             tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-            tx.sign(0, wallet.privateKey);
+            tx.claim(0, wallet.privateKey);
 
             await witnessGroupTwo.rpcHandler({event: 'tx', content: tx});
         }
@@ -475,7 +475,7 @@ function createAnotherGroup(strClaimPrivateKey, witnessPubKey, utxo, idx) {
 
     // spend witness2 coins (WHOLE!)
     tx.addInput(utxo, idx);
-    tx.sign(0, strClaimPrivateKey);
+    tx.claim(0, strClaimPrivateKey);
 
     return tx;
 }

@@ -74,7 +74,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         assert.isOk(Array.isArray(tx._data.claimProofs));
         assert.equal(tx._data.claimProofs.length, 1);
         assert.isOk(Buffer.isBuffer(tx._data.claimProofs[0]));
@@ -86,7 +86,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
-        const wrapper = () => tx.sign(0);
+        const wrapper = () => tx.claim(0);
         assert.throws(wrapper);
     });
 
@@ -94,14 +94,14 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
-        const wrapper = () => tx.sign(2, keyPair.privateKey);
+        const wrapper = () => tx.claim(2, keyPair.privateKey);
         assert.throws(wrapper);
     });
 
     it('should FAIL to modify after signing it', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         const wrapper = () => tx.addInput(pseudoRandomBuffer(), 1);
         assert.throws(wrapper);
     });
@@ -110,7 +110,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         const buffEncoded = tx.encode();
 
@@ -132,7 +132,7 @@ describe('Transaction tests', () => {
         assert.isNotOk(tx.claimProofs.length);
 
         const keyPair = factory.Crypto.createKeyPair();
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         assert.isOk(tx.claimProofs.length);
 
         const arrUtxos = tx.utxos;
@@ -154,7 +154,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         tx._data.payload.ins[0].nTxOutput = 1;
 
@@ -194,7 +194,7 @@ describe('Transaction tests', () => {
         tx.witnessGroupId = 0;
         tx.addInput(pseudoRandomBuffer(), 0);
         tx.addReceiver(1, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         assert.doesNotThrow(() => tx.verify());
     });
@@ -231,7 +231,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         const utxo = pseudoRandomBuffer();
         tx.addInput(utxo, 15);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         const pubKey = factory.Crypto.recoverPubKey(tx.hash(), tx.claimProofs[0]);
         assert.equal(pubKey, keyPair.publicKey);
@@ -318,7 +318,7 @@ describe('Transaction tests', () => {
 
         // spend witness2 coins (WHOLE!)
         tx.addInput(pseudoRandomBuffer(), 0);
-        tx.sign(0, kp.privateKey);
+        tx.claim(0, kp.privateKey);
 
         tx.verify();
     });
