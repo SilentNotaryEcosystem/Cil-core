@@ -121,4 +121,8 @@ module.exports = (factory, {contractProto}) =>
 
             this._data.balance -= amount;
         }
+
+        clone() {
+            return new Contract(this.encode(), this._strAddress);
+        }
     };

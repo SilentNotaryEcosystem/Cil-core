@@ -70,6 +70,17 @@ describe('Contract tests', () => {
         assert.deepEqual(data, decodedContract.getData());
     });
 
+    it('should clone Contract', async () => {
+        const contract = new factory.Contract({
+            contractData: {a: 10},
+            groupId: 10
+        });
+
+        const clone = contract.clone();
+
+        assert.isOk(contract.encode().equals(clone.encode()));
+    });
+
     describe('Balance', () => {
         it('should get balance', async () => {
             {
