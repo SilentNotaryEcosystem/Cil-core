@@ -29,6 +29,10 @@ module.exports = (factory, {contractProto}) =>
             if (Buffer.isBuffer(data)) {
                 this._data = contractProto.decode(data);
             } else {
+                if (typeof data.contractData === 'object') data.contractData = serializeContractData(data.contractData);
+                if (typeof data.contractCode === 'object') data.contractCode = JSON.stringify(data.contractData);
+                const errMsg = contractProto.verify(data);
+                if (errMsg) throw new Error(`Contract: ${errMsg}`);
                 this._data = contractProto.create(data);
             }
 
@@ -38,6 +42,10 @@ module.exports = (factory, {contractProto}) =>
             } else {
                 this._contractData = data.contractData || {};
             }
+
+            // deal with LONG https://github.com/dcodeIO/long.js
+            // convert it toNumber
+            if (typeof this._data.balance.toNumber === 'function') this._data.balance = this._data.balance.toNumber();
 
             // just to show that we'll not use it after decode
             this._data.contractData = undefined;
@@ -103,22 +111,20 @@ module.exports = (factory, {contractProto}) =>
             return this._strAddress;
         }
 
+        /**
+         *
+         * @returns {number|*}
+         */
         getBalance() {
-            return this._data.balance === undefined ? 0 : this._data.balance;
+            return this._data.balance;
         }
 
         deposit(amount) {
-            if (typeof this._data.balance !== 'number') {
-                this._data.balance = amount;
-            } else {
-                this._data.balance += amount;
-            }
+            this._data.balance += amount;
         }
 
         withdraw(amount) {
-            if (typeof this._data.balance !== 'number') throw new Error('Balance uninitialized!');
-            if (this._data.balance < amount) throw new Error('Insufficient funds!');
-
+            if (this.getBalance() < amount) throw new Error('Insufficient funds!');
             this._data.balance -= amount;
         }
 

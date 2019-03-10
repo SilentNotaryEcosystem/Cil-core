@@ -61,7 +61,8 @@ describe('Contract tests', () => {
         const data = {a: 1, m: new Map([[1, 1]]), s: new Set([1, 2, 3])};
         const contract = new factory.Contract({
             contractData: data,
-            groupId: 10
+            groupId: 10,
+            balance: 100
         });
 
         const buffer = contract.encode();
@@ -89,7 +90,7 @@ describe('Contract tests', () => {
                 assert.equal(contract.getBalance(), 0);
             }
             {
-                const contract = new factory.Contract({balance: 100});
+                const contract = new factory.Contract({balance: 100, bla: 17});
                 assert.equal(contract.getBalance(), 100);
             }
             {
