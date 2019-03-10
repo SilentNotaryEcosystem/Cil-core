@@ -353,7 +353,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         _getContractOutput() {
             const outputs = this.outputs;
-            assert(outputs[0].contractCode !== undefined, 'No contract found at tx.outputs[0]');
             return outputs[0];
         }
     };

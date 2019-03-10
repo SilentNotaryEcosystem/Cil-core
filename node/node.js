@@ -843,7 +843,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _processTx(isGenesis, tx, patchForBlock) {
-            let patchThisTx = new PatchDB();
+            let patchThisTx = new PatchDB(tx.witnessGroupId);
             let totalHas = 0;
             let fee = 0;
 
@@ -966,18 +966,24 @@ module.exports = (factory, factoryOptions) => {
             return fee;
         }
 
+        /**
+         * first try to get contract from patch and then to load contract data from storage
+         *
+         * @param tx
+         * @param patchForBlock
+         * @returns {Promise<void>}
+         * @private
+         */
         async _getContractFromTx(tx, patchForBlock) {
             const arrOutCoins = tx.getOutCoins();
             const buffContractAddr = arrOutCoins[0].getReceiverAddr();
             let contract;
 
-            if (!patchForBlock || !(contract = patchForBlock.getContract(buffContractAddr))) {
-
-                // try to load contract data from storage
-                contract = await this._storage.getContract(buffContractAddr);
+            if (patchForBlock) {
+                contract = patchForBlock.getContract(buffContractAddr);
             }
 
-            return contract;
+            return contract ? contract.clone() : await this._storage.getContract(buffContractAddr);
         }
 
         /**
@@ -1015,7 +1021,6 @@ module.exports = (factory, factoryOptions) => {
             }
 
             let patchState = this._pendingBlocks.mergePatches(block.parentHashes);
-            patchState.setGroupId(block.witnessGroupId);
             const isGenesis = this.isGenesisBlock(block);
 
             let blockFees = 0;
@@ -1023,10 +1028,12 @@ module.exports = (factory, factoryOptions) => {
 
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
+                patchState.setGroupId(block.witnessGroupId);
+
                 const tx = new Transaction(blockTxns[i]);
                 const {fee, patchThisTx} = await this._processTx(isGenesis, tx, patchState);
                 blockFees += fee;
-                patchState = patchState.merge(patchThisTx);
+                patchState = patchState.merge(patchThisTx, true);
             }
 
             // process coinbase tx

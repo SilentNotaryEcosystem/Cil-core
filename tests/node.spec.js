@@ -1116,6 +1116,61 @@ describe('Node tests', () => {
     });
 
     describe('Contracts', async () => {
+        it('should get contact from Patch', async () => {
+            const node = new factory.Node();
+            const {tx} = createContractInvocationTx();
+            const patch = new factory.PatchDB(groupId);
+
+            patch.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+            node._storage.getContract = sinon.fake();
+
+            const contract = await node._getContractFromTx(tx, patch);
+            assert.isOk(contract);
+            assert.isOk(patch.getContract.calledOnce);
+            assert.isNotOk(node._storage.getContract.calledOnce);
+        });
+
+        it('should get contact from Storage', async () => {
+            const node = new factory.Node();
+            const {tx} = createContractInvocationTx();
+            const patch = new factory.PatchDB(groupId);
+
+            patch.getContract = sinon.fake.returns(undefined);
+            node._storage.getContract = sinon.fake.resolves(new factory.Contract({groupId}));
+
+            const contract = await node._getContractFromTx(tx, patch);
+            assert.isOk(contract);
+            assert.isOk(patch.getContract.calledOnce);
+            assert.isOk(node._storage.getContract.calledOnce);
+        });
+
+        it('should return contract FOR MONEY TRANSFER to contract address (from Patch)', async () => {
+            const node = new factory.Node();
+            const buffContractAddr = generateAddress();
+
+            const patch = new factory.PatchDB();
+            patch.getContract = () => new factory.Contract({});
+
+            const tx = new factory.Transaction();
+            tx.addReceiver(1000, buffContractAddr);
+
+            assert.isOk(await node._getContractFromTx(tx, patch));
+        });
+
+        it('should return contract FOR MONEY TRANSFER to contract address (from Storage)', async () => {
+            const node = new factory.Node();
+            node._storage.getContract = () => new factory.Contract({});
+
+            const buffContractAddr = generateAddress();
+
+            const patch = new factory.PatchDB();
+            patch.getContract = () => undefined;
+
+            const tx = new factory.Transaction();
+            tx.addReceiver(1000, buffContractAddr);
+
+            assert.isOk(await node._getContractFromTx(tx, patch));
+        });
 
         it('should call createContract', async () => {
             const node = new factory.Node();
@@ -1157,32 +1212,15 @@ describe('Node tests', () => {
             assert.isOk(contract instanceof factory.Contract);
         });
 
-        it('should get contact from Patch', async () => {
+        it('should call _processContract for money transfer to contract address', async () => {
             const node = new factory.Node();
-            const {tx} = createContractInvocationTx();
-            const patch = new factory.PatchDB(groupId);
+            const buffContractAddr = generateAddress();
 
-            patch.getContract = sinon.fake.returns(new factory.Contract({groupId}));
-            node._storage.getContract = sinon.fake();
+            const tx = new factory.Transaction();
+            tx.addReceiver(1000, buffContractAddr);
 
-            const contract = await node._getContractFromTx(tx, patch);
-            assert.isOk(contract);
-            assert.isOk(patch.getContract.calledOnce);
-            assert.isNotOk(node._storage.getContract.calledOnce);
-        });
+            await node._processTx(true, tx, new factory.PatchDB());
 
-        it('should get contact from Storage', async () => {
-            const node = new factory.Node();
-            const {tx} = createContractInvocationTx();
-            const patch = new factory.PatchDB(groupId);
-
-            patch.getContract = sinon.fake.returns(undefined);
-            node._storage.getContract = sinon.fake.resolves(new factory.Contract({groupId}));
-
-            const contract = await node._getContractFromTx(tx, patch);
-            assert.isOk(contract);
-            assert.isOk(patch.getContract.calledOnce);
-            assert.isOk(node._storage.getContract.calledOnce);
         });
 
         it('should FAIL to invoke contract (small fee)', async () => {
