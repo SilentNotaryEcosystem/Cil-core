@@ -76,13 +76,25 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         informWsSubscribers(topic, result) {
-            this._server.broadcastToWS(topic,
-                {
-                    hash: result.block.getHash(),
-                    block: prepareForStringifyObject(result.block),
-                    state: result.state
-                }
-            );
+            switch (topic) {
+                case 'newBlock':
+                    this._server.broadcastToWS(topic,
+                        {
+                            hash: result.block.getHash(),
+                            block: prepareForStringifyObject(result.block),
+                            state: result.state
+                        }
+                    );
+                    break;
+                case 'stateChanged':
+                    this._server.broadcastToWS(topic,
+                        {
+                            state: result.state,
+                            hashes: result.arrHashes
+                        }
+                    );
+                    break;
+            }
         }
 
         /**

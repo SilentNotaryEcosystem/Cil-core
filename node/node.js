@@ -1102,6 +1102,10 @@ module.exports = (factory, factoryOptions) => {
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
             }
+            if (this._rpc) {
+                this._rpc.informWsSubscribers('stateChanged',
+                {state: Constants.FINAL_BLOCK, arrHashes: Array.from(setStableBlocks.keys())});
+            }
         }
 
         async _updateLastAppliedBlocks(arrTopStable) {
