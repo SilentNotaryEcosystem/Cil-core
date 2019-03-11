@@ -905,7 +905,11 @@ module.exports = (factory, factoryOptions) => {
             // global variables for contract
             const environment = {
                 contractTx: tx.hash(),
-                callerAddress: tx.getTxSignerAddress()
+                callerAddress: tx.getTxSignerAddress(),
+
+                // we fill it later
+                contractAddr: undefined,
+                balance: 0
             };
 
             // get max contract fee
@@ -930,7 +934,13 @@ module.exports = (factory, factoryOptions) => {
             if (!contract) {
 
                 // contract creation
-                environment.contractAddr = Crypto.getAddress(tx.hash());
+                const addr = environment.contractAddr = Crypto.createKeyPair().address;
+
+                // prevent contract collision
+                if (await this._storage.getContract(Buffer.from(addr, 'hex'))) {
+                    throw new Errror('Contract already exists');
+                }
+
                 ({receipt, contract} =
                     await this._app.createContract(coinsLimit, tx.getContractCode(), environment));
             } else {
@@ -942,7 +952,10 @@ module.exports = (factory, factoryOptions) => {
                 );
 
                 const invocationCode = tx.getContractCode();
+
                 environment.contractAddr = contract.getStoredAddress();
+                environment.balance = contract.getBalance();
+
                 receipt = await this._app.runContract(
                     coinsLimit,
                     invocationCode && invocationCode.length ? JSON.parse(tx.getContractCode()) : {},
