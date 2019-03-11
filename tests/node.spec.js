@@ -1372,15 +1372,18 @@ describe('Node tests', () => {
         await node.ensureLoaded();
         const block = createDummyBlock(factory);
 
+        const blockAndState = {block: block, state:8};
         const fake = sinon.fake();
         node._rpc.informWsSubscribers = fake;
-        node._postAcceptBlock(block);
+        const getBlockFake = sinon.fake.resolves(blockAndState);
+        node._getBlockAndState = getBlockFake;
+        await node._postAcceptBlock(block);
 
         assert.isOk(fake.calledOnce);
         const [topic, objData] = fake.args[0];
 
         assert.equal(topic, 'newBlock');
-        assert.deepEqual(objData, block);
+        assert.deepEqual(objData, blockAndState);
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
@@ -1510,6 +1513,58 @@ describe('Node tests', () => {
                 {
                     block: prepareForStringifyObject(cBlock),
                     state
+                }
+            );
+        });
+
+        it('should get prev blocks', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const arrExpectedHashes = await createSimpleChain(
+                block => {
+                    node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                    const bi = new factory.BlockInfo(block.header);
+                    bi.markAsFinal();
+                    node._mainDag.addBlock(bi);
+                }
+            );
+            const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[8]);
+            node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
+            const [objResult] = await node.rpcHandler({event: 'getPrev', content: arrExpectedHashes[9]});
+            
+            assert.isOk(objResult);
+            assert.deepEqual(
+                prepareForStringifyObject(objResult),
+                {
+                    block: prepareForStringifyObject(pBlockInfo),
+                    state: 8
+                }
+            );
+        });
+
+        it('should get next blocks', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const arrExpectedHashes = await createSimpleChain(
+                block => {
+                    node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                    const bi = new factory.BlockInfo(block.header);
+                    bi.markAsFinal();
+                    node._mainDag.addBlock(bi);
+                }
+            );
+            const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[9]);
+            node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
+            const [objResult] = await node.rpcHandler({event: 'getNext', content: arrExpectedHashes[8]});
+            
+            assert.isOk(objResult);
+            assert.deepEqual(
+                prepareForStringifyObject(objResult),
+                {
+                    block: prepareForStringifyObject(pBlockInfo),
+                    state: 8
                 }
             );
         });
