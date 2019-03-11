@@ -113,6 +113,18 @@ module.exports = {
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'chainstate',
         DB_BLOCKSTATE_DIR: 'blockstate',
-        DB_PEERSTATE_DIR: 'peerstate'
+        DB_PEERSTATE_DIR: 'peerstate',
+
+        // block awaits for parents to be executed
+        IN_FLIGHT_BLOCK: 1 << 1,
+
+        // block executed successfully
+        EXECUTED_BLOCK: 1 << 2,
+
+        // block processed and it's UTXO are stored in DB
+        FINAL_BLOCK: 1 << 3,
+
+        // block cannot be executed (validation failed)
+        BAD_BLOCK: 1 << 8
     }
 };
