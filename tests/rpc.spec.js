@@ -43,7 +43,7 @@ describe('RPC', () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         const tx = new factory.Transaction(createDummyTx());
 
-        const result = await rpc.sendRawTx({buffTx: tx.encode()});
+        const result = await rpc.sendRawTx({strTx: tx.encode().toString('hex')});
         assert.deepEqual(result, fakeResult);
 
         assert.isOk(node.rpcHandler.calledOnce);

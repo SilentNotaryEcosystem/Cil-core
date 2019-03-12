@@ -45,10 +45,10 @@ module.exports = ({Constants, Transaction}) =>
          * @returns {Promise<void>}
          */
         async sendRawTx(args) {
-            const {buffTx} = args;
-            typeforce(typeforce.Buffer, buffTx);
+            const {strTx} = args;
+            typeforce(typeforce.String, strTx);
 
-            const tx = new Transaction(buffTx);
+            const tx = new Transaction(Buffer.from(strTx, 'hex'));
             return await this._nodeInstance.rpcHandler({
                 event: 'tx',
                 content: tx

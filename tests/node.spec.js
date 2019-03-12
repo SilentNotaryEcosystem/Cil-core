@@ -490,7 +490,7 @@ describe('Node tests', () => {
                 }
             };
         });
-        node.rpc.sendRawTx({buffTx: tx.encode()});
+        node.rpc.sendRawTx({strTx: tx.encode().toString('hex')});
         await donePromise;
     });
 
