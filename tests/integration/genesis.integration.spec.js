@@ -438,7 +438,7 @@ exports=new GroupDefinition(${strCommaSeparatedKeys});
     moneyIssueTx.addReceiver(1e8, witnessTwo.getAddress());
     moneyIssueTx.addReceiver(1e8, witnessTwo.getAddress());
 
-    const contractDeployTx = factory.Transaction.createContract(contractCode, 10000);
+    const contractDeployTx = factory.Transaction.createContract(contractCode);
 
     genesis.addTx(moneyIssueTx);
     genesis.addTx(contractDeployTx);
@@ -469,8 +469,7 @@ function createAnotherGroup(strClaimPrivateKey, witnessPubKey, utxo, idx) {
     const tx = factory.Transaction.invokeContract(
         factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS,
         contractCode,
-        0,
-        1e5
+        0
     );
 
     // spend witness2 coins (WHOLE!)

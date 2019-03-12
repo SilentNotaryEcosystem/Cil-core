@@ -32,7 +32,7 @@ describe('Contract integration tests', () => {
 
             exports=new TestContract(42);
             `;
-        const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+        const tx = factory.Transaction.createContract(contractCode, generateAddress());
 
         await node._processContract(false, undefined, tx, patchTx, nCoinsIn);
 
@@ -68,7 +68,7 @@ describe('Contract integration tests', () => {
 
             exports=new TestContract(42);
             `;
-        const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+        const tx = factory.Transaction.createContract(contractCode, generateAddress());
 
         await node._processContract(false, undefined, tx, patchTx, nCoinsIn);
 
@@ -108,7 +108,7 @@ describe('Contract integration tests', () => {
 
             exports=new TestContract(42);
             `;
-        const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+        const tx = factory.Transaction.createContract(contractCode, generateAddress());
         let contract;
 
         // deploy contract and check success
@@ -130,7 +130,6 @@ describe('Contract integration tests', () => {
             contract.getStoredAddress(),
             objCodeToRun,
             0,
-            1e5,
             generateAddress()
         );
         const patchRun = new factory.PatchDB();
@@ -170,14 +169,12 @@ describe('Contract integration tests', () => {
             strContractAddr,
             {method: 'add', arrArguments: [10]},
             100,
-            1e5,
             undefined
         );
         const tx2 = factory.Transaction.invokeContract(
             strContractAddr,
             {method: 'add', arrArguments: [100]},
             100,
-            1e5,
             undefined
         );
 
@@ -278,7 +275,7 @@ describe('Contract integration tests', () => {
 
             exports=new TestContract(42);
             `;
-        const tx = factory.Transaction.createContract(contractCode, 1e5, generateAddress());
+        const tx = factory.Transaction.createContract(contractCode, generateAddress());
         tx.signForContract(kp.privateKey);
 
         // deploy contract and check success
@@ -304,7 +301,6 @@ describe('Contract integration tests', () => {
             contract.getStoredAddress(),
             objCodeToRun,
             sentToContract,
-            1e5,
             generateAddress()
         );
         txRun.signForContract(kp.privateKey);

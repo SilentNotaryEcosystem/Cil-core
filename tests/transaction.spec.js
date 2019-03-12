@@ -285,25 +285,16 @@ describe('Transaction tests', () => {
     });
 
     it('should createContract TX', async () => {
-        const tx = factory.Transaction.createContract('', 1000, generateAddress());
+        const tx = factory.Transaction.createContract('', generateAddress());
         assert.isOk(tx.isContractCreation());
     });
 
     it('should get code', async () => {
         const strCode = 'var a=0;';
-        const tx = factory.Transaction.createContract(strCode, 1000, generateAddress());
+        const tx = factory.Transaction.createContract(strCode, generateAddress());
         const strGotCode = tx.getContractCode();
 
         assert.equal(strCode, strGotCode);
-    });
-
-    it('should get coinsLimit', async () => {
-        const strCode = 'var a=0;';
-        const nCoinsLimit = 1e3;
-        const tx = factory.Transaction.createContract(strCode, nCoinsLimit, generateAddress());
-        const nGotCoinsLimit = tx.getContractCoinsLimit();
-
-        assert.equal(nGotCoinsLimit, nCoinsLimit);
     });
 
     it('should VERIFY tx with contract invocation', async () => {
@@ -312,8 +303,7 @@ describe('Transaction tests', () => {
         const tx = factory.Transaction.invokeContract(
             generateAddress().toString('hex'),
             objCode,
-            0,
-            1e5
+            0
         );
 
         // spend witness2 coins (WHOLE!)
@@ -327,8 +317,7 @@ describe('Transaction tests', () => {
         const tx = factory.Transaction.invokeContract(
             generateAddress().toString('hex'),
             {},
-            100,
-            1e5
+            100
         );
         tx.addReceiver(1000, generateAddress());
         tx.addReceiver(2000, generateAddress());

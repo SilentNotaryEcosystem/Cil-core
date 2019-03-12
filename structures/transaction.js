@@ -101,19 +101,14 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         /**
          *
          * @param {String} strCode
-         * @param {Number} coinsLimit
-         * @param {Buffer} addrChangeReceiver
+         * @param {Buffer | undefined} addrChangeReceiver
          * @returns {Transaction}
          */
-        static createContract(strCode, coinsLimit, addrChangeReceiver) {
-            typeforce(
-                typeforce.tuple(typeforce.String, typeforce.Number),
-                [strCode, coinsLimit]
-            );
+        static createContract(strCode, addrChangeReceiver) {
+            typeforce(typeforce.String, strCode);
 
             const tx = new this();
             tx._data.payload.outs.push({
-                coinsLimit: coinsLimit,
                 receiverAddr: Crypto.getAddrContractCreation(),
                 contractCode: strCode,
                 addrChangeReceiver,
@@ -127,20 +122,16 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @param {String} strContractAddr
          * @param {Object} objInvokeCode {method, arrArguments}
          * @param {Number} amount - coins to send to contract address
-         * @param {Number} maxCoins - to use as exec fee
          * @param {Address} addrChangeReceiver - to use as exec fee
          * @returns {Transaction}
          */
-        static invokeContract(strContractAddr, objInvokeCode, amount, maxCoins, addrChangeReceiver) {
-            typeforce(
-                typeforce.tuple(types.StrAddress, typeforce.Object, typeforce.Number, typeforce.Number),
-                arguments
-            );
+        static invokeContract(strContractAddr, objInvokeCode, amount, addrChangeReceiver) {
+            typeforce(typeforce.tuple(types.StrAddress, typeforce.Object, typeforce.Number), arguments);
+            typeforce(typeforce.oneOf(types.Address, types.Empty), addrChangeReceiver);
 
             const tx = new this();
             tx._data.payload.outs.push({
                 amount,
-                coinsLimit: maxCoins,
                 receiverAddr: Buffer.from(strContractAddr, 'hex'),
                 contractCode: JSON.stringify(objInvokeCode),
                 addrChangeReceiver
@@ -341,11 +332,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         getContractChangeReceiver() {
             const contractOutput = this._getContractOutput();
             return contractOutput.addrChangeReceiver;
-        }
-
-        getContractCoinsLimit() {
-            const contractOutput = this._getContractOutput();
-            return contractOutput.coinsLimit;
         }
 
         getContractSentAmount() {

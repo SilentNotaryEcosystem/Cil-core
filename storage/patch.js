@@ -425,6 +425,8 @@ module.exports = ({UTXO, Contract}) =>
         setReceipt(strTxHash, receipt) {
             typeforce(types.Str64, strTxHash);
 
+            assert(!this._mapTxReceipts.get(strTxHash), 'Attempt to rewrite receipt!');
+
             this._mapTxReceipts.set(strTxHash, receipt);
         }
 

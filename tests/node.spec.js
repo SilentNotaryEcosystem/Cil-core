@@ -23,16 +23,16 @@ let seedNode;
 
 const groupId = 10;
 
-const createContractInvocationTx = (code = {}, maxFee = 1e3, hasChangeReceiver = true) => {
+const createContractInvocationTx = (code = {}, hasChangeReceiver = true) => {
     const contractAddr = generateAddress().toString('hex');
 
     // prepare tx (for non genesis block)
     let tx;
 
     if (hasChangeReceiver) {
-        tx = factory.Transaction.invokeContract(contractAddr, code, 0, maxFee, generateAddress());
+        tx = factory.Transaction.invokeContract(contractAddr, code, 0, generateAddress());
     } else {
-        tx = factory.Transaction.invokeContract(contractAddr, code, 0, maxFee);
+        tx = factory.Transaction.invokeContract(contractAddr, code, 0);
     }
     tx.witnessGroupId = groupId;
     tx.addInput(pseudoRandomBuffer(), 12);
@@ -1176,7 +1176,6 @@ describe('Node tests', () => {
             const node = new factory.Node();
             const tx = factory.Transaction.createContract(
                 'class A extends Base{}',
-                10000,
                 generateAddress()
             );
 
@@ -1225,9 +1224,9 @@ describe('Node tests', () => {
 
         it('should FAIL to invoke contract (small fee)', async () => {
             const node = new factory.Node();
-            const nTotalHas = 1e5;
+            const nTotalHas = 1e3;
 
-            const {tx, strContractAddr} = createContractInvocationTx({}, 1e4);
+            const {tx, strContractAddr} = createContractInvocationTx({});
 
             node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
 
@@ -1249,7 +1248,7 @@ describe('Node tests', () => {
             const nChange = 1e4;
 
             const kp = factory.Crypto.createKeyPair();
-            const {tx, strContractAddr} = createContractInvocationTx({}, nTotalHas);
+            const {tx, strContractAddr} = createContractInvocationTx({});
             tx.addReceiver(nChange, generateAddress());
             tx.signForContract(kp.privateKey);
 
@@ -1274,27 +1273,30 @@ describe('Node tests', () => {
             const node = new factory.Node();
             const nTotalHas = 1e5;
             const nChange = 1e4;
+            const coinsUsed = 1000;
 
-            const {tx, strContractAddr} = createContractInvocationTx({}, nTotalHas, false);
+            const {tx, strContractAddr} = createContractInvocationTx({});
             tx.addReceiver(nChange, generateAddress());
 
             node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed}));
 
             const {fee, patchThisTx} = await node._processTx(false, tx, new factory.PatchDB(groupId));
 
-            assert.equal(fee, nTotalHas - nChange);
+            assert.equal(fee, coinsUsed);
             assert.isOk(patchThisTx.getContract(strContractAddr));
-            assert.isOk(patchThisTx.getReceipt(tx.hash()));
+            const receipt = patchThisTx.getReceipt(tx.hash());
+            assert.isOk(receipt);
+            assert.equal(receipt.getInternalTxns().length, 1);
         });
 
         it('should use all AVAIL coins as fee (no changeReceiver)', async () => {
             const node = new factory.Node();
             const nTotalHas = 1e5;
 
-            const {tx, strContractAddr} = createContractInvocationTx({}, nTotalHas, false);
+            const {tx, strContractAddr} = createContractInvocationTx({}, false);
 
             node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
 
@@ -1320,7 +1322,6 @@ describe('Node tests', () => {
                 generateAddress().toString('hex'),
                 {},
                 0,
-                1000,
                 generateAddress()
             );
             tx.witnessGroupId = groupId;

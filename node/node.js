@@ -913,13 +913,10 @@ module.exports = (factory, factoryOptions) => {
             };
 
             // get max contract fee
-            let maxFee;
             let coinsLimit;
             if (!isGenesis) {
                 const totalSent = this._app.processPayments(tx, patchThisTx, 1);
-                maxFee = nCoinsIn - totalSent;
-                coinsLimit = tx.getContractCoinsLimit();
-                coinsLimit = maxFee < coinsLimit ? maxFee : coinsLimit;
+                coinsLimit = nCoinsIn - totalSent;
 
                 if (coinsLimit < Constants.MIN_CONTRACT_FEE) {
                     throw new Error(
@@ -927,7 +924,6 @@ module.exports = (factory, factoryOptions) => {
                 }
 
             } else {
-                maxFee = Number.MAX_SAFE_INTEGER;
                 coinsLimit = Number.MAX_SAFE_INTEGER;
             }
 
@@ -964,12 +960,12 @@ module.exports = (factory, factoryOptions) => {
                     environment
                 );
             }
+            patchThisTx.setReceipt(tx.hash(), receipt);
 
             // send change (not for Genesis)
             if (!isGenesis) {
-                fee = this._createContractChange(tx, maxFee, patchThisTx, contract, receipt);
+                fee = this._createContractChange(tx, coinsLimit, patchThisTx, contract, receipt);
             }
-            patchThisTx.setReceipt(tx.hash(), receipt);
 
             // contract could throw, so it could be undefined
             if (contract) {
@@ -1469,7 +1465,7 @@ module.exports = (factory, factoryOptions) => {
 
             // no changeReceiver? ok - no change. all coins become goes to witness!
             const addrChangeReceiver = tx.getContractChangeReceiver();
-            if (!addrChangeReceiver) return maxFee;
+            if (!addrChangeReceiver || !addrChangeReceiver.length) return maxFee;
 
             let fee = maxFee;
 
@@ -1481,7 +1477,8 @@ module.exports = (factory, factoryOptions) => {
                     patch
                 );
                 receipt.addInternalTx(changeTxHash);
-                patch.setReceipt(tx.hash(), receipt);
+
+                // receipt changed by ref, no need to add it to patch
             }
 
             return fee;
