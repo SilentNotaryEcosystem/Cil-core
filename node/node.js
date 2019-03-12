@@ -934,7 +934,8 @@ module.exports = (factory, factoryOptions) => {
             if (!contract) {
 
                 // contract creation
-                const addr = environment.contractAddr = Crypto.createKeyPair().address;
+                // address creation should be deterministic (same for all nodes!)
+                const addr = environment.contractAddr = Crypto.getAddress(tx.hash());
 
                 // prevent contract collision
                 if (await this._storage.getContract(Buffer.from(addr, 'hex'))) {
