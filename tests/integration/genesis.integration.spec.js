@@ -442,7 +442,7 @@ exports=new GroupDefinition(${strCommaSeparatedKeys});
 
     genesis.addTx(moneyIssueTx);
     genesis.addTx(contractDeployTx);
-    genesis.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+    genesis.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
 
     console.log(`Genesis hash: ${genesis.getHash()}`);
     return {

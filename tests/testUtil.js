@@ -24,7 +24,7 @@ const createDummyTx = (hash, witnessGroupId) => {
 const createDummyBlock = (factory, witnessId = 0) => {
     const block = new factory.Block(witnessId);
     block.parentHashes = [pseudoRandomBuffer().toString('hex')];
-    block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+    block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
     return block;
 };
 
@@ -59,7 +59,7 @@ module.exports = {
         const tx = new factory.Transaction(createDummyTx());
         block.addTx(tx);
         block.parentHashes = [pseudoRandomBuffer().toString('hex')];
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
         return block;
     },
 

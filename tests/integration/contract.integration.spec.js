@@ -48,7 +48,7 @@ describe('Contract integration tests', () => {
         assert.isOk(changeTxHash);
         const changeUxo = patchTx.getUtxo(changeTxHash);
         assert.isOk(changeUxo);
-        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
 
         // no UTXO created for transferred coins
         assert.isNotOk(patchTx.getUtxo(tx.getHash()));
@@ -84,7 +84,7 @@ describe('Contract integration tests', () => {
         assert.isOk(changeTxHash);
         const changeUxo = patchTx.getUtxo(changeTxHash);
         assert.isOk(changeUxo);
-        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
 
         // no UTXO created for transferred coins
         assert.isNotOk(patchTx.getUtxo(tx.getHash()));
@@ -153,7 +153,7 @@ describe('Contract integration tests', () => {
             assert.isOk(changeTxHash);
             const changeUxo = patchRun.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
-            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
 
             // no UTXO created for transferred coins
             assert.isNotOk(patchRun.getUtxo(tx.getHash()));
@@ -328,7 +328,7 @@ describe('Contract integration tests', () => {
             assert.isOk(changeTxHash);
             const changeUxo = patchRun.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
-            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.MIN_CONTRACT_FEE);
+            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
 
             // no UTXO created for transferred coins
             assert.isNotOk(patchRun.getUtxo(tx.getHash()));

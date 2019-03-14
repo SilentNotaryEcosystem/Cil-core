@@ -870,13 +870,13 @@ module.exports = (factory, factoryOptions) => {
                 totalSent = this._app.processPayments(tx, patchThisTx);
                 if (!isGenesis) {
                     fee = totalHas - totalSent;
-                    if (fee < Constants.MIN_TX_FEE) {
+                    if (fee < Constants.fees.TX_FEE) {
                         throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
                     }
                 }
             }
 
-            // TODO: MIN_TX_FEE is fee per 1Kb of TX size
+            // TODO: fees.TX_FEE is fee per 1Kb of TX size
             // TODO: rework fee
 
             return {fee, patchThisTx};
@@ -918,9 +918,9 @@ module.exports = (factory, factoryOptions) => {
                 const totalSent = this._app.processPayments(tx, patchThisTx, 1);
                 coinsLimit = nCoinsIn - totalSent;
 
-                if (coinsLimit < Constants.MIN_CONTRACT_FEE) {
+                if (coinsLimit < Constants.fees.CONTRACT_FEE) {
                     throw new Error(
-                        `Tx ${tx.hash()} CONTRACT fee ${coinsLimit} less than ${Constants.MIN_CONTRACT_FEE}!`);
+                        `Tx ${tx.hash()} CONTRACT fee ${coinsLimit} less than ${Constants.fees.CONTRACT_FEE}!`);
                 }
 
             } else {

@@ -101,6 +101,9 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          */
         createContract(coinsLimit, strCode, environment) {
 
+            // deduce contract creation fee
+            let coinsRemained = coinsLimit - Constants.fees.CONTRACT_FEE;
+
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
                 sandbox: {
@@ -140,7 +143,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             return {
                 receipt: new TxReceipt({
                     contractAddress: Buffer.from(environment.contractAddr, 'hex'),
-                    coinsUsed: Constants.MIN_CONTRACT_FEE,
+                    coinsUsed: coinsLimit - coinsRemained,
                     status
                 }),
                 contract
@@ -158,6 +161,9 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @returns {Promise<TxReceipt>}
          */
         async runContract(coinsLimit, objInvocationCode, contract, environment, funcToLoadNestedContracts) {
+
+            // deduce contract creation fee
+            let coinsRemained = coinsLimit - Constants.fees.CONTRACT_FEE;
 
             // TODO: implement fee! (wrapping contract)
             // this will bind code to data (assign 'this' variable)
@@ -212,7 +218,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             // TODO: create TX with change to author!
             // TODO: return Fee (see coinsUsed)
             return new TxReceipt({
-                coinsUsed: Constants.MIN_CONTRACT_FEE,
+                coinsUsed: coinsLimit - coinsRemained,
                 status
             });
         }
