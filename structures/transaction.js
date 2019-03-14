@@ -98,15 +98,17 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return coinbase;
         }
 
-        static createContract(strCode, coinsLimit, addrChangeReceiver) {
-            typeforce(
-                typeforce.tuple(typeforce.String, typeforce.Number),
-                [strCode, coinsLimit]
-            );
+        /**
+         *
+         * @param {String} strCode
+         * @param {Buffer | undefined} addrChangeReceiver
+         * @returns {Transaction}
+         */
+        static createContract(strCode, addrChangeReceiver) {
+            typeforce(typeforce.String, strCode);
 
             const tx = new this();
             tx._data.payload.outs.push({
-                coinsLimit: coinsLimit,
                 receiverAddr: Crypto.getAddrContractCreation(),
                 contractCode: strCode,
                 addrChangeReceiver,
@@ -115,18 +117,24 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return tx;
         }
 
-        static invokeContract(strContractAddr, strCode, amount, maxCoins) {
-            typeforce(
-                typeforce.tuple(types.Address, typeforce.String, typeforce.Number, typeforce.Number),
-                arguments
-            );
+        /**
+         *
+         * @param {String} strContractAddr
+         * @param {Object} objInvokeCode {method, arrArguments}
+         * @param {Number} amount - coins to send to contract address
+         * @param {Address} addrChangeReceiver - to use as exec fee
+         * @returns {Transaction}
+         */
+        static invokeContract(strContractAddr, objInvokeCode, amount, addrChangeReceiver) {
+            typeforce(typeforce.tuple(types.StrAddress, typeforce.Object, typeforce.Number), arguments);
+            typeforce(typeforce.oneOf(types.Address, types.Empty), addrChangeReceiver);
 
             const tx = new this();
             tx._data.payload.outs.push({
                 amount,
-                coinsLimit: maxCoins,
                 receiverAddr: Buffer.from(strContractAddr, 'hex'),
-                contractCode: strCode
+                contractCode: JSON.stringify(objInvokeCode),
+                addrChangeReceiver
             });
             return tx;
         }
@@ -168,30 +176,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         /**
-         *
-         * @param {Buffer} addrContract
-         * @param {String} strCodeInvocation  - method name & parameters
-         * @param {Number} amount - coins to send to contract
-         * @param {Number} coinsLimit - max contract fee
-         * @param {Buffer} addrChangeReceiver
-         */
-        invokeContract(addrContract, strCodeInvocation, amount, coinsLimit, addrChangeReceiver) {
-            typeforce(
-                typeforce.tuple(types.Address, typeforce.String, typeforce.Number, typeforce.Number),
-                [addrContract, strCodeInvocation, amount, coinsLimit]
-            );
-
-            this._checkDone();
-            this._data.payload.outs.push({
-                contractCode: strCodeInvocation,
-                amount,
-                coinsLimit,
-                receiverAddr: Buffer.from(addrContract, 'hex'),
-                addrChangeReceiver
-            });
-        }
-
-        /**
          * Now we implement only SIGHASH_ALL
          * The rest is TODO: SIGHASH_SINGLE & SIGHASH_NONE
          *
@@ -199,6 +183,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @return {String} !!
          */
         hash(idx) {
+            return this.getHash();
+        }
+
+        /**
+         * SIGHASH_ALL
+         *
+         * @return {String} !!
+         */
+        getHash() {
             return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());
         }
 
@@ -210,22 +203,57 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         _checkDone() {
 
             // it's only for SIGHASH_ALL, if implement other - change it!
-            if (this._data.claimProofs.length) throw new Error('Tx is already signed, you can\'t modify it');
+            if (this.getTxSignature() || this._data.claimProofs.length) {
+                throw new Error(
+                    'Tx is already signed, you can\'t modify it');
+            }
         }
 
         /**
+         * Add clamProofs (signature of hash(idx)) for input with idx
+         *
          *
          * @param {Number} idx - index of input to sign
          * @param {Buffer | String} key - private key
          * @param {String} enc -encoding of key
          */
-        sign(idx, key, enc = 'hex') {
+        claim(idx, key, enc = 'hex') {
             typeforce(typeforce.tuple('Number', types.PrivateKey), [idx, key]);
 
             if (idx > this._data.payload.ins.length) throw new Error('Bad index: greater than inputs length');
 
             const hash = this.hash(idx);
             this._data.claimProofs[idx] = Crypto.sign(hash, key, enc);
+        }
+
+        /**
+         * Used to prove ownership of contract
+         *
+         * @param {Buffer | String} key - private key
+         * @param {String} enc -encoding of key
+         */
+        signForContract(key, enc = 'hex') {
+            typeforce(types.PrivateKey, key);
+
+            const hash = this.getHash();
+            this._data.txSignature = Crypto.sign(hash, key, enc);
+        }
+
+        getTxSignature() {
+            return Buffer.isBuffer(this._data.txSignature) ||
+                   (Array.isArray(this._data.txSignature) && this._data.txSignature.length) ?
+                this._data.txSignature : undefined;
+        }
+
+        getTxSignerAddress(needBuffer = false) {
+            if (!this.getTxSignature()) return undefined;
+            try {
+                const pubKey = Crypto.recoverPubKey(this.getHash(), this.getTxSignature());
+                return Crypto.getAddress(pubKey, needBuffer);
+            } catch (e) {
+                logger.error(e);
+            }
+            return undefined;
         }
 
         /**
@@ -284,7 +312,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         isContractCreation() {
             const outCoins = this.getOutCoins();
-            return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
+            return outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
         }
 
         /**
@@ -306,14 +334,13 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return contractOutput.addrChangeReceiver;
         }
 
-        getContractCoinsLimit() {
+        getContractSentAmount() {
             const contractOutput = this._getContractOutput();
-            return contractOutput.coinsLimit;
+            return contractOutput.amount;
         }
 
         _getContractOutput() {
             const outputs = this.outputs;
-            assert(outputs[0].contractCode !== undefined, 'No contract found at tx.outputs[0]');
             return outputs[0];
         }
     };

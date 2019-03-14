@@ -1,6 +1,5 @@
 const typeforce = require('typeforce');
 const assert = require('assert');
-const types = require('../types');
 
 const v8 = require('v8');
 
@@ -30,6 +29,10 @@ module.exports = (factory, {contractProto}) =>
             if (Buffer.isBuffer(data)) {
                 this._data = contractProto.decode(data);
             } else {
+                if (typeof data.contractData === 'object') data.contractData = serializeContractData(data.contractData);
+                if (typeof data.contractCode === 'object') data.contractCode = JSON.stringify(data.contractData);
+                const errMsg = contractProto.verify(data);
+                if (errMsg) throw new Error(`Contract: ${errMsg}`);
                 this._data = contractProto.create(data);
             }
 
@@ -39,6 +42,10 @@ module.exports = (factory, {contractProto}) =>
             } else {
                 this._contractData = data.contractData || {};
             }
+
+            // deal with LONG https://github.com/dcodeIO/long.js
+            // convert it toNumber
+            if (typeof this._data.balance.toNumber === 'function') this._data.balance = this._data.balance.toNumber();
 
             // just to show that we'll not use it after decode
             this._data.contractData = undefined;
@@ -102,5 +109,26 @@ module.exports = (factory, {contractProto}) =>
         getStoredAddress() {
             assert(this._strAddress, 'Contract address not specified!');
             return this._strAddress;
+        }
+
+        /**
+         *
+         * @returns {number|*}
+         */
+        getBalance() {
+            return this._data.balance;
+        }
+
+        deposit(amount) {
+            this._data.balance += amount;
+        }
+
+        withdraw(amount) {
+            if (this.getBalance() < amount) throw new Error('Insufficient funds!');
+            this._data.balance -= amount;
+        }
+
+        clone() {
+            return new Contract(this.encode(), this._strAddress);
         }
     };

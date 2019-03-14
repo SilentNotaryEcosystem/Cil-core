@@ -112,6 +112,8 @@ module.exports = {
         TIMEOUT_CODE: 10000,
 
         CONTRACT_METHOD_SEPARATOR: '\0',
+        TX_STATUS_OK: 1,
+        TX_STATUS_FAILED: 0,
 
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'chainstate',

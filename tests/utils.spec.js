@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {prepareForStringifyObject} = require('../utils');
+const {prepareForStringifyObject, arrayIntersection, mergeSets} = require('../utils');
 
 describe('Utils', () => {
     describe('prepareForStringifyObject', () => {
@@ -44,6 +44,40 @@ describe('Utils', () => {
             };
             const result = prepareForStringifyObject(expected);
             assert.deepEqual(expected, result);
+        });
+    });
+    describe('array intersection', () => {
+        it('should intersect 2 empty', async () => {
+            const arr1 = [];
+            const arr2 = [];
+            assert.deepEqual(arrayIntersection(arr1, arr2), []);
+        });
+
+        it('should intersect 1 empty', async () => {
+            const arr1 = [1, 2, 3, 4];
+            const arr2 = [];
+            assert.deepEqual(arrayIntersection(arr1, arr2), []);
+            assert.deepEqual(arrayIntersection(arr2, arr1), []);
+        });
+        it('should empty for non intersecting', async () => {
+            const arr1 = [1, 2, 3, 4];
+            const arr2 = [10, 11, 12];
+            assert.deepEqual(arrayIntersection(arr1, arr2), []);
+            assert.deepEqual(arrayIntersection(arr2, arr1), []);
+        });
+        it('should find intersection', async () => {
+            const arr1 = [1, 2, 3, 4];
+            const arr2 = [1, 10, 11, 12];
+            assert.deepEqual(arrayIntersection(arr1, arr2), [1]);
+            assert.deepEqual(arrayIntersection(arr2, arr1), [1]);
+        });
+    });
+    describe('merge sets', () => {
+        it('should merge it', async () => {
+            const set1 = new Set([1, 2, 3, 4]);
+            const set2 = new Set([11, 12, 13, 14]);
+            assert.deepEqual([...mergeSets(set1, set2)], [1, 2, 3, 4, 11, 12, 13, 14]);
+            assert.deepEqual([...mergeSets(set2, set1)], [11, 12, 13, 14, 1, 2, 3, 4]);
         });
     });
 });

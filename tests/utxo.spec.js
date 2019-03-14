@@ -18,7 +18,7 @@ const createDummyUtxo = (arrIndexes) => {
     return {utxo, coins};
 };
 
-describe('PatchDB', () => {
+describe('UTXO', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -136,4 +136,13 @@ describe('PatchDB', () => {
         assert.isOk(restoredUtxo.equals(utxo));
     });
 
+    it('should count coins in UTXO', async () => {
+        const {utxo, coins} = createDummyUtxo([12, 0, 431]);
+
+        assert.equal(utxo.amountOut(), coins.getAmount() * utxo.getIndexes().length);
+
+        // spend and check again!
+        utxo.spendCoins(0);
+        assert.equal(utxo.amountOut(), coins.getAmount() * utxo.getIndexes().length);
+    });
 });

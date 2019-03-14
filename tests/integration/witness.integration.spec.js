@@ -90,7 +90,7 @@ const createGenesisBlockAndSpendingTx = (witnessGroupId = 0) => {
     tx.witnessGroupId = witnessGroupId;
     tx.addInput(txGen.hash(), 0);
     tx.addReceiver(1000, buffReceiverAddress);
-    tx.sign(0, receiverKeyPair.privateKey);
+    tx.claim(0, receiverKeyPair.privateKey);
 
     return {genesis, tx};
 };

@@ -36,7 +36,7 @@ describe('Block tests', () => {
 
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         block.parentHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
 
@@ -69,7 +69,7 @@ describe('Block tests', () => {
         const block = new factory.Block(0);
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         block.addTx(tx);
         block.finish(factory.Constants.MIN_TX_FEE, keyPair.publicKey);
@@ -85,7 +85,7 @@ describe('Block tests', () => {
 
         const anotherBlock = new factory.Block(0);
         const anotherTx = new factory.Transaction(createDummyTx());
-        anotherTx.sign(0, keyPair.privateKey);
+        anotherTx.claim(0, keyPair.privateKey);
         anotherBlock.addTx(anotherTx);
         anotherBlock.finish(factory.Constants.MIN_TX_FEE, keyPair.publicKey);
 
@@ -97,7 +97,7 @@ describe('Block tests', () => {
         const block = new factory.Block(0);
         const keyPair = factory.Crypto.createKeyPair();
         const tx = new factory.Transaction(createDummyTx());
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         block.addTx(tx);
         block.finish(factory.Constants.MIN_TX_FEE, keyPair.publicKey);

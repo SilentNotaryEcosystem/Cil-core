@@ -1,9 +1,8 @@
 const commandLineArgs = require('command-line-args');
 
 const arrayIntersection = (array1, array2) => {
-    const cache = new Set();
+    const cache = new Set(array1);
     const result = [];
-    for (let elem of array1) cache.add(elem);
     for (let elem of array2) if (cache.has(elem)) result.push(elem);
     return result;
 };
@@ -58,9 +57,7 @@ module.exports = {
     },
 
     mergeSets: (set1, set2) => {
-        const arrSet1 = Array.from(set1.values());
-        const arrSet2 = Array.from(set2.values());
-        return new Set(arrSet1.concat(arrSet2));
+        return new Set([...set1, ...set2]);
     },
 
     getMapsKeys,
