@@ -48,6 +48,14 @@ module.exports = (factory, {txReceiptProto}) =>
 
         /**
          *
+         * @return {String}
+         */
+        getMessage() {
+            return this._data.message;
+        }
+
+        /**
+         *
          * @return {Buffer}
          */
         encode() {
