@@ -47,7 +47,7 @@ module.exports = {
     Str64,
     Buf32: typeforce.BufferN(32),
     Hash256bit,
-    Address: typeforce.BufferN(20),
+    Address: typeforce.oneOf(typeforce.BufferN(20), Str40),
     StrAddress: Str40,
     PrivateKey,
     PublicKey,

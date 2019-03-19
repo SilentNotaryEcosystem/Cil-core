@@ -77,5 +77,11 @@ module.exports = {
         await node._informNeighbors(block);
 
         return patch;
+    },
+    createObjInvocationCode(strMethod, arrArguments) {
+        return {
+            method: strMethod,
+            arrArguments
+        };
     }
 };

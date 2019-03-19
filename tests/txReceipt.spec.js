@@ -69,6 +69,7 @@ describe('TX Receipt tests', () => {
 
     it('should get Status', async () => {
         {
+            const status = factory.Constants.TX_STATUS_OK;
             const receipt = new factory.TxReceipt({
                 status
             });

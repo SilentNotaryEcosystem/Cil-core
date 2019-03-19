@@ -329,6 +329,11 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return contractOutput.contractCode;
         }
 
+        getContractAddr() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.receiverAddr;
+        }
+
         getContractChangeReceiver() {
             const contractOutput = this._getContractOutput();
             return contractOutput.addrChangeReceiver;

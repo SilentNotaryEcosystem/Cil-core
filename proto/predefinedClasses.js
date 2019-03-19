@@ -6,11 +6,14 @@ class Base {
         const objCode = {};
         methods.forEach(strFuncName => {
             const strCodeMethod = this[strFuncName].toString();
+
+            // we prepend code of asyn function with '<'
+            const codePrefix = Object.getPrototypeOf(this[strFuncName]).constructor.name === 'AsyncFunction' ? '<' : '';
             const re = new RegExp(`${strFuncName}.*?(\(.*?\).*?\{.*\})`, 'ms');
             const arrMatches = strCodeMethod.match(re);
             if (!arrMatches) throw new Error(`Bad code for ${strFuncName}`);
-            objCode[strFuncName] = arrMatches[1];
+            objCode[strFuncName] = codePrefix + arrMatches[1];
         });
         return objCode;
     }
-};
+}

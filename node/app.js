@@ -157,10 +157,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Object} objInvocationCode - {method, arrArguments} to invoke
          * @param {Contract} contract - contract loaded from store (@see structures/contract.js)
          * @param {Object} environment - global variables for contract (like contractAddr)
-         * @param {Function} funcToLoadNestedContracts - not used yet.
+         * @param {Object} context - within we'll execute code
+         * @param {Object} objCallbacks - for sending funds & nested contract calls
+         * @param {Function} objCallbacks.invokeContract
+         * @param {Function} objCallbacks.createInternalTx
+         * @param {Function} objCallbacks.processTx
          * @returns {Promise<TxReceipt>}
          */
-        async runContract(coinsLimit, objInvocationCode, contract, environment, funcToLoadNestedContracts) {
+        async runContract(coinsLimit, objInvocationCode, contract, environment, context, objCallbacks) {
 
             // deduce contract creation fee
             let coinsRemained = coinsLimit - Constants.fees.CONTRACT_FEE;
@@ -178,17 +182,24 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 };
             }
 
-            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
-            // form context from contract data
+            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones :))
+            // if it's initial call - form context from contract data
+            // for nested calls with delegatecall - we'll use parameter
+            const thisContext = context || {
+                ...environment,
+                [CONTEXT_NAME]: Object.assign({}, contract.getData()),
+                send,
+                call: async (strAddress, objParams) => await callWithContext(strAddress, objParams, undefined),
+                delegatecall: async (strAddress, objParams) => await callWithContext(strAddress, objParams, thisContext)
+            };
+
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
-                sandbox: {
-                    ...environment,
-                    [CONTEXT_NAME]: Object.assign({}, contract.getData())
-                }
+                sandbox: thisContext
             });
 
             let status;
+            let message;
             try {
 
                 if (!objMethods[objInvocationCode.method]) {
@@ -201,26 +212,65 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                         ${objInvocationCode.arrArguments.map(arg => JSON.stringify(arg)).join(',')}
                     );`;
 
-                vm.run(strPreparedCode);
-                const newContractState = vm.run(`;${CONTEXT_NAME};`);
+                await vm.run(strPreparedCode);
 
-                // TODO: send rest of moneys to receiver (which one of input?!). Possibly output for change?
-                // this will keep only data (strip proxies & member functions that we inject to call like this.method)
-                const objData = JSON.parse(JSON.stringify(newContractState));
-                contract.updateData(objData);
+                // we shouldn't save data for delegated calls in this contract!
+                if (!context) {
+                    const newContractState = vm.run(`;${CONTEXT_NAME};`);
+
+                    // this will keep only data (strip proxies & member functions that we inject to call like this.method)
+                    const objData = JSON.parse(JSON.stringify(newContractState));
+                    contract.updateData(objData);
+                }
 
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
                 logger.error(err);
                 status = Constants.TX_STATUS_FAILED;
+                message = err.message;
             }
 
             // TODO: create TX with change to author!
             // TODO: return Fee (see coinsUsed)
             return new TxReceipt({
                 coinsUsed: coinsLimit - coinsRemained,
-                status
+                status,
+                message
             });
+
+            // we need those function here, since JS can't pass variables by ref (coinsRemained)
+            //________________________________________
+            function send(strAddress, amount) {
+                if (contract.getBalance() < amount) throw new Error('Not enough funds');
+                coinsRemained -= Constants.fees.INTERNAL_TX_FEE;
+                if (coinsRemained < 0) throw new Error('Contract run out of coins');
+                objCallbacks.createInternalTx(strAddress, amount);
+                contract.withdraw(amount);
+            }
+
+            async function callWithContext(strAddress, {method, arrArguments, coinsLimit: coinsToPass}, callContext) {
+                coinsRemained -= Constants.fees.CONTRACT_FEE;
+                if (coinsRemained < 0) throw new Error('Contract run out of coins');
+                if (typeof coinsToPass === 'number') {
+                    if (coinsToPass < 0) throw new Error('coinsLimit should be positive');
+                    if (coinsToPass > coinsRemained) throw new Error('Trying to pass more coins than have');
+                }
+
+                const {success, fee} = await objCallbacks.invokeContract(
+                    strAddress,
+                    {
+                        method,
+                        arrArguments,
+                        coinsLimit: coinsToPass ? coinsToPass : coinsRemained,
+                        environment,
+
+                        // important!
+                        context: callContext
+                    }
+                );
+                coinsRemained -= fee;
+                return success;
+            }
         }
 
         /**
@@ -247,12 +297,19 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let arrCode = [];
             for (let methodName in objFuncCode) {
 
+                // is it async function?
+                let strAsync = '';
+                if (objFuncCode[methodName].startsWith('<')) {
+                    objFuncCode[methodName] = objFuncCode[methodName].substr(1);
+                    strAsync = 'async ';
+                }
+
                 // temporary name
                 const newName = `__MyRenamed__${methodName}`;
 
                 // bind it to context
                 // no ';' at the end because we'll append a code
-                const strPrefix = `const ${methodName}=${newName}.bind(${CONTEXT_NAME});function ${newName}`;
+                const strPrefix = `const ${methodName}=${newName}.bind(${CONTEXT_NAME});${strAsync}function ${newName}`;
 
                 // suffix: inject function name into context, so we could use this.methodName
                 const strSuffix = `;__MyContext['${methodName}']=${methodName};`;
@@ -286,5 +343,4 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
             return contract;
         }
-
     };
