@@ -69,17 +69,16 @@ describe('TX Receipt tests', () => {
 
     it('should get Status', async () => {
         {
-            const status = factory.Constants.TX_STATUS_OK;
             const receipt = new factory.TxReceipt({
                 status
             });
-            assert.equal(receipt.getStatus(), status);
+            assert.isOk(receipt.isSuccessful());
         }
         {
             const receipt = new factory.TxReceipt({
                 status: undefined
             });
-            assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
+            assert.isNotOk(receipt.isSuccessful());
         }
     });
 

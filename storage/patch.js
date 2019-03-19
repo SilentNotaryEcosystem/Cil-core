@@ -425,9 +425,21 @@ module.exports = ({UTXO, Contract}) =>
         setReceipt(strTxHash, receipt) {
             typeforce(types.Str64, strTxHash);
 
-            assert(!this._mapTxReceipts.get(strTxHash), 'Attempt to rewrite receipt!');
+            const sameTxReceipt = this._mapTxReceipts.get(strTxHash);
 
-            this._mapTxReceipts.set(strTxHash, receipt);
+            // first time encountered
+            if (!sameTxReceipt) {
+                this._mapTxReceipts.set(strTxHash, receipt);
+                return;
+            }
+
+            assert(sameTxReceipt.isSuccessful(), `You shouldn't continue exec of already failed TX ${strTxHash}`);
+
+            // it was already added to patch by nested contract call
+            for (let buffInternalTxHash of receipt.getInternalTxns()) {
+                sameTxReceipt.addInternalTx(buffInternalTxHash.toString('hex'));
+            }
+            sameTxReceipt.setStatus(receipt.getStatus());
         }
 
         /**

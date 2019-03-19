@@ -1,7 +1,7 @@
 const typeforce = require('typeforce');
 const types = require('../types');
 
-module.exports = (factory, {txReceiptProto}) =>
+module.exports = ({Constants}, {txReceiptProto}) =>
 
     /**
      * Used for serialization in storage & MsgGetBlocks
@@ -46,6 +46,14 @@ module.exports = (factory, {txReceiptProto}) =>
             return this._data.status;
         }
 
+        setStatus(newStatus) {
+            this._data.status = newStatus;
+        }
+
+        isSuccessful() {
+            return this._data.status === Constants.TX_STATUS_OK;
+        }
+
         /**
          *
          * @return {String}
@@ -76,6 +84,10 @@ module.exports = (factory, {txReceiptProto}) =>
             this._data.internalTxns.push(Buffer.from(strTxHash, 'hex'));
         }
 
+        /**
+         *
+         * @returns {Array} of BUFFERS!
+         */
         getInternalTxns() {
             return this._data.internalTxns;
         }
