@@ -353,4 +353,15 @@ describe('Transaction tests', () => {
 
         assert.equal(tx.getTxSignerAddress(), undefined);
     });
+
+    it('should get Contract Address', async () => {
+        const buffAddr = generateAddress();
+        const tx = factory.Transaction.invokeContract(
+            buffAddr.toString('hex'),
+            {},
+            100
+        );
+
+        assert.isOk(buffAddr.equals(tx.getContractAddr()));
+    });
 });

@@ -271,8 +271,8 @@ describe('Application layer', () => {
         const app = new factory.Application();
         const {receipt, contract} = app.createContract(0, strCode, {contractAddr: 'hash'});
 
-        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {_data: 10});
 
         const strContractCode = contract.getCode();
@@ -307,8 +307,8 @@ describe('Application layer', () => {
 
         const receipt = await app.runContract(1e5, {method: 'add', arrArguments: [10]}, contract, {});
 
-        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 110});
     });
 
@@ -322,8 +322,8 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const receipt = await app.runContract(1e5, {method: 'subtract', arrArguments: [10]}, contract, {});
-        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.isNotOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
@@ -337,8 +337,8 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const receipt = await app.runContract(1e5, '', contract, {});
-        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.isNotOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
@@ -352,8 +352,8 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const receipt = await app.runContract(1e5, '', contract, {});
-        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 117});
     });
 });

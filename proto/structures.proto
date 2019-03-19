@@ -125,6 +125,9 @@ message TxReceipt{
     //
     TxStatuses status =3;
 
+    // if status != TX_STATUS_OK here will be a message
+    string message =5;
+
     // hashes
     repeated bytes internalTxns=4;
 }

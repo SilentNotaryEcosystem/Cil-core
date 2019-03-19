@@ -41,7 +41,7 @@ describe('Inventory', () => {
         const block = new factory.Block(0);
 
         block.addTx(tx);
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
 
         inv.addBlock(block);
         assert.isOk(inv.vector[0]);
@@ -64,7 +64,7 @@ describe('Inventory', () => {
 
         const block = new factory.Block(0);
         block.addTx(tx);
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
 
         inv.addBlock(block);
 

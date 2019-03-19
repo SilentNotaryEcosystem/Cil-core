@@ -96,8 +96,17 @@ module.exports = {
         MAX_BLOCK_SIZE: 1024,
 
         // fees
-        MIN_TX_FEE: 1000,
-        MIN_CONTRACT_FEE: 30000,
+        fees: {
+
+            // money send fee
+            TX_FEE: 1000,
+
+            // contract creation & invocation
+            CONTRACT_FEE: 30000,
+
+            // contract send moneys
+            INTERNAL_TX_FEE: 3000
+        },
 
         MEMPOOL_TX_QTY: 5,
         MEMPOOL_TX_LIFETIME: 5000,
