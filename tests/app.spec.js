@@ -269,7 +269,11 @@ describe('Application layer', () => {
             exports=new A(10);
             `;
         const app = new factory.Application();
-        const {receipt, contract} = app.createContract(0, strCode, {contractAddr: 'hash'});
+        const {receipt, contract} = app.createContract(
+            factory.Constants.fees.CONTRACT_FEE,
+            strCode,
+            {contractAddr: 'hash'}
+        );
 
         assert.isOk(receipt.isSuccessful());
         assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);

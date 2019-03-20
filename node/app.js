@@ -19,6 +19,13 @@ const strCodeSuffix = `
 const CONTEXT_NAME = '__MyContext';
 const defaultFunctionName = '_default';
 
+function _spendCoins(nCurrent, nAmount) {
+    const nRemained = nCurrent - nAmount;
+    if (nRemained < 0) throw new Error('Contract run out of coins');
+
+    return nRemained;
+}
+
 module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Contract}) =>
     class Application {
         constructor(options) {
@@ -102,7 +109,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
         createContract(coinsLimit, strCode, environment) {
 
             // deduce contract creation fee
-            let coinsRemained = coinsLimit - Constants.fees.CONTRACT_FEE;
+            let coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_FEE);
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
@@ -165,9 +172,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @returns {Promise<TxReceipt>}
          */
         async runContract(coinsLimit, objInvocationCode, contract, environment, context, objCallbacks) {
-
-            // deduce contract creation fee
-            let coinsRemained = coinsLimit - Constants.fees.CONTRACT_FEE;
+            let coinsRemained = coinsLimit;
 
             // TODO: implement fee! (wrapping contract)
             // this will bind code to data (assign 'this' variable)
@@ -201,6 +206,9 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let status;
             let message;
             try {
+
+                // deduce contract creation fee
+                coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_FEE);
 
                 if (!objMethods[objInvocationCode.method]) {
                     throw new Error(`Method ${objInvocationCode.method} not found`);
@@ -242,15 +250,12 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             //________________________________________
             function send(strAddress, amount) {
                 if (contract.getBalance() < amount) throw new Error('Not enough funds');
-                coinsRemained -= Constants.fees.INTERNAL_TX_FEE;
-                if (coinsRemained < 0) throw new Error('Contract run out of coins');
+                coinsRemained = _spendCoins(coinsRemained, Constants.fees.INTERNAL_TX_FEE);
                 objCallbacks.createInternalTx(strAddress, amount);
                 contract.withdraw(amount);
             }
 
             async function callWithContext(strAddress, {method, arrArguments, coinsLimit: coinsToPass}, callContext) {
-                coinsRemained -= Constants.fees.CONTRACT_FEE;
-                if (coinsRemained < 0) throw new Error('Contract run out of coins');
                 if (typeof coinsToPass === 'number') {
                     if (coinsToPass < 0) throw new Error('coinsLimit should be positive');
                     if (coinsToPass > coinsRemained) throw new Error('Trying to pass more coins than have');
@@ -268,7 +273,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                         context: callContext
                     }
                 );
-                coinsRemained -= fee;
+                coinsRemained = _spendCoins(coinsRemained, fee);
                 return success;
             }
         }

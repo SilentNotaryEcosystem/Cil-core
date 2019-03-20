@@ -443,7 +443,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL to call (not enough coins to perform)', async () => {
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_FEE;
+            const coinsLimit = factory.Constants.fees.CONTRACT_FEE;
             const txReceipt = await node._app.runContract(
                 coinsLimit - 1,
                 createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
@@ -502,7 +502,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should SUCCESSFULLY "call" nested contract with nested send', async () => {
-            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE + 1;
+            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
 
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
