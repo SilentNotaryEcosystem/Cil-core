@@ -97,7 +97,7 @@ module.exports = {
         TOLERATED_TIME_DIFF: 60 * 60 * 1000,
 
         // how much we suppress creating empty blocks
-        WITNESS_HOLDOFF: 5 * 60 * 1000,
+        WITNESS_HOLDOFF: 15 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
 
         // fees
@@ -120,7 +120,6 @@ module.exports = {
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
         TIMEOUT_CODE: 10000,
 
-        CONTRACT_METHOD_SEPARATOR: '\0',
         TX_STATUS_OK: 1,
         TX_STATUS_FAILED: 0,
 
