@@ -128,7 +128,8 @@ module.exports = {
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'chainstate',
         DB_BLOCKSTATE_DIR: 'blockstate',
-        DB_PEERSTATE_DIR: 'peerstate'
+        DB_PEERSTATE_DIR: 'peerstate',
+        DB_TXINDEX_DIR: 'txindex'
 
     }
 };

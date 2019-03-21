@@ -2,6 +2,7 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const sinon = require('sinon').createSandbox();
 
 const debugChannel = 'storage:*';
 process.env['DEBUG'] = `${debugChannel},` + process.env['DEBUG'];
@@ -33,7 +34,7 @@ describe('Storage tests', () => {
         assert.doesNotThrow(wrapper);
     });
 
-    it('should save block', async () => {
+    it('should save block. No txIndex enabled', async () => {
         const block = createDummyBlock(factory);
         const storage = new factory.Storage();
         await storage.saveBlock(block);
@@ -463,5 +464,58 @@ describe('Storage tests', () => {
                 .getInternalTxns()
                 .every(buffTxHash => arrInternalTxns.includes(buffTxHash.toString('hex')))
         );
+    });
+
+    describe('TX index', () => {
+        it('should throw. No txIndex enabled', (done) => {
+            const storage = new factory.Storage();
+
+            storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
+                .then(_ => done(new Error('Unexpected success')))
+                .catch(_ => done());
+        });
+
+        it('should throw. Hash not found', (done) => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            storage._txIndexStorage.get = sinon.fake.throws(new Error('Hash not found'));
+
+            storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
+                .then(_ => done(new Error('Unexpected success')))
+                .catch(_ => done());
+        });
+
+        it('should throw. Block not found', (done) => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            storage._txIndexStorage.get = sinon.fake.resolves(pseudoRandomBuffer());
+            storage.getBlock = sinon.fake.throws(new Error('Block not found'));
+
+            storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
+                .then(_ => done(new Error('Unexpected success')))
+                .catch(_ => done());
+        });
+
+        it('should success', async () => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            storage._txIndexStorage.get = sinon.fake.resolves(pseudoRandomBuffer());
+            storage.getBlock = sinon.fake();
+
+            await storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'));
+
+            assert.isOk(storage.getBlock.calledOnce);
+        });
+
+        it('should just save block and index', async () => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            const storeIndexFake = storage._txIndexStorage.batch = sinon.fake();
+            const block = createDummyBlock(factory);
+
+            await storage.saveBlock(block);
+
+            assert.isOk(storeIndexFake.calledOnce);
+            const [arrRecords] = storeIndexFake.args[0];
+            const arrTxHashes = block.getTxHashes();
+            assert.isOk(arrRecords.every(rec => arrTxHashes.includes(rec.key.toString('hex')) &&
+                                                rec.value.toString('hex') === block.getHash()));
+        });
     });
 });
