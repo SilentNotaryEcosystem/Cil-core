@@ -256,7 +256,7 @@ describe('Contract integration tests', () => {
         const node = new factory.Node();
         const patchTx = new factory.PatchDB();
 
-        const sentToContract = 1e3;
+        const nCoinsSentToContract = 1e3;
         const kp = factory.Crypto.createKeyPair();
 
         const contractCode = `
@@ -295,12 +295,14 @@ describe('Contract integration tests', () => {
             assert.equal(contract.getData()._contractAddr, receipt.getContractAddress());
         }
 
+        const contractDataSize = contract.getDataSize();
+
         // call for it
         const objCodeToRun = createObjInvocationCode('testVariables', []);
         const txRun = factory.Transaction.invokeContract(
             contract.getStoredAddress(),
             objCodeToRun,
-            sentToContract,
+            nCoinsSentToContract,
             generateAddress()
         );
         txRun.signForContract(kp.privateKey);
@@ -317,7 +319,7 @@ describe('Contract integration tests', () => {
             assert.isOk(patchRun.getContract(contract.getStoredAddress()));
 
             // balance had changed
-            assert.equal(contract.getBalance(), sentToContract);
+            assert.equal(contract.getBalance(), nCoinsSentToContract);
 
             // variable tested
             assert.isOk(contract.getData()._testResult);
@@ -328,7 +330,12 @@ describe('Contract integration tests', () => {
             assert.isOk(changeTxHash);
             const changeUxo = patchRun.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
-            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
+            const expectedChange = nCoinsIn -
+                                   factory.Constants.fees.CONTRACT_FEE -
+                                   (contract.getDataSize() - contractDataSize) *
+                                   factory.Constants.fees.STORAGE_PER_BYTE_FEE;
+
+            assert.equal(changeUxo.amountOut(), expectedChange);
 
             // no UTXO created for transferred coins
             assert.isNotOk(patchRun.getUtxo(tx.getHash()));
@@ -502,7 +509,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should SUCCESSFULLY "call" nested contract with nested send', async () => {
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
 
             const strReceiver = generateAddress().toString('hex');
             const objCode = {

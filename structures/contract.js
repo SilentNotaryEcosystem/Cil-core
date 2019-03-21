@@ -11,6 +11,8 @@ const deSerializeContractData = (buffData) => {
     return v8.deserialize(buffData);
 };
 
+const nSizeOfEmptyData = serializeContractData({}).length;
+
 /**
  * First we serialize data with serializeContractData and thus we have data to be encoded with protobuff
  */
@@ -38,8 +40,10 @@ module.exports = (factory, {contractProto}) =>
 
             // we'll keep only deserialized data. serialize only for cloning & encode
             if (this._data.contractData && Buffer.isBuffer(this._data.contractData)) {
+                this._dataSize = this._data.contractData.length;
                 this._contractData = deSerializeContractData(this._data.contractData);
             } else {
+                this._dataSize = nSizeOfEmptyData;
                 this._contractData = data.contractData || {};
             }
 
@@ -72,12 +76,22 @@ module.exports = (factory, {contractProto}) =>
             return this._data.groupId;
         }
 
+        getDataSize() {
+            const result = this._dataSize - nSizeOfEmptyData;
+            return result > 0 ? result : 0;
+        }
+
         /**
          *
          * @param {Object | Buffer} data - contract data
          */
         updateData(data) {
-            if (Buffer.isBuffer(data)) data = deSerializeContractData(data);
+            if (Buffer.isBuffer(data)) {
+                this._dataSize = data.length;
+                data = deSerializeContractData(data);
+            } else {
+                this._dataSize = serializeContractData(data).length;
+            }
 
             this._contractData = data;
         }

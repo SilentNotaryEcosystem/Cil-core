@@ -55,7 +55,7 @@ module.exports = {
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 100,
 
-        // we expect that peer will respond with requested INV
+        // we expect that peer will respond with requested INV within this period
         INV_REQUEST_HOLDOFF: 1 * 60 * 1000,
 
         messageTypes: {
@@ -104,13 +104,15 @@ module.exports = {
         fees: {
 
             // money send fee
-            TX_FEE: 1000,
+            TX_FEE: 100,
 
             // contract creation & invocation
-            CONTRACT_FEE: 30000,
+            CONTRACT_FEE: 3000,
 
             // contract send moneys
-            INTERNAL_TX_FEE: 3000
+            INTERNAL_TX_FEE: 300,
+
+            STORAGE_PER_BYTE_FEE: 10
         },
 
         MEMPOOL_TX_QTY: 5,

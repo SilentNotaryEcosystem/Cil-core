@@ -150,7 +150,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             return {
                 receipt: new TxReceipt({
                     contractAddress: Buffer.from(environment.contractAddr, 'hex'),
-                    coinsUsed: coinsLimit - coinsRemained,
+                    coinsUsed: _spendCoins(coinsLimit, coinsRemained),
                     status
                 }),
                 contract
@@ -225,10 +225,20 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 // we shouldn't save data for delegated calls in this contract!
                 if (!context) {
                     const newContractState = vm.run(`;${CONTEXT_NAME};`);
+                    const prevDataSize = contract.getDataSize();
 
                     // this will keep only data (strip proxies & member functions that we inject to call like this.method)
                     const objData = JSON.parse(JSON.stringify(newContractState));
                     contract.updateData(objData);
+                    const newDataSize = contract.getDataSize();
+
+                    if (newDataSize - prevDataSize > 0) {
+                        coinsRemained = _spendCoins(
+                            coinsRemained,
+                            (newDataSize - prevDataSize) * Constants.fees.STORAGE_PER_BYTE_FEE
+                        );
+
+                    }
                 }
 
                 status = Constants.TX_STATUS_OK;
@@ -241,7 +251,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             // TODO: create TX with change to author!
             // TODO: return Fee (see coinsUsed)
             return new TxReceipt({
-                coinsUsed: coinsLimit - coinsRemained,
+                coinsUsed: _spendCoins(coinsLimit, coinsRemained),
                 status,
                 message
             });

@@ -133,5 +133,111 @@ describe('Contract tests', () => {
             }
         });
     });
+    describe('Data size', () => {
+        it('should be zero', async () => {
+            {
+                const contract = new factory.Contract({
+                    groupId: 10
+                });
+
+                assert.equal(contract.getDataSize(), 0);
+            }
+            {
+                const contract = new factory.Contract({
+                    contractData: {},
+                    groupId: 10
+                });
+
+                assert.equal(contract.getDataSize(), 0);
+            }
+            {
+                const contract = new factory.Contract({
+                    groupId: 10
+                });
+
+                const decodedContract = new factory.Contract(contract.encode());
+                assert.equal(decodedContract.getDataSize(), 0);
+            }
+            {
+                const contract = new factory.Contract({
+                    contractData: {},
+                    groupId: 10
+                });
+
+                const decodedContract = new factory.Contract(contract.encode());
+                assert.equal(decodedContract.getDataSize(), 0);
+            }
+        });
+
+        it('should be non zero', async () => {
+            {
+                const contract = new factory.Contract({
+                    contractData: {a: 1},
+                    groupId: 10
+                });
+
+                assert.notEqual(contract.getDataSize(), 0);
+            }
+            {
+                const contract = new factory.Contract({
+                    contractData: {a: 1},
+                    groupId: 10
+                });
+
+                const decodedContract = new factory.Contract(contract.encode());
+                assert.notEqual(decodedContract.getDataSize(), 0);
+            }
+        });
+
+        it('should update data', async () => {
+            {
+                const contract = new factory.Contract({
+                    contractData: {a: 1},
+                    groupId: 10
+                });
+
+                const prevDataSize = contract.getDataSize();
+                assert.notEqual(prevDataSize, 0);
+
+                contract.updateData({a: 10, b: 100});
+                assert.isAbove(contract.getDataSize(), prevDataSize);
+            }
+
+            {
+                const contract = new factory.Contract({
+                    contractData: {},
+                    groupId: 10
+                });
+
+                const prevDataSize = contract.getDataSize();
+                assert.equal(prevDataSize, 0);
+
+                contract.updateData({a: 10});
+                assert.isAbove(contract.getDataSize(), prevDataSize);
+            }
+
+            {
+                const contract = new factory.Contract({
+                    contractData: {},
+                    groupId: 10
+                });
+
+                const decodedContract = new factory.Contract(contract.encode());
+                decodedContract.updateData({a: 10});
+                assert.isAbove(decodedContract.getDataSize(), contract.getDataSize());
+            }
+
+            {
+                const contract = new factory.Contract({
+                    contractData: {a: 1},
+                    groupId: 10
+                });
+
+                const decodedContract = new factory.Contract(contract.encode());
+                decodedContract.updateData({a: 10, b: 100});
+                assert.isAbove(decodedContract.getDataSize(), contract.getDataSize());
+            }
+        });
+    });
 
 });
