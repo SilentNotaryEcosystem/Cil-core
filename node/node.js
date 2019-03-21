@@ -805,11 +805,16 @@ module.exports = (factory, factoryOptions) => {
                         return await Promise.all(
                             arrHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
+                    case 'getTx':
+                        const block = await this._storage.findBlockByTxHash(content);
+                        const objTx = block.txns.find(objTx => (new Transaction(objTx)).getHash() === content);
+                        return objTx;
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
             } catch (e) {
                 logger.error('RPC error.', e);
+                throw e;
             }
         }
 

@@ -1393,6 +1393,38 @@ describe('Node tests', () => {
             assert.deepEqual(expectedResult, objOneTip);
         });
 
+        it('should fail to get TX', (done) => {
+            const node = new factory.Node();
+
+            const block = createDummyBlockWithTx(factory);
+            const strTxHash = block.getTxHashes()[0];
+
+            node._storage.findBlockByTxHash = sinon.fake.throws('Block not found');
+
+            node.rpcHandler({
+                    event: 'getTx',
+                    content: strTxHash
+                })
+                .then(_ => done('Unexpected success'))
+                .catch(_ => done());
+        });
+
+        it('should get TX', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const block = createDummyBlockWithTx(factory);
+            const strTxHash = block.getTxHashes()[0];
+
+            node._storage.findBlockByTxHash = sinon.fake.resolves(block);
+
+            const objTx = await node.rpcHandler({
+                event: 'getTx',
+                content: strTxHash
+            });
+
+            assert.deepEqual(objTx, block.txns[0]);
+        });
     });
 
     describe('BlockProcessor', () => {
@@ -1873,5 +1905,6 @@ describe('Node tests', () => {
             assert.isOk(node._app.runContract.calledOnce);
         });
     });
+
 });
 

@@ -35,6 +35,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
+            this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -114,5 +115,16 @@ module.exports = ({Constants, Transaction}) =>
                 block: prepareForStringifyObject(objBlockState.block),
                 state: objBlockState.state
             }));
+        }
+
+        async getTx(args) {
+            const {strTxHash} = args;
+
+            const objTx = await this._nodeInstance.rpcHandler({
+                event: 'getTx',
+                content: strTxHash
+            });
+
+            return prepareForStringifyObject(objTx);
         }
     };
