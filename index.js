@@ -23,6 +23,7 @@ process.on('warning', e => console.warn(e.stack));
         ...objCmdLineParams,
 
         // non matching names
+        buildTxIndex: objCmdLineParams.txIndex,
         listenPort: objCmdLineParams.port,
         arrSeedAddresses: objCmdLineParams.seedAddr ? [objCmdLineParams.seedAddr] : [],
         isSeed: objCmdLineParams.seed
