@@ -98,11 +98,23 @@ module.exports = ({UTXO, Contract}) =>
         }
 
         /**
+         * Important! resultPatch doesn't contain _groupId! Because we merge patches for various purposes.
+         * For new block we couldn't predict _groupId
          *
-         * @param {PatchDB} patch to merge with this
+         * @param {PatchDB} patch - to merge with this
+         * @param {Boolean} bPreferPatchData - force using contracts from "patch" (used only for processing block)
          * @return {PatchDB} NEW patch!
          */
-        merge(patch) {
+        merge(patch, bPreferPatchData = false) {
+
+            // same group + same level. it's definitely error!
+            if (this._groupId !== undefined && patch._groupId !== undefined && !bPreferPatchData) {
+                assert(
+                    this._groupId !== patch._groupId || this.getLevel(this._groupId) !== patch.getLevel(patch._groupId),
+                    'It seems we have unexpected fork!'
+                );
+            }
+
             const resultPatch = new PatchDB();
 
             // merge groupLevels
@@ -183,27 +195,26 @@ module.exports = ({UTXO, Contract}) =>
                 let winnerContract;
 
                 // contract belongs always to one group
-                const contractOne = this.getContract(strAddr);
-                const contractTwo = patch.getContract(strAddr);
-                if (contractOne && contractTwo) {
+                const contractThis = this.getContract(strAddr);
+                const contractPatch = patch.getContract(strAddr);
+                if (contractThis && contractPatch) {
                     assert(
-                        contractOne.getGroupId() === contractTwo.getGroupId(),
+                        contractThis.getGroupId() === contractPatch.getGroupId(),
                         'Contract belongs to different groups'
                     );
 
-                    winnerContract = this.getLevel(contractOne.getGroupId()) > patch.getLevel(contractTwo.getGroupId())
-                        ? contractOne
-                        : contractTwo;
+                    winnerContract = bPreferPatchData ||
+                                     patch.getLevel(contractPatch.getGroupId()) >=
+                                     this.getLevel(contractThis.getGroupId())
+                        ? contractPatch
+                        : contractThis;
                 } else {
 
                     // no conflict
-                    winnerContract = contractOne || contractTwo;
+                    winnerContract = contractThis || contractPatch;
                 }
 
-                // clone contract
-                const clonedContract = new Contract(winnerContract.encode());
-                clonedContract.storeAddress(strAddr);
-                resultPatch.setContract(clonedContract);
+                resultPatch.setContract(winnerContract.clone());
             }
 
             // merge receipts
@@ -348,6 +359,12 @@ module.exports = ({UTXO, Contract}) =>
             this._mapGroupLevel.set(nId, groupLevel);
         }
 
+        /**
+         * @see comment for this.setGroupId
+         *
+         * @param {Number} nGroupId
+         * @returns {any}
+         */
         getLevel(nGroupId) {
             nGroupId = nGroupId === undefined ? this._groupId : nGroupId;
             assert(this._groupId !== undefined, '"groupId" not specified!');
@@ -408,7 +425,21 @@ module.exports = ({UTXO, Contract}) =>
         setReceipt(strTxHash, receipt) {
             typeforce(types.Str64, strTxHash);
 
-            this._mapTxReceipts.set(strTxHash, receipt);
+            const sameTxReceipt = this._mapTxReceipts.get(strTxHash);
+
+            // first time encountered
+            if (!sameTxReceipt) {
+                this._mapTxReceipts.set(strTxHash, receipt);
+                return;
+            }
+
+            assert(sameTxReceipt.isSuccessful(), `You shouldn't continue exec of already failed TX ${strTxHash}`);
+
+            // it was already added to patch by nested contract call
+            for (let buffInternalTxHash of receipt.getInternalTxns()) {
+                sameTxReceipt.addInternalTx(buffInternalTxHash.toString('hex'));
+            }
+            sameTxReceipt.setStatus(receipt.getStatus());
         }
 
         /**

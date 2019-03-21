@@ -128,11 +128,11 @@ describe('Witness tests', () => {
         const tx1 = new factory.Transaction();
         tx1.addInput(txHash, 1);
         tx1.addReceiver(1000, Buffer.from(witness._wallet.address, 'hex'));
-        tx1.sign(0, witness._wallet.privateKey);
+        tx1.claim(0, witness._wallet.privateKey);
         const tx2 = new factory.Transaction();
         tx2.addInput(txHash, 2);
         tx2.addReceiver(1000, Buffer.from(witness._wallet.address, 'hex'));
-        tx2.sign(0, witness._wallet.privateKey);
+        tx2.claim(0, witness._wallet.privateKey);
 
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);

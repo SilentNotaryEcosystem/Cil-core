@@ -144,7 +144,7 @@ describe('PatchDB', () => {
         patch.createCoins(strHash, 17, utxo.coinsAtIndex(12));
         patch.spendCoins(utxo, 0, pseudoRandomBuffer());
 
-        const resultPatch = patch.merge(new factory.PatchDB(0));
+        const resultPatch = patch.merge(new factory.PatchDB(1));
 
         assert.isOk(resultPatch.getUtxo(utxo.getTxHash()));
         assert.isOk(resultPatch.getUtxo(strHash));
@@ -158,7 +158,7 @@ describe('PatchDB', () => {
 
         patch.spendCoins(utxo, 12, spendingTx);
 
-        const patch2 = new factory.PatchDB(0);
+        const patch2 = new factory.PatchDB(1);
         patch2.spendCoins(utxo, 0, spendingTx);
 
         {
@@ -293,7 +293,7 @@ describe('PatchDB', () => {
         const spendingTx = pseudoRandomBuffer().toString('hex');
         patch.spendCoins(utxo, 12, spendingTx);
 
-        const mergedPatch = patch.merge(new factory.PatchDB(0));
+        const mergedPatch = patch.merge(new factory.PatchDB(1));
         mergedPatch.purge(patch);
 
         assert.isNotOk(mergedPatch.getUtxo(utxo.getTxHash()));
@@ -439,7 +439,7 @@ describe('PatchDB', () => {
             patch.setContract(contract);
         }
 
-        const patchDerived = patch.merge(new factory.PatchDB(0));
+        const patchDerived = patch.merge(new factory.PatchDB(1));
         patchDerived.setGroupId(1);
         const contract = patchDerived.getContract(contractAddr);
 
@@ -475,7 +475,7 @@ describe('PatchDB', () => {
         contract1.storeAddress(contractAddr);
         patch.setContract(contract1);
 
-        const patchDerived = patch.merge(new factory.PatchDB(0));
+        const patchDerived = patch.merge(new factory.PatchDB());
         patchDerived.setGroupId(0);
         const contract2 = new factory.Contract({contractData: {value: 2}, groupId: 0});
         contract2.storeAddress(contractAddr);
@@ -503,7 +503,7 @@ describe('PatchDB', () => {
         patch.setContract(contract1);
 
         {
-            const patchDerived = patch.merge(new factory.PatchDB(0));
+            const patchDerived = patch.merge(new factory.PatchDB());
             const contract2 = patchDerived.getContract(contractAddr);
             contract2.getData().value = 12;
 
@@ -512,7 +512,7 @@ describe('PatchDB', () => {
         }
 
         {
-            const patchDerived = new factory.PatchDB(0).merge(patch);
+            const patchDerived = new factory.PatchDB().merge(patch);
             const contract2 = patchDerived.getContract(contractAddr);
             contract2.getData().value = 12;
 
@@ -529,7 +529,7 @@ describe('PatchDB', () => {
         contract.storeAddress(contractAddr);
         patch.setContract(contract);
 
-        const patchDerived = patch.merge(new factory.PatchDB(0));
+        const patchDerived = patch.merge(new factory.PatchDB());
         patchDerived.setGroupId(1);
         patchDerived.purge(patch);
 
@@ -544,7 +544,7 @@ describe('PatchDB', () => {
         contract.storeAddress(contractAddr);
         patch.setContract(contract);
 
-        const patchDerived = patch.merge(new factory.PatchDB(0));
+        const patchDerived = patch.merge(new factory.PatchDB());
         patchDerived.setGroupId(0);
 
         const contract2 = new factory.Contract({contractData: {value: 2}, groupId: 0});
@@ -553,54 +553,6 @@ describe('PatchDB', () => {
         patchDerived.purge(patch);
 
         assert.isOk(patchDerived.getContract(contractAddr));
-    });
-
-    it('should save receipt to patch', async () => {
-        const patch = new factory.PatchDB(0);
-        const txHash = pseudoRandomBuffer().toString('hex');
-        patch.setReceipt(txHash, new factory.TxReceipt({}));
-
-        assert.equal(Array.from(patch.getReceipts()).length, 1);
-    });
-
-    it('should MERGE patches with RECEIPTS', async () => {
-        const patch = new factory.PatchDB(0);
-        const patch2 = new factory.PatchDB(0);
-
-        {
-            const txHash = pseudoRandomBuffer().toString('hex');
-            patch.setReceipt(txHash, new factory.TxReceipt({}));
-            patch2.setReceipt(txHash, new factory.TxReceipt({}));
-        }
-
-        {
-            const txHash = pseudoRandomBuffer().toString('hex');
-            patch2.setReceipt(txHash, new factory.TxReceipt({}));
-        }
-
-        // now patches has one intersection
-        const mergedPatch = patch.merge(patch2);
-        assert.equal(Array.from(mergedPatch.getReceipts()).length, 2);
-    });
-
-    it('should PURGE patches with RECEIPTS', async () => {
-        const patch = new factory.PatchDB(0);
-        const patch2 = new factory.PatchDB(0);
-
-        {
-            const txHash = pseudoRandomBuffer().toString('hex');
-            patch.setReceipt(txHash, new factory.TxReceipt({}));
-            patch2.setReceipt(txHash, new factory.TxReceipt({}));
-        }
-
-        {
-            const txHash = pseudoRandomBuffer().toString('hex');
-            patch2.setReceipt(txHash, new factory.TxReceipt({}));
-        }
-
-        // now patches has one intersection
-        patch2.purge(patch);
-        assert.equal(Array.from(patch2.getReceipts()).length, 1);
     });
 
     it('should FAIL _validateAgainstStable (spend already spended stable index)', async () => {
@@ -656,5 +608,96 @@ describe('PatchDB', () => {
         patch.spendCoins(utxo, 0, pseudoRandomBuffer());
 
         patch.validateAgainstStable(patchStable);
+    });
+
+    describe('setReceipt', () => {
+        it('should save receipt to patch', async () => {
+            const patch = new factory.PatchDB(0);
+            const txHash = pseudoRandomBuffer().toString('hex');
+            patch.setReceipt(txHash, new factory.TxReceipt({}));
+
+            assert.equal(Array.from(patch.getReceipts()).length, 1);
+        });
+
+        it('should MERGE patches with RECEIPTS', async () => {
+            const patch = new factory.PatchDB(0);
+            const patch2 = new factory.PatchDB(1);
+
+            {
+                const txHash = pseudoRandomBuffer().toString('hex');
+                patch.setReceipt(txHash, new factory.TxReceipt({}));
+                patch2.setReceipt(txHash, new factory.TxReceipt({}));
+            }
+
+            {
+                const txHash = pseudoRandomBuffer().toString('hex');
+                patch2.setReceipt(txHash, new factory.TxReceipt({}));
+            }
+
+            // now patches has one intersection
+            const mergedPatch = patch.merge(patch2);
+            assert.equal(Array.from(mergedPatch.getReceipts()).length, 2);
+        });
+
+        it('should PURGE patches with RECEIPTS', async () => {
+            const patch = new factory.PatchDB(0);
+            const patch2 = new factory.PatchDB(0);
+
+            {
+                const txHash = pseudoRandomBuffer().toString('hex');
+                patch.setReceipt(txHash, new factory.TxReceipt({}));
+                patch2.setReceipt(txHash, new factory.TxReceipt({}));
+            }
+
+            {
+                const txHash = pseudoRandomBuffer().toString('hex');
+                patch2.setReceipt(txHash, new factory.TxReceipt({}));
+            }
+
+            // now patches has one intersection
+            patch2.purge(patch);
+            assert.equal(Array.from(patch2.getReceipts()).length, 1);
+        });
+
+        it('should THROW', async () => {
+            const patch = new factory.PatchDB();
+            const strTxHash = pseudoRandomBuffer().toString('hex');
+
+            patch.setReceipt(strTxHash, new factory.TxReceipt({status: factory.Constants.TX_STATUS_FAILED}));
+            assert.throws(
+                () => patch.setReceipt(strTxHash, new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK}))
+            );
+        });
+
+        it('should add internal Tx hash stored receipt', async () => {
+            const patch = new factory.PatchDB();
+            const strTxHash = pseudoRandomBuffer().toString('hex');
+
+            const receipt1 = new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK});
+            receipt1.addInternalTx(pseudoRandomBuffer().toString('hex'));
+            receipt1.addInternalTx(pseudoRandomBuffer().toString('hex'));
+
+            patch.setReceipt(strTxHash, receipt1);
+
+            {
+                const arrReceipts = [...patch.getReceipts()];
+                assert.equal(arrReceipts.length, 1);
+                const [txHash, receipt] = arrReceipts[0];
+                assert.equal(receipt.getInternalTxns().length, 2);
+            }
+
+            const receipt2 = new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK});
+            receipt2.addInternalTx(pseudoRandomBuffer().toString('hex'));
+            receipt2.addInternalTx(pseudoRandomBuffer().toString('hex'));
+
+            patch.setReceipt(strTxHash, receipt2);
+
+            {
+                const arrReceipts = [...patch.getReceipts()];
+                assert.equal(arrReceipts.length, 1);
+                const [txHash, receipt] = arrReceipts[0];
+                assert.equal(receipt.getInternalTxns().length, 4);
+            }
+        });
     });
 });

@@ -409,7 +409,7 @@ module.exports = (factory, factoryOptions) => {
             let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
                 try {
-                    const {fee, patchThisTx} = await this._processTx(false, tx, patchMerged);
+                    const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
                     totalFee += fee;
                     patchMerged = patchMerged.merge(patchThisTx);
                     block.addTx(tx);

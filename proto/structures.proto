@@ -20,7 +20,6 @@ message output{
     // if receiverAddr is AddrContractCreation or function call (not user otherwise)
     string contractCode=3;
     bytes addrChangeReceiver=4;
-    fixed64 coinsLimit=5;
 }
 
 message TransactionPayload {
@@ -37,6 +36,9 @@ message Transaction {
     // place here non hashed fields
     TransactionPayload payload=1;
     repeated bytes claimProofs=2;
+
+    // used only when contractOwner plan to send moneys or transfer ownership
+    bytes txSignature=3;
 }
 
 //------------------- Block ---------
@@ -102,6 +104,7 @@ message Contract{
     bytes contractData =1;
     string contractCode=2;
     uint32 groupId=3;
+    fixed64 balance=4;
 }
 
 //--------------- TX Receipt -----
@@ -121,6 +124,9 @@ message TxReceipt{
 
     //
     TxStatuses status =3;
+
+    // if status != TX_STATUS_OK here will be a message
+    string message =5;
 
     // hashes
     repeated bytes internalTxns=4;

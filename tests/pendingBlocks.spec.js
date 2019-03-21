@@ -20,7 +20,7 @@ const makeDoubleSpend = (block, newWitnessId) => {
     const tx = new factory.Transaction(block.txns[1]);
     tx.witnessGroupId = newWitnessId;
     newBlock.addTx(tx);
-    newBlock.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+    newBlock.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
     return newBlock;
 };
 

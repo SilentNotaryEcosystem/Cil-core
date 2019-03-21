@@ -36,7 +36,8 @@ module.exports = (factory, factoryOptions) => {
         MainDag,
         BlockInfo,
         Mutex,
-        RequestCache
+        RequestCache,
+        TxReceipt
     } = factory;
     const {
         MsgCommon,
@@ -823,11 +824,18 @@ module.exports = (factory, factoryOptions) => {
                             cBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
 
                         );
+
+                    case 'getTx':
+                        const block = await this._storage.findBlockByTxHash(content);
+                        const objTx = block.txns.find(objTx => (new Transaction(objTx)).getHash() === content);
+                        return objTx;
+
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
             } catch (e) {
                 logger.error('RPC error.', e);
+                throw e;
             }
         }
 
@@ -847,7 +855,7 @@ module.exports = (factory, factoryOptions) => {
             if (this._mempool.hasTx(tx.hash())) return;
 
             await this._storage.checkTxCollision([tx.hash()]);
-            await this._processTx(false, tx);
+            await this._processTx(undefined, false, tx);
             this._mempool.addTx(tx);
 
             await this._informNeighbors(tx);
@@ -855,61 +863,74 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
+         * @param {PatchDB | undefined} patchForBlock
          * @param {Boolean} isGenesis
          * @param {Transaction} tx
-         * @param {PatchDB} patchForBlock - OPTIONAL!
+         * @param {Number} amountHas - used only for internal TXNs
          * @return {Promise<{fee, patchThisTx}>} fee and patch for this TX
          * @private
          */
-        async _processTx(isGenesis, tx, patchForBlock) {
-            let patchThisTx = new PatchDB();
-            let totalHas = 0;
+        async _processTx(patchForBlock, isGenesis, tx, amountHas) {
+            let patchThisTx = new PatchDB(tx.witnessGroupId);
+            let totalHas = amountHas === undefined ? 0 : amountHas;
             let fee = 0;
 
-            // process input (for regular block only)
-            if (!isGenesis) {
-                tx.verify();
-                const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
-                const patchMerged = patchForBlock ? patchForBlock.merge(patchUtxos) : patchUtxos;
-                ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
-            }
-
-            let totalSent = 0;
-            let contract;
-
-            if (tx.isContractCreation() || (contract = await this._getContractFromTx(tx, patchForBlock))) {
-
-                // process contract creation/invocation
-                fee = await this._processContract(isGenesis, contract, tx, patchThisTx, totalHas);
-            } else {
-
-                // regular payment
-                totalSent = this._app.processPayments(tx, patchThisTx);
+            const lock = await this._mutex.acquire(['transaction']);
+            try {
+                // process input (for regular block only)
                 if (!isGenesis) {
-                    fee = totalHas - totalSent;
-                    if (fee < Constants.MIN_TX_FEE) {
-                        throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+                    tx.verify();
+                    const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
+                    const patchMerged = patchForBlock ? patchForBlock.merge(patchUtxos) : patchUtxos;
+                    ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
+                }
+
+                let totalSent = 0;
+                let contract;
+
+                // TODO: move it to per output processing. So we could use multiple contract invocation in one TX
+                //  it's useful for mass payments, where some of addresses could be contracts!
+                if (tx.isContractCreation() ||
+                    (contract = await this._getContractByAddr(tx.getContractAddr(), patchForBlock))
+                ) {
+
+                    // process contract creation/invocation
+                    fee = await this._processContract(isGenesis, contract, tx, patchThisTx, patchForBlock, totalHas);
+                } else {
+
+                    // regular payment
+                    totalSent = this._app.processPayments(tx, patchThisTx);
+                    if (!isGenesis) {
+                        fee = totalHas - totalSent;
+                        if (fee < Constants.fees.TX_FEE) {
+                            throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+                        }
                     }
                 }
+            } finally {
+                this._mutex.release(lock);
             }
 
-            // TODO: MIN_TX_FEE is fee per 1Kb of TX size
+            // TODO: fees.TX_FEE is fee per 1Kb of TX size
             // TODO: rework fee
 
             return {fee, patchThisTx};
         }
 
         /**
+         * Contract creation/invocation tx MUST have zero-index output with code, coins and so on
+         * the rest of outputs could have change output(s)
          *
          * @param {Boolean} isGenesis
          * @param {Contract | undefined} contract
          * @param {Transaction} tx
          * @param {PatchDB} patchThisTx
+         * @param {PatchDB} patchForBlock - used for nested contracts
          * @param {Number} nCoinsIn - sum of all inputs coins
          * @returns {Promise<number>}
          * @private
          */
-        async _processContract(isGenesis, contract, tx, patchThisTx, nCoinsIn) {
+        async _processContract(isGenesis, contract, tx, patchThisTx, patchForBlock, nCoinsIn) {
             let fee = 0;
 
             // contract creation/invocation has 2 types of change:
@@ -919,31 +940,40 @@ module.exports = (factory, factoryOptions) => {
 
             // global variables for contract
             const environment = {
-                contractTx: tx.hash()
+                contractTx: tx.hash(),
+                callerAddress: tx.getTxSignerAddress(),
+
+                // we fill it before invocation (from contract)
+                contractAddr: undefined,
+                balance: 0
             };
 
             // get max contract fee
-            let maxFee;
             let coinsLimit;
             if (!isGenesis) {
                 const totalSent = this._app.processPayments(tx, patchThisTx, 1);
-                maxFee = nCoinsIn - totalSent;
-                coinsLimit = tx.getContractCoinsLimit();
-                coinsLimit = maxFee < coinsLimit ? maxFee : coinsLimit;
+                coinsLimit = nCoinsIn - totalSent;
 
-                if (coinsLimit < Constants.MIN_CONTRACT_FEE) {
-                    throw new Error(`Tx ${tx.hash()} CONTRACT fee ${maxFee} less than ${Constants.MIN_CONTRACT_FEE}!`);
+                if (coinsLimit < Constants.fees.CONTRACT_FEE) {
+                    throw new Error(
+                        `Tx ${tx.hash()} CONTRACT fee ${coinsLimit} less than ${Constants.fees.CONTRACT_FEE}!`);
                 }
 
             } else {
-                maxFee = Number.MAX_SAFE_INTEGER;
                 coinsLimit = Number.MAX_SAFE_INTEGER;
             }
 
             if (!contract) {
 
                 // contract creation
-                environment.contractAddr = Crypto.getAddress(tx.hash());
+                // address creation should be deterministic (same for all nodes!)
+                const addr = environment.contractAddr = Crypto.getAddress(tx.hash());
+
+                // prevent contract collision
+                if (await this._storage.getContract(Buffer.from(addr, 'hex'))) {
+                    throw new Errror('Contract already exists');
+                }
+
                 ({receipt, contract} =
                     await this._app.createContract(coinsLimit, tx.getContractCode(), environment));
             } else {
@@ -954,32 +984,112 @@ module.exports = (factory, factoryOptions) => {
                     `TX groupId: "${tx.witnessGroupId}" != contract groupId`
                 );
 
+                const invocationCode = tx.getContractCode();
+
                 environment.contractAddr = contract.getStoredAddress();
-                receipt = await this._app.runContract(coinsLimit, tx.getContractCode(), contract, environment);
+                environment.balance = contract.getBalance();
+
+                receipt = await this._app.runContract(
+                    coinsLimit,
+                    invocationCode && invocationCode.length ? JSON.parse(tx.getContractCode()) : {},
+                    contract,
+                    environment,
+                    undefined,
+                    this._createCallbacksForApp(patchForBlock, patchThisTx, tx.hash())
+                );
             }
+            patchThisTx.setReceipt(tx.hash(), receipt);
 
             // send change (not for Genesis)
             if (!isGenesis) {
-                fee = this._createContractChange(tx, maxFee, patchThisTx, contract, receipt);
+                fee = this._createContractChange(tx, coinsLimit, patchThisTx, contract, receipt);
             }
-            patchThisTx.setReceipt(tx.hash(), receipt);
-            patchThisTx.setContract(contract);
+
+            // contract could throw, so it could be undefined
+            if (contract) {
+                patchThisTx.setContract(contract);
+
+                // increase balance of contract
+                if (receipt.isSuccessful()) contract.deposit(tx.getContractSentAmount());
+            }
 
             return fee;
         }
 
-        async _getContractFromTx(tx, patchForBlock) {
-            const arrOutCoins = tx.getOutCoins();
-            const buffContractAddr = arrOutCoins[0].getReceiverAddr();
+        _createCallbacksForApp(patchBlock, patchTx, strTxHash) {
+            return {
+                createInternalTx: this._sendCoins.bind(this, patchTx, strTxHash),
+                invokeContract: this._invokeNestedContract.bind(this, patchBlock, patchTx, strTxHash)
+            };
+        }
+
+        _sendCoins(patchTx, strTxHash, strAddress, amount) {
+            typeforce(typeforce.tuple(types.Patch, types.Str64, types.Address, typeforce.Number), arguments);
+
+            const internalTxHash = this._createInternalTx(patchTx, strAddress, amount);
+
+            // it's some sorta fake receipt, it will be overridden (or "merged") by original receipt
+            const receipt = new TxReceipt({status: Constants.TX_STATUS_OK});
+            receipt.addInternalTx(internalTxHash);
+            patchTx.setReceipt(strTxHash, receipt);
+        }
+
+        async _invokeNestedContract(patchBlock, patchTx, strTxHash, strAddress, objParams) {
+            typeforce(
+                typeforce.tuple(types.Patch, types.Patch, types.Str64, types.Address, typeforce.Object),
+                arguments
+            );
+
+            const {method, arrArguments, context, coinsLimit, environment} = objParams;
+            typeforce(
+                typeforce.tuple(typeforce.String, typeforce.Array, typeforce.Number),
+                [method, arrArguments, coinsLimit]
+            );
+
+            const contract = await this._getContractByAddr(strAddress, patchBlock);
+            if (!contract) throw new Error('Contract not found!');
+            const newEnv = {
+                ...environment,
+                contractAddr: contract.getStoredAddress(),
+                balance: contract.getBalance()
+            };
+            const receipt = await this._app.runContract(
+                coinsLimit,
+                {method, arrArguments},
+                contract,
+                newEnv,
+                context,
+                this._createCallbacksForApp(patchBlock, patchTx, strTxHash)
+            );
+
+            if (receipt.isSuccessful()) {
+                patchTx.setReceipt(strTxHash, receipt);
+                patchTx.setContract(contract);
+            }
+            return {success: receipt.isSuccessful(), fee: receipt.getCoinsUsed()};
+        }
+
+        /**
+         * first try to get contract from patch and then to load contract data from storage
+         *
+         * @param {Buffer | String} contractAddr
+         * @param {PatchDB} patchForBlock
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _getContractByAddr(contractAddr, patchForBlock) {
+            if (!contractAddr) return undefined;
+
+            typeforce(types.Address, contractAddr);
+
+            const buffContractAddr = Buffer.isBuffer(contractAddr) ? contractAddr : Buffer.from(contractAddr, 'hex');
             let contract;
 
-            if (!patchForBlock || !(contract = patchForBlock.getContract(buffContractAddr))) {
-
-                // try to load contract data from storage
-                contract = await this._storage.getContract(buffContractAddr);
+            if (patchForBlock) {
+                contract = patchForBlock.getContract(buffContractAddr);
             }
 
-            return contract;
+            return contract ? contract.clone() : await this._storage.getContract(buffContractAddr);
         }
 
         /**
@@ -1017,7 +1127,6 @@ module.exports = (factory, factoryOptions) => {
             }
 
             let patchState = this._pendingBlocks.mergePatches(block.parentHashes);
-            patchState.setGroupId(block.witnessGroupId);
             const isGenesis = this.isGenesisBlock(block);
 
             let blockFees = 0;
@@ -1025,10 +1134,12 @@ module.exports = (factory, factoryOptions) => {
 
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
+                patchState.setGroupId(block.witnessGroupId);
+
                 const tx = new Transaction(blockTxns[i]);
-                const {fee, patchThisTx} = await this._processTx(isGenesis, tx, patchState);
+                const {fee, patchThisTx} = await this._processTx(patchState, isGenesis, tx);
                 blockFees += fee;
-                patchState = patchState.merge(patchThisTx);
+                patchState = patchState.merge(patchThisTx, true);
             }
 
             // process coinbase tx
@@ -1425,16 +1536,18 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
-         * @param {Buffer} buffReceiver
-         * @param {Number} amount
          * @param {PatchDB} patch
+         * @param {Buffer | String} receiver
+         * @param {Number} amount
          * @returns {String} - new internal TX hash
          * @private
          */
-        _createInternalTx(buffReceiver, amount, patch) {
-            typeforce(typeforce.tuple(types.Address, typeforce.Number), [buffReceiver, amount]);
+        _createInternalTx(patch, receiver, amount) {
+            typeforce(typeforce.tuple(types.Address, typeforce.Number), [receiver, amount]);
 
-            const coins = new Coins(amount, buffReceiver);
+            receiver = Buffer.isBuffer(receiver) ? receiver : Buffer.from(receiver, 'hex');
+
+            const coins = new Coins(amount, receiver);
             const txHash = Crypto.createHash(Crypto.randomBytes(32));
             patch.createCoins(txHash, 0, coins);
 
@@ -1455,19 +1568,20 @@ module.exports = (factory, factoryOptions) => {
 
             // no changeReceiver? ok - no change. all coins become goes to witness!
             const addrChangeReceiver = tx.getContractChangeReceiver();
-            if (!addrChangeReceiver) return maxFee;
+            if (!addrChangeReceiver || !addrChangeReceiver.length) return maxFee;
 
             let fee = maxFee;
 
             if (Buffer.isBuffer(addrChangeReceiver)) {
                 fee = receipt.getCoinsUsed();
                 const changeTxHash = this._createInternalTx(
+                    patch,
                     tx.getContractChangeReceiver(),
-                    maxFee - fee,
-                    patch
+                    maxFee - fee
                 );
                 receipt.addInternalTx(changeTxHash);
-                patch.setReceipt(tx.hash(), receipt);
+
+                // receipt changed by ref, no need to add it to patch
             }
 
             return fee;

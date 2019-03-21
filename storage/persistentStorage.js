@@ -26,7 +26,7 @@ const PENDING_BLOCKS = 'PENDING';
  */
 const createKey = (strPrefix, buffKey) => {
 
-    // Attention! no 'hex' encoding for strPrefix!
+    // Attention! no 'hex' encoding for strPrefix!!!!
     return buffKey ? Buffer.concat([Buffer.from(strPrefix), buffKey]) : Buffer.from(strPrefix);
 };
 
@@ -49,7 +49,8 @@ const eraseDbContent = (db) => {
 
 module.exports = (factory, factoryOptions) => {
     const {
-        Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract, TxReceipt, WitnessGroupDefinition, Peer, PatchDB
+        Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract,
+        TxReceipt, WitnessGroupDefinition, Peer, PatchDB
     } = factory;
 
     return class Storage {
@@ -59,7 +60,7 @@ module.exports = (factory, factoryOptions) => {
                 ...options
             };
 
-            const {testStorage, dbPath, mutex} = options;
+            const {testStorage, buildTxIndex, dbPath, mutex} = options;
             assert(mutex, 'Storage constructor requires Mutex instance!');
 
             let downAdapter;
@@ -81,6 +82,11 @@ module.exports = (factory, factoryOptions) => {
             this._blockStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
 
             this._peerStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
+
+            if (buildTxIndex) {
+                this._buildTxIndex = true;
+                this._txIndexStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
+            }
 
             this._mutex = mutex;
         }
@@ -148,6 +154,20 @@ module.exports = (factory, factoryOptions) => {
             // save blockInfo
             if (!blockInfo) blockInfo = new BlockInfo(block.header);
             await this.saveBlockInfo(blockInfo);
+
+            if (this._buildTxIndex) {
+                debug(`Storing TX index for ${block.getHash()}`);
+
+                const arrOps = [];
+                const buffBlockHash = Buffer.from(block.getHash(), 'hex');
+                for (let strTxHash of block.getTxHashes()) {
+                    const key = createKey('', Buffer.from(strTxHash, 'hex'));
+                    arrOps.push({type: 'put', key, value: buffBlockHash});
+                }
+
+                // BATCH WRITE
+                await this._txIndexStorage.batch(arrOps);
+            }
         }
 
         /**
@@ -469,6 +489,22 @@ module.exports = (factory, factoryOptions) => {
                     .on('close', () => resolve(arrPeers))
                     .on('error', err => reject(err));
             });
+        }
+
+        /**
+         *
+         * @param {String} strTxHash
+         * @returns {Promise<Block>}
+         */
+        async findBlockByTxHash(strTxHash) {
+            typeforce(types.Hash256bit, strTxHash);
+
+            if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
+
+            const key = createKey('', Buffer.from(strTxHash, 'hex'));
+
+            const blockHash = await this._txIndexStorage.get(key);
+            return await this.getBlock(blockHash);
         }
     };
 };

@@ -109,8 +109,8 @@ module.exports = (Constants, Crypto, MessageProto) => {
         }
 
         _validate() {
-            if (!this._msg.network || this._msg.network !== Constants.network) {
-                throw new Error(`Wrong network! Expected: ${NetworkMagic} got ${this._msg.network}`);
+            if (!this.network || this.network !== Constants.network) {
+                throw new Error(`Wrong network! Expected: ${Constants.network} got ${this._msg.network}`);
             }
 
             // TODO add checksum verification

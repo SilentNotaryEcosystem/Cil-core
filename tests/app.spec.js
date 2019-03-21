@@ -7,6 +7,7 @@ const debug = require('debug')('application:test');
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const {arrayEquals} = require('../utils');
 
 const createGenesis = (factory, utxoHash) => {
     const patch = new factory.PatchDB(0);
@@ -52,9 +53,9 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 0);
         tx.addInput(utxoHash, 80);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
-        tx.sign(2, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
+        tx.claim(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patch = await storage.getUtxosPatch(tx.utxos);
@@ -75,9 +76,9 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 0);
         tx.addInput(utxoHash, 80);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
-        tx.sign(2, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
+        tx.claim(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -97,7 +98,7 @@ describe('Application layer', () => {
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 17);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -124,7 +125,7 @@ describe('Application layer', () => {
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 12);
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, anotherKeyPair.privateKey);
+        tx.claim(0, anotherKeyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -150,7 +151,7 @@ describe('Application layer', () => {
         // create tx
         const tx = new factory.Transaction();
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, anotherKeyPair.privateKey);
+        tx.claim(0, anotherKeyPair.privateKey);
 
         const patch = new factory.PatchDB(0);
 
@@ -174,8 +175,8 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 12);
         tx.addInput(utxoHash, 12);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch([utxoHash]);
@@ -201,7 +202,7 @@ describe('Application layer', () => {
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 12);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
@@ -214,7 +215,7 @@ describe('Application layer', () => {
         const tx2 = new factory.Transaction();
         tx2.addInput(utxoHash, 12);
         tx2.addReceiver(1000, buffAddress2);
-        tx2.sign(0, keyPair.privateKey);
+        tx2.claim(0, keyPair.privateKey);
 
         const patchUtxos2 = await storage.getUtxosPatch(tx2.utxos);
 
@@ -229,67 +230,134 @@ describe('Application layer', () => {
         throw new Error('Unexpected success');
     });
 
-    it('should create contract', async () => {
-        const app = new factory.Application();
-        const strGetDataCode = `getData(){
-                return this._data;
-            }`;
-        const strFunc2Code = `getAnother(){
-                return this._data;
-            }`;
+    it('should parse contract code', async () => {
         const strCode = `
-            class A extends Base{
-                constructor(param){
+            class A extends Base {
+                constructor(...arrValues)
+            
+            
+                {
                     super();
-                    this._data=param;
-                    this._contractAddr=contractAddr;
+                    this._data=arrValues[0];
+                }
+            
+                changeDefinition(objNewDefinition)                            {
+                }
+            
+                addDefinition
+                (objGroupDefinition)
+                {
+            
+                    // check fee!
+                    console.log(objGroupDefinition)
+                }
+            
+                noArguments(){}
+            
+                _validateDefinition(objGroupDefinition) {
                 }
                 
-                ${strGetDataCode}
-                ${strFunc2Code}
-                
+                // getters/setters ignored
                 set data(value){
                     return this._data=value;
                 }
-                
+            
                 get data(){
                     return this._data;
                 }
-            };
-            
+            }
             exports=new A(10);
             `;
-        const tx = factory.Transaction.createContract(strCode, 100000, generateAddress());
-        const env = {
-            contractTx: tx.hash(),
-            contractAddr: factory.Crypto.getAddress(tx.hash())
-        };
-        const {receipt, contract} = app.createContract(1e5, tx.getContractCode(), env);
+        const app = new factory.Application();
+        const {receipt, contract} = app.createContract(
+            factory.Constants.fees.CONTRACT_FEE,
+            strCode,
+            {contractAddr: 'hash'}
+        );
 
-        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
-//        assert.isOk(Array.isArray(receipt.getInternalTxns()));
-//        assert.equal(receipt.getInternalTxns().length, 1);
-        assert.deepEqual(contract.getData(), {_data: 10, _contractAddr: contract.getStoredAddress()});
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {_data: 10});
 
-        const resultCode = [strGetDataCode, strFunc2Code]
-            .join(factory.Constants.CONTRACT_METHOD_SEPARATOR);
-        assert.equal(contract.getCode(), resultCode);
+        const strContractCode = contract.getCode();
+        assert.isOk(strContractCode);
+        const objCode = JSON.parse(strContractCode);
+        assert.isOk(objCode);
+        assert.isOk(arrayEquals(Object.keys(objCode),
+            ['changeDefinition', 'addDefinition', 'noArguments', '_validateDefinition']
+        ));
+        console.log(strContractCode);
+
+    });
+
+    it('should prepare code for exec (just shouldnt throw', async () => {
+        const contract = new factory.Contract({
+            contractCode: {changeDefinition: "(objNewDefinition){}"},
+            contractData: {_data: 19}
+        });
+
+        const app = new factory.Application();
+        app._prepareCode(contract.getCode());
     });
 
     it('should run contract', async () => {
         const groupId = 10;
         const contract = new factory.Contract({
             contractData: {value: 100},
-            contractCode: 'add(a){this.value+=a;}',
+            contractCode: '{"add": "(a){this.value+=a;}"}',
             groupId
         });
         const app = new factory.Application();
 
-        const receipt = await app.runContract(1e5, 'add(10)', contract, {});
+        const receipt = await app.runContract(1e5, {method: 'add', arrArguments: [10]}, contract, {});
 
-        assert.equal(receipt.getStatus(), factory.Constants.TX_STATUS_OK);
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.MIN_CONTRACT_FEE);
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 110});
+    });
+
+    it('should throw (unknown method)', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: '{"add": "(a){this.value+=a;}"}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, {method: 'subtract', arrArguments: [10]}, contract, {});
+        assert.isNotOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 100});
+    });
+
+    it('should throw (no default function)', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: '{"add": "(a){this.value+=a;}"}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, '', contract, {});
+        assert.isNotOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 100});
+    });
+
+    it('should call default function', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: '{"_default": "(){this.value+=17;}"}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, '', contract, {});
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 117});
     });
 });

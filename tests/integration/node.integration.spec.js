@@ -36,7 +36,7 @@ const createGenesisPatchAndSpendingTx = (factory) => {
     const tx = new factory.Transaction();
     tx.addInput(utxoHash, 12);
     tx.addReceiver(1000, buffAddress);
-    tx.sign(0, receiverKeyPair.privateKey);
+    tx.claim(0, receiverKeyPair.privateKey);
 
     return {patch, tx};
 };
@@ -225,7 +225,7 @@ describe('Node integration tests', () => {
         }
         await Promise.all(arrBootrapPromises);
 
-        seedNode.rpc.sendRawTx({buffTx: tx.encode()});
+        seedNode.rpc.sendRawTx({strTx: tx.encode().toString('hex')});
 
         await Promise.all(arrTxPromises);
     });
@@ -326,7 +326,7 @@ describe('Node integration tests', () => {
             tx.addInput(txHash, 0);
             tx.addReceiver(1e3, generateAddress());
             tx.addReceiver(1e3, kpReceiver.getAddress(true));
-            tx.sign(0, kpReceiver.privateKey);
+            tx.claim(0, kpReceiver.privateKey);
 
             block21 = new factory.Block(1);
             block21.parentHashes = [gBlock.getHash()];
@@ -356,7 +356,7 @@ describe('Node integration tests', () => {
             tx.addInput(txHash, 0);
             tx.addReceiver(1e3, generateAddress());
             tx.addReceiver(1e3, kpReceiver.getAddress(true));
-            tx.sign(0, kpReceiver.privateKey);
+            tx.claim(0, kpReceiver.privateKey);
 
             block10 = new factory.Block(0);
             block10.parentHashes = [gBlock.getHash()];

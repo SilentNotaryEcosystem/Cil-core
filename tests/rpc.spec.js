@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
-const {createDummyTx, createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 const {prepareForStringifyObject} = require('../utils');
 
 let fakeResult = {
@@ -43,7 +43,7 @@ describe('RPC', () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         const tx = new factory.Transaction(createDummyTx());
 
-        const result = await rpc.sendRawTx({buffTx: tx.encode()});
+        const result = await rpc.sendRawTx({strTx: tx.encode().toString('hex')});
         assert.deepEqual(result, fakeResult);
 
         assert.isOk(node.rpcHandler.calledOnce);
@@ -203,4 +203,45 @@ describe('RPC', () => {
         assert.deepEqual(result, prepareForStringifyObject(expectedResults));
     });
 
+    it('should throw error', (done) => {
+        const node = {
+            rpcHandler: sinon.fake.throws('RPC error')
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        rpc.getTips()
+            .then(_ => done('Unexpected success'))
+            .catch(_ => done());
+    });
+
+    it('should get TX', async () => {
+        const pk = pseudoRandomBuffer(33);
+        const tx = factory.Transaction.invokeContract(
+            generateAddress().toString('hex'),
+            {
+                method: 'test',
+                arrArguments: [1, 2, 3, 5]
+            },
+            155,
+            generateAddress()
+        );
+
+        tx.addInput(pseudoRandomBuffer(), 3);
+        tx.addInput(pseudoRandomBuffer(), 1);
+        tx.addReceiver(1e3, generateAddress());
+        tx.claim(0, pk);
+        tx.claim(1, pk);
+        tx.signForContract(pk);
+
+        const node = {
+            rpcHandler: sinon.fake.resolves(tx.rawData)
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        const resp = await rpc.getTx({strTxHash: tx.getHash()});
+
+        assert.isOk(resp);
+//        console.dir(resp, {colors: true, depth: null});
+        assert.deepEqual(prepareForStringifyObject(resp), prepareForStringifyObject(tx.rawData));
+    });
 });

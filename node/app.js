@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
-const {sleep} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('application:');
@@ -14,10 +13,18 @@ const debug = debugLib('application:');
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
     ;
-    const __MyRetVal={arrCode: exports.getCode(), data: exports};
+    const __MyRetVal={objCode: exports.__getCode(), data: exports};
     __MyRetVal;
 `;
 const CONTEXT_NAME = '__MyContext';
+const defaultFunctionName = '_default';
+
+function _spendCoins(nCurrent, nAmount) {
+    const nRemained = nCurrent - nAmount;
+    if (nRemained < 0) throw new Error('Contract run out of coins');
+
+    return nRemained;
+}
 
 module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Contract}) =>
     class Application {
@@ -72,7 +79,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Transaction} tx
          * @param {PatchDB} patch - to create new coins
          * @param {Number} nStartFromIdx - if we want to skip some outputs, for contract for example
-         * @returns {Number} - Amount to spend
+         * @returns {Number} - to send (used to calculate fee)
          */
         processPayments(tx, patch, nStartFromIdx = 0) {
             const txHash = tx.hash();
@@ -97,9 +104,12 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Number} coinsLimit - spend no more than this limit
          * @param {String} strCode - contract code
          * @param {Object} environment - global variables for contract (like contractAddr)
-         * @returns {{receipt: TxReceipt, contract: Contract}
+         * @returns {receipt: TxReceipt, contract: Contract}
          */
         createContract(coinsLimit, strCode, environment) {
+
+            // deduce contract creation fee
+            let coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_FEE);
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
@@ -117,15 +127,15 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
                 const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
-                assert(retVal.arrCode, 'No contract methods exported!');
+                assert(retVal.objCode, 'No contract methods exported!');
                 assert(retVal.data, 'No contract data exported!');
 
                 // get returned class instance with member data && exported functions
                 // this will keep only data (strip proxies)
                 const objData = JSON.parse(JSON.stringify(retVal.data));
 
-                // prepare methods for storing
-                const strCodeExportedFunctions = retVal.arrCode.join(Constants.CONTRACT_METHOD_SEPARATOR);
+                // strigify code
+                const strCodeExportedFunctions = JSON.stringify(retVal.objCode);
 
                 contract = this._newContract(environment.contractAddr, objData, strCodeExportedFunctions);
 
@@ -140,7 +150,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             return {
                 receipt: new TxReceipt({
                     contractAddress: Buffer.from(environment.contractAddr, 'hex'),
-                    coinsUsed: Constants.MIN_CONTRACT_FEE,
+                    coinsUsed: _spendCoins(coinsLimit, coinsRemained),
                     status
                 }),
                 contract
@@ -151,51 +161,131 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * It will update contract in a case of success
          *
          * @param {Number} coinsLimit - spend no more than this limit
-         * @param {String} strInvocationCode - code to invoke, like publicMethod(param1, param2)
+         * @param {Object} objInvocationCode - {method, arrArguments} to invoke
          * @param {Contract} contract - contract loaded from store (@see structures/contract.js)
          * @param {Object} environment - global variables for contract (like contractAddr)
-         * @param {Function} funcToLoadNestedContracts - not used yet.
-         * @returns {Promise<*>}
+         * @param {Object} context - within we'll execute code
+         * @param {Object} objCallbacks - for sending funds & nested contract calls
+         * @param {Function} objCallbacks.invokeContract
+         * @param {Function} objCallbacks.createInternalTx
+         * @param {Function} objCallbacks.processTx
+         * @returns {Promise<TxReceipt>}
          */
-        async runContract(coinsLimit, strInvocationCode, contract, environment, funcToLoadNestedContracts) {
-
-            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
-            // form context from contract data
-            const vm = new VM({
-                timeout: Constants.TIMEOUT_CODE,
-                sandbox: {
-                    ...environment,
-                    [CONTEXT_NAME]: Object.assign({}, contract.getData())
-                }
-            });
+        async runContract(coinsLimit, objInvocationCode, contract, environment, context, objCallbacks) {
+            let coinsRemained = coinsLimit;
 
             // TODO: implement fee! (wrapping contract)
             // this will bind code to data (assign 'this' variable)
-            const strPreparedCode = this._prepareCode(contract.getCode(), strInvocationCode);
+            const objMethods = JSON.parse(contract.getCode());
+
+            // if code it empty - call default function.
+            // No "default" - throws error, coins that sent to contract will be lost
+            if (!objInvocationCode || !objInvocationCode.method || objInvocationCode.method === '') {
+                objInvocationCode = {
+                    method: defaultFunctionName,
+                    arrArguments: []
+                };
+            }
+
+            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones :))
+            // if it's initial call - form context from contract data
+            // for nested calls with delegatecall - we'll use parameter
+            const thisContext = context || {
+                ...environment,
+                [CONTEXT_NAME]: Object.assign({}, contract.getData()),
+                send,
+                call: async (strAddress, objParams) => await callWithContext(strAddress, objParams, undefined),
+                delegatecall: async (strAddress, objParams) => await callWithContext(strAddress, objParams, thisContext)
+            };
+
+            const vm = new VM({
+                timeout: Constants.TIMEOUT_CODE,
+                sandbox: thisContext
+            });
 
             let status;
+            let message;
             try {
 
-                vm.run(strPreparedCode);
-                const newContractState = vm.run(`;${CONTEXT_NAME};`);
+                // deduce contract creation fee
+                coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_FEE);
 
-                // TODO: send rest of moneys to receiver (which one of input?!). Possibly output for change?
-                // this will keep only data (strip proxies & member functions that we inject to call like this.method)
-                const objData = JSON.parse(JSON.stringify(newContractState));
-                contract.updateData(objData);
+                if (!objMethods[objInvocationCode.method]) {
+                    throw new Error(`Method ${objInvocationCode.method} not found`);
+                }
+
+                const strPreparedCode = `
+                    ${this._prepareCode(objMethods)}
+                    ${objInvocationCode.method}(
+                        ${objInvocationCode.arrArguments.map(arg => JSON.stringify(arg)).join(',')}
+                    );`;
+
+                await vm.run(strPreparedCode);
+
+                // we shouldn't save data for delegated calls in this contract!
+                if (!context) {
+                    const newContractState = vm.run(`;${CONTEXT_NAME};`);
+                    const prevDataSize = contract.getDataSize();
+
+                    // this will keep only data (strip proxies & member functions that we inject to call like this.method)
+                    const objData = JSON.parse(JSON.stringify(newContractState));
+                    contract.updateData(objData);
+                    const newDataSize = contract.getDataSize();
+
+                    if (newDataSize - prevDataSize > 0) {
+                        coinsRemained = _spendCoins(
+                            coinsRemained,
+                            (newDataSize - prevDataSize) * Constants.fees.STORAGE_PER_BYTE_FEE
+                        );
+
+                    }
+                }
 
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
                 logger.error(err);
                 status = Constants.TX_STATUS_FAILED;
+                message = err.message;
             }
 
             // TODO: create TX with change to author!
             // TODO: return Fee (see coinsUsed)
             return new TxReceipt({
-                coinsUsed: Constants.MIN_CONTRACT_FEE,
-                status
+                coinsUsed: _spendCoins(coinsLimit, coinsRemained),
+                status,
+                message
             });
+
+            // we need those function here, since JS can't pass variables by ref (coinsRemained)
+            //________________________________________
+            function send(strAddress, amount) {
+                if (contract.getBalance() < amount) throw new Error('Not enough funds');
+                coinsRemained = _spendCoins(coinsRemained, Constants.fees.INTERNAL_TX_FEE);
+                objCallbacks.createInternalTx(strAddress, amount);
+                contract.withdraw(amount);
+            }
+
+            async function callWithContext(strAddress, {method, arrArguments, coinsLimit: coinsToPass}, callContext) {
+                if (typeof coinsToPass === 'number') {
+                    if (coinsToPass < 0) throw new Error('coinsLimit should be positive');
+                    if (coinsToPass > coinsRemained) throw new Error('Trying to pass more coins than have');
+                }
+
+                const {success, fee} = await objCallbacks.invokeContract(
+                    strAddress,
+                    {
+                        method,
+                        arrArguments,
+                        coinsLimit: coinsToPass ? coinsToPass : coinsRemained,
+                        environment,
+
+                        // important!
+                        context: callContext
+                    }
+                );
+                coinsRemained = _spendCoins(coinsRemained, fee);
+                return success;
+            }
         }
 
         /**
@@ -214,37 +304,36 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
         /**
          *
-         * @param {String} strContractCode - code we saved from contract constructor joined by '\0'
-         * @param {String} strInvocationCode - method invocation
-         * @return {String} code ready to be executed
+         * @param {Object} objFuncCode - keys - method names, values - code, like "{this._data++}"
+         * @return {String} code of contract. just need to append invocation code
          * @private
          */
-        _prepareCode(strContractCode, strInvocationCode) {
-            const arrMethodCode = strContractCode.split(Constants.CONTRACT_METHOD_SEPARATOR);
+        _prepareCode(objFuncCode) {
+            let arrCode = [];
+            for (let methodName in objFuncCode) {
 
-            const strContractCodePrepared = arrMethodCode
-                .map(code => {
+                // is it async function?
+                let strAsync = '';
+                if (objFuncCode[methodName].startsWith('<')) {
+                    objFuncCode[methodName] = objFuncCode[methodName].substr(1);
+                    strAsync = 'async ';
+                }
 
-                    // get method name from code
-                    const [, methodName] = code.match(/^(.+)\(/);
-                    const oldName = new RegExp('^' + methodName);
+                // temporary name
+                const newName = `__MyRenamed__${methodName}`;
 
-                    // temporary name
-                    const newName = `__MyRenamed__${methodName}`;
+                // bind it to context
+                // no ';' at the end because we'll append a code
+                const strPrefix = `const ${methodName}=${newName}.bind(${CONTEXT_NAME});${strAsync}function ${newName}`;
 
-                    // bind it to context
-                    // no ';' at the end because it's a replacement for function name
-                    const replacement = `const ${methodName}=${newName}.bind(${CONTEXT_NAME});function ${newName}`;
+                // suffix: inject function name into context, so we could use this.methodName
+                const strSuffix = `;__MyContext['${methodName}']=${methodName};`;
 
-                    // replace old name with code that we prepared above
-                    const preparedCode = code.replace(oldName, replacement);
+                // add code
+                arrCode.push(strPrefix + objFuncCode[methodName] + strSuffix);
+            }
 
-                    // inject function name into context, so we could use this.methodName
-                    return preparedCode + `;__MyContext['${methodName}']=${methodName};`;
-                })
-                .join('\n');
-
-            return strContractCodePrepared + ';' + strInvocationCode;
+            return arrCode.join('\n');
         }
 
         /**
@@ -269,5 +358,4 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
             return contract;
         }
-
     };

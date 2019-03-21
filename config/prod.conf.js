@@ -55,7 +55,7 @@ module.exports = {
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 100,
 
-        // we expect that peer will respond with requested INV
+        // we expect that peer will respond with requested INV within this period
         INV_REQUEST_HOLDOFF: 1 * 60 * 1000,
 
         messageTypes: {
@@ -97,12 +97,23 @@ module.exports = {
         TOLERATED_TIME_DIFF: 60 * 60 * 1000,
 
         // how much we suppress creating empty blocks
-        WITNESS_HOLDOFF: 5 * 60 * 1000,
+        WITNESS_HOLDOFF: 15 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024,
 
         // fees
-        MIN_TX_FEE: 1000,
-        MIN_CONTRACT_FEE: 30000,
+        fees: {
+
+            // money send fee
+            TX_FEE: 100,
+
+            // contract creation & invocation
+            CONTRACT_FEE: 3000,
+
+            // contract send moneys
+            INTERNAL_TX_FEE: 300,
+
+            STORAGE_PER_BYTE_FEE: 10
+        },
 
         MEMPOOL_TX_QTY: 5,
         MEMPOOL_TX_LIFETIME: 5000,
@@ -111,24 +122,15 @@ module.exports = {
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
         TIMEOUT_CODE: 10000,
 
-        CONTRACT_METHOD_SEPARATOR: '\0',
+        TX_STATUS_OK: 1,
+        TX_STATUS_FAILED: 0,
 
         DB_PATH_PREFIX: './db',
         DB_CHAINSTATE_DIR: 'chainstate',
         DB_BLOCKSTATE_DIR: 'blockstate',
         DB_PEERSTATE_DIR: 'peerstate',
 
-        // block awaits for parents to be executed
-        IN_FLIGHT_BLOCK: 1 << 1,
-
-        // block executed successfully
-        EXECUTED_BLOCK: 1 << 2,
-
-        // block processed and it's UTXO are stored in DB
-        FINAL_BLOCK: 1 << 3,
-
-        // block cannot be executed (validation failed)
-        BAD_BLOCK: 1 << 8
+        DB_TXINDEX_DIR: 'txindex'
 
     }
 };

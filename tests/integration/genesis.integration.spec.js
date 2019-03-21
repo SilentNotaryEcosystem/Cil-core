@@ -175,7 +175,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         tx.witnessGroupId = 1;
         tx.addInput(moneyIssueTx.hash(), 5);
         tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-        tx.sign(0, wallet.privateKey);
+        tx.claim(0, wallet.privateKey);
 
         await witnessGroupTwo.rpcHandler({event: 'tx', content: tx});
 
@@ -242,7 +242,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
             tx.witnessGroupId = 0;
             tx.addInput(moneyIssueTx.hash(), 1);
             tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-            tx.sign(0, wallet.privateKey);
+            tx.claim(0, wallet.privateKey);
 
             await witnessGroupOne.rpcHandler({event: 'tx', content: tx});
         }
@@ -276,7 +276,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
             tx.witnessGroupId = 1;
             tx.addInput(moneyIssueTx.hash(), 2);
             tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-            tx.sign(0, wallet.privateKey);
+            tx.claim(0, wallet.privateKey);
 
             await witnessGroupTwo.rpcHandler({event: 'tx', content: tx});
         }
@@ -438,11 +438,11 @@ exports=new GroupDefinition(${strCommaSeparatedKeys});
     moneyIssueTx.addReceiver(1e8, witnessTwo.getAddress());
     moneyIssueTx.addReceiver(1e8, witnessTwo.getAddress());
 
-    const contractDeployTx = factory.Transaction.createContract(contractCode, 10000);
+    const contractDeployTx = factory.Transaction.createContract(contractCode);
 
     genesis.addTx(moneyIssueTx);
     genesis.addTx(contractDeployTx);
-    genesis.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+    genesis.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
 
     console.log(`Genesis hash: ${genesis.getHash()}`);
     return {
@@ -455,25 +455,26 @@ exports=new GroupDefinition(${strCommaSeparatedKeys});
 
 function createAnotherGroup(strClaimPrivateKey, witnessPubKey, utxo, idx) {
 
-    const contractCode = `
-        addDefinition({
-            quorum: 1,
-            publicKeys: ['${witnessPubKey}'],
-            delegatesPublicKeys: ['${witnessPubKey}'],
-        });
-    `;
+    const contractCode = {
+        method: 'addDefinition',
+        arrArguments: [
+            {
+                quorum: 1,
+                publicKeys: [witnessPubKey],
+                delegatesPublicKeys: [witnessPubKey]
+            }]
+    };
 
     // WARNING! it's just test/demo. All coins at this UTXO become fee
     const tx = factory.Transaction.invokeContract(
-        Buffer.from(factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'),
+        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS,
         contractCode,
-        0,
-        1e5
+        0
     );
 
     // spend witness2 coins (WHOLE!)
     tx.addInput(utxo, idx);
-    tx.sign(0, strClaimPrivateKey);
+    tx.claim(0, strClaimPrivateKey);
 
     return tx;
 }
