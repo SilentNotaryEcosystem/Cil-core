@@ -1,6 +1,6 @@
 {
   "name": "chain-in-law",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "dependencies": {
     "command-line-args": "^5.0.2",
     "dagjs": "git+https://github.com/trueshura/DAG.git",
