@@ -1253,45 +1253,6 @@ describe('Node tests', () => {
         assert.equal(msgGetData.inventory.vector.length, 3);
     });
 
-    it('should return GENESIS for empty MSG_GET_BLOCKS request', async () => {
-        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
-        await node.ensureLoaded();
-
-        const setResult = node._getBlocksFromLastKnown([]);
-
-        assert.isOk(setResult);
-        assert.equal(setResult.size, 1);
-        assert.isOk(setResult.has(factory.Constants.GENESIS_BLOCK));
-    });
-
-    it('should return CHAIN for MSG_GET_BLOCKS request', async () => {
-        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
-        await node.ensureLoaded();
-
-        const arrExpectedHashes = await createSimpleChain(
-            block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
-        );
-
-        const setResult = node._getBlocksFromLastKnown([]);
-        assert.isOk(setResult);
-        assert.equal(setResult.size, 10);
-        assert.deepEqual(arrExpectedHashes, [...setResult]);
-    });
-
-    it('should return FORK for MSG_GET_BLOCKS request', async () => {
-        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
-        await node.ensureLoaded();
-
-        const arrExpectedHashes = await createSimpleFork(
-            block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
-        );
-
-        const setResult = node._getBlocksFromLastKnown([]);
-        assert.isOk(setResult);
-        assert.equal(setResult.size, 4);
-        assert.deepEqual(arrExpectedHashes, [...setResult]);
-    });
-
     describe('RPC tests', () => {
         it('should get TX receipt', async () => {
             const node = new factory.Node();
@@ -1906,5 +1867,179 @@ describe('Node tests', () => {
         });
     });
 
+    describe('Node bootstrap', () => {
+        let node;
+        before(() => {
+            factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
+        });
+
+        beforeEach(async () => {
+            node = new factory.Node();
+            await node.ensureLoaded();
+        });
+
+        describe('Empty node', () => {
+            it('should return NOTHING for empty REQUEST', async () => {
+                const setResult = node._getBlocksFromLastKnown([]);
+                assert.equal(setResult.size, 0);
+            });
+
+            it('should return NOTHING for some hashes', async () => {
+                const setResult = node._getBlocksFromLastKnown(
+                    [1, 2, 3].map(_ => pseudoRandomBuffer().toString('hex'))
+                );
+                assert.equal(setResult.size, 0);
+            });
+
+        });
+        describe('Node with only Genesis', () => {
+            it('should return GENESIS for empty REQUEST', async () => {
+
+                // fake possessing Genesis
+                node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
+                const setResult = node._getBlocksFromLastKnown([]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 1);
+                assert.isOk(setResult.has(factory.Constants.GENESIS_BLOCK));
+            });
+            it('should return GENESIS for some hashes', async () => {
+
+                // fake possessing Genesis
+                node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
+                const setResult = node._getBlocksFromLastKnown(
+                    [1, 2, 3].map(_ => pseudoRandomBuffer().toString('hex'))
+                );
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 1);
+                assert.isOk(setResult.has(factory.Constants.GENESIS_BLOCK));
+            });
+
+        });
+        describe('Some loaded node', () => {
+
+            it('should return CHAIN for empty REQUEST', async () => {
+
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const setResult = node._getBlocksFromLastKnown([]);
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 10);
+                assert.deepEqual(arrExpectedHashes, [...setResult]);
+            });
+
+            it('should return FORK for empty REQUEST', async () => {
+                const arrExpectedHashes = await createSimpleFork(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const setResult = node._getBlocksFromLastKnown([]);
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 4);
+                assert.deepEqual(arrExpectedHashes, [...setResult]);
+            });
+
+            it('should return EMPTY set for last known hashes (FORK)', async () => {
+                const arrExpectedHashes = await createSimpleFork(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 0);
+            });
+
+            it('should return EMPTY set for last known hashes (CHAIN)', async () => {
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 0);
+            });
+
+            it('should return EMPTY for one wrong ADDITIONAL hash (CHAIN)', async () => {
+
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const setResult = node._getBlocksFromLastKnown(
+                    arrExpectedHashes.concat([pseudoRandomBuffer().toString('hex')])
+                );
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 0);
+            });
+
+            it('should return ONE element for last DELETED (CHAIN)', async () => {
+
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const expectedHash = arrExpectedHashes.pop();
+                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 1);
+                assert.isOk(setResult.has(expectedHash));
+            });
+
+            it('should return EMPTY set for last known from CHAIN', async () => {
+
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const expectedHash = arrExpectedHashes.pop();
+                const setResult = node._getBlocksFromLastKnown([expectedHash]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 0);
+            });
+
+            it('should return EMPTY set (FORK without root == all known)', async () => {
+                const arrExpectedHashes = await createSimpleFork(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                arrExpectedHashes.shift();
+
+                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 0);
+            });
+
+            it('should return set of 3 elements without root (FORK)', async () => {
+                const arrExpectedHashes = await createSimpleFork(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const genesis = arrExpectedHashes.shift();
+
+                const setResult = node._getBlocksFromLastKnown([genesis]);
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 3);
+            });
+
+            it('should return set of 1 elements: only child (FORK)', async () => {
+                const arrExpectedHashes = await createSimpleFork(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                arrExpectedHashes.shift();
+                const block1 = arrExpectedHashes.shift();
+
+                const setResult = node._getBlocksFromLastKnown([block1]);
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 1);
+            });
+        });
+    });
 });
 

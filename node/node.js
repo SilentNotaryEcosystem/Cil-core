@@ -482,26 +482,42 @@ module.exports = (factory, factoryOptions) => {
         /**
          * Return Set of hashes that are descendants of arrHashes
          *
-         * @param {Array} arrHashes - last known hashes
+         * @param {Array<String>} arrHashes - last known hashes
          * @returns {Set<any>} set of hashes descendants of arrHashes
          * @private
          */
         _getBlocksFromLastKnown(arrHashes) {
             const setBlocksToSend = new Set();
 
-            // TODO: implement better algo
-            if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
+            let arrKnownHashes = arrHashes.reduce((arrResult, hash) => {
+                if (this._mainDag.getBlockInfo(hash)) arrResult.push(hash);
+                return arrResult;
+            }, []);
+
+            if (!arrKnownHashes.length) {
 
                 // we missed at least one of those hashes! so we think peer is at wrong DAG
                 // sent our version of DAG starting from Genesis
-                arrHashes = [Constants.GENESIS_BLOCK];
 
-                // Genesis wouldn't be included (same as all of arrHashes), so add it here
-                setBlocksToSend.add(Constants.GENESIS_BLOCK);
+                // check do we have GENESIS self?
+                if (this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
+                    arrKnownHashes = [Constants.GENESIS_BLOCK];
+
+                    // Genesis wouldn't be included (same as all of arrHashes), so add it here
+                    setBlocksToSend.add(Constants.GENESIS_BLOCK);
+                } else {
+
+                    // no GENESIS - return empty Set
+                    return new Set();
+                }
             }
 
+            const setKnownHashes = new Set(arrKnownHashes);
             let currentLevel = [];
-            arrHashes.forEach(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
+            arrKnownHashes.forEach(hash => this._mainDag
+                .getChildren(hash)
+                .forEach(child => !setKnownHashes.has(child) && currentLevel.push(child)));
+
             do {
                 const setNextLevel = new Set();
                 for (let hash of currentLevel) {
@@ -510,7 +526,7 @@ module.exports = (factory, factoryOptions) => {
                         child => {
 
                             // we already processed it
-                            if (!setBlocksToSend.has(child)) setNextLevel.add(child);
+                            if (!setBlocksToSend.has(child) && !setKnownHashes.has(child)) setNextLevel.add(child);
                         });
                     setBlocksToSend.add(hash);
                     if (setBlocksToSend.size > Constants.MAX_BLOCKS_INV) break;
