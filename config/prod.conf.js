@@ -2,8 +2,8 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
-        GROUP_DEFINITION_CONTRACT_ADDRESS: '02fe74898d9d9990fbfacb50dad986cf93a80cdb',
-        GENESIS_BLOCK: 'c40640ee5940bcbbb8432dace84c4552946f2ed7de37b0feeeea6c56fd7cbbd7',
+        GROUP_DEFINITION_CONTRACT_ADDRESS: 'b72cc8bcaee8107834bdf74f1b344fe20a412283',
+        GENESIS_BLOCK: '66c4991470a8706260ba80848067053efbbeceb32a42ebf1edd099db80e22e7c',
 
         strIdent: 'Prod',
 

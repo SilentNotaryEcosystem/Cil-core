@@ -9,7 +9,7 @@ class Base {
 
             // we prepend code of asyn function with '<'
             const codePrefix = Object.getPrototypeOf(this[strFuncName]).constructor.name === 'AsyncFunction' ? '<' : '';
-            const re = new RegExp(`${strFuncName}.*?(\(.*?\).*?\{.*\})`, 'ms');
+            const re = new RegExp(`${strFuncName}.*?(\(.*?\).*?\{.*\})`, 'm');
             const arrMatches = strCodeMethod.match(re);
             if (!arrMatches) throw new Error(`Bad code for ${strFuncName}`);
             objCode[strFuncName] = codePrefix + arrMatches[1];
