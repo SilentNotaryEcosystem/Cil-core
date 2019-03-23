@@ -901,39 +901,6 @@ describe('Node tests', () => {
         );
     });
 
-    it('should process 2 good hashed from chain', async () => {
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        const arrHashes = await createSimpleChain(
-            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
-
-        const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [arrHashes[3], arrHashes[7]];
-
-        const peer = createDummyPeer(factory);
-        peer.pushMessage = sinon.fake();
-        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
-        await node._handleGetBlocksMessage(peer, msgCommon);
-
-        assert.isOk(peer.pushMessage.calledOnce);
-        const [msg] = peer.pushMessage.args[0];
-        assert.isOk(msg.isInv());
-        const vector = msg.inventory.vector;
-
-        // we should have all starting from 3d hash (including 7)
-        assert.equal(vector.length, 6);
-        assert.isOk(
-            vector.every(v =>
-                Buffer.isBuffer(v.hash) &&
-                v.hash.length === 32 &&
-                v.type === factory.Constants.INV_BLOCK
-                && arrHashes.includes(v.hash.toString('hex'))
-            )
-        );
-
-    });
-
     it('should process 2 good hashed from fork', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
@@ -984,30 +951,6 @@ describe('Node tests', () => {
         assert.isOk(msg.isInv());
         const vector = msg.inventory.vector;
 
-        assert.equal(vector.length, 10);
-        assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
-    });
-
-    it('should return full DAG (bad hashes received)', async () => {
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        const arrHashes = await createSimpleChain(
-            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
-
-        const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [arrHashes[3], pseudoRandomBuffer()];
-
-        const peer = createDummyPeer(factory);
-        peer.pushMessage = sinon.fake();
-        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
-
-        await node._handleGetBlocksMessage(peer, msgCommon);
-
-        assert.isOk(peer.pushMessage.calledOnce);
-        const [msg] = peer.pushMessage.args[0];
-        assert.isOk(msg.isInv());
-        const vector = msg.inventory.vector;
         assert.equal(vector.length, 10);
         assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
     });

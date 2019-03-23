@@ -34,10 +34,14 @@ describe('Storage tests', () => {
         assert.doesNotThrow(wrapper);
     });
 
-    it('should save block. No txIndex enabled', async () => {
+    it('should save/load block. No txIndex enabled', async () => {
         const block = createDummyBlock(factory);
         const storage = new factory.Storage();
         await storage.saveBlock(block);
+
+        const restoredBlock = await storage.getBlock(block.getHash());
+
+        assert.equal(block.getHash(), restoredBlock.getHash());
     });
 
     it('should find block in storage', async () => {
