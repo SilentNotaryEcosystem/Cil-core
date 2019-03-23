@@ -1,8 +1,9 @@
 /**
  *
  * @param {Object} Constants
+ * @param {ArrayOfHashes} ArrayOfHashes
  * @param {Object} MessageCommon
- * @param {Object} AddrPayloadProto - protobuf compiled AddrPayload prototype
+ * @param {Object} GetBlocksPayloadProto - protobuf compiled AddrPayload prototype
  * @return {{new(*): MessageAddr}}
  */
 module.exports = (Constants, ArrayOfHashes, MessageCommon, GetBlocksPayloadProto) => {
@@ -37,6 +38,10 @@ module.exports = (Constants, ArrayOfHashes, MessageCommon, GetBlocksPayloadProto
             }
         }
 
+        /**
+         *
+         * @returns {string[]}
+         */
         get arrHashes() {
             return (new ArrayOfHashes(this._data.arrHashes)).getArray();
         }

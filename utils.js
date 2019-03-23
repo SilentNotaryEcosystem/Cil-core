@@ -91,7 +91,8 @@ module.exports = {
             {name: "privateKey", type: String, multiple: false},
             {name: "dbPath", type: String, multiple: false},
             {name: "seed", type: Boolean, multiple: false},
-            {name: "strictAddresses", type: Boolean, multiple: false}
+            {name: "strictAddresses", type: Boolean, multiple: false},
+            {name: "txIndex", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },

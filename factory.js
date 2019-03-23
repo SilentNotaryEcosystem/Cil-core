@@ -1,3 +1,4 @@
+const path = require('path');
 const protobuf = require('protobufjs');
 const Mutex = require('mutex');
 const debugLib = require('debug');
@@ -276,9 +277,9 @@ class Factory {
      * @private
      */
     async _loadMessagePrototypes() {
-        const protoNetwork = await protobuf.load('./proto/network.proto');
-        const protoWitness = await protobuf.load('./proto/witness.proto');
-        const protoStructures = await protobuf.load('./proto/structures.proto');
+        const protoNetwork = await protobuf.load(path.resolve(__dirname, './proto/network.proto'));
+        const protoWitness = await protobuf.load(path.resolve(__dirname, './proto/witness.proto'));
+        const protoStructures = await protobuf.load(path.resolve(__dirname, './proto/structures.proto'));
 
         return {
 
