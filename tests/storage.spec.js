@@ -479,23 +479,21 @@ describe('Storage tests', () => {
                 .catch(_ => done());
         });
 
-        it('should throw. Hash not found', (done) => {
+        it('should throw. Hash not found', async () => {
             const storage = new factory.Storage({buildTxIndex: true});
             storage._txIndexStorage.get = sinon.fake.throws(new Error('Hash not found'));
 
-            storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
-                .then(_ => done(new Error('Unexpected success')))
-                .catch(_ => done());
+            const result = await storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'));
+            assert.isNotOk(result);
         });
 
-        it('should throw. Block not found', (done) => {
+        it('should throw. Block not found', async () => {
             const storage = new factory.Storage({buildTxIndex: true});
             storage._txIndexStorage.get = sinon.fake.resolves(pseudoRandomBuffer());
             storage.getBlock = sinon.fake.throws(new Error('Block not found'));
 
-            storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
-                .then(_ => done(new Error('Unexpected success')))
-                .catch(_ => done());
+            const result = await storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'));
+            assert.isNotOk(result);
         });
 
         it('should success', async () => {

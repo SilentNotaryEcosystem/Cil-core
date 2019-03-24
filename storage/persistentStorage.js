@@ -503,8 +503,13 @@ module.exports = (factory, factoryOptions) => {
 
             const key = createKey('', Buffer.from(strTxHash, 'hex'));
 
-            const blockHash = await this._txIndexStorage.get(key);
-            return await this.getBlock(blockHash);
+            try {
+                const blockHash = await this._txIndexStorage.get(key);
+                return await this.getBlock(blockHash);
+            } catch (e) {
+                debugLib(`Index or block for ${strTxHash} not found!`);
+            }
+            return undefined;
         }
     };
 };

@@ -1313,21 +1313,78 @@ describe('Node tests', () => {
                 .catch(_ => done());
         });
 
-        it('should get TX', async () => {
-            const node = new factory.Node();
-            await node.ensureLoaded();
+        describe('getTX', () => {
+            let node;
+            let strHash;
 
-            const block = createDummyBlockWithTx(factory);
-            const strTxHash = block.getTxHashes()[0];
+            beforeEach(async () => {
+                node = new factory.Node();
+                await node.ensureLoaded();
 
-            node._storage.findBlockByTxHash = sinon.fake.resolves(block);
-
-            const objTx = await node.rpcHandler({
-                event: 'getTx',
-                content: strTxHash
+                strHash = pseudoRandomBuffer().toString('hex');
             });
 
-            assert.deepEqual(objTx, block.txns[0]);
+            it('should get TX from mempool', async () => {
+                const fakeTx = {a: 1};
+
+                node._mempool.hasTx = sinon.fake.returns(true);
+                node._mempool.getTx = sinon.fake.returns(fakeTx);
+
+                const {tx, status, block} = await node.rpcHandler({
+                    event: 'getTx',
+                    content: strHash
+                });
+
+                assert.equal(status, 'mempool');
+                assert.deepEqual(tx, fakeTx);
+                assert.isNotOk(block);
+            });
+
+            it('should get TX status final', async () => {
+                const block = createDummyBlockWithTx(factory);
+                const strTxHash = block.getTxHashes()[0];
+
+                node._storage.findBlockByTxHash = sinon.fake.resolves(block);
+
+                const {tx, status, block: foundBlock} = await node.rpcHandler({
+                    event: 'getTx',
+                    content: strTxHash
+                });
+
+                assert.equal(status, 'confirmed');
+                assert.deepEqual(tx, block.txns[0]);
+                assert.equal(foundBlock, block.getHash());
+            });
+
+            it('should get TX status pending', async () => {
+                const block = createDummyBlockWithTx(factory);
+                const strTxHash = block.getTxHashes()[0];
+
+                node._storage.findBlockByTxHash = sinon.fake.resolves(block);
+                node._pendingBlocks.hasBlock = sinon.fake.returns(true);
+
+                const {tx, status, block: foundBlock} = await node.rpcHandler({
+                    event: 'getTx',
+                    content: strTxHash
+                });
+
+                assert.equal(status, 'in block');
+                assert.deepEqual(tx, block.txns[0]);
+                assert.equal(foundBlock, block.getHash());
+            });
+
+            it('should not find TX', async () => {
+                node._storage.findBlockByTxHash = sinon.fake.resolves(undefined);
+
+                const {tx, status, block} = await node.rpcHandler({
+                    event: 'getTx',
+                    content: strHash
+                });
+
+                assert.equal(status, 'unknown');
+                assert.isNotOk(tx);
+                assert.isNotOk(block);
+            });
         });
     });
 
