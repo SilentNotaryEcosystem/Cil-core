@@ -330,5 +330,42 @@ module.exports = (factory) => {
         getAllHashes() {
             return this._dag.V;
         }
+
+        /**
+         *
+         * @param {String} strContractAddr
+         * @param {Number} nGroupId
+         * @returns {Contract | undefined}
+         */
+        getContract(strContractAddr, nGroupId) {
+            typeforce(typeforce.tuple(types.StrAddress, typeforce.Number), arguments);
+
+            const arrTips = this.getTips();
+
+            // find longest path containing patches with ${nGroupId}
+            let strHashBestTip = undefined;
+            let nMaxLevel = 0;
+            for (let hash of arrTips) {
+                const {patch} = this._dag.readObj(hash);
+                if (patch.getLevel(nGroupId) > nMaxLevel) {
+                    strHashBestTip = hash;
+                    nMaxLevel = patch.getLevel(nGroupId);
+                }
+            }
+            if (!strHashBestTip) return undefined;
+
+            for (let path of this._dag.findPathsDown(strHashBestTip)) {
+                for (let vertex of path) {
+                    const {patch} = this._dag.readObj(vertex);
+
+                    // we find most recent one
+                    if (patch.getLevel(nGroupId) === nMaxLevel && patch.getGroupId() === nGroupId) {
+                        return patch.getContract(strContractAddr);
+                    }
+                }
+            }
+
+            return undefined;
+        }
     };
 };
