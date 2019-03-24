@@ -160,6 +160,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         toObject() {
-            return this._data;
+            return {
+                header: this._data.header,
+                signatures: this._data.signatures,
+                tnxs: this._data.txns.map(objTx => (new Transaction(objTx)).getHash())
+            };
         }
     };

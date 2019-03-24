@@ -96,7 +96,7 @@ module.exports = ({Constants, Transaction}) =>
 
             return result ? {
                 hash: result.block.getHash(),
-                block: prepareForStringifyObject(result.block),
+                block: prepareForStringifyObject(result.block.toObject()),
                 state: result.state
             } : undefined;
         }
@@ -112,7 +112,7 @@ module.exports = ({Constants, Transaction}) =>
 
             return arrBlockState.map(objBlockState => ({
                 hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block),
+                block: prepareForStringifyObject(objBlockState.block.toObject()),
                 state: objBlockState.state
             }));
         }
