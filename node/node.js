@@ -844,10 +844,7 @@ module.exports = (factory, factoryOptions) => {
                         );
 
                     case 'getTx':
-                        const block = await this._storage.findBlockByTxHash(content);
-                        const objTx = block.txns.find(objTx => (new Transaction(objTx)).getHash() === content);
-                        return objTx;
-
+                        return await this._getTxForRpc(content);
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1824,6 +1821,35 @@ module.exports = (factory, factoryOptions) => {
             const blockInfo = this._mainDag.getBlockInfo(hash);
 
             return {block: cBlock, state: blockInfo ? blockInfo.getState() : undefined};
+        }
+
+        /**
+         *
+         * @param {String} strTxHash
+         * @returns {Promise<{tx, block, status}>}
+         * @private
+         */
+        async _getTxForRpc(strTxHash) {
+            const formResult = (tx, status, block) => {
+                return {tx, status, block};
+            };
+
+            // look it in mempool first
+            if (this._mempool.hasTx(strTxHash)) return formResult(this._mempool.getTx(strTxHash), 'mempool', undefined);
+
+            // search by tx will work only with --txIndex so let's use that index
+            const block = await this._storage.findBlockByTxHash(strTxHash);
+
+            // not found
+            if (!block) return formResult(undefined, 'unknown', undefined);
+
+            // find tx in block
+            const objTx = block.txns.find(objTx => (new Transaction(objTx)).getHash() === strTxHash);
+
+            // is this block still pending?
+            const status = this._pendingBlocks.hasBlock(block.getHash()) ? 'in block' : 'confirmed';
+
+            return formResult(objTx, status, block.getHash());
         }
     };
 };

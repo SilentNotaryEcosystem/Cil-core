@@ -7,7 +7,7 @@ const debug = require('debug')('pendingBlocksManager:');
 
 const factory = require('./testFactory');
 
-const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 
 /**
@@ -22,6 +22,52 @@ const makeDoubleSpend = (block, newWitnessId) => {
     newBlock.addTx(tx);
     newBlock.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
     return newBlock;
+};
+
+const createSample = (pbm, isContractFound = false) => {
+    const block1 = createDummyBlock(factory, 0);
+    const patch1 = new factory.PatchDB(0);
+
+    const block2 = createDummyBlock(factory, 0);
+    block2.parentHashes = [block1.getHash()];
+    const patch2 = patch1.merge(new factory.PatchDB());
+    patch2.setGroupId(0);
+
+    // let's add another group
+    const block3 = createDummyBlock(factory, 1);
+    block3.parentHashes = [block2.getHash()];
+    const patch3 = patch2.merge(new factory.PatchDB());
+    patch3.setGroupId(1);
+
+    // target group again
+    const block4 = createDummyBlock(factory, 0);
+    block4.parentHashes = [block3.getHash()];
+    const patch4 = patch3.merge(new factory.PatchDB());
+    patch4.setGroupId(0);
+
+    // this patch will win for group 0
+    patch4.getContract = sinon.fake.returns(isContractFound);
+
+    // let's add another group again
+    const block5 = createDummyBlock(factory, 1);
+    block5.parentHashes = [block4.getHash()];
+    const patch5 = patch4.merge(new factory.PatchDB());
+    patch5.setGroupId(1);
+
+    // let's add third group with parent of 2d block
+    const block6 = createDummyBlock(factory, 2);
+    block6.parentHashes = [block2.getHash()];
+    const patch6 = patch4.merge(new factory.PatchDB());
+    patch6.setGroupId(2);
+
+    pbm.addBlock(block1, patch1);
+    pbm.addBlock(block2, patch2);
+    pbm.addBlock(block3, patch3);
+    pbm.addBlock(block4, patch4);
+    pbm.addBlock(block5, patch5);
+    pbm.addBlock(block6, patch6);
+
+    return [block1, block2, block3, block4, block5, block6].map(b => b.getHash());
 };
 
 describe('Pending block manager', async () => {
@@ -326,6 +372,96 @@ describe('Pending block manager', async () => {
                 assert.equal(setStableBlocks.size, 2);
             }
 
+        });
+    });
+
+    describe('getContract', () => {
+        let pbm;
+        beforeEach(async () => {
+            pbm = new factory.PendingBlocksManager();
+        });
+        it('should return undefined for EMPTY', async () => {
+            assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
+        });
+
+        it('should find tip candidate (single)', async () => {
+            const block1 = createDummyBlock(factory, 0);
+            pbm.addBlock(block1, new factory.PatchDB(0));
+            pbm._dag.findPathsDown = sinon.fake.returns([]);
+
+            assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
+
+            assert.isOk(pbm._dag.findPathsDown.calledOnce);
+            const [strHash] = pbm._dag.findPathsDown.args[0];
+            assert.equal(strHash, block1.getHash());
+        });
+
+        it('should find tip candidate (two)', async () => {
+            const block1 = createDummyBlock(factory, 0);
+            const block2 = createDummyBlock(factory, 2);
+            pbm.addBlock(block1, new factory.PatchDB(0));
+            pbm.addBlock(block2, new factory.PatchDB(2));
+            pbm._dag.findPathsDown = sinon.fake.returns([]);
+
+            assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
+
+            assert.isOk(pbm._dag.findPathsDown.calledOnce);
+            const [strHash] = pbm._dag.findPathsDown.args[0];
+            assert.equal(strHash, block1.getHash());
+        });
+
+        it('should pick longest path in chain for group 0', async () => {
+            const arrBlockHashes = createSample(pbm);
+            pbm._dag.findPathsDown = sinon.fake.returns([]);
+
+            assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
+
+            assert.isOk(pbm._dag.findPathsDown.calledOnce);
+            const [strHash] = pbm._dag.findPathsDown.args[0];
+
+            // block5 is winner TIP
+            assert.equal(strHash, arrBlockHashes[4]);
+        });
+
+        it('should pick longest path in chain for group 1', async () => {
+            const arrBlockHashes = createSample(pbm);
+            pbm._dag.findPathsDown = sinon.fake.returns([]);
+
+            assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 1));
+
+            assert.isOk(pbm._dag.findPathsDown.calledOnce);
+            const [strHash] = pbm._dag.findPathsDown.args[0];
+
+            // block5 is winner TIP
+            assert.equal(strHash, arrBlockHashes[4]);
+        });
+
+        it('should pick longest path in chain for group 2', async () => {
+            const arrBlockHashes = createSample(pbm);
+            pbm._dag.findPathsDown = sinon.fake.returns([]);
+
+            assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 2));
+
+            assert.isOk(pbm._dag.findPathsDown.calledOnce);
+            const [strHash] = pbm._dag.findPathsDown.args[0];
+
+            // block6 is winner TIP
+            assert.equal(strHash, arrBlockHashes[5]);
+        });
+
+        it('should return undefined. Patch found. No contract found', async () => {
+            const arrHashes = createSample(pbm);
+            assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
+
+            // block4 is winner (don't confuse with winner tip, which is block5) as latest for group 0
+            const {patch} = pbm._dag.readObj(arrHashes[3]);
+            assert.isOk(patch.getContract.calledOnce);
+
+        });
+
+        it('should return true. Patch found. Contract found', async () => {
+            createSample(pbm, true);
+            assert.isOk(pbm.getContract(generateAddress().toString('hex'), 0));
         });
     });
 });

@@ -119,7 +119,7 @@ describe('RPC', () => {
         assert.deepEqual(
             prepareForStringifyObject(result),
             {
-                block: prepareForStringifyObject(block),
+                block: prepareForStringifyObject(block.toObject()),
                 hash: block.getHash(),
                 state
             }
@@ -191,8 +191,8 @@ describe('RPC', () => {
         ];
 
         const expectedResults = [
-            {hash: block1.getHash(), block: block1, state},
-            {hash: block2.getHash(), block: block2, state}
+            {hash: block1.getHash(), block: block1.toObject(), state},
+            {hash: block2.getHash(), block: block2.toObject(), state}
         ];
         const node = {
             rpcHandler: sinon.fake.resolves(fakeRpcHandler)

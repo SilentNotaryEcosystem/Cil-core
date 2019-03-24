@@ -359,6 +359,10 @@ module.exports = ({UTXO, Contract}) =>
             this._mapGroupLevel.set(nId, groupLevel);
         }
 
+        getGroupId() {
+            return this._groupId;
+        }
+
         /**
          * @see comment for this.setGroupId
          *
