@@ -1386,6 +1386,80 @@ describe('Node tests', () => {
                 assert.isNotOk(block);
             });
         });
+
+        describe('constantMethodCall', () => {
+            let node;
+
+            beforeEach(async () => {
+                node = new factory.Node();
+                await node.ensureLoaded();
+            });
+
+            it('should prefer PENDING contract data', async () => {
+                const expectedResult = {a: 23, z: 17};
+                const pendingData = {a: 10, b: 20};
+                const contractPending = new factory.Contract({
+                    contractData: {sampleResult: pendingData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                const stableData = {a: 100, b: 200};
+                const contractStable = new factory.Contract({
+                    contractData: {sampleResult: stableData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                node._storage.getContract = sinon.fake.resolves(contractStable);
+                node._pendingBlocks.getContract = sinon.fake.returns(contractPending);
+                node._app.runContract = sinon.fake.resolves(expectedResult);
+
+                const result = await node._constantMethodCallRpc({
+                    method: 'test',
+                    arrArguments: [],
+                    contractAddress: generateAddress().toString('hex')
+                });
+
+                assert.deepEqual(result, expectedResult);
+                assert.isOk(node._app.runContract.calledOnce);
+                const [, , contract] = node._app.runContract.args[0];
+                assert.deepEqual(contract.getData(), {sampleResult: pendingData});
+            });
+
+            it('should prefer STABLE contract data', async () => {
+                const expectedResult = {a: 23, z: 17};
+                const pendingData = {a: 10, b: 20};
+                const contractPending = new factory.Contract({
+                    contractData: {sampleResult: pendingData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                const stableData = {a: 100, b: 200};
+                const contractStable = new factory.Contract({
+                    contractData: {sampleResult: stableData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                node._storage.getContract = sinon.fake.resolves(contractStable);
+                node._pendingBlocks.getContract = sinon.fake.returns(contractPending);
+                node._app.runContract = sinon.fake.resolves(expectedResult);
+
+                const result = await node._constantMethodCallRpc({
+                    method: 'test',
+                    arrArguments: [],
+                    contractAddress: generateAddress().toString('hex'),
+                    completed: true
+                });
+
+                assert.deepEqual(result, expectedResult);
+                assert.isOk(node._app.runContract.calledOnce);
+                const [, , contract] = node._app.runContract.args[0];
+                assert.deepEqual(contract.getData(), {sampleResult: stableData});
+            });
+        });
     });
 
     describe('BlockProcessor', () => {

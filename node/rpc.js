@@ -36,6 +36,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
             this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
+            this._server.expose('constantMethodCall', asyncRPC(this.getTx.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -126,5 +127,14 @@ module.exports = ({Constants, Transaction}) =>
             });
 
             return prepareForStringifyObject(objTx);
+        }
+
+        async constantMethodCall(args) {
+            const objResult = await this._nodeInstance.rpcHandler({
+                event: 'constantMethodCall',
+                content: args
+            });
+
+            return prepareForStringifyObject(objResult);
         }
     };

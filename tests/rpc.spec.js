@@ -178,4 +178,19 @@ describe('RPC', () => {
 //        console.dir(resp, {colors: true, depth: null});
         assert.deepEqual(prepareForStringifyObject(resp), prepareForStringifyObject(tx.rawData));
     });
+
+    it('should pass constantMethodCall', async () => {
+        const node = {
+            rpcHandler: sinon.fake.resolves(20)
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        const resp = await rpc.constantMethodCall({
+            method: 'test',
+            arrArguments: [],
+            contractAddress: generateAddress().toString('hex')
+        });
+
+        assert.equal(resp, 20);
+    });
 });

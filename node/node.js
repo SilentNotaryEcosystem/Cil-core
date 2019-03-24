@@ -823,6 +823,8 @@ module.exports = (factory, factoryOptions) => {
                         );
                     case 'getTx':
                         return await this._getTxForRpc(content);
+                    case 'constantMethodCall':
+                        return await this._constantMethodCallRpc(content);
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1817,6 +1819,39 @@ module.exports = (factory, factoryOptions) => {
             const status = this._pendingBlocks.hasBlock(block.getHash()) ? 'in block' : 'confirmed';
 
             return formResult(objTx, status, block.getHash());
+        }
+
+        async _constantMethodCallRpc({method, arrArguments, contractAddress, completed}) {
+            typeforce(
+                typeforce.tuple(typeforce.String, typeforce.Array, types.StrAddress),
+                [method, arrArguments, contractAddress]
+            );
+
+            // allow use pending blocks data
+            completed = completed !== undefined;
+
+            let contract = await this._storage.getContract(contractAddress);
+            if (!contract) throw new Error(`Contract ${contractAddress} not found`);
+
+            if (!completed) {
+                const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getGroupId());
+                if (pendingContract) contract = pendingContract;
+            }
+
+            const newEnv = {
+                contractAddr: contract.getStoredAddress(),
+                balance: contract.getBalance()
+            };
+
+            return await this._app.runContract(
+                Number.MAX_SAFE_INTEGER,
+                {method, arrArguments},
+                contract,
+                newEnv,
+                undefined,
+                this._createCallbacksForApp(new PatchDB(), new PatchDB(), Crypto.randomBytes(32)),
+                true
+            );
         }
     };
 };
