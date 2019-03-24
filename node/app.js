@@ -169,9 +169,11 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Function} objCallbacks.invokeContract
          * @param {Function} objCallbacks.createInternalTx
          * @param {Function} objCallbacks.processTx
+         * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
          * @returns {Promise<TxReceipt>}
          */
-        async runContract(coinsLimit, objInvocationCode, contract, environment, context, objCallbacks) {
+        async runContract(coinsLimit, objInvocationCode, contract,
+                          environment, context, objCallbacks, isConstantCall = false) {
             let coinsRemained = coinsLimit;
 
             // TODO: implement fee! (wrapping contract)
@@ -205,6 +207,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
             let status;
             let message;
+            let result;
             try {
 
                 // deduce contract creation fee
@@ -214,13 +217,15 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                     throw new Error(`Method ${objInvocationCode.method} not found`);
                 }
 
+                const strArgs = objInvocationCode.arrArguments.map(arg => JSON.stringify(arg)).join(',');
                 const strPreparedCode = `
                     ${this._prepareCode(objMethods)}
-                    ${objInvocationCode.method}(
-                        ${objInvocationCode.arrArguments.map(arg => JSON.stringify(arg)).join(',')}
-                    );`;
+                    ${objInvocationCode.method}(${strArgs});`;
 
-                await vm.run(strPreparedCode);
+                result = await vm.run(strPreparedCode);
+
+                // all we need is result!
+                if (isConstantCall) return result;
 
                 // we shouldn't save data for delegated calls in this contract!
                 if (!context) {
