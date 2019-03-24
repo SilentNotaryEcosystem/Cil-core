@@ -379,6 +379,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             const lock = await this._mutex.acquire([`blockReceived`]);
+            debugNode('Lock acquired');
             try {
                 await this._verifyBlock(block);
 
@@ -394,6 +395,7 @@ module.exports = (factory, factoryOptions) => {
                 peer.misbehave(10);
                 throw e;
             } finally {
+                debugNode('Lock released');
                 this._mutex.release(lock);
             }
         }
@@ -1229,9 +1231,10 @@ module.exports = (factory, factoryOptions) => {
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
             }
+            // 8 = Constants.FINAL_BLOCK !!!
             if (this._rpc) {
                 this._rpc.informWsSubscribers('stateChanged',
-                {state: Constants.FINAL_BLOCK, arrHashes: Array.from(setStableBlocks.keys())});
+                {state: 8, arrHashes: Array.from(setStableBlocks.keys())});
             }
         }
 
@@ -1678,7 +1681,7 @@ module.exports = (factory, factoryOptions) => {
         async _processBlock(block, peer) {
             typeforce(typeforce.oneOf(types.Block, types.BlockInfo), block);
 
-//            debugBlock(`Attempting to exec block "${block.getHash()}"`);
+            debugBlock(`Attempting to exec block "${block.getHash()}"`);
 
             if (await this._canExecuteBlock(block)) {
                 if (!this._isBlockExecuted(block.getHash())) {
