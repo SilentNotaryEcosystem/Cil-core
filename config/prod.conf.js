@@ -98,7 +98,7 @@ module.exports = {
 
         // how much we suppress creating empty blocks
         WITNESS_HOLDOFF: 15 * 60 * 1000,
-        MAX_BLOCK_SIZE: 1024,
+        MAX_BLOCK_SIZE: 1024 * 1024,
 
         // fees
         fees: {
