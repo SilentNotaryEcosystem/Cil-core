@@ -57,6 +57,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this._data.signatures;
         }
 
+        get timestamp() {
+            return this._data.timestamp;
+        }
+
         get header() {
             return this._data.header;
         }

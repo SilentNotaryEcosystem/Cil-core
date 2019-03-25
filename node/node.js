@@ -940,7 +940,11 @@ module.exports = (factory, factoryOptions) => {
 
                 // we fill it before invocation (from contract)
                 contractAddr: undefined,
-                balance: 0
+                balance: 0,
+                block: this._processedBlock ? {
+                    hash: this._processedBlock.getHash(),
+                    timestamp: this._processedBlock.timestamp
+                } : {}
             };
 
             // get max contract fee
@@ -1113,6 +1117,9 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _execBlock(block) {
+
+            // since we executing only one block per time (mute) we could use global variable
+            this._processedBlock = block;
 
             // double check: whether we already processed this block?
             const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
