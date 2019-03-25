@@ -249,6 +249,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
                 logger.error(err);
+
+                // if it's just call - we'r done here
+                if (isConstantCall) throw err;
+
                 status = Constants.TX_STATUS_FAILED;
                 message = err.message;
             }
