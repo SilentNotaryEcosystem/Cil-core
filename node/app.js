@@ -139,6 +139,11 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
                 contract = this._newContract(environment.contractAddr, objData, strCodeExportedFunctions);
 
+                const newDataSize = contract.getDataSize();
+                coinsRemained = _spendCoins(
+                    coinsRemained, newDataSize * Constants.fees.STORAGE_PER_BYTE_FEE
+                );
+
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
                 logger.error('Error while creating contract!', new Error(err));
