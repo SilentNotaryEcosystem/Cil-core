@@ -37,6 +37,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
             this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
             this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
+            this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -133,6 +134,17 @@ module.exports = ({Constants, Transaction}) =>
             const objResult = await this._nodeInstance.rpcHandler({
                 event: 'constantMethodCall',
                 content: args
+            });
+
+            return prepareForStringifyObject(objResult);
+        }
+
+        async getUnspent(args) {
+            const {strTxHash} = args;
+
+            const objResult = await this._nodeInstance.rpcHandler({
+                event: 'getUnspent',
+                content: strTxHash
             });
 
             return prepareForStringifyObject(objResult);

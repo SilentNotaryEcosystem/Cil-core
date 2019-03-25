@@ -1313,6 +1313,27 @@ describe('Node tests', () => {
                 .catch(_ => done());
         });
 
+        it('should fail to get UTXO', async () => {
+            const strTxHash = pseudoRandomBuffer().toString('hex');
+            const createDummyUtxo = (arrIndexes) => {
+                const utxo = new factory.UTXO({txHash: strTxHash});
+                const coins = new factory.Coins(10, generateAddress());
+                arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
+                return utxo;
+            };
+
+            const node = new factory.Node();
+            node._storage.getUtxo = sinon.fake.resolves(createDummyUtxo([1, 5, 10]));
+
+            const objResult = await node.rpcHandler({
+                event: 'getUnspent',
+                content: strTxHash
+            });
+            assert.isOk(arrayEquals(Object.keys(objResult).map(key => parseInt(key)), [1, 5, 10]));
+            assert.isOk(Object.keys(objResult).every(key => typeof objResult[key].amount === 'number' &&
+                                                            typeof objResult[key].receiverAddr === 'string'));
+        });
+
         describe('getTX', () => {
             let node;
             let strHash;

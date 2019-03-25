@@ -193,4 +193,18 @@ describe('RPC', () => {
 
         assert.equal(resp, 20);
     });
+
+    it('should pass getUnspent', async () => {
+        const objExpected = {1: {amount: 10, receiverAddr: generateAddress().toString('hex')}};
+        const node = {
+            rpcHandler: sinon.fake.resolves(objExpected)
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        const resp = await rpc.getUnspent({
+            strTxHash: pseudoRandomBuffer().toString('hex')
+        });
+
+        assert.deepEqual(resp, objExpected);
+    });
 });

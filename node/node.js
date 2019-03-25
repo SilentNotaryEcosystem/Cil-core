@@ -825,6 +825,9 @@ module.exports = (factory, factoryOptions) => {
                         return await this._getTxForRpc(content);
                     case 'constantMethodCall':
                         return await this._constantMethodCallRpc(content);
+                    case 'getUnspent':
+                        const utxo = await this._storage.getUtxo(content);
+                        return utxo.toObject();
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
