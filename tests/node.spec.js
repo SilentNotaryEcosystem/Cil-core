@@ -1368,6 +1368,27 @@ describe('Node tests', () => {
                 .catch(_ => done());
         });
 
+        it('should fail to get UTXO', async () => {
+            const strTxHash = pseudoRandomBuffer().toString('hex');
+            const createDummyUtxo = (arrIndexes) => {
+                const utxo = new factory.UTXO({txHash: strTxHash});
+                const coins = new factory.Coins(10, generateAddress());
+                arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
+                return utxo;
+            };
+
+            const node = new factory.Node();
+            node._storage.getUtxo = sinon.fake.resolves(createDummyUtxo([1, 5, 10]));
+
+            const objResult = await node.rpcHandler({
+                event: 'getUnspent',
+                content: strTxHash
+            });
+            assert.isOk(arrayEquals(Object.keys(objResult).map(key => parseInt(key)), [1, 5, 10]));
+            assert.isOk(Object.keys(objResult).every(key => typeof objResult[key].amount === 'number' &&
+                                                            typeof objResult[key].receiverAddr === 'string'));
+        });
+
         describe('getTX', () => {
             let node;
             let strHash;
@@ -1439,6 +1460,80 @@ describe('Node tests', () => {
                 assert.equal(status, 'unknown');
                 assert.isNotOk(tx);
                 assert.isNotOk(block);
+            });
+        });
+
+        describe('constantMethodCall', () => {
+            let node;
+
+            beforeEach(async () => {
+                node = new factory.Node();
+                await node.ensureLoaded();
+            });
+
+            it('should prefer PENDING contract data', async () => {
+                const expectedResult = {a: 23, z: 17};
+                const pendingData = {a: 10, b: 20};
+                const contractPending = new factory.Contract({
+                    contractData: {sampleResult: pendingData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                const stableData = {a: 100, b: 200};
+                const contractStable = new factory.Contract({
+                    contractData: {sampleResult: stableData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                node._storage.getContract = sinon.fake.resolves(contractStable);
+                node._pendingBlocks.getContract = sinon.fake.returns(contractPending);
+                node._app.runContract = sinon.fake.resolves(expectedResult);
+
+                const result = await node._constantMethodCallRpc({
+                    method: 'test',
+                    arrArguments: [],
+                    contractAddress: generateAddress().toString('hex')
+                });
+
+                assert.deepEqual(result, expectedResult);
+                assert.isOk(node._app.runContract.calledOnce);
+                const [, , contract] = node._app.runContract.args[0];
+                assert.deepEqual(contract.getData(), {sampleResult: pendingData});
+            });
+
+            it('should prefer STABLE contract data', async () => {
+                const expectedResult = {a: 23, z: 17};
+                const pendingData = {a: 10, b: 20};
+                const contractPending = new factory.Contract({
+                    contractData: {sampleResult: pendingData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                const stableData = {a: 100, b: 200};
+                const contractStable = new factory.Contract({
+                    contractData: {sampleResult: stableData},
+                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                    groupId
+                }, generateAddress().toString('hex'));
+
+                node._storage.getContract = sinon.fake.resolves(contractStable);
+                node._pendingBlocks.getContract = sinon.fake.returns(contractPending);
+                node._app.runContract = sinon.fake.resolves(expectedResult);
+
+                const result = await node._constantMethodCallRpc({
+                    method: 'test',
+                    arrArguments: [],
+                    contractAddress: generateAddress().toString('hex'),
+                    completed: true
+                });
+
+                assert.deepEqual(result, expectedResult);
+                assert.isOk(node._app.runContract.calledOnce);
+                const [, , contract] = node._app.runContract.args[0];
+                assert.deepEqual(contract.getData(), {sampleResult: stableData});
             });
         });
     });

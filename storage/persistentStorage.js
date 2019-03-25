@@ -393,20 +393,22 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
-         * @param {Buffer} buffAddress
+         * @param {Buffer | String} address
          * @param {Boolean} raw
          * @return {Promise<Contract | Buffer>}
          */
-        getContract(buffAddress, raw = false) {
-            typeforce(types.Address, buffAddress);
+        getContract(address, raw = false) {
+            typeforce(types.Address, address);
+
+            address = Buffer.isBuffer(address) ? address : Buffer.from(address, 'hex');
 
             return this._mutex.runExclusive(['contract'], async () => {
 
-                const key = createKey(CONTRACT_PREFIX, buffAddress);
+                const key = createKey(CONTRACT_PREFIX, address);
                 const buffData = await this._db.get(key).catch(err => debug(err));
                 if (!buffData) return undefined;
 
-                const contract = new Contract(buffData, buffAddress.toString('hex'));
+                const contract = new Contract(buffData, address.toString('hex'));
 
                 return raw ? buffData : contract;
             });

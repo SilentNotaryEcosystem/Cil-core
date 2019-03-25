@@ -145,4 +145,13 @@ describe('UTXO', () => {
         utxo.spendCoins(0);
         assert.equal(utxo.amountOut(), coins.getAmount() * utxo.getIndexes().length);
     });
+
+    it('should convert to Object', async () => {
+        const {utxo} = createDummyUtxo([12, 0, 431]);
+
+        const objResult = utxo.toObject();
+        assert.isOk(arrayEquals(Object.keys(objResult).map(key => parseInt(key)), [12, 0, 431]));
+        assert.isOk(Object.keys(objResult).every(key => typeof objResult[key].amount === 'number' &&
+                                                        typeof objResult[key].receiverAddr === 'string'));
+    });
 });

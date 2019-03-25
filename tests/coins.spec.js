@@ -18,6 +18,7 @@ describe('Coins', () => {
 
     it('should create Coins', async () => {
         new factory.Coins(10, generateAddress());
+        new factory.Coins(10, generateAddress().toString('hex'));
     });
 
     it('should pass coins EQUALITY', async () => {

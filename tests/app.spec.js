@@ -360,4 +360,28 @@ describe('Application layer', () => {
         assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
         assert.deepEqual(contract.getData(), {value: 117});
     });
+
+    it('should call "constant function"', async () => {
+        const groupId = 10;
+        const sampleResult = {a: 10, b: 20};
+        const contract = new factory.Contract({
+            contractData: {sampleResult},
+            contractCode: `{"test": "() {return this.sampleResult;}"}`,
+            groupId
+        });
+
+        const app = new factory.Application();
+        const result = await app.runContract(
+            1e10,
+            {method: 'test', arrArguments: []},
+            contract,
+            {},
+            undefined,
+            {},
+            true
+        );
+
+        assert.isOk(result);
+        assert.deepEqual(result, sampleResult);
+    });
 });

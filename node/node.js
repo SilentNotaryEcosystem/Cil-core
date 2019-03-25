@@ -845,6 +845,11 @@ module.exports = (factory, factoryOptions) => {
 
                     case 'getTx':
                         return await this._getTxForRpc(content);
+                    case 'constantMethodCall':
+                        return await this._constantMethodCallRpc(content);
+                    case 'getUnspent':
+                        const utxo = await this._storage.getUtxo(content);
+                        return utxo.toObject();
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -960,7 +965,16 @@ module.exports = (factory, factoryOptions) => {
 
                 // we fill it before invocation (from contract)
                 contractAddr: undefined,
-                balance: 0
+                balance: 0,
+                // TODO Fix it (when witness creates block this is unknown!)
+//                block: this._processedBlock ? {
+//                    hash: this._processedBlock.getHash(),
+//                    timestamp: this._processedBlock.timestamp
+//                } : {}
+                block: {
+                    hash: 'stub',
+                    timestamp: 'stub'
+                }
             };
 
             // get max contract fee
@@ -1133,6 +1147,9 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _execBlock(block) {
+
+            // since we executing only one block per time (mute) we could use global variable
+            this._processedBlock = block;
 
             // double check: whether we already processed this block?
             const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
@@ -1850,6 +1867,39 @@ module.exports = (factory, factoryOptions) => {
             const status = this._pendingBlocks.hasBlock(block.getHash()) ? 'in block' : 'confirmed';
 
             return formResult(objTx, status, block.getHash());
+        }
+
+        async _constantMethodCallRpc({method, arrArguments, contractAddress, completed}) {
+            typeforce(
+                typeforce.tuple(typeforce.String, typeforce.Array, types.StrAddress),
+                [method, arrArguments, contractAddress]
+            );
+
+            // allow use pending blocks data
+            completed = completed !== undefined;
+
+            let contract = await this._storage.getContract(contractAddress);
+            if (!contract) throw new Error(`Contract ${contractAddress} not found`);
+
+            if (!completed) {
+                const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getGroupId());
+                if (pendingContract) contract = pendingContract;
+            }
+
+            const newEnv = {
+                contractAddr: contract.getStoredAddress(),
+                balance: contract.getBalance()
+            };
+
+            return await this._app.runContract(
+                Number.MAX_SAFE_INTEGER,
+                {method, arrArguments},
+                contract,
+                newEnv,
+                undefined,
+                this._createCallbacksForApp(new PatchDB(), new PatchDB(), Crypto.randomBytes(32)),
+                true
+            );
         }
     };
 };

@@ -138,4 +138,19 @@ module.exports = ({Coins}, {utxoProto}) =>
                 return accum + coins.getAmount();
             }, 0);
         }
+
+        /**
+         * @returns {Object} {idx: {amount, receiverAddr}}
+         */
+        toObject() {
+            const objResult = {};
+            this._data.arrIndexes.forEach((idx, i) => {
+                const coins = this._data.arrOutputs[i];
+                objResult[idx] = {
+                    amount: coins.amount,
+                    receiverAddr: coins.receiverAddr.toString('hex')
+                };
+            });
+            return objResult;
+        }
     };

@@ -32,12 +32,14 @@ module.exports = ({Constants, Transaction}) =>
             if (rpcUser && rpcPass) this._server.enableAuth(rpcUser, rpcPass);
 
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
-            this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
+            this._server.expose('getTxReceipt', asyncRPC(this.getTxReceipt.bind(this)));
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
             this._server.expose('getNext', asyncRPC(this.getNext.bind(this)));
             this._server.expose('getPrev', asyncRPC(this.getPrev.bind(this)))
             this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
+            this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
+            this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -180,5 +182,25 @@ module.exports = ({Constants, Transaction}) =>
             });
 
             return prepareForStringifyObject(objTx);
+        }
+
+        async constantMethodCall(args) {
+            const objResult = await this._nodeInstance.rpcHandler({
+                event: 'constantMethodCall',
+                content: args
+            });
+
+            return prepareForStringifyObject(objResult);
+        }
+
+        async getUnspent(args) {
+            const {strTxHash} = args;
+
+            const objResult = await this._nodeInstance.rpcHandler({
+                event: 'getUnspent',
+                content: strTxHash
+            });
+
+            return prepareForStringifyObject(objResult);
         }
     };
