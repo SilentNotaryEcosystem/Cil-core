@@ -32,11 +32,11 @@ module.exports = ({Constants, Transaction}) =>
             if (rpcUser && rpcPass) this._server.enableAuth(rpcUser, rpcPass);
 
             this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
-            this._server.expose('getTxReceipt', asyncRPC(this.sendRawTx.bind(this)));
+            this._server.expose('getTxReceipt', asyncRPC(this.getTxReceipt.bind(this)));
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
             this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
-            this._server.expose('constantMethodCall', asyncRPC(this.getTx.bind(this)));
+            this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
