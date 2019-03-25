@@ -81,7 +81,7 @@ module.exports = ({Constants, Transaction}) =>
                     this._server.broadcastToWS(topic,
                         {
                             hash: result.block.getHash(),
-                            block: prepareForStringifyObject(result.block),
+                            block: prepareForStringifyObject(result.block.toObject()),
                             state: result.state
                         }
                     );
@@ -147,7 +147,7 @@ module.exports = ({Constants, Transaction}) =>
             });
             return arrBlockState.map(objBlockState => ({
                 hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block),
+                block: prepareForStringifyObject(objBlockState.block.toObject()),
                 state: objBlockState.state
             }));
         }
@@ -166,7 +166,7 @@ module.exports = ({Constants, Transaction}) =>
 
             return arrBlockState.map(objBlockState => ({
                 hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block),
+                block: prepareForStringifyObject(objBlockState.block.toObject()),
                 state: objBlockState.state
             }));
 
