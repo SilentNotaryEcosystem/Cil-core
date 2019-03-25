@@ -944,10 +944,15 @@ module.exports = (factory, factoryOptions) => {
                 // we fill it before invocation (from contract)
                 contractAddr: undefined,
                 balance: 0,
-                block: this._processedBlock ? {
-                    hash: this._processedBlock.getHash(),
-                    timestamp: this._processedBlock.timestamp
-                } : {}
+                // TODO Fix it (when witness creates block this is unknown!)
+//                block: this._processedBlock ? {
+//                    hash: this._processedBlock.getHash(),
+//                    timestamp: this._processedBlock.timestamp
+//                } : {}
+                block: {
+                    hash: 'stub',
+                    timestamp: 'stub'
+                }
             };
 
             // get max contract fee
