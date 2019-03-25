@@ -9,7 +9,7 @@ module.exports = () =>
 
             this._data = {
                 amount,
-                receiverAddr
+                receiverAddr: Buffer.isBuffer(receiverAddr) ? receiverAddr : Buffer.from(receiverAddr, 'hex')
             };
         }
 
