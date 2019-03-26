@@ -11,8 +11,8 @@ const {sleep} = require('../../utils');
 process.on('warning', e => console.warn(e.stack));
 
 // set to undefined to use random delays
-const delay = undefined;
-//const delay = 10;
+//const delay = undefined;
+const delay = 10;
 //const maxConnections = 2;
 const maxConnections = 4;
 //const maxConnections = os.platform() === 'win32' ? 4 : 8;

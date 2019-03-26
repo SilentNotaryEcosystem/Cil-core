@@ -204,7 +204,7 @@ describe('Contract integration tests', () => {
 
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({}));
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK}));
 
         const patch = new factory.PatchDB();
         patch.getContract = () => new factory.Contract({}, buffContractAddr.toString('hex'));
