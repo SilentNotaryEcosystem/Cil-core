@@ -67,10 +67,7 @@ module.exports = (factory) => {
                 addresses = addresses.concat(
                     interfaces[interfaceName]
                         .filter(iface => iface.family === 'IPv6' && iface.internal === false)
-                        .map(iface => {
-                            const addr = ipaddr.parse(iface.address);
-                            return addr.range() === 'linkLocal' ? `${iface.address}%${interfaceName}` : iface.address;
-                        })
+                        .map(iface => iface.address)
                 );
             }
             return addresses;
@@ -122,8 +119,9 @@ module.exports = (factory) => {
         }
 
         static isRoutableIpV6Address(address) {
+            const arrLocalRanges = ['uniqueLocal', 'linkLocal'];
             let addr = typeof address === 'string' ? ipaddr.parse(address) : address;
-            if (addr.kind() !== 'ipv6') return false;
+            if (addr.kind() !== 'ipv6' || arrLocalRanges.includes(addr.range())) return false;
 
             if (addr.isIPv4MappedAddress()) {
                 addr = addr.toIPv4Address();
