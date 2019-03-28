@@ -916,6 +916,10 @@ module.exports = (factory, factoryOptions) => {
 
                     // process contract creation/invocation
                     fee = await this._processContract(isGenesis, contract, tx, patchThisTx, patchForBlock, totalHas);
+                    const receipt = patchThisTx.getReceipt(tx.getHash());
+                    if (!receipt || !receipt.isSuccessful()) {
+                        throw new Error(`Tx ${tx.hash()} contract invocation failed`);
+                    }
                 } else {
 
                     // regular payment

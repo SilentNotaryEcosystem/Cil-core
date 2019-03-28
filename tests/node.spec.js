@@ -1871,8 +1871,10 @@ describe('Node tests', () => {
 
             const contract = new factory.Contract({});
             contract.storeAddress(generateAddress());
-            node._app.createContract =
-                sinon.fake.returns({contract, receipt: new factory.TxReceipt({coinsUsed: 1000})});
+            node._app.createContract = sinon.fake.returns({
+                contract,
+                receipt: new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK})
+            });
 
             // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
             await node._processTx(undefined, true, tx);
@@ -1889,7 +1891,8 @@ describe('Node tests', () => {
 
             node._storage.getContract =
                 sinon.fake.returns(new factory.Contract({groupId}, contractAddr.toString('hex')));
-            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+            node._app.runContract =
+                sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK}));
 
             // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
             await node._processTx(undefined, true, tx);
@@ -1934,7 +1937,9 @@ describe('Node tests', () => {
             node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+            node._app.runContract = sinon.fake.returns(
+                new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK})
+            );
 
             await node._processTx(undefined, false, tx);
 
@@ -1960,7 +1965,9 @@ describe('Node tests', () => {
             node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed}));
+            node._app.runContract = sinon.fake.returns(
+                new factory.TxReceipt({coinsUsed, status: factory.Constants.TX_STATUS_OK})
+            );
 
             const {fee, patchThisTx} = await node._processTx(undefined, false, tx);
 
@@ -1980,7 +1987,9 @@ describe('Node tests', () => {
             node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+            node._app.runContract = sinon.fake.returns(
+                new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK})
+            );
 
             const {fee, patchThisTx} = await node._processTx(undefined, false, tx);
 
@@ -1995,7 +2004,8 @@ describe('Node tests', () => {
 
             node._storage.getContract =
                 sinon.fake.returns(new factory.Contract({groupId}, buffContractAddr.toString('hex')));
-            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+            node._app.runContract =
+                sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK}));
 
             const tx = factory.Transaction.invokeContract(
                 generateAddress().toString('hex'),

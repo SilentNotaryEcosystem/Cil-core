@@ -84,7 +84,12 @@ describe('Contract integration tests', () => {
         assert.isOk(changeTxHash);
         const changeUxo = patchTx.getUtxo(changeTxHash);
         assert.isOk(changeUxo);
-        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
+
+        const expectedChange = nCoinsIn -
+                               factory.Constants.fees.CONTRACT_FEE -
+                               contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
+
+        assert.equal(changeUxo.amountOut(), expectedChange);
 
         // no UTXO created for transferred coins
         assert.isNotOk(patchTx.getUtxo(tx.getHash()));
@@ -204,7 +209,7 @@ describe('Contract integration tests', () => {
 
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({}));
+        node._app.runContract = sinon.fake.returns(new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK}));
 
         const patch = new factory.PatchDB();
         patch.getContract = () => new factory.Contract({}, buffContractAddr.toString('hex'));
@@ -293,6 +298,18 @@ describe('Contract integration tests', () => {
 
             assert.equal(contract.getData()._ownerAddress, kp.address);
             assert.equal(contract.getData()._contractAddr, receipt.getContractAddress());
+
+            // change transferred as internal TX
+            assert.equal(receipt.getInternalTxns().length, 1);
+            const [changeTxHash] = receipt.getInternalTxns();
+            assert.isOk(changeTxHash);
+            const changeUxo = patchTx.getUtxo(changeTxHash);
+            assert.isOk(changeUxo);
+            const expectedChange = nCoinsIn -
+                                   factory.Constants.fees.CONTRACT_FEE -
+                                   contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
+
+            assert.equal(changeUxo.amountOut(), expectedChange);
         }
 
         const contractDataSize = contract.getDataSize();
