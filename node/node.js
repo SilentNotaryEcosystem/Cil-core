@@ -2,7 +2,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 
 const debugLib = require('debug');
-const {sleep} = require('../utils');
+const {sleep, prepareForStringifyObject} = require('../utils');
 const types = require('../types');
 const Tick = require('tick-tock');
 
@@ -811,8 +811,9 @@ module.exports = (factory, factoryOptions) => {
                     case 'getBlock':
 
                         // content is hash
-                        return await this._getBlockAndState(content);
-                    case 'getTips':
+                        const blockAndState = await this._getBlockAndState(content).catch(err => debugNode(err));
+                        return this._prepareBlockAndStateForRpc(blockAndState);
+                    case 'getTips': {
                         let arrHashes = this._pendingBlocks.getTips();
 
                         if (!arrHashes || !arrHashes.length) {
@@ -820,29 +821,33 @@ module.exports = (factory, factoryOptions) => {
                         }
                         if (!arrHashes) return [];
 
-                        return await Promise.all(
+                        const arrBlockAndState = await Promise.all(
                             arrHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
-                    case 'getNext':
+                        return arrBlockAndState.map(objBlockState=> this._prepareBlockAndStateForRpc(objBlockState));
+                    }
+                    case 'getNext': {
                         let arrChildHashes = this._mainDag.getChildren(content);
                         if(!arrChildHashes || !arrChildHashes.length) {
                             arrChildHashes = this._pendingBlocks.getDag().edgesTo(content).tips;
                         }
                         if (!arrChildHashes) return [];
-                        return await Promise.all(
+                        const arrBlockAndState = await Promise.all(
                             arrChildHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
-                    case 'getPrev':
+                        return arrBlockAndState.map(objBlockState=> this._prepareBlockAndStateForRpc(objBlockState));
+                    }
+                    case 'getPrev': {
                         let cBlockInfo = this._mainDag.getBlockInfo(content);
-                        if(!cBlockInfo) {
+                        if (!cBlockInfo) {
                             cBlockInfo = this._pendingBlocks.getDag().readObj(content).blockHeader;
                         }
-                        if(!cBlockInfo) return [];
-                        return await Promise.all(   
+                        if (!cBlockInfo) return [];
+                        const arrBlockAndState = await Promise.all(
                             cBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
-
                         );
-
+                        return arrBlockAndState.map(objBlockState => this._prepareBlockAndStateForRpc(objBlockState));
+                    }
                     case 'getTx':
                         return await this._getTxForRpc(content);
                     case 'constantMethodCall':
@@ -858,7 +863,19 @@ module.exports = (factory, factoryOptions) => {
                 throw e;
             }
         }
-
+        /**
+         * 
+         * @param {Object} blockAndState 
+         * @returns {Object} | undefined - prepared block & state for rpc
+         * @private
+         */
+        _prepareBlockAndStateForRpc(blockAndState) {
+            return blockAndState ? {
+                hash: blockAndState.block.getHash(),
+                block: prepareForStringifyObject(blockAndState.block.toObject()),
+                state: blockAndState.state
+            } : undefined;
+        }
         /**
          *
          * @param {Transaction} tx
@@ -1252,7 +1269,7 @@ module.exports = (factory, factoryOptions) => {
             // 8 = Constants.FINAL_BLOCK !!!
             if (this._rpc) {
                 this._rpc.informWsSubscribers('stateChanged',
-                {state: 8, arrHashes: Array.from(setStableBlocks.keys())});
+                {state: 8, hashes: Array.from(setStableBlocks.keys())});
             }
         }
 
@@ -1297,7 +1314,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._rpc) {
                 const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
-                this._rpc.informWsSubscribers('newBlock', blockAndState);
+                this._rpc.informWsSubscribers('newBlock', this._prepareBlockAndStateForRpc(blockAndState));
             }
         }
 
@@ -1837,7 +1854,8 @@ module.exports = (factory, factoryOptions) => {
                 cBlock = await this._storage.getBlock(hash);
             }
             catch (err) {
-                return {};
+                throw new Error(`Block ${hash} not found in storage`);
+
             }
             const blockInfo = this._mainDag.getBlockInfo(hash);
 

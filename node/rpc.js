@@ -78,25 +78,7 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         informWsSubscribers(topic, result) {
-            switch (topic) {
-                case 'newBlock':
-                    this._server.broadcastToWS(topic,
-                        {
-                            hash: result.block.getHash(),
-                            block: prepareForStringifyObject(result.block.toObject()),
-                            state: result.state
-                        }
-                    );
-                    break;
-                case 'stateChanged':
-                    this._server.broadcastToWS(topic,
-                        {
-                            state: result.state,
-                            hashes: result.arrHashes
-                        }
-                    );
-                    break;
-            }
+            this._server.broadcastToWS(topic, result);
         }
 
         /**
@@ -113,14 +95,8 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getBlock',
                 content: strBlockHash
             });
-
-            return result ? {
-                hash: result.block.getHash(),
-                block: prepareForStringifyObject(result.block.toObject()),
-                state: result.state
-            } : undefined;
+            return result;
         }
-
         /**
          *
          * @returns {Promise<Array>} of blockInfos (headers)
@@ -129,12 +105,7 @@ module.exports = ({Constants, Transaction}) =>
             const arrBlockState = await this._nodeInstance.rpcHandler({
                 event: 'getTips'
             });
-
-            return arrBlockState.map(objBlockState => ({
-                hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block.toObject()),
-                state: objBlockState.state
-            }));
+            return arrBlockState;
         }
         /**
          *
@@ -147,11 +118,7 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getNext',
                 content: strBlockHash
             });
-            return arrBlockState.map(objBlockState => ({
-                hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block.toObject()),
-                state: objBlockState.state
-            }));
+            return arrBlockState;
         }
         /**
          *
@@ -165,13 +132,7 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getPrev',
                 content: strBlockHash
             });
-
-            return arrBlockState.map(objBlockState => ({
-                hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block.toObject()),
-                state: objBlockState.state
-            }));
-
+            return arrBlockState;
         }
         async getTx(args) {
             const {strTxHash} = args;
