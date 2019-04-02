@@ -1154,7 +1154,7 @@ describe('Node tests', () => {
         const [topic, objData] = fake.args[0];
 
         assert.equal(topic, 'newBlock');
-        assert.deepEqual(objData, blockAndState);
+        assert.deepEqual(objData, node._prepareBlockAndStateForRpc(blockAndState));
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
@@ -1232,7 +1232,8 @@ describe('Node tests', () => {
 
             const state = 21;
             const cBlock = createDummyBlock(factory);
-            const getBlockFake = sinon.fake.resolves({block: cBlock, state});
+            const blockAndState = {block: cBlock, state};
+            const getBlockFake = sinon.fake.resolves(blockAndState);
             node._getBlockAndState = getBlockFake;
 
             const objResult = await node.rpcHandler({event: 'getBlock', content: cBlock.getHash()});
@@ -1241,12 +1242,7 @@ describe('Node tests', () => {
 
             assert.isOk(objResult);
             assert.deepEqual(
-                prepareForStringifyObject(objResult),
-                {
-                    block: prepareForStringifyObject(cBlock),
-                    state
-                }
-            );
+                objResult, node._prepareBlockAndStateForRpc(blockAndState));
         });
 
         it('should get prev blocks', async () => {
@@ -1262,17 +1258,20 @@ describe('Node tests', () => {
                 }
             );
             const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[8]);
+            const result = {
+                hash:arrExpectedHashes[8],
+                block:prepareForStringifyObject(pBlockInfo),
+                state:8
+            }
             node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
-            const [objResult] = await node.rpcHandler({event: 'getPrev', content: arrExpectedHashes[9]});
-            
-            assert.isOk(objResult);
-            assert.deepEqual(
-                prepareForStringifyObject(objResult),
-                {
-                    block: prepareForStringifyObject(pBlockInfo),
-                    state: 8
-                }
+
+            node._prepareBlockAndStateForRpc = sinon.fake.returns(
+                result
             );
+
+            const [objResult] = await node.rpcHandler({event: 'getPrev', content: arrExpectedHashes[9]});
+            assert.isOk(objResult);
+            assert.deepEqual(objResult, result);
         });
 
         it('should get next blocks', async () => {
@@ -1288,17 +1287,19 @@ describe('Node tests', () => {
                 }
             );
             const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[9]);
+            const result = {
+                hash:arrExpectedHashes[9],
+                block:prepareForStringifyObject(pBlockInfo),
+                state:8
+            }
             node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
+            node._prepareBlockAndStateForRpc = sinon.fake.returns(
+                result
+            );
             const [objResult] = await node.rpcHandler({event: 'getNext', content: arrExpectedHashes[8]});
             
             assert.isOk(objResult);
-            assert.deepEqual(
-                prepareForStringifyObject(objResult),
-                {
-                    block: prepareForStringifyObject(pBlockInfo),
-                    state: 8
-                }
-            );
+            assert.deepEqual(objResult, result);
         });
 
         it('should get TIPS', async () => {
@@ -1313,20 +1314,19 @@ describe('Node tests', () => {
                     node._mainDag.addBlock(bi);
                 }
             );
-
-            node._storage.getBlock = sinon.fake.resolves(node._mainDag.getBlockInfo(arrExpectedHashes[9]));
-
+            const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[9]);
+            const result = {
+                hash:arrExpectedHashes[9],
+                block:prepareForStringifyObject(pBlockInfo),
+                state:8
+            }
+            node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
+            node._prepareBlockAndStateForRpc = sinon.fake.returns(
+                result
+            );
             const [objOneTip] = await node.rpcHandler({event: 'getTips'});
             assert.isOk(objOneTip);
-            assert.deepEqual(
-                prepareForStringifyObject(objOneTip),
-                {
-                    block: prepareForStringifyObject(node._mainDag.getBlockInfo(arrExpectedHashes[9])),
-
-                    // FINAL_BLOCK @see BlockInfo.js
-                    state: 8
-                }
-            );
+            assert.deepEqual(objOneTip, result);
         });
 
         it('should get one TIP', async () => {
@@ -1337,13 +1337,14 @@ describe('Node tests', () => {
             const state = 12;
 
             const expectedResult = {
-                block: prepareForStringifyObject(block),
+                hash:block.getHash(),
+                block: prepareForStringifyObject(block.toObject()),
                 state
             };
 
             node._storage.getLastAppliedBlockHashes = sinon.fake.resolves(['dead']);
             node._getBlockAndState = sinon.fake.resolves({
-                block: prepareForStringifyObject(block),
+                block: block,
                 state
             });
 

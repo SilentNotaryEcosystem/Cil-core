@@ -102,18 +102,48 @@ describe('RPC', () => {
     it('should get block', async () => {
         const state = 12;
         const block = createDummyBlock(factory);
+        const strBlockHash = block.getHash();
         const getBlockResults = {
-            block,
+            hash: strBlockHash,
+            block: prepareForStringifyObject(block.toObject()),
             state
         };
+        node = {
+            rpcHandler: sinon.fake.resolves(getBlockResults)
+        };
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+
+        const result = await rpc.getBlock({strBlockHash});
+
+        // prepareForStringifyObject(fakeResult) will strip functions from fake
+        assert.deepEqual(
+            prepareForStringifyObject(result),
+            {
+                block: prepareForStringifyObject(block.toObject()),
+                hash: strBlockHash,
+                state
+            }
+        );
+    });
+
+    it('should get prev block', async () => {
+        const state = 12;
+        const block = createDummyBlock(factory);
+        
+        const strBlockHash = pseudoRandomBuffer().toString('hex');
+
+        const getBlockResults = [{
+            hash: block.getHash(),
+            block: prepareForStringifyObject(block.toObject()),
+            state
+        }];
 
         node = {
             rpcHandler: sinon.fake.resolves(getBlockResults)
         };
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
-        const strBlockHash = pseudoRandomBuffer().toString('hex');
 
-        const result = await rpc.getBlock({strBlockHash});
+        const [result] = await rpc.getPrev({strBlockHash});
 
         // prepareForStringifyObject(fakeResult) will strip functions from fake
         assert.deepEqual(
@@ -129,8 +159,11 @@ describe('RPC', () => {
     it('should get prev block', async () => {
         const state = 12;
         const block = createDummyBlock(factory);
+        const strBlockHash = pseudoRandomBuffer().toString('hex');
+
         const getBlockResults = [{
-            block,
+            hash: block.getHash(),
+            block: prepareForStringifyObject(block.toObject()),
             state
         }];
 
@@ -138,34 +171,6 @@ describe('RPC', () => {
             rpcHandler: sinon.fake.resolves(getBlockResults)
         };
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
-        const strBlockHash = pseudoRandomBuffer().toString('hex');
-
-        const [result] = await rpc.getPrev({strBlockHash});
-
-        // prepareForStringifyObject(fakeResult) will strip functions from fake
-        assert.deepEqual(
-            prepareForStringifyObject(result),
-            {
-                block: prepareForStringifyObject(block),
-                hash: block.getHash(),
-                state
-            }
-        );
-    });
-
-    it('should get prev block', async () => {
-        const state = 12;
-        const block = createDummyBlock(factory);
-        const getBlockResults = [{
-            block,
-            state
-        }];
-
-        node = {
-            rpcHandler: sinon.fake.resolves(getBlockResults)
-        };
-        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
-        const strBlockHash = pseudoRandomBuffer().toString('hex');
 
         const [result] = await rpc.getNext({strBlockHash});
 
@@ -173,7 +178,7 @@ describe('RPC', () => {
         assert.deepEqual(
             prepareForStringifyObject(result),
             {
-                block: prepareForStringifyObject(block),
+                block: prepareForStringifyObject(block.toObject()),
                 hash: block.getHash(),
                 state
             }
@@ -185,17 +190,14 @@ describe('RPC', () => {
         const block2 = createDummyBlock(factory);
 
         const state = 12;
-        const fakeRpcHandler = [
-            {block: block1, state},
-            {block: block2, state}
-        ];
+        
 
         const expectedResults = [
-            {hash: block1.getHash(), block: block1.toObject(), state},
-            {hash: block2.getHash(), block: block2.toObject(), state}
+            {hash: block1.getHash(), block: prepareForStringifyObject(block1.toObject()), state},
+            {hash: block2.getHash(), block: prepareForStringifyObject(block2.toObject()), state}
         ];
         const node = {
-            rpcHandler: sinon.fake.resolves(fakeRpcHandler)
+            rpcHandler: sinon.fake.resolves(expectedResults)
         };
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
 
