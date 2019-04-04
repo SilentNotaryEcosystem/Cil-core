@@ -379,7 +379,6 @@ module.exports = (factory, factoryOptions) => {
             }
 
             const lock = await this._mutex.acquire([`blockReceived`]);
-            debugNode('Lock acquired');
             try {
                 await this._verifyBlock(block);
 
@@ -395,7 +394,6 @@ module.exports = (factory, factoryOptions) => {
                 peer.misbehave(10);
                 throw e;
             } finally {
-                debugNode('Lock released');
                 this._mutex.release(lock);
             }
         }
