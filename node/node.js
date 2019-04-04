@@ -811,8 +811,7 @@ module.exports = (factory, factoryOptions) => {
                     case 'getBlock':
 
                         // content is hash
-                        const blockAndState = await this._getBlockAndState(content).catch(err => debugNode(err));
-                        return this._prepareBlockAndStateForRpc(blockAndState);
+                        return await this._getBlockAndState(content).catch(err => debugNode(err));
                     case 'getTips': {
                         let arrHashes = this._pendingBlocks.getTips();
 
@@ -821,32 +820,29 @@ module.exports = (factory, factoryOptions) => {
                         }
                         if (!arrHashes) return [];
 
-                        const arrBlockAndState = await Promise.all(
+                        return await Promise.all(
                             arrHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
-                        return arrBlockAndState.map(objBlockState=> this._prepareBlockAndStateForRpc(objBlockState));
                     }
                     case 'getNext': {
                         let arrChildHashes = this._mainDag.getChildren(content);
                         if(!arrChildHashes || !arrChildHashes.length) {
-                            arrChildHashes = this._pendingBlocks.getDag().edgesTo(content).tips;
+                            arrChildHashes = this._pendingBlocks.getChildren(content);
                         }
                         if (!arrChildHashes) return [];
-                        const arrBlockAndState = await Promise.all(
+                        return await Promise.all(
                             arrChildHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
-                        return arrBlockAndState.map(objBlockState=> this._prepareBlockAndStateForRpc(objBlockState));
                     }
                     case 'getPrev': {
                         let cBlockInfo = this._mainDag.getBlockInfo(content);
                         if (!cBlockInfo) {
-                            cBlockInfo = this._pendingBlocks.getDag().readObj(content).blockHeader;
+                            cBlockInfo = this._pendingBlocks.getBlock(content).blockHeader;
                         }
                         if (!cBlockInfo) return [];
-                        const arrBlockAndState = await Promise.all(
+                        return await Promise.all(
                             cBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
                         );
-                        return arrBlockAndState.map(objBlockState => this._prepareBlockAndStateForRpc(objBlockState));
                     }
                     case 'getTx':
                         return await this._getTxForRpc(content);
@@ -1266,7 +1262,6 @@ module.exports = (factory, factoryOptions) => {
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
             }
-            // 8 = Constants.FINAL_BLOCK !!!
             if (this._rpc) {
                 this._rpc.informWsSubscribers('stateChanged',
                 {state: 8, hashes: Array.from(setStableBlocks.keys())});
@@ -1314,7 +1309,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._rpc) {
                 const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
-                this._rpc.informWsSubscribers('newBlock', this._prepareBlockAndStateForRpc(blockAndState));
+                this._rpc.informWsSubscribers('newBlock', blockAndState);
             }
         }
 
@@ -1854,8 +1849,7 @@ module.exports = (factory, factoryOptions) => {
                 cBlock = await this._storage.getBlock(hash);
             }
             catch (err) {
-                throw new Error(`Block ${hash} not found in storage`);
-
+                return {};
             }
             const blockInfo = this._mainDag.getBlockInfo(hash);
 

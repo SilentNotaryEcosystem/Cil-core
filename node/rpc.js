@@ -78,7 +78,25 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         informWsSubscribers(topic, result) {
-            this._server.broadcastToWS(topic, result);
+            switch (topic) {
+                case 'newBlock':
+                    this._server.broadcastToWS(topic,
+                        {
+                            hash: result.block.getHash(),
+                            block: prepareForStringifyObject(result.block.toObject()),
+                            state: result.state
+                        }
+                    );
+                    break;
+                case 'stateChanged':
+                    this._server.broadcastToWS(topic,
+                        {
+                            state: result.state,
+                            hashes: result.hashes
+                        }
+                    );
+                    break;
+            }
         }
 
         /**
@@ -95,6 +113,11 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getBlock',
                 content: strBlockHash
             });
+            return result ? {
+                hash: result.block.getHash(),
+                block: prepareForStringifyObject(result.block.toObject()),
+                state: result.state
+            } : undefined;
             return result;
         }
         /**
@@ -105,7 +128,13 @@ module.exports = ({Constants, Transaction}) =>
             const arrBlockState = await this._nodeInstance.rpcHandler({
                 event: 'getTips'
             });
-            return arrBlockState;
+
+            return arrBlockState.map(objBlockState => ({
+                hash: objBlockState.block.getHash(),
+                block: prepareForStringifyObject(objBlockState.block.toObject()),
+                state: objBlockState.state
+            }));
+            //return arrBlockState;
         }
         /**
          *
@@ -118,7 +147,11 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getNext',
                 content: strBlockHash
             });
-            return arrBlockState;
+            return arrBlockState.map(objBlockState => ({
+                hash: objBlockState.block.getHash(),
+                block: prepareForStringifyObject(objBlockState.block.toObject()),
+                state: objBlockState.state
+            }));
         }
         /**
          *
@@ -132,7 +165,11 @@ module.exports = ({Constants, Transaction}) =>
                 event: 'getPrev',
                 content: strBlockHash
             });
-            return arrBlockState;
+            return arrBlockState.map(objBlockState => ({
+                hash: objBlockState.block.getHash(),
+                block: prepareForStringifyObject(objBlockState.block.toObject()),
+                state: objBlockState.state
+            }));
         }
         async getTx(args) {
             const {strTxHash} = args;

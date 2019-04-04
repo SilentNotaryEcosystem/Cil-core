@@ -79,6 +79,23 @@ module.exports = (factory) => {
         }
 
         /**
+         * @param {String} blockHash
+         * @returns {Array}  of blocks that are children of a block with hash
+         */
+        getChildren(hash) {
+            typeforce(types.Str64, hash);
+            return this._dag.edgesTo(hash).tips;
+        }
+
+        /**
+         * @param {String} blockHash
+         */
+        getBlock(hash) {
+            typeforce(types.Str64, hash);
+            return this._dag.readObj(hash);
+        }
+
+        /**
          * It will check "compatibility" of tips (ability to merge patches)
          *
          * @returns {arrParents}

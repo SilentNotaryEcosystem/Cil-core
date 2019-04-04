@@ -28,7 +28,7 @@
     "sinon": "^6.3.5"
   },
   "scripts": {
-    "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "test": "mocha --exit ./tests/rpc.spec.js ./tests/**/*.spec1.js",
     "testDebugWin": "set DEBUG=*,-mocha:* && mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
     "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
   }
