@@ -207,4 +207,36 @@ describe('RPC', () => {
 
         assert.deepEqual(resp, objExpected);
     });
+
+    it('should pass walletListUnspent', async () => {
+        const objExpected = [
+            {
+                hash:
+                    '3de6e42d0000000000000000000000008020ec0300000000b01fec0300000000',
+                nOut: 0,
+                amount: 100000
+            },
+            {
+                hash:
+                    '3de6e42d0000000000000000000000008020ec0300000000b01fec0300000000',
+                nOut: 5,
+                amount: 100000
+            },
+            {
+                hash:
+                    '3de6e42d0000000000000000000000008020ec0300000000b01fec0300000000',
+                nOut: 2,
+                amount: 100000
+            }];
+        const node = {
+            rpcHandler: sinon.fake.resolves(objExpected)
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        const resp = await rpc.walletListUnspent({
+            strAddress: generateAddress().toString('hex')
+        });
+
+        assert.deepEqual(resp, objExpected);
+    });
 });

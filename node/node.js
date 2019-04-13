@@ -828,6 +828,19 @@ module.exports = (factory, factoryOptions) => {
                     case 'getUnspent':
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
+                    case 'walletListUnspent':
+
+                        // TODO: add pendingBlock checks here!
+                        const arrUtxos = await this._storage.walletListUnspent(content);
+                        const arrResult = [];
+                        arrUtxos.forEach(utxo => {
+                            utxo
+                                .getOutputsForAddress(content)
+                                .forEach(([idx, coins]) => {
+                                    arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount()});
+                                });
+                        });
+                        return arrResult;
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }

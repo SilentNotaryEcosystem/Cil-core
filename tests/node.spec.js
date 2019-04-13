@@ -1334,7 +1334,7 @@ describe('Node tests', () => {
                                                             typeof objResult[key].receiverAddr === 'string'));
         });
 
-        describe('getTX', () => {
+        describe('getTX', async () => {
             let node;
             let strHash;
 
@@ -1408,7 +1408,7 @@ describe('Node tests', () => {
             });
         });
 
-        describe('constantMethodCall', () => {
+        describe('constantMethodCall', async () => {
             let node;
 
             beforeEach(async () => {
@@ -1479,6 +1479,37 @@ describe('Node tests', () => {
                 assert.isOk(node._app.runContract.calledOnce);
                 const [, , contract] = node._app.runContract.args[0];
                 assert.deepEqual(contract.getData(), {sampleResult: stableData});
+            });
+        });
+
+        describe('walletListUnspent', async () => {
+            let node;
+
+            beforeEach(async () => {
+                node = new factory.Node();
+                await node.ensureLoaded();
+            });
+
+            it('should get stable UTXOS', async () => {
+                const addr = generateAddress();
+                const coins = new factory.Coins(1e5, addr);
+
+                const arrOutputs = [0, 5, 2];
+                const utxo1 = new factory.UTXO({txHash: pseudoRandomBuffer()});
+                utxo1.addCoins(arrOutputs[0], coins);
+                utxo1.addCoins(arrOutputs[1], coins);
+                utxo1.addCoins(arrOutputs[2], coins);
+
+                node._storage.walletListUnspent = sinon.fake.resolves([utxo1]);
+
+                const arrResult = await node.rpcHandler({event: 'walletListUnspent', content: addr.toString('hex')});
+
+                assert.isOk(Array.isArray(arrResult));
+                assert.equal(arrResult.length, 3);
+                assert.isOk(arrResult.every(
+                    e => e.hash === utxo1.getTxHash() && arrOutputs.includes(e.nOut) && e.amount === coins.getAmount()
+                ));
+                console.dir(arrResult, {colors: true, depth: null});
             });
         });
     });
