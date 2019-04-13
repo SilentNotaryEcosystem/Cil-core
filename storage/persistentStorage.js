@@ -17,17 +17,23 @@ const CONTRACT_PREFIX = 'S';
 const RECEIPT_PREFIX = 'R';
 const LAST_APPLIED_BLOCKS = 'FINAL';
 const PENDING_BLOCKS = 'PENDING';
+const WALLET_PREFIX = 'w';
+const WALLET_ADDRESSES = 'WALLETS';
+const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
 
 /**
  *
  * @param {String} strPrefix
  * @param {Buffer | undefined} buffKey
+ * @param {Buffer | String} suffix
  * @returns {Buffer}
  */
-const createKey = (strPrefix, buffKey) => {
+const createKey = (strPrefix, buffKey, suffix = Buffer.from([])) => {
+
+    suffix = Buffer.isBuffer(suffix) ? suffix : Buffer.from(suffix);
 
     // Attention! no 'hex' encoding for strPrefix!!!!
-    return buffKey ? Buffer.concat([Buffer.from(strPrefix), buffKey]) : Buffer.from(strPrefix);
+    return buffKey ? Buffer.concat([Buffer.from(strPrefix), buffKey, suffix]) : Buffer.from(strPrefix);
 };
 
 /**
@@ -49,7 +55,7 @@ const eraseDbContent = (db) => {
 
 module.exports = (factory, factoryOptions) => {
     const {
-        Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract,
+        Constants, Block, BlockInfo, UTXO, ArrayOfHashes, ArrayOfAddresses, Contract,
         TxReceipt, WitnessGroupDefinition, Peer, PatchDB
     } = factory;
 
@@ -60,7 +66,7 @@ module.exports = (factory, factoryOptions) => {
                 ...options
             };
 
-            const {testStorage, buildTxIndex, dbPath, mutex} = options;
+            const {testStorage, buildTxIndex, walletSupport, dbPath, mutex} = options;
             assert(mutex, 'Storage constructor requires Mutex instance!');
 
             let downAdapter;
@@ -86,6 +92,12 @@ module.exports = (factory, factoryOptions) => {
             if (buildTxIndex) {
                 this._buildTxIndex = true;
                 this._txIndexStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
+            }
+
+            // TODO: make it persistent after adding first address/key to wallet?
+            if (walletSupport) {
+                this._walletSupport = true;
+                this._walletStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_WALLET_DIR}`));
             }
 
             this._mutex = mutex;
@@ -345,6 +357,8 @@ module.exports = (factory, factoryOptions) => {
                     } else {
                         arrOps.push({type: 'put', key, value: utxo.encode()});
                     }
+
+                    if (this._walletSupport) await this._walletUtxoCheck(utxo);
                 }
 
                 // save contracts
@@ -513,5 +527,129 @@ module.exports = (factory, factoryOptions) => {
             }
             return undefined;
         }
+
+        async _ensureWalletInitialized() {
+            if (!this._walletSupport) throw ('Wallet support is disabled');
+
+            if (Array.isArray(this._arrStrWalletAddresses)) return;
+
+            try {
+                const buffResult = await this._walletStorage.get(createKey(WALLET_ADDRESSES));
+                this._arrStrWalletAddresses =
+                    buffResult && Buffer.isBuffer(buffResult) ? (new ArrayOfAddresses(buffResult)).getArray() : [];
+            } catch (e) {
+                this._arrStrWalletAddresses = [];
+            }
+
+            try {
+                const buffResult = await this._walletStorage.get(createKey(WALLET_AUTOINCREMENT));
+                this._nWalletAutoincrement = buffResult.readUInt32BE();
+            } catch (e) {
+                this._nWalletAutoincrement = 0;
+            }
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @return {Promise<Object>} {key, value: hash of utxo}
+         * @private
+         */
+        _walletReadAddressRecords(strAddress) {
+            typeforce(types.StrAddress, strAddress);
+
+            const strLastIndex = new Array(10).fill('9').join('');
+
+            const buffAddress = Buffer.from(strAddress, 'hex');
+            const keyStart = createKey(WALLET_PREFIX, buffAddress);
+
+            const keyEnd = createKey(WALLET_PREFIX, buffAddress, strLastIndex);
+
+            return new Promise(resolve => {
+                    const arrRecords = [];
+                    this._walletStorage
+                        .createReadStream({gte: keyStart, lte: keyEnd, keyAsBuffer: true, valueAsBuffer: true})
+                        .on('data', (data) => arrRecords.push(data))
+                        .on('close', () => resolve(arrRecords));
+                }
+            );
+        }
+
+        async _walletWriteAddressUtxo(address, strHash) {
+            typeforce(typeforce.tuple(types.Address, types.Hash256bit), [address, strHash]);
+            await this._ensureWalletInitialized();
+
+            const currentIdx = this._nWalletAutoincrement++;
+
+            // prepare incremented value
+            const buff = Buffer.allocUnsafe(4);
+            buff.writeInt32BE(this._nWalletAutoincrement, 0);
+
+            // store hash & autoincrement
+            const key = createKey(WALLET_PREFIX, Buffer.from(address, 'hex'), currentIdx.toString());
+            await this._walletStorage
+                .batch()
+                .put(createKey(WALLET_AUTOINCREMENT), buff)
+                .put(key, Buffer.from(strHash, 'hex'))
+                .write();
+        }
+
+        async _walletCleanupMissed(arrBadKeys) {
+            const arrOps = arrBadKeys.map(key => ({type: 'del', key}));
+            await this._walletStorage.batch(arrOps);
+        }
+
+        async _walletUtxoCheck(utxo) {
+            await this._ensureWalletInitialized();
+            for (let strAddress of this._arrStrWalletAddresses) {
+                const arrResult = utxo.getOutputsForAddress(strAddress);
+                if (arrResult.length) {
+                    await this._walletWriteAddressUtxo(strAddress, utxo.getTxHash());
+                }
+            }
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @return {Promise<Array>} of UTXO that have coins of strAddress
+         */
+        async walletListUnspent(strAddress) {
+            await this._ensureWalletInitialized();
+            typeforce(types.Address, strAddress);
+
+            assert(this._arrStrWalletAddresses.includes(strAddress), `${strAddress} not in wallet!`);
+
+            const arrAddrRecords = await this._walletReadAddressRecords(strAddress);
+            const arrKeysToCleanup = [];
+            const arrResult = [];
+
+            for (let {key, value: hash} of arrAddrRecords) {
+                try {
+                    const utxo = await this.getUtxo(hash);
+                    arrResult.push(utxo);
+                } catch (e) {
+                    arrKeysToCleanup.push(key);
+                }
+            }
+
+            if (arrKeysToCleanup.length) await this._walletCleanupMissed(arrKeysToCleanup);
+
+            return arrResult;
+        }
+
+        async walletWatchAddress(strAddress) {
+            typeforce(types.StrAddress, strAddress);
+
+            await this._ensureWalletInitialized();
+            assert(!this._arrStrWalletAddresses.includes((strAddress)), `Address ${strAddress} already in wallet`);
+
+            this._arrStrWalletAddresses.push(strAddress);
+            await this._walletStorage.put(
+                createKey(WALLET_ADDRESSES),
+                new ArrayOfAddresses(this._arrStrWalletAddresses).encode()
+            );
+        }
+
     };
 };

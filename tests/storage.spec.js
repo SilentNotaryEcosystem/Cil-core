@@ -1,7 +1,10 @@
 'use strict';
 
 const {describe, it} = require('mocha');
-const {assert} = require('chai');
+const chai = require('chai');
+chai.use(require('chai-as-promised'));
+const {assert} = chai;
+
 const sinon = require('sinon').createSandbox();
 
 const debugChannel = 'storage:*';
@@ -81,7 +84,6 @@ describe('Storage tests', () => {
         const gotBlock = await storage.getBlock(block.hash());
 
         assert.isOk(gotBlock.txns);
-        const rTx = new factory.Transaction(gotBlock.txns[0]);
     });
 
     it('should apply "addCoins" patch to empty storage (like genesis)', async () => {
@@ -518,6 +520,159 @@ describe('Storage tests', () => {
             const arrTxHashes = block.getTxHashes();
             assert.isOk(arrRecords.every(rec => arrTxHashes.includes(rec.key.toString('hex')) &&
                                                 rec.value.toString('hex') === block.getHash()));
+        });
+    });
+
+    describe('Wallet support', async () => {
+        let storage;
+
+        beforeEach(async () => {
+            storage = new factory.Storage({walletSupport: true});
+        });
+
+        it('should throw (no wallet support)', async () => {
+            const storage = new factory.Storage();
+
+            assert.isRejected(storage._ensureWalletInitialized());
+            assert.isRejected(storage._walletWriteAddressUtxo());
+            assert.isRejected(storage.walletListUnspent());
+        });
+
+        it('should load empty wallet', async () => {
+            await storage._ensureWalletInitialized();
+
+            assert.deepEqual(storage._arrStrWalletAddresses, []);
+            assert.equal(storage._nWalletAutoincrement, 0);
+        });
+
+        it('should load wallet addresses', async () => {
+            const addr1 = generateAddress();
+            const addr2 = generateAddress();
+            const autoInc = 10;
+
+            let callCount = 0;
+            storage._walletStorage.get = async () => {
+
+                // first call - request for addresses, second - autoincrement
+                return ++callCount === 1 ? Buffer.concat([addr1, addr2]) : Buffer.from([0, 0, 0, autoInc]);
+            };
+
+            await storage._ensureWalletInitialized();
+
+            assert.isOk(Array.isArray(storage._arrStrWalletAddresses));
+            assert.equal(storage._arrStrWalletAddresses.length, 2);
+            assert.equal(addr1.toString('hex'), storage._arrStrWalletAddresses[0]);
+            assert.equal(addr2.toString('hex'), storage._arrStrWalletAddresses[1]);
+
+            assert.equal(storage._nWalletAutoincrement, autoInc);
+        });
+
+        it('should write/read utxo', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            // this UTXO doesn't belongs to address
+            await storage._walletWriteAddressUtxo(
+                generateAddress().toString('hex'),
+                pseudoRandomBuffer().toString('hex')
+            );
+
+            // read it back
+            const arrHashes = await storage._walletReadAddressRecords(addr);
+
+            // totally we write 3 hashes
+            assert.equal(storage._nWalletAutoincrement, 3);
+
+            // but this address belongs only 2 utxos
+            assert.equal(arrHashes.length, 2);
+            assert.isOk(arrHashes[0].value.equals(hash1));
+            assert.isOk(arrHashes[1].value.equals(hash2));
+        });
+
+        it('should CleanupMissed', async () => {
+            const arrMissedKeys = [pseudoRandomBuffer(), pseudoRandomBuffer()];
+            storage._walletStorage.batch = sinon.fake();
+
+            await storage._walletCleanupMissed(arrMissedKeys);
+
+            assert.isOk(storage._walletStorage.batch.calledOnce);
+            const [arrOps] = storage._walletStorage.batch.args[0];
+
+            assert.deepEqual(arrOps[0], {type: 'del', key: arrMissedKeys[0]});
+            assert.deepEqual(arrOps[1], {type: 'del', key: arrMissedKeys[1]});
+        });
+
+        it('should walletListUnspent (no missed)', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+            const fakeUtxo = 'fakeUtxo';
+            storage.getUtxo = sinon.fake.returns(fakeUtxo);
+            storage._arrStrWalletAddresses = [addr];
+            storage._nWalletAutoincrement = 0;
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            const arrResults = await storage.walletListUnspent(addr);
+
+            assert.equal(arrResults.length, 2);
+            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
+        });
+
+        it('should walletListUnspent (purge missed)', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+            const fakeUtxo = 'fakeUtxo';
+            storage.getUtxo = async (hash) => {
+                if (hash.equals(hash1)) return fakeUtxo;
+                throw 'not found';
+            };
+            storage._arrStrWalletAddresses = [addr];
+            storage._nWalletAutoincrement = 0;
+            storage._walletCleanupMissed = sinon.fake();
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            const arrResults = await storage.walletListUnspent(addr);
+
+            assert.equal(arrResults.length, 1);
+            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
+
+            assert.isOk(storage._walletCleanupMissed.calledOnce);
+            assert.equal(storage._walletCleanupMissed.args[0][0].length, 1);
+        });
+
+        it('should throw (address already in wallet)', async () => {
+            const addr = generateAddress().toString('hex');
+            storage._arrStrWalletAddresses = [addr];
+
+            assert.isRejected(storage.walletWatchAddress(addr));
+        });
+
+        it('should add new watched address ', async () => {
+            storage._walletStorage.put = sinon.fake();
+
+            // previously stored address
+            storage._arrStrWalletAddresses = [generateAddress().toString('hex')];
+            const strAddr = generateAddress().toString('hex');
+
+            await storage.walletWatchAddress(strAddr);
+
+            assert.isOk(storage._walletStorage.put.calledOnce);
+            const [, buffSerializedAddresses] = storage._walletStorage.put.args[0];
+            assert.isOk(Buffer.isBuffer(buffSerializedAddresses));
+            const arrOfStrAddr = new factory.ArrayOfAddresses(buffSerializedAddresses).getArray();
+            assert.equal(arrOfStrAddr.length, 2);
+
+            // new address added
+            assert.equal(arrOfStrAddr[1], strAddr);
         });
     });
 });

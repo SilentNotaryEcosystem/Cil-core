@@ -129,7 +129,8 @@ module.exports = {
         DB_CHAINSTATE_DIR: 'chainstate',
         DB_BLOCKSTATE_DIR: 'blockstate',
         DB_PEERSTATE_DIR: 'peerstate',
-        DB_TXINDEX_DIR: 'txindex'
+        DB_TXINDEX_DIR: 'txindex',
+        DB_WALLET_DIR: 'wallet'
 
     }
 };

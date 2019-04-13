@@ -270,13 +270,16 @@ describe('Application layer', () => {
             `;
         const app = new factory.Application();
         const {receipt, contract} = app.createContract(
-            factory.Constants.fees.CONTRACT_FEE,
+            1e10,
             strCode,
             {contractAddr: 'hash'}
         );
 
         assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(
+            receipt.getCoinsUsed(),
+            factory.Constants.fees.CONTRACT_FEE + contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE
+        );
         assert.deepEqual(contract.getData(), {_data: 10});
 
         const strContractCode = contract.getCode();
@@ -290,7 +293,7 @@ describe('Application layer', () => {
 
     });
 
-    it('should prepare code for exec (just shouldnt throw', async () => {
+    it('should prepare code for exec (just shouldn\'t throw)', async () => {
         const contract = new factory.Contract({
             contractCode: {changeDefinition: "(objNewDefinition){}"},
             contractData: {_data: 19}

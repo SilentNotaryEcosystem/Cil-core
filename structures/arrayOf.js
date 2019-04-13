@@ -6,6 +6,9 @@ module.exports = (nEntityLength) => {
 
     /**
      * Used for serialization in storage & MsgGetBlocks
+     * this._arrOf contains Buffers,
+     * BUT
+     * this.getArray returns Strings!
      */
     return class ArrayOf {
 
