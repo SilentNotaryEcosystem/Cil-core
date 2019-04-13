@@ -674,5 +674,64 @@ describe('Storage tests', () => {
             // new address added
             assert.equal(arrOfStrAddr[1], strAddr);
         });
+
+        it('should reIndex wallet', async () => {
+            const buffAddr1 = generateAddress();
+            const buffAddr2 = generateAddress();
+            const buffAddr3 = generateAddress();
+            const coins1 = new factory.Coins(1e5, buffAddr1);
+            const coins2 = new factory.Coins(1e5, buffAddr2);
+
+            // this utxo contains only coins of addr1
+            const hash1 = pseudoRandomBuffer();
+            const utxo1 = new factory.UTXO({txHash: hash1});
+            utxo1.addCoins(0, coins1);
+            utxo1.addCoins(1, coins1);
+            utxo1.addCoins(2, coins1);
+
+            // this utxo contains only coins of addr2
+            const hash2 = pseudoRandomBuffer();
+            const utxo2 = new factory.UTXO({txHash: hash2});
+            utxo2.addCoins(0, coins2);
+            utxo2.addCoins(2, coins2);
+
+            // this utxo contains coins for both addresses
+            const hash3 = pseudoRandomBuffer();
+            const utxo3 = new factory.UTXO({txHash: hash3});
+            utxo3.addCoins(0, coins1);
+            utxo3.addCoins(10, coins2);
+
+            const patch = new factory.PatchDB();
+            patch.setUtxo(utxo1);
+            patch.setUtxo(utxo2);
+            patch.setUtxo(utxo3);
+            await storage.applyPatch(patch);
+
+            await storage.walletWatchAddress(buffAddr1);
+            await storage.walletWatchAddress(buffAddr2);
+            await storage.walletWatchAddress(buffAddr3);
+
+            // before reindex
+            {
+                const arrUtxo1 = await storage.walletListUnspent(buffAddr1.toString('hex'));
+                assert.equal(arrUtxo1.length, 0);
+                const arrUtxo2 = await storage.walletListUnspent(buffAddr2.toString('hex'));
+                assert.equal(arrUtxo2.length, 0);
+                const arrUtxo3 = await storage.walletListUnspent(buffAddr3.toString('hex'));
+                assert.equal(arrUtxo3.length, 0);
+            }
+
+            await storage.walletReIndex();
+
+            // after reindex
+            {
+                const arrUtxo1 = await storage.walletListUnspent(buffAddr1.toString('hex'));
+                assert.equal(arrUtxo1.length, 2);
+                const arrUtxo2 = await storage.walletListUnspent(buffAddr2.toString('hex'));
+                assert.equal(arrUtxo2.length, 2);
+                const arrUtxo3 = await storage.walletListUnspent(buffAddr3.toString('hex'));
+                assert.equal(arrUtxo3.length, 0);
+            }
+        });
     });
 });
