@@ -829,18 +829,16 @@ module.exports = (factory, factoryOptions) => {
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
                     case 'walletListUnspent':
+                        const {strAddress, bStableOnly = false} = content;
 
-                        // TODO: add pendingBlock checks here!
-                        const arrUtxos = await this._storage.walletListUnspent(content);
-                        const arrResult = [];
-                        arrUtxos.forEach(utxo => {
-                            utxo
-                                .getOutputsForAddress(content)
-                                .forEach(([idx, coins]) => {
-                                    arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount()});
-                                });
-                        });
-                        return arrResult;
+                        let arrPendingUtxos = [];
+                        if (!bStableOnly) {
+                            const {patchMerged} = await this._pendingBlocks.getBestParents();
+                            arrPendingUtxos = Array.from(patchMerged.getCoins().values());
+                        }
+                        const arrStableUtxos = await this._storage.walletListUnspent(strAddress);
+
+                        return {arrStableUtxos, arrPendingUtxos};
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }

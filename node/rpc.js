@@ -160,11 +160,27 @@ module.exports = ({Constants, Transaction}) =>
         async walletListUnspent(args) {
             const {strAddress} = args;
 
-            const arrResult = await this._nodeInstance.rpcHandler({
+            const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
                 event: 'walletListUnspent',
-                content: strAddress
+                content: args
             });
 
-            return prepareForStringifyObject(arrResult);
+            const representResults = (arrUtxos, isStable) => {
+                const arrResult = [];
+                arrUtxos.forEach(utxo => {
+                    utxo
+                        .getOutputsForAddress(strAddress)
+                        .forEach(([idx, coins]) => {
+                            arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount(), isStable});
+                        });
+                });
+
+                return arrResult;
+            };
+
+            return prepareForStringifyObject([].concat(
+                representResults(arrStableUtxos, true),
+                representResults(arrPendingUtxos, false)
+            ));
         }
     };

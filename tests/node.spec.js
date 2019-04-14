@@ -1484,32 +1484,70 @@ describe('Node tests', () => {
 
         describe('walletListUnspent', async () => {
             let node;
+            let utxo1;
+            let utxo2;
+            let addr;
+            let coins;
 
             beforeEach(async () => {
                 node = new factory.Node();
                 await node.ensureLoaded();
-            });
 
-            it('should get stable UTXOS', async () => {
-                const addr = generateAddress();
-                const coins = new factory.Coins(1e5, addr);
+                addr = generateAddress();
+                coins = new factory.Coins(1e5, addr);
 
                 const arrOutputs = [0, 5, 2];
-                const utxo1 = new factory.UTXO({txHash: pseudoRandomBuffer()});
+
+                // stable TXns
+                utxo1 = new factory.UTXO({txHash: pseudoRandomBuffer()});
                 utxo1.addCoins(arrOutputs[0], coins);
                 utxo1.addCoins(arrOutputs[1], coins);
                 utxo1.addCoins(arrOutputs[2], coins);
-
                 node._storage.walletListUnspent = sinon.fake.resolves([utxo1]);
 
-                const arrResult = await node.rpcHandler({event: 'walletListUnspent', content: addr.toString('hex')});
+                // pending TXns
+                utxo2 = new factory.UTXO({txHash: pseudoRandomBuffer()});
+                utxo2.addCoins(arrOutputs[0], coins);
+                utxo2.addCoins(arrOutputs[1], coins);
+                utxo2.addCoins(arrOutputs[2], coins);
 
-                assert.isOk(Array.isArray(arrResult));
-                assert.equal(arrResult.length, 3);
-                assert.isOk(arrResult.every(
-                    e => e.hash === utxo1.getTxHash() && arrOutputs.includes(e.nOut) && e.amount === coins.getAmount()
-                ));
-                console.dir(arrResult, {colors: true, depth: null});
+                const patchPending = new factory.PatchDB();
+                patchPending.setUtxo(utxo2);
+                node._pendingBlocks.getBestParents = sinon.fake.resolves({patchMerged: patchPending});
+
+            });
+
+            it('should get only stable UTXOS', async () => {
+                const {arrStableUtxos, arrPendingUtxos} = await node.rpcHandler(
+                    {
+                        event: 'walletListUnspent',
+                        content: {
+                            strAddress: addr.toString('hex'),
+                            bStableOnly: true
+                        }
+                    });
+                assert.isOk(Array.isArray(arrStableUtxos));
+                assert.equal(arrStableUtxos.length, 1);
+
+                assert.isOk(Array.isArray(arrPendingUtxos));
+                assert.equal(arrPendingUtxos.length, 0);
+            });
+
+            it('should get all UTXOS (including pending)', async () => {
+                const {arrStableUtxos, arrPendingUtxos} = await node.rpcHandler(
+                    {
+                        event: 'walletListUnspent',
+                        content: {
+                            strAddress: addr.toString('hex'),
+                            bStableOnly: false
+                        }
+                    });
+
+                assert.isOk(Array.isArray(arrStableUtxos));
+                assert.equal(arrStableUtxos.length, 1);
+
+                assert.isOk(Array.isArray(arrPendingUtxos));
+                assert.equal(arrPendingUtxos.length, 1);
             });
         });
     });
