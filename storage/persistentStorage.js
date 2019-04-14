@@ -336,7 +336,7 @@ module.exports = (factory, factoryOptions) => {
                 const key = this.constructor.createUtxoKey(hash);
 
                 const buffUtxo = await this._db.get(key).catch(err => debug(err));
-                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${bufHash.toString('hex')} not found !`);
+                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${hash.toString('hex')} not found !`);
 
                 return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
             });

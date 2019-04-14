@@ -162,7 +162,7 @@ describe('Storage tests', () => {
         }
     });
 
-    it('should get UTXOs from DB as map', async () => {
+    it('should get UTXOs from DB as patch', async () => {
         const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
@@ -432,12 +432,25 @@ describe('Storage tests', () => {
 
     it('should NOT find UTXO', async () => {
         const storage = new factory.Storage();
-        try {
-            await storage.getUtxo(pseudoRandomBuffer());
-        } catch (e) {
-            return;
-        }
-        throw 'Unexpected success';
+        assert.isRejected(storage.getUtxo(pseudoRandomBuffer()));
+    });
+
+    it('should get UTXO', async () => {
+        const storage = new factory.Storage();
+
+        const hash = pseudoRandomBuffer();
+        const coins = new factory.Coins(1e5, generateAddress());
+        const utxo = new factory.UTXO({txHash: hash});
+        utxo.addCoins(0, coins);
+
+        const patch = new factory.PatchDB();
+        patch.setUtxo(utxo);
+        await storage.applyPatch(patch);
+
+        const utxoFromStorage = await storage.getUtxo(hash);
+
+        assert.isOk(utxoFromStorage);
+        utxoFromStorage.equals(utxo);
     });
 
     it('should set/get RECEIPT', async () => {
