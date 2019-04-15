@@ -1145,15 +1145,14 @@ describe('Node tests', () => {
 
         const blockAndState = {block: block, state:8};
         const fake = sinon.fake();
-        node._rpc.informWsSubscribers = fake;
+        node._rpc.informWsSubscribersNewBlock = fake;
         const getBlockFake = sinon.fake.resolves(blockAndState);
         node._getBlockAndState = getBlockFake;
         await node._postAcceptBlock(block);
 
         assert.isOk(fake.calledOnce);
-        const [topic, objData] = fake.args[0];
+        const [ objData] = fake.args[0];
 
-        assert.equal(topic, 'newBlock');
         assert.deepEqual(objData, blockAndState);
     });
 

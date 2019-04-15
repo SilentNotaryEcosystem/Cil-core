@@ -61,7 +61,6 @@ describe('RPC', () => {
 
         const result = await rpc.getTxReceipt({strTxHash});
 
-        // prepareForStringifyObject(fakeResult) will strip functions from fake
         assert.deepEqual(prepareForStringifyObject(fakeResult), prepareForStringifyObject(result));
 
         assert.isOk(node.rpcHandler.calledOnce);
@@ -75,7 +74,7 @@ describe('RPC', () => {
 
     it('should PASS informWsSubscribers (no subscribers)', async () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
-        rpc.informWsSubscribers('test', createDummyBlock(factory));
+        rpc.informWsSubscribersNewBlock( {block: createDummyBlock(factory), state:'stable'});
     });
 
     it('should PASS informWsSubscribers about new block (has subscribers)', async () => {
@@ -83,8 +82,7 @@ describe('RPC', () => {
         const fake = sinon.fake();
         rpc._server._objConnections['test1'] = {send: fake};
 
-        const cBlock = createDummyBlock(factory);
-        rpc.informWsSubscribers('newBlock', {block: createDummyBlock(factory), state:8});
+        rpc.informWsSubscribersNewBlock( {block: createDummyBlock(factory), state:'stable'});
         assert.isOk(fake.calledOnce);
     });
 
@@ -93,8 +91,7 @@ describe('RPC', () => {
         const fake = sinon.fake();
         rpc._server._objConnections['test1'] = {send: fake};
 
-        const cBlock = createDummyBlock(factory);
-        rpc.informWsSubscribers('stateChanged', {hashes: [createDummyBlock(factory).getHash()], state:8});
+        rpc.informWsSubscribersStableBlocks( {arrHashes: [createDummyBlock(factory).getHash()], state:'stable'});
         assert.isOk(fake.calledOnce);
     });
 
@@ -125,14 +122,12 @@ describe('RPC', () => {
     });
 
     it('should get prev block', async () => {
-        const state = 12;
+        const state = 'stable';
         const block = createDummyBlock(factory);
         
-       // const strBlockHash = pseudoRandomBuffer().toString('hex');
 
         const getBlockResults = [{
-            //hash: block.getHash(),
-            block,//: prepareForStringifyObject(block.toObject()),
+            block,
             state
         }];
 
@@ -143,7 +138,6 @@ describe('RPC', () => {
         const strBlockHash = pseudoRandomBuffer().toString('hex');
         const [result] = await rpc.getPrev({strBlockHash});
 
-        // prepareForStringifyObject(fakeResult) will strip functions from fake
         assert.deepEqual(
             prepareForStringifyObject(result),
             {
@@ -155,13 +149,11 @@ describe('RPC', () => {
     });
 
     it('should get next block', async () => {
-        const state = 12;
+        const state = 'stable';
         const block = createDummyBlock(factory);
-        //const strBlockHash = pseudoRandomBuffer().toString('hex');
 
         const getBlockResults = [{
-            //hash: block.getHash(),
-            block,//: prepareForStringifyObject(block.toObject()),
+            block,
             state
         }];
 
@@ -173,7 +165,6 @@ describe('RPC', () => {
 
         const [result] = await rpc.getNext({strBlockHash});
 
-        // prepareForStringifyObject(fakeResult) will strip functions from fake
         assert.deepEqual(
             prepareForStringifyObject(result),
             {
@@ -213,7 +204,7 @@ describe('RPC', () => {
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
-        rpc.getTips()
+        rpc.getTx()
             .then(_ => done('Unexpected success'))
             .catch(_ => done());
     });
@@ -245,7 +236,6 @@ describe('RPC', () => {
         const resp = await rpc.getTx({strTxHash: tx.getHash()});
 
         assert.isOk(resp);
-//        console.dir(resp, {colors: true, depth: null});
         assert.deepEqual(prepareForStringifyObject(resp), prepareForStringifyObject(tx.rawData));
     });
 

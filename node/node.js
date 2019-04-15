@@ -2,7 +2,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 
 const debugLib = require('debug');
-const {sleep, prepareForStringifyObject} = require('../utils');
+const {sleep} = require('../utils');
 const types = require('../types');
 const Tick = require('tick-tock');
 
@@ -857,19 +857,7 @@ module.exports = (factory, factoryOptions) => {
                 throw e;
             }
         }
-        /**
-         * 
-         * @param {Object} blockAndState 
-         * @returns {Object} | undefined - prepared block & state for rpc
-         * @private
-         */
-        _prepareBlockAndStateForRpc(blockAndState) {
-            return blockAndState ? {
-                hash: blockAndState.block.getHash(),
-                block: prepareForStringifyObject(blockAndState.block.toObject()),
-                state: blockAndState.state
-            } : undefined;
-        }
+        
         /**
          *
          * @param {Transaction} tx
@@ -1261,8 +1249,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._storage.saveBlockInfo(bi);
             }
             if (this._rpc) {
-                this._rpc.informWsSubscribers('stateChanged',
-                {state: 8, hashes: Array.from(setStableBlocks.keys())});
+                this._rpc.informWsSubscribersStableBlocks(Array.from(setStableBlocks.keys()));
             }
         }
 
@@ -1307,7 +1294,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._rpc) {
                 const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
-                this._rpc.informWsSubscribers('newBlock', blockAndState);
+                this._rpc.informWsSubscribersNewBlock(blockAndState);
             }
         }
 
@@ -1842,13 +1829,8 @@ module.exports = (factory, factoryOptions) => {
 
         async _getBlockAndState(hash) {
             typeforce(types.Str64, hash);
-            let cBlock;
-            try {
-                cBlock = await this._storage.getBlock(hash);
-            }
-            catch (err) {
-                return {};
-            }
+
+            const cBlock = await this._storage.getBlock(hash);
             const blockInfo = this._mainDag.getBlockInfo(hash);
 
             return {block: cBlock, state: blockInfo ? blockInfo.getState() : undefined};

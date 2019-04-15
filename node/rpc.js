@@ -77,28 +77,23 @@ module.exports = ({Constants, Transaction}) =>
             return prepareForStringifyObject(cReceipt ? cReceipt.toObject() : undefined);
         }
 
-        informWsSubscribers(topic, result) {
-            switch (topic) {
-                case 'newBlock':
-                    this._server.broadcastToWS(topic,
-                        {
-                            hash: result.block.getHash(),
-                            block: prepareForStringifyObject(result.block.toObject()),
-                            state: result.state
-                        }
-                    );
-                    break;
-                case 'stateChanged':
-                    this._server.broadcastToWS(topic,
-                        {
-                            state: result.state,
-                            hashes: result.hashes
-                        }
-                    );
-                    break;
-            }
+        informWsSubscribersNewBlock(result) {
+            this._server.broadcastToWS('newBlock',
+                {
+                    hash: result.block.getHash(),
+                    block: prepareForStringifyObject(result.block.toObject()),
+                    state: result.state
+                }
+            );
         }
 
+        informWsSubscribersStableBlocks(arrHashes) {
+            this._server.broadcastToWS('stableBlocks',
+                {
+                    arrHashes
+                }
+            );
+        }
         /**
          *
          * @param {Object} args
@@ -109,32 +104,42 @@ module.exports = ({Constants, Transaction}) =>
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
 
-            const result = await this._nodeInstance.rpcHandler({
-                event: 'getBlock',
-                content: strBlockHash
-            });
-            return result ? {
-                hash: result.block.getHash(),
-                block: prepareForStringifyObject(result.block.toObject()),
-                state: result.state
-            } : undefined;
-            return result;
+            let result;
+            try {
+                result = await this._nodeInstance.rpcHandler({
+                    event: 'getBlock',
+                    content: strBlockHash
+                });
+                return result ? {
+                    hash: result.block.getHash(),
+                    block: prepareForStringifyObject(result.block.toObject()),
+                    state: result.state
+                } : undefined;
+            }
+            catch (err) {
+                return undefined;
+            }
         }
         /**
          *
          * @returns {Promise<Array>} of blockInfos (headers)
          */
         async getTips() {
-            const arrBlockState = await this._nodeInstance.rpcHandler({
-                event: 'getTips'
-            });
+            let arrBlockState;
+            try {
+                arrBlockState = await this._nodeInstance.rpcHandler({
+                    event: 'getTips'
+                });
 
-            return arrBlockState.map(objBlockState => ({
-                hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block.toObject()),
-                state: objBlockState.state
-            }));
-            //return arrBlockState;
+                return arrBlockState.map(objBlockState => ({
+                    hash: objBlockState.block.getHash(),
+                    block: prepareForStringifyObject(objBlockState.block.toObject()),
+                    state: objBlockState.state
+                }));
+            }
+            catch (err) {
+                return [];
+            }
         }
         /**
          *
@@ -143,15 +148,22 @@ module.exports = ({Constants, Transaction}) =>
         async getNext(args) {
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
-            const arrBlockState = await this._nodeInstance.rpcHandler({
-                event: 'getNext',
-                content: strBlockHash
-            });
-            return arrBlockState.map(objBlockState => ({
-                hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block.toObject()),
-                state: objBlockState.state
-            }));
+
+            let arrBlockState;
+            try {
+                arrBlockState = await this._nodeInstance.rpcHandler({
+                    event: 'getNext',
+                    content: strBlockHash
+                });
+                return arrBlockState.map(objBlockState => ({
+                    hash: objBlockState.block.getHash(),
+                    block: prepareForStringifyObject(objBlockState.block.toObject()),
+                    state: objBlockState.state
+                }));
+            }
+            catch (err) {
+                return [];
+            }
         }
         /**
          *
@@ -161,15 +173,21 @@ module.exports = ({Constants, Transaction}) =>
             const {strBlockHash} = args;
             typeforce(types.Str64, strBlockHash);
 
-            const arrBlockState = await this._nodeInstance.rpcHandler({
-                event: 'getPrev',
-                content: strBlockHash
-            });
-            return arrBlockState.map(objBlockState => ({
-                hash: objBlockState.block.getHash(),
-                block: prepareForStringifyObject(objBlockState.block.toObject()),
-                state: objBlockState.state
-            }));
+            let arrBlockState;
+            try {
+                arrBlockState = await this._nodeInstance.rpcHandler({
+                    event: 'getPrev',
+                    content: strBlockHash
+                });
+                return arrBlockState.map(objBlockState => ({
+                    hash: objBlockState.block.getHash(),
+                    block: prepareForStringifyObject(objBlockState.block.toObject()),
+                    state: objBlockState.state
+                }));
+            }
+            catch (err) {
+                return [];
+            }
         }
         async getTx(args) {
             const {strTxHash} = args;
