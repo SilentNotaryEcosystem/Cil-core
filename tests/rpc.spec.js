@@ -267,4 +267,52 @@ describe('RPC', () => {
 
         assert.deepEqual(resp, objExpected);
     });
+
+    it('should pass walletListUnspent', async () => {
+        const hash1 = pseudoRandomBuffer();
+        const hash2 = pseudoRandomBuffer();
+        const addr = generateAddress();
+
+        const objExpected = [
+            {
+                hash: hash1.toString('hex'),
+                nOut: 0,
+                amount: 100000,
+                isStable: true
+            },
+            {
+                hash: hash2.toString('hex'),
+                nOut: 5,
+                amount: 100000,
+                isStable: false
+            },
+            {
+                hash: hash2.toString('hex'),
+                nOut: 2,
+                amount: 100000,
+                isStable: false
+            }];
+
+        const coins = new factory.Coins(1e5, addr);
+        const utxo1 = new factory.UTXO({txHash: hash1});
+        utxo1.addCoins(0, coins);
+
+        const utxo2 = new factory.UTXO({txHash: hash2});
+        utxo2.addCoins(5, coins);
+        utxo2.addCoins(2, coins);
+
+        const node = {
+            rpcHandler: sinon.fake.resolves({
+                arrStableUtxos: [utxo1],
+                arrPendingUtxos: [utxo2]
+            })
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        const resp = await rpc.walletListUnspent({
+            strAddress: addr.toString('hex')
+        });
+
+        assert.deepEqual(resp, objExpected);
+    });
 });

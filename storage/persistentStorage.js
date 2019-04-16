@@ -17,18 +17,9 @@ const CONTRACT_PREFIX = 'S';
 const RECEIPT_PREFIX = 'R';
 const LAST_APPLIED_BLOCKS = 'FINAL';
 const PENDING_BLOCKS = 'PENDING';
-
-/**
- *
- * @param {String} strPrefix
- * @param {Buffer | undefined} buffKey
- * @returns {Buffer}
- */
-const createKey = (strPrefix, buffKey) => {
-
-    // Attention! no 'hex' encoding for strPrefix!!!!
-    return buffKey ? Buffer.concat([Buffer.from(strPrefix), buffKey]) : Buffer.from(strPrefix);
-};
+const WALLET_PREFIX = 'w';
+const WALLET_ADDRESSES = 'WALLETS';
+const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
 
 /**
  *
@@ -49,7 +40,7 @@ const eraseDbContent = (db) => {
 
 module.exports = (factory, factoryOptions) => {
     const {
-        Constants, Block, BlockInfo, UTXO, ArrayOfHashes, Contract,
+        Constants, Block, BlockInfo, UTXO, ArrayOfHashes, ArrayOfAddresses, Contract,
         TxReceipt, WitnessGroupDefinition, Peer, PatchDB
     } = factory;
 
@@ -60,7 +51,7 @@ module.exports = (factory, factoryOptions) => {
                 ...options
             };
 
-            const {testStorage, buildTxIndex, dbPath, mutex} = options;
+            const {testStorage, buildTxIndex, walletSupport, dbPath, mutex} = options;
             assert(mutex, 'Storage constructor requires Mutex instance!');
 
             let downAdapter;
@@ -88,7 +79,31 @@ module.exports = (factory, factoryOptions) => {
                 this._txIndexStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
             }
 
+            // TODO: make it persistent after adding first address/key to wallet?
+            if (walletSupport) {
+                this._walletSupport = true;
+                this._walletStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_WALLET_DIR}`));
+            }
+
             this._mutex = mutex;
+        }
+
+        /**
+         *
+         * @param {String} strPrefix
+         * @param {Buffer | undefined} buffKey
+         * @param {Buffer | String} suffix
+         * @returns {Buffer}
+         */
+        static createKey(strPrefix, buffKey, suffix = Buffer.from([])) {
+
+            // Attention! no 'hex' encoding for strPrefix!!!!
+            return buffKey ?
+                Buffer.concat([Buffer.from(strPrefix), buffKey, Buffer.from(suffix)]) : Buffer.from(strPrefix);
+        }
+
+        static createUtxoKey(hash) {
+            return this.createKey(UTXO_PREFIX, Buffer.from(hash, 'hex'));
         }
 
         async _ensureArrGroupDefinition() {
@@ -145,7 +160,7 @@ module.exports = (factory, factoryOptions) => {
 
             // save entire block
             // no prefix needed (because we using separate DB)
-            const key = createKey('', buffHash);
+            const key = this.constructor.createKey('', buffHash);
             if (await this.hasBlock(hash)) {
                 throw new Error(`Storage: Block ${buffHash.toString('hex')} already saved!`);
             }
@@ -161,7 +176,7 @@ module.exports = (factory, factoryOptions) => {
                 const arrOps = [];
                 const buffBlockHash = Buffer.from(block.getHash(), 'hex');
                 for (let strTxHash of block.getTxHashes()) {
-                    const key = createKey('', Buffer.from(strTxHash, 'hex'));
+                    const key = this.constructor.createKey('', Buffer.from(strTxHash, 'hex'));
                     arrOps.push({type: 'put', key, value: buffBlockHash});
                 }
 
@@ -198,7 +213,7 @@ module.exports = (factory, factoryOptions) => {
             typeforce(types.Hash256bit, blockHash);
 
             const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
-            const key = createKey('', bufHash);
+            const key = this.constructor.createKey('', bufHash);
             await this._blockStorage.del(key);
         }
 
@@ -215,7 +230,7 @@ module.exports = (factory, factoryOptions) => {
             const buffHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
 
             // no prefix needed (because we using separate DB)
-            const key = createKey('', buffHash);
+            const key = this.constructor.createKey('', buffHash);
             const buffBlock = await this._blockStorage.get(key).catch(err => debug(err));
             if (!buffBlock) throw new Error(`Storage: No block found by hash ${buffHash.toString('hex')}`);
 
@@ -233,7 +248,7 @@ module.exports = (factory, factoryOptions) => {
             typeforce(types.Hash256bit, blockHash);
 
             const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
-            const blockInfoKey = createKey(BLOCK_INFO_PREFIX, bufHash);
+            const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, bufHash);
 
             const buffInfo = await this._db.get(blockInfoKey).catch(err => debug(err));
             if (!buffInfo) throw new Error(`Storage: No block found by hash ${bufHash.toString('hex')}`);
@@ -249,7 +264,7 @@ module.exports = (factory, factoryOptions) => {
         async saveBlockInfo(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
 
-            const blockInfoKey = createKey(BLOCK_INFO_PREFIX, Buffer.from(blockInfo.getHash(), 'hex'));
+            const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, Buffer.from(blockInfo.getHash(), 'hex'));
             await this._db.put(blockInfoKey, blockInfo.encode());
         }
 
@@ -318,11 +333,10 @@ module.exports = (factory, factoryOptions) => {
             typeforce(types.Hash256bit, hash);
 
             return this._mutex.runExclusive(['utxo'], async () => {
-                const bufHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
-                const key = createKey(UTXO_PREFIX, bufHash);
+                const key = this.constructor.createUtxoKey(hash);
 
                 const buffUtxo = await this._db.get(key).catch(err => debug(err));
-                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${bufHash.toString('hex')} not found !`);
+                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${hash.toString('hex')} not found !`);
 
                 return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
             });
@@ -339,12 +353,14 @@ module.exports = (factory, factoryOptions) => {
             const lock = await this._mutex.acquire(['utxo', 'contract', 'receipt']);
             try {
                 for (let [strTxHash, utxo] of statePatch.getCoins()) {
-                    const key = createKey(UTXO_PREFIX, Buffer.from(strTxHash, 'hex'));
+                    const key = this.constructor.createUtxoKey(strTxHash);
                     if (utxo.isEmpty()) {
                         arrOps.push({type: 'del', key});
                     } else {
                         arrOps.push({type: 'put', key, value: utxo.encode()});
                     }
+
+                    if (this._walletSupport) await this._walletUtxoCheck(utxo);
                 }
 
                 // save contracts
@@ -354,7 +370,7 @@ module.exports = (factory, factoryOptions) => {
                     if (Constants.GROUP_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {
                         this._arrGroupDefinition = contract.getData();
                     }
-                    const key = createKey(CONTRACT_PREFIX, Buffer.from(strContractAddr, 'hex'));
+                    const key = this.constructor.createKey(CONTRACT_PREFIX, Buffer.from(strContractAddr, 'hex'));
                     arrOps.push({type: 'put', key, value: contract.encode()});
                 }
 
@@ -362,7 +378,7 @@ module.exports = (factory, factoryOptions) => {
                 // because we use receipts only for contracts, i decided to keep single txReceipts instead of array of receipts
                 //      for whole block
                 for (let [strTxHash, receipt] of statePatch.getReceipts()) {
-                    const key = createKey(RECEIPT_PREFIX, Buffer.from(strTxHash, 'hex'));
+                    const key = this.constructor.createKey(RECEIPT_PREFIX, Buffer.from(strTxHash, 'hex'));
                     arrOps.push({type: 'put', key, value: receipt.encode()});
                 }
 
@@ -383,7 +399,7 @@ module.exports = (factory, factoryOptions) => {
             typeforce(types.Hash256bit, strTxHash);
 
             return this._mutex.runExclusive(['receipt'], async () => {
-                const key = createKey(RECEIPT_PREFIX, Buffer.from(strTxHash, 'hex'));
+                const key = this.constructor.createKey(RECEIPT_PREFIX, Buffer.from(strTxHash, 'hex'));
                 const buffData = await this._db.get(key).catch(err => debug(err));
                 if (!buffData) return undefined;
 
@@ -404,7 +420,7 @@ module.exports = (factory, factoryOptions) => {
 
             return this._mutex.runExclusive(['contract'], async () => {
 
-                const key = createKey(CONTRACT_PREFIX, address);
+                const key = this.constructor.createKey(CONTRACT_PREFIX, address);
                 const buffData = await this._db.get(key).catch(err => debug(err));
                 if (!buffData) return undefined;
 
@@ -420,7 +436,7 @@ module.exports = (factory, factoryOptions) => {
          * @return {Promise<Array>} of buffers. each is hash of last stable block
          */
         async getLastAppliedBlockHashes(raw = false) {
-            const key = createKey(LAST_APPLIED_BLOCKS);
+            const key = this.constructor.createKey(LAST_APPLIED_BLOCKS);
             const result = await this._db.get(key).catch(err => debug(err));
 
             return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
@@ -435,7 +451,7 @@ module.exports = (factory, factoryOptions) => {
         async updateLastAppliedBlocks(arrBlockHashes) {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
-            const key = createKey(LAST_APPLIED_BLOCKS);
+            const key = this.constructor.createKey(LAST_APPLIED_BLOCKS);
 
             // serialize and store
             const cArr = new ArrayOfHashes(arrBlockHashes);
@@ -448,7 +464,7 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<ArrayOfHashes | Buffer>}
          */
         getPendingBlockHashes(raw = false) {
-            const key = createKey(PENDING_BLOCKS);
+            const key = this.constructor.createKey(PENDING_BLOCKS);
 
             return this._mutex.runExclusive(['pending_blocks'], async () => {
                 const result = await this._db.get(key).catch(err => debug(err));
@@ -460,7 +476,7 @@ module.exports = (factory, factoryOptions) => {
         updatePendingBlocks(arrBlockHashes) {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
-            const key = createKey(PENDING_BLOCKS);
+            const key = this.constructor.createKey(PENDING_BLOCKS);
 
             return this._mutex.runExclusive(['pending_blocks'], async () => {
                 await this._db.put(key, (new ArrayOfHashes(arrBlockHashes)).encode());
@@ -503,7 +519,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
 
-            const key = createKey('', Buffer.from(strTxHash, 'hex'));
+            const key = this.constructor.createKey('', Buffer.from(strTxHash, 'hex'));
 
             try {
                 const blockHash = await this._txIndexStorage.get(key);
@@ -512,6 +528,177 @@ module.exports = (factory, factoryOptions) => {
                 debugLib(`Index or block for ${strTxHash} not found!`);
             }
             return undefined;
+        }
+
+        async _ensureWalletInitialized() {
+            if (!this._walletSupport) throw ('Wallet support is disabled');
+
+            if (Array.isArray(this._arrStrWalletAddresses)) return;
+
+            try {
+                const buffResult = await this._walletStorage.get(this.constructor.createKey(WALLET_ADDRESSES));
+                this._arrStrWalletAddresses =
+                    buffResult && Buffer.isBuffer(buffResult) ? (new ArrayOfAddresses(buffResult)).getArray() : [];
+            } catch (e) {
+                this._arrStrWalletAddresses = [];
+            }
+
+            try {
+                const buffResult = await this._walletStorage.get(this.constructor.createKey(WALLET_AUTOINCREMENT));
+                this._nWalletAutoincrement = buffResult.readUInt32BE();
+            } catch (e) {
+                this._nWalletAutoincrement = 0;
+            }
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @return {Promise<Object>} {key, value: hash of utxo}
+         * @private
+         */
+        _walletReadAddressRecords(strAddress) {
+            typeforce(types.StrAddress, strAddress);
+
+            const strLastIndex = new Array(10).fill('9').join('');
+
+            const buffAddress = Buffer.from(strAddress, 'hex');
+            const keyStart = this.constructor.createKey(WALLET_PREFIX, buffAddress);
+
+            const keyEnd = this.constructor.createKey(WALLET_PREFIX, buffAddress, strLastIndex);
+
+            return new Promise(resolve => {
+                    const arrRecords = [];
+                    this._walletStorage
+                        .createReadStream({gte: keyStart, lte: keyEnd, keyAsBuffer: true, valueAsBuffer: true})
+                        .on('data', (data) => arrRecords.push(data))
+                        .on('close', () => resolve(arrRecords));
+                }
+            );
+        }
+
+        async _walletWriteAddressUtxo(address, strHash) {
+            typeforce(typeforce.tuple(types.Address, types.Hash256bit), [address, strHash]);
+            await this._ensureWalletInitialized();
+
+            const currentIdx = this._nWalletAutoincrement++;
+
+            // prepare incremented value
+            const buff = Buffer.allocUnsafe(4);
+            buff.writeInt32BE(this._nWalletAutoincrement, 0);
+
+            // store hash & autoincrement
+            const key = this.constructor.createKey(WALLET_PREFIX, Buffer.from(address, 'hex'), currentIdx.toString());
+            await this._walletStorage
+                .batch()
+                .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buff)
+                .put(key, Buffer.from(strHash, 'hex'))
+                .write();
+        }
+
+        async _walletCleanupMissed(arrBadKeys) {
+            const arrOps = arrBadKeys.map(key => ({type: 'del', key}));
+            await this._walletStorage.batch(arrOps);
+        }
+
+        async _walletUtxoCheck(utxo) {
+            await this._ensureWalletInitialized();
+            for (let strAddress of this._arrStrWalletAddresses) {
+                const arrResult = utxo.getOutputsForAddress(strAddress);
+                if (arrResult.length) {
+                    await this._walletWriteAddressUtxo(strAddress, utxo.getTxHash());
+                }
+            }
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @return {Promise<Array>} of UTXO that have coins of strAddress
+         */
+        async walletListUnspent(strAddress) {
+            await this._ensureWalletInitialized();
+            typeforce(types.Address, strAddress);
+
+            assert(this._arrStrWalletAddresses.includes(strAddress), `${strAddress} not in wallet!`);
+
+            const arrAddrRecords = await this._walletReadAddressRecords(strAddress);
+            const arrKeysToCleanup = [];
+            const arrResult = [];
+
+            for (let {key, value: hash} of arrAddrRecords) {
+                try {
+                    const utxo = await this.getUtxo(hash);
+                    arrResult.push(utxo);
+                } catch (e) {
+                    arrKeysToCleanup.push(key);
+                }
+            }
+
+            if (arrKeysToCleanup.length) await this._walletCleanupMissed(arrKeysToCleanup);
+
+            return arrResult;
+        }
+
+        async walletWatchAddress(address) {
+            typeforce(types.Address, address);
+
+            const strAddress = address.toString('hex');
+            await this._ensureWalletInitialized();
+            assert(!this._arrStrWalletAddresses.includes((strAddress)), `Address ${strAddress} already in wallet`);
+
+            this._arrStrWalletAddresses.push(strAddress);
+            await this._walletFlushAddresses();
+        }
+
+        /**
+         * Flush all addresses from array into DB
+         *
+         * @return {Promise<void>}
+         * @private
+         */
+        async _walletFlushAddresses() {
+            await this._walletStorage.put(
+                this.constructor.createKey(WALLET_ADDRESSES),
+                new ArrayOfAddresses(this._arrStrWalletAddresses).encode()
+            );
+        }
+
+        /**
+         * Reindex whole wallet
+         *
+         * @return {Promise<void>}
+         */
+        async walletReIndex() {
+            this._walletSupport = true;
+            await this._ensureWalletInitialized();
+
+            // clear wallet DB
+            await eraseDbContent(this._walletStorage);
+
+            // store all watched addresses
+            await this._walletFlushAddresses();
+
+            // reindex
+            const keyStart = this.constructor.createUtxoKey(Buffer.from([]));
+            const keyEnd = this.constructor.createUtxoKey(Buffer.from('FF', 'hex'));
+
+            await new Promise(resolve => {
+                    this._db
+                        .createReadStream({gte: keyStart, lte: keyEnd, keyAsBuffer: true, valueAsBuffer: true})
+                        .on('data', async data => {
+
+                            // get hash from key (slice PREFIX)
+                            const hash = data.key.slice(1);
+                            const utxo = new UTXO({txHash: hash, data: data.value});
+                            for (let strAddr of this._arrStrWalletAddresses) {
+                                const arrIndexes = utxo.getOutputsForAddress(strAddr);
+                                if (arrIndexes.length) await this._walletWriteAddressUtxo(strAddr, hash);
+                            }
+                        })
+                        .on('close', () => resolve());
+                }
+            );
         }
     };
 };

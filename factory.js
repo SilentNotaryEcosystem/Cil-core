@@ -60,7 +60,7 @@ const UtxoWrapper = require('./structures/utxo');
 const CoinsWrapper = require('./structures/coins');
 const WitnessGroupDefinition = require('./structures/witnessGroupDefinition');
 const BlockInfoWrapper = require('./structures/blockInfo');
-const ArrayOfHashesWrapper = require('./structures/arrayOfHashes');
+const ArrayOfWrapper = require('./structures/arrayOf');
 const ContractWrapper = require('./structures/contract');
 const TxReceiptWrapper = require('./structures/txReceipt');
 
@@ -91,7 +91,8 @@ class Factory {
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
-                this._arrayOfHashes = ArrayOfHashesWrapper(this);
+                this._arrayOfHashes = ArrayOfWrapper(32);
+                this._arrayOfAddresses = ArrayOfWrapper(20);
                 this._contract = ContractWrapper(this, prototypes);
                 this._txReceipt = TxReceiptWrapper(this, prototypes);
 
@@ -145,6 +146,10 @@ class Factory {
 
     get ArrayOfHashes() {
         return this._arrayOfHashes;
+    }
+
+    get ArrayOfAddresses() {
+        return this._arrayOfAddresses;
     }
 
     get MainDag() {

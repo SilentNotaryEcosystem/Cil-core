@@ -12,6 +12,24 @@ process.on('warning', e => console.warn(e.stack));
     // read command line options
     const objCmdLineParams = readCmdLineOptions();
 
+    // just add wallet address and EXIT!
+    if (objCmdLineParams.reIndexWallet || objCmdLineParams.watchAddress && objCmdLineParams.watchAddress.length) {
+        const storage = new factory.Storage({
+            walletSupport: true,
+            mutex: new factory.Mutex(),
+            ...objCmdLineParams
+        });
+
+        if (objCmdLineParams.watchAddress) {
+            for (let addr of objCmdLineParams.watchAddress) {
+                await storage.walletWatchAddress(addr);
+            }
+        }
+
+        if (objCmdLineParams.reIndexWallet) await storage.walletReIndex();
+        return;
+    }
+
     if (objCmdLineParams.genesisHash) factory.Constants.GENESIS_BLOCK = objCmdLineParams.genesisHash;
     if (objCmdLineParams.groupDefContract) {
         factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.groupDefContract;

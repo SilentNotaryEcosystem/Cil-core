@@ -849,6 +849,17 @@ module.exports = (factory, factoryOptions) => {
                     case 'getUnspent':
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
+                    case 'walletListUnspent':
+                        const {strAddress, bStableOnly = false} = content;
+
+                        let arrPendingUtxos = [];
+                        if (!bStableOnly) {
+                            const {patchMerged} = await this._pendingBlocks.getBestParents();
+                            arrPendingUtxos = Array.from(patchMerged.getCoins().values());
+                        }
+                        const arrStableUtxos = await this._storage.walletListUnspent(strAddress);
+
+                        return {arrStableUtxos, arrPendingUtxos};
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -1058,6 +1069,7 @@ module.exports = (factory, factoryOptions) => {
         _sendCoins(patchTx, strTxHash, strAddress, amount) {
             typeforce(typeforce.tuple(types.Patch, types.Str64, types.Address, typeforce.Number), arguments);
 
+            if (amount === 0) return;
             const internalTxHash = this._createInternalTx(patchTx, strAddress, amount);
 
             // it's some sorta fake receipt, it will be overridden (or "merged") by original receipt
@@ -1198,7 +1210,9 @@ module.exports = (factory, factoryOptions) => {
             this._checkCoinbaseTx(coinbase, blockFees);
             const coins = coinbase.getOutCoins();
             for (let i = 0; i < coins.length; i++) {
-                patchState.createCoins(coinbase.hash(), i, coins[i]);
+
+                // we'll store only non zero outputs to minimise disk usage
+                if (coins[i].getAmount() !== 0) patchState.createCoins(coinbase.hash(), i, coins[i]);
             }
         }
 
@@ -1579,6 +1593,7 @@ module.exports = (factory, factoryOptions) => {
         _createInternalTx(patch, receiver, amount) {
             typeforce(typeforce.tuple(types.Address, typeforce.Number), [receiver, amount]);
 
+            assert(amount > 0, 'Internal TX with non positive amount!');
             receiver = Buffer.isBuffer(receiver) ? receiver : Buffer.from(receiver, 'hex');
 
             const coins = new Coins(amount, receiver);
@@ -1605,15 +1620,19 @@ module.exports = (factory, factoryOptions) => {
             if (!addrChangeReceiver || !addrChangeReceiver.length) return maxFee;
 
             let fee = maxFee;
+            assert(maxFee >= fee, 'We spent more than have!');
 
             if (Buffer.isBuffer(addrChangeReceiver)) {
                 fee = receipt.getCoinsUsed();
-                const changeTxHash = this._createInternalTx(
-                    patch,
-                    tx.getContractChangeReceiver(),
-                    maxFee - fee
-                );
-                receipt.addInternalTx(changeTxHash);
+
+                if (maxFee - fee !== 0) {
+                    const changeTxHash = this._createInternalTx(
+                        patch,
+                        tx.getContractChangeReceiver(),
+                        maxFee - fee
+                    );
+                    receipt.addInternalTx(changeTxHash);
+                }
 
                 // receipt changed by ref, no need to add it to patch
             }

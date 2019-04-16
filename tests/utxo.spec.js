@@ -154,4 +154,28 @@ describe('UTXO', () => {
         assert.isOk(Object.keys(objResult).every(key => typeof objResult[key].amount === 'number' &&
                                                         typeof objResult[key].receiverAddr === 'string'));
     });
+
+    it('should getOutputsForAddress', async () => {
+        const addr1 = generateAddress();
+        const addr2 = generateAddress();
+
+        const utxo = new factory.UTXO({txHash: pseudoRandomBuffer()});
+        utxo.addCoins(0, new factory.Coins(10, addr1));
+        utxo.addCoins(2, new factory.Coins(10, addr2));
+        utxo.addCoins(3, new factory.Coins(10, addr1));
+
+        {
+            const arrResults = utxo.getOutputsForAddress(addr1);
+
+            assert.equal(arrResults.length, 2);
+            assert.equal(arrResults[0][0], 0);
+            assert.equal(arrResults[1][0], 3);
+        }
+        {
+            const arrResults = utxo.getOutputsForAddress(addr2.toString('hex'));
+
+            assert.equal(arrResults.length, 1);
+            assert.equal(arrResults[0][0], 2);
+        }
+    });
 });

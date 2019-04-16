@@ -89,7 +89,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             const txCoins = tx.getOutCoins();
 
             for (let i = nStartFromIdx; i < txCoins.length; i++) {
-                patch.createCoins(txHash, i, txCoins[i]);
+                if (txCoins[i].getAmount() !== 0) patch.createCoins(txHash, i, txCoins[i]);
                 totalSent += txCoins[i].getAmount();
             }
 

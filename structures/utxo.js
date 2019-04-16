@@ -153,4 +153,19 @@ module.exports = ({Coins}, {utxoProto}) =>
             });
             return objResult;
         }
+
+        /**
+         *
+         * @param {Buffer | String} address
+         * @return {Array} of vectors [idx, COINS] of address
+         */
+        getOutputsForAddress(address) {
+            typeforce(types.Address, address);
+
+            address = Buffer.from(address, 'hex');
+
+            return this._data.arrIndexes
+                .map(idx => [idx, this.coinsAtIndex(idx)])
+                .filter(([, coin]) => coin.getReceiverAddr().equals(address));
+        }
     };

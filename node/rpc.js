@@ -40,6 +40,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
             this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
             this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
+            this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -209,6 +210,12 @@ module.exports = ({Constants, Transaction}) =>
             return prepareForStringifyObject(objResult);
         }
 
+        /**
+         * Get one UTXO by hash
+         *
+         * @param {Object} args
+         * @return {Promise<{}|*>}
+         */
         async getUnspent(args) {
             const {strTxHash} = args;
 
@@ -218,5 +225,32 @@ module.exports = ({Constants, Transaction}) =>
             });
 
             return prepareForStringifyObject(objResult);
+        }
+
+        async walletListUnspent(args) {
+            const {strAddress} = args;
+
+            const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
+                event: 'walletListUnspent',
+                content: args
+            });
+
+            const representResults = (arrUtxos, isStable) => {
+                const arrResult = [];
+                arrUtxos.forEach(utxo => {
+                    utxo
+                        .getOutputsForAddress(strAddress)
+                        .forEach(([idx, coins]) => {
+                            arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount(), isStable});
+                        });
+                });
+
+                return arrResult;
+            };
+
+            return prepareForStringifyObject([].concat(
+                representResults(arrStableUtxos, true),
+                representResults(arrPendingUtxos, false)
+            ));
         }
     };

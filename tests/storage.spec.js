@@ -1,7 +1,10 @@
 'use strict';
 
 const {describe, it} = require('mocha');
-const {assert} = require('chai');
+const chai = require('chai');
+chai.use(require('chai-as-promised'));
+const {assert} = chai;
+
 const sinon = require('sinon').createSandbox();
 
 const debugChannel = 'storage:*';
@@ -81,7 +84,6 @@ describe('Storage tests', () => {
         const gotBlock = await storage.getBlock(block.hash());
 
         assert.isOk(gotBlock.txns);
-        const rTx = new factory.Transaction(gotBlock.txns[0]);
     });
 
     it('should apply "addCoins" patch to empty storage (like genesis)', async () => {
@@ -160,7 +162,7 @@ describe('Storage tests', () => {
         }
     });
 
-    it('should get UTXOs from DB as map', async () => {
+    it('should get UTXOs from DB as patch', async () => {
         const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
@@ -430,12 +432,25 @@ describe('Storage tests', () => {
 
     it('should NOT find UTXO', async () => {
         const storage = new factory.Storage();
-        try {
-            await storage.getUtxo(pseudoRandomBuffer());
-        } catch (e) {
-            return;
-        }
-        throw 'Unexpected success';
+        assert.isRejected(storage.getUtxo(pseudoRandomBuffer()));
+    });
+
+    it('should get UTXO', async () => {
+        const storage = new factory.Storage();
+
+        const hash = pseudoRandomBuffer();
+        const coins = new factory.Coins(1e5, generateAddress());
+        const utxo = new factory.UTXO({txHash: hash});
+        utxo.addCoins(0, coins);
+
+        const patch = new factory.PatchDB();
+        patch.setUtxo(utxo);
+        await storage.applyPatch(patch);
+
+        const utxoFromStorage = await storage.getUtxo(hash);
+
+        assert.isOk(utxoFromStorage);
+        utxoFromStorage.equals(utxo);
     });
 
     it('should set/get RECEIPT', async () => {
@@ -518,6 +533,218 @@ describe('Storage tests', () => {
             const arrTxHashes = block.getTxHashes();
             assert.isOk(arrRecords.every(rec => arrTxHashes.includes(rec.key.toString('hex')) &&
                                                 rec.value.toString('hex') === block.getHash()));
+        });
+    });
+
+    describe('Wallet support', async () => {
+        let storage;
+
+        beforeEach(async () => {
+            storage = new factory.Storage({walletSupport: true});
+        });
+
+        it('should throw (no wallet support)', async () => {
+            const storage = new factory.Storage();
+
+            assert.isRejected(storage._ensureWalletInitialized());
+            assert.isRejected(storage._walletWriteAddressUtxo());
+            assert.isRejected(storage.walletListUnspent());
+        });
+
+        it('should load empty wallet', async () => {
+            await storage._ensureWalletInitialized();
+
+            assert.deepEqual(storage._arrStrWalletAddresses, []);
+            assert.equal(storage._nWalletAutoincrement, 0);
+        });
+
+        it('should load wallet addresses', async () => {
+            const addr1 = generateAddress();
+            const addr2 = generateAddress();
+            const autoInc = 10;
+
+            let callCount = 0;
+            storage._walletStorage.get = async () => {
+
+                // first call - request for addresses, second - autoincrement
+                return ++callCount === 1 ? Buffer.concat([addr1, addr2]) : Buffer.from([0, 0, 0, autoInc]);
+            };
+
+            await storage._ensureWalletInitialized();
+
+            assert.isOk(Array.isArray(storage._arrStrWalletAddresses));
+            assert.equal(storage._arrStrWalletAddresses.length, 2);
+            assert.equal(addr1.toString('hex'), storage._arrStrWalletAddresses[0]);
+            assert.equal(addr2.toString('hex'), storage._arrStrWalletAddresses[1]);
+
+            assert.equal(storage._nWalletAutoincrement, autoInc);
+        });
+
+        it('should write/read utxo', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            // this UTXO doesn't belongs to address
+            await storage._walletWriteAddressUtxo(
+                generateAddress().toString('hex'),
+                pseudoRandomBuffer().toString('hex')
+            );
+
+            // read it back
+            const arrHashes = await storage._walletReadAddressRecords(addr);
+
+            // totally we write 3 hashes
+            assert.equal(storage._nWalletAutoincrement, 3);
+
+            // but this address belongs only 2 utxos
+            assert.equal(arrHashes.length, 2);
+            assert.isOk(arrHashes[0].value.equals(hash1));
+            assert.isOk(arrHashes[1].value.equals(hash2));
+        });
+
+        it('should CleanupMissed', async () => {
+            const arrMissedKeys = [pseudoRandomBuffer(), pseudoRandomBuffer()];
+            storage._walletStorage.batch = sinon.fake();
+
+            await storage._walletCleanupMissed(arrMissedKeys);
+
+            assert.isOk(storage._walletStorage.batch.calledOnce);
+            const [arrOps] = storage._walletStorage.batch.args[0];
+
+            assert.deepEqual(arrOps[0], {type: 'del', key: arrMissedKeys[0]});
+            assert.deepEqual(arrOps[1], {type: 'del', key: arrMissedKeys[1]});
+        });
+
+        it('should walletListUnspent (no missed)', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+            const fakeUtxo = 'fakeUtxo';
+            storage.getUtxo = sinon.fake.returns(fakeUtxo);
+            storage._arrStrWalletAddresses = [addr];
+            storage._nWalletAutoincrement = 0;
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            const arrResults = await storage.walletListUnspent(addr);
+
+            assert.equal(arrResults.length, 2);
+            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
+        });
+
+        it('should walletListUnspent (purge missed)', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+            const fakeUtxo = 'fakeUtxo';
+            storage.getUtxo = async (hash) => {
+                if (hash.equals(hash1)) return fakeUtxo;
+                throw 'not found';
+            };
+            storage._arrStrWalletAddresses = [addr];
+            storage._nWalletAutoincrement = 0;
+            storage._walletCleanupMissed = sinon.fake();
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            const arrResults = await storage.walletListUnspent(addr);
+
+            assert.equal(arrResults.length, 1);
+            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
+
+            assert.isOk(storage._walletCleanupMissed.calledOnce);
+            assert.equal(storage._walletCleanupMissed.args[0][0].length, 1);
+        });
+
+        it('should throw (address already in wallet)', async () => {
+            const addr = generateAddress().toString('hex');
+            storage._arrStrWalletAddresses = [addr];
+
+            assert.isRejected(storage.walletWatchAddress(addr));
+        });
+
+        it('should add new watched address ', async () => {
+            storage._walletStorage.put = sinon.fake();
+
+            // previously stored address
+            storage._arrStrWalletAddresses = [generateAddress().toString('hex')];
+            const strAddr = generateAddress().toString('hex');
+
+            await storage.walletWatchAddress(strAddr);
+
+            assert.isOk(storage._walletStorage.put.calledOnce);
+            const [, buffSerializedAddresses] = storage._walletStorage.put.args[0];
+            assert.isOk(Buffer.isBuffer(buffSerializedAddresses));
+            const arrOfStrAddr = new factory.ArrayOfAddresses(buffSerializedAddresses).getArray();
+            assert.equal(arrOfStrAddr.length, 2);
+
+            // new address added
+            assert.equal(arrOfStrAddr[1], strAddr);
+        });
+
+        it('should reIndex wallet', async () => {
+            const buffAddr1 = generateAddress();
+            const buffAddr2 = generateAddress();
+            const buffAddr3 = generateAddress();
+            const coins1 = new factory.Coins(1e5, buffAddr1);
+            const coins2 = new factory.Coins(1e5, buffAddr2);
+
+            // this utxo contains only coins of addr1
+            const hash1 = pseudoRandomBuffer();
+            const utxo1 = new factory.UTXO({txHash: hash1});
+            utxo1.addCoins(0, coins1);
+            utxo1.addCoins(1, coins1);
+            utxo1.addCoins(2, coins1);
+
+            // this utxo contains only coins of addr2
+            const hash2 = pseudoRandomBuffer();
+            const utxo2 = new factory.UTXO({txHash: hash2});
+            utxo2.addCoins(0, coins2);
+            utxo2.addCoins(2, coins2);
+
+            // this utxo contains coins for both addresses
+            const hash3 = pseudoRandomBuffer();
+            const utxo3 = new factory.UTXO({txHash: hash3});
+            utxo3.addCoins(0, coins1);
+            utxo3.addCoins(10, coins2);
+
+            const patch = new factory.PatchDB();
+            patch.setUtxo(utxo1);
+            patch.setUtxo(utxo2);
+            patch.setUtxo(utxo3);
+            await storage.applyPatch(patch);
+
+            await storage.walletWatchAddress(buffAddr1);
+            await storage.walletWatchAddress(buffAddr2);
+            await storage.walletWatchAddress(buffAddr3);
+
+            // before reindex
+            {
+                const arrUtxo1 = await storage.walletListUnspent(buffAddr1.toString('hex'));
+                assert.equal(arrUtxo1.length, 0);
+                const arrUtxo2 = await storage.walletListUnspent(buffAddr2.toString('hex'));
+                assert.equal(arrUtxo2.length, 0);
+                const arrUtxo3 = await storage.walletListUnspent(buffAddr3.toString('hex'));
+                assert.equal(arrUtxo3.length, 0);
+            }
+
+            await storage.walletReIndex();
+
+            // after reindex
+            {
+                const arrUtxo1 = await storage.walletListUnspent(buffAddr1.toString('hex'));
+                assert.equal(arrUtxo1.length, 2);
+                const arrUtxo2 = await storage.walletListUnspent(buffAddr2.toString('hex'));
+                assert.equal(arrUtxo2.length, 2);
+                const arrUtxo3 = await storage.walletListUnspent(buffAddr3.toString('hex'));
+                assert.equal(arrUtxo3.length, 0);
+            }
         });
     });
 });
