@@ -809,8 +809,8 @@ module.exports = (factory, factoryOptions) => {
                     case 'getBlock':
 
                         // content is hash
-                        return await this._getBlockAndState(content);
-                    case 'getTips':
+                        return await this._getBlockAndState(content).catch(err => debugNode(err));
+                    case 'getTips': {
                         let arrHashes = this._pendingBlocks.getTips();
 
                         if (!arrHashes || !arrHashes.length) {
@@ -821,6 +821,27 @@ module.exports = (factory, factoryOptions) => {
                         return await Promise.all(
                             arrHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
                         );
+                    }
+                    case 'getNext': {
+                        let arrChildHashes = this._mainDag.getChildren(content);
+                        if(!arrChildHashes || !arrChildHashes.length) {
+                            arrChildHashes = this._pendingBlocks.getChildren(content);
+                        }
+                        if (!arrChildHashes) return [];
+                        return await Promise.all(
+                            arrChildHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
+                        );
+                    }
+                    case 'getPrev': {
+                        let cBlockInfo = this._mainDag.getBlockInfo(content);
+                        if (!cBlockInfo) {
+                            cBlockInfo = this._pendingBlocks.getBlock(content).blockHeader;
+                        }
+                        if (!cBlockInfo) return [];
+                        return await Promise.all(
+                            cBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
+                        );
+                    }
                     case 'getTx':
                         return await this._getTxForRpc(content);
                     case 'constantMethodCall':
@@ -847,7 +868,7 @@ module.exports = (factory, factoryOptions) => {
                 throw e;
             }
         }
-
+        
         /**
          *
          * @param {Transaction} tx
@@ -1241,6 +1262,9 @@ module.exports = (factory, factoryOptions) => {
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
             }
+            if (this._rpc) {
+                this._rpc.informWsSubscribersStableBlocks(Array.from(setStableBlocks.keys()));
+            }
         }
 
         async _updateLastAppliedBlocks(arrTopStable) {
@@ -1283,7 +1307,8 @@ module.exports = (factory, factoryOptions) => {
             );
 
             if (this._rpc) {
-                this._rpc.informWsSubscribers('newBlock', block);
+                const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
+                this._rpc.informWsSubscribersNewBlock(blockAndState);
             }
         }
 
@@ -1690,7 +1715,7 @@ module.exports = (factory, factoryOptions) => {
         async _processBlock(block, peer) {
             typeforce(typeforce.oneOf(types.Block, types.BlockInfo), block);
 
-//            debugBlock(`Attempting to exec block "${block.getHash()}"`);
+            debugBlock(`Attempting to exec block "${block.getHash()}"`);
 
             if (await this._canExecuteBlock(block)) {
                 if (!this._isBlockExecuted(block.getHash())) {

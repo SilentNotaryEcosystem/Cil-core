@@ -14,6 +14,7 @@ module.exports = {
         rpcPort: 18222,
 
         // how much we suppress creating empty blocks
+
         WITNESS_HOLDOFF: 5 * 60 * 1000
     }
 };

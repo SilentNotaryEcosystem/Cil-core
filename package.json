@@ -8,7 +8,7 @@
     "ipaddr.js": "^1.9.0",
     "js-sha3": "^0.8.0",
     "json-rpc2": "git+https://github.com/trueshura/node-jsonrpc2.git",
-    "leveldown": "^4.0.1",
+    "leveldown": "^4.0.2",
     "levelup": "^4.0.0",
     "merkletreejs": "0.0.11",
     "mutex": "git+https://github.com/trueshura/MUTEX.git",
