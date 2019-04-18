@@ -2,7 +2,7 @@
 
 const typeforce = require('typeforce');
 const debugLib = require('debug');
-const { sleep } = require('../utils');
+const {sleep} = require('../utils');
 const types = require('../types');
 const Tick = require('tick-tock');
 
@@ -10,7 +10,7 @@ const debug = debugLib('mempool:');
 
 // TODO: add tx expiration (14 days?)
 
-module.exports = ({ Constants, Transaction }) =>
+module.exports = ({Constants, Transaction}) =>
     class Mempool {
         constructor(options) {
             this._mapTxns = new Map();
@@ -77,7 +77,7 @@ module.exports = ({ Constants, Transaction }) =>
             const strHash = tx.hash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
-            this._mapTxns.set(strHash, { tx, arrived: Date.now() });
+            this._mapTxns.set(strHash, {tx, arrived: Date.now()});
             debug(`TX ${strHash} added`);
         }
 
@@ -110,6 +110,46 @@ module.exports = ({ Constants, Transaction }) =>
             for (let r of this._mapTxns.values()) {
                 if (r.tx.witnessGroupId === groupId) arrResult.push(r.tx);
             }
-            return arrResult;
+            return this._sortTxns(arrResult);
+        }
+        /**
+         * @param {Array<Transaction>} arrTxns array of tx
+         * @returns sorted tx array
+         */
+        _sortTxns(arrTxns) {
+            let hasConflict;
+            do {
+                hasConflict = false;
+                for (let i in arrTxns) {
+                    const tx = arrTxns[i];
+                    const c = this._findConflicts(i, tx, arrTxns)
+                    if (c >= 0) {
+                        arrTxns.splice(c + 1, 0, tx);
+                        arrTxns.splice(i, 1);
+                        hasConflict = true;
+                    }
+                }
+            } while (hasConflict)
+            return arrTxns;
+        }
+
+        /**
+         * 
+         * @param {Number} txIndex - index of tx in arrTxns
+         * @param {Transaction} tx - transaction for which the conflict is checked
+         * @param {Array<Transaction>} arrTxns - array of all tx
+         * @returns {Number} -1 if no conflict, else max index of tx in arrTxns
+         *                   with which input tx has a conflict
+         */
+        _findConflicts(txIndex, tx, arrTxns) {
+            let maxIndex = -1;
+            for (const input of tx.inputs) {
+                const index = arrTxns.findIndex(p => p.hash() == input.txHash.toString('hex'));
+                if (index >= 0 && index > maxIndex) maxIndex = index;
+            }
+            if (maxIndex >= 0 && txIndex < maxIndex) {
+                return maxIndex;
+            }
+            return -1;
         }
     };

@@ -168,4 +168,37 @@ describe('Mempool tests', () => {
 
     });
 
+    it('should find sorting conflict', () => {
+        const mempool = new factory.Mempool();
+        const tx1 = new factory.Transaction(createDummyTx());
+        const tx2 = new factory.Transaction(createDummyTx());
+        const tx3 = new factory.Transaction();
+        tx3.addInput(tx1.hash(), 1);
+        tx3.addInput(tx2.hash(), 2);
+        mempool.addTx(tx2);
+        mempool.addTx(tx3);
+        mempool.addTx(tx1);
+
+        const arrTxns = Array.from(mempool._mapTxns.values()).map(t => t.tx);
+        const conflictIdx = mempool._findConflicts(1,tx3,arrTxns);
+
+        assert.equal(conflictIdx,2);
+    });
+
+    it('should sort txns', () => {
+        const mempool = new factory.Mempool();
+        const tx1 = new factory.Transaction(createDummyTx());
+        const tx2 = new factory.Transaction(createDummyTx());
+        const tx3 = new factory.Transaction();
+        tx3.addInput(tx1.hash(), 1);
+        tx3.addInput(tx2.hash(), 2);
+        mempool.addTx(tx2);
+        mempool.addTx(tx3);
+        mempool.addTx(tx1);
+
+        const arrTxns = mempool.getFinalTxns(0);
+
+        assert.deepEqual(arrTxns,[tx2, tx1, tx3]);
+    })
+
 });
