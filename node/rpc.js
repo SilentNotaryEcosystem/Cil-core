@@ -41,6 +41,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
             this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
             this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
+            this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -252,5 +253,37 @@ module.exports = ({Constants, Transaction}) =>
                 representResults(arrStableUtxos, true),
                 representResults(arrPendingUtxos, false)
             ));
+        }
+
+        async getBalance(args) {
+            const {strAddress} = args;
+
+            const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
+                event: 'walletListUnspent',
+                content: args
+            });
+
+            const getUtxoBalance = (utxo) => {
+                let balance = 0;
+                utxo
+                    .getOutputsForAddress(strAddress)
+                    .forEach(([idx, coins]) => {
+                        balance += coins.getAmount();
+                    });
+                return balance;
+            };
+
+            const confirmedBalance = arrStableUtxos.reduce((balance, utxo) => {
+                return balance + getUtxoBalance(utxo);
+            }, 0);
+
+            const unconfirmedBalance = arrPendingUtxos.reduce((balance, utxo) => {
+                return balance + getUtxoBalance(utxo);
+            }, 0);
+
+            return prepareForStringifyObject({
+                confirmedBalance,
+                unconfirmedBalance
+            });
         }
     };

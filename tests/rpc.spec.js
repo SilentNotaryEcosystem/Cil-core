@@ -124,7 +124,7 @@ describe('RPC', () => {
     it('should get prev block', async () => {
         const state = 'stable';
         const block = createDummyBlock(factory);
-        
+
 
         const getBlockResults = [{
             block,
@@ -314,5 +314,36 @@ describe('RPC', () => {
         });
 
         assert.deepEqual(resp, objExpected);
+    });
+
+    it('should get Balance', async () => {
+        const hash1 = pseudoRandomBuffer();
+        const hash2 = pseudoRandomBuffer();
+        const addr = generateAddress();
+
+        const coins = new factory.Coins(1e5, addr);
+        const utxo1 = new factory.UTXO({txHash: hash1});
+        utxo1.addCoins(0, coins);
+
+        const utxo2 = new factory.UTXO({txHash: hash2});
+        utxo2.addCoins(5, coins);
+        utxo2.addCoins(2, coins);
+
+        const node = {
+            rpcHandler: sinon.fake.resolves({
+                arrStableUtxos: [utxo1],
+                arrPendingUtxos: [utxo2]
+            })
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        const resp = await rpc.getBalance({
+            strAddress: addr.toString('hex')
+        });
+
+        assert.deepEqual(resp, {
+            confirmedBalance: 1e5,
+            unconfirmedBalance: 2e5
+        });
     });
 });
