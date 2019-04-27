@@ -116,9 +116,9 @@ module.exports = ({Constants, Transaction}) =>
             // TODO: implement lock_time
             // TODO: implement cache if mempool becomes huge
             const arrResult = [];
-            for(let hash of this._sortTxns()){
+            for (let hash of this._sortTxns()){
                 const r = this._mapTxns.get(hash);
-                if(r.tx.witnessGroupId == groupId) arrResult.push(r.tx);
+                if (r.tx.witnessGroupId == groupId) arrResult.push(r.tx);
             }
             return arrResult;
         }
@@ -136,11 +136,10 @@ module.exports = ({Constants, Transaction}) =>
               for (let i = 0; i < notused.length; i++) {
                 const v = notused[i]
                 let k = 0;
-                const edgesTo = Array.from(this._dag.edgesTo(v)._edges.values())[0]
-                if (edgesTo) k = edgesTo.length;
-                const edgesFrom = this._dag._edges.get(v)
-                if (edgesFrom) {
-                  const fromPrevLevel = edgesFrom.filter(e => ~used.indexOf(e.from) )
+                const edgesTo = this._dag._edges.get(v);
+                if (edgesTo) { 
+                  k = edgesTo.length;
+                  const fromPrevLevel = edgesTo.filter(e => ~used.indexOf(e.from));
                   if(fromPrevLevel) k -= fromPrevLevel.length
                 }
                 if (k == 0) {
