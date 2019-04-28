@@ -2,6 +2,8 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
+        ADDRESS_PREFIX: 'Ux',
+
         GROUP_DEFINITION_CONTRACT_ADDRESS: '92002a7379ba99472af1d31226f469bf78cf95e1',
         GENESIS_BLOCK: '707234f85ec4172300a3b2122911efd3baa04e15f7e51ef253c9059107131021',
 

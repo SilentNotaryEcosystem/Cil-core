@@ -1,6 +1,6 @@
 const factory = require('./factory');
 
-const {readCmdLineOptions, sleep} = require('./utils');
+const {readCmdLineOptions, sleep, stripAddressPrefix} = require('./utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -22,7 +22,7 @@ process.on('warning', e => console.warn(e.stack));
 
         if (objCmdLineParams.watchAddress) {
             for (let addr of objCmdLineParams.watchAddress) {
-                await storage.walletWatchAddress(addr);
+                await storage.walletWatchAddress(stripAddressPrefix(factory.Constants, addr));
             }
         }
 

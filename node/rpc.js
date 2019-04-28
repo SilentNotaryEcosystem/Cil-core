@@ -4,7 +4,7 @@ const debugLib = require('debug');
 
 const rpc = require('json-rpc2');
 
-const {asyncRPC, prepareForStringifyObject} = require('../utils');
+const {asyncRPC, prepareForStringifyObject, stripAddressPrefix} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('RPC:');
@@ -36,7 +36,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
             this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
             this._server.expose('getNext', asyncRPC(this.getNext.bind(this)));
-            this._server.expose('getPrev', asyncRPC(this.getPrev.bind(this)))
+            this._server.expose('getPrev', asyncRPC(this.getPrev.bind(this)));
             this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
             this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
             this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
@@ -96,6 +96,7 @@ module.exports = ({Constants, Transaction}) =>
                 }
             );
         }
+
         /**
          *
          * @param {Object} args
@@ -117,11 +118,11 @@ module.exports = ({Constants, Transaction}) =>
                     block: prepareForStringifyObject(result.block.toObject()),
                     state: result.state
                 } : undefined;
-            }
-            catch (err) {
+            } catch (err) {
                 return undefined;
             }
         }
+
         /**
          *
          * @returns {Promise<Array>} of blockInfos (headers)
@@ -138,11 +139,11 @@ module.exports = ({Constants, Transaction}) =>
                     block: prepareForStringifyObject(objBlockState.block.toObject()),
                     state: objBlockState.state
                 }));
-            }
-            catch (err) {
+            } catch (err) {
                 return [];
             }
         }
+
         /**
          *
          * @returns {Promise<Array>} of blockInfos (headers)
@@ -162,11 +163,11 @@ module.exports = ({Constants, Transaction}) =>
                     block: prepareForStringifyObject(objBlockState.block.toObject()),
                     state: objBlockState.state
                 }));
-            }
-            catch (err) {
+            } catch (err) {
                 return [];
             }
         }
+
         /**
          *
          * @returns {Promise<Array>} of blockInfos (headers)
@@ -186,11 +187,11 @@ module.exports = ({Constants, Transaction}) =>
                     block: prepareForStringifyObject(objBlockState.block.toObject()),
                     state: objBlockState.state
                 }));
-            }
-            catch (err) {
+            } catch (err) {
                 return [];
             }
         }
+
         async getTx(args) {
             const {strTxHash} = args;
 
@@ -229,11 +230,13 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         async walletListUnspent(args) {
-            const {strAddress} = args;
+            let {strAddress} = args;
+            strAddress = stripAddressPrefix(Constants, strAddress);
+
 
             const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
                 event: 'walletListUnspent',
-                content: args
+                content: {strAddress}
             });
 
             const representResults = (arrUtxos, isStable) => {
@@ -256,11 +259,12 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         async getBalance(args) {
-            const {strAddress} = args;
+            let {strAddress} = args;
+            strAddress = stripAddressPrefix(Constants, strAddress);
 
             const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
                 event: 'walletListUnspent',
-                content: args
+                content: {strAddress}
             });
 
             const getUtxoBalance = (utxo) => {
