@@ -39,6 +39,14 @@ describe('RPC', () => {
         new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
     });
 
+    it('should create instance with rate limit', async () => {
+        const rpc = new factory.RPC(node, {
+            rpcAddress: factory.Transport.generateAddress(),
+            ratelimit: {maxPerInterval: 20, msInterval: 1000}
+        });
+        assert.isOk(rpc._server.ratelimiter);
+    });
+
     it('should emit TX event', async () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         const tx = new factory.Transaction(createDummyTx());
@@ -74,7 +82,7 @@ describe('RPC', () => {
 
     it('should PASS informWsSubscribers (no subscribers)', async () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
-        rpc.informWsSubscribersNewBlock( {block: createDummyBlock(factory), state:'stable'});
+        rpc.informWsSubscribersNewBlock({block: createDummyBlock(factory), state: 'stable'});
     });
 
     it('should PASS informWsSubscribers about new block (has subscribers)', async () => {
@@ -82,7 +90,7 @@ describe('RPC', () => {
         const fake = sinon.fake();
         rpc._server._objConnections['test1'] = {send: fake};
 
-        rpc.informWsSubscribersNewBlock( {block: createDummyBlock(factory), state:'stable'});
+        rpc.informWsSubscribersNewBlock({block: createDummyBlock(factory), state: 'stable'});
         assert.isOk(fake.calledOnce);
     });
 
@@ -91,10 +99,9 @@ describe('RPC', () => {
         const fake = sinon.fake();
         rpc._server._objConnections['test1'] = {send: fake};
 
-        rpc.informWsSubscribersStableBlocks( {arrHashes: [createDummyBlock(factory).getHash()], state:'stable'});
+        rpc.informWsSubscribersStableBlocks({arrHashes: [createDummyBlock(factory).getHash()], state: 'stable'});
         assert.isOk(fake.calledOnce);
     });
-
 
     it('should get block', async () => {
         const state = 12;
@@ -125,11 +132,11 @@ describe('RPC', () => {
         const state = 'stable';
         const block = createDummyBlock(factory);
 
-
-        const getBlockResults = [{
-            block,
-            state
-        }];
+        const getBlockResults = [
+            {
+                block,
+                state
+            }];
 
         node = {
             rpcHandler: sinon.fake.resolves(getBlockResults)
@@ -152,10 +159,11 @@ describe('RPC', () => {
         const state = 'stable';
         const block = createDummyBlock(factory);
 
-        const getBlockResults = [{
-            block,
-            state
-        }];
+        const getBlockResults = [
+            {
+                block,
+                state
+            }];
 
         node = {
             rpcHandler: sinon.fake.resolves(getBlockResults)

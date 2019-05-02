@@ -27,7 +27,13 @@ module.exports = ({Constants, Transaction}) =>
                 websocket: true,
                 headers: {
                     'Access-Control-Allow-Origin': '*'
-                }
+                },
+
+                // default rate limit: 20 requests/second
+                ratelimit: {maxPerInterval: 20, msInterval: 1000},
+
+                // this allow override defaults above
+                ...options
             });
             if (rpcUser && rpcPass) this._server.enableAuth(rpcUser, rpcPass);
 
