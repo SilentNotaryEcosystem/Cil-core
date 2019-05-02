@@ -754,6 +754,16 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
+            // next stage: send INV with mempool
+            const msgInv = new MsgInv();
+            const inventory = new Inventory();
+            this._mempool.getAllTxnHashes().forEach(hash => inventory.addTxHash(hash));
+            msgInv.inventory = inventory;
+            if (inventory.vector.length) {
+                debugMsg(`(address: "${this._debugAddress}") sharing mempool to "${peer.address}"`);
+                await peer.pushMessage(msgInv);
+            }
+
             // next stage: request unknown blocks
             const msg = await this._createGetBlocksMsg();
             debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
@@ -868,7 +878,7 @@ module.exports = (factory, factoryOptions) => {
                 throw e;
             }
         }
-        
+
         /**
          *
          * @param {Transaction} tx
