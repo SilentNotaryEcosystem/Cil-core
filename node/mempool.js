@@ -54,7 +54,7 @@ module.exports = ({ Constants, Transaction }) =>
             let i = Math.floor(this._mapTxns.size / 3);
             for (let [hash, tx] of this._mapTxns) {
                 this._mapTxns.delete(hash);
-                if (--i == 0) break;
+                if (--i === 0) break;
             }
         }
 
@@ -74,7 +74,7 @@ module.exports = ({ Constants, Transaction }) =>
         addTx(tx) {
             this.limitConstraints();
 
-            const strHash = tx.hash();
+            const strHash = tx.getHash();
             if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
             this._mapTxns.set(strHash, { tx, arrived: Date.now() });
@@ -111,5 +111,13 @@ module.exports = ({ Constants, Transaction }) =>
                 if (r.tx.witnessGroupId === groupId) arrResult.push(r.tx);
             }
             return arrResult;
+        }
+
+        /**
+         *
+         * @return {Array}
+         */
+        getAllTxnHashes() {
+            return Array.from(this._mapTxns.keys());
         }
     };
