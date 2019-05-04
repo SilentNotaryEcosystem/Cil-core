@@ -145,7 +145,13 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             const coinbase = Transaction.createCoinbase();
             coinbase.witnessGroupId = this.witnessGroupId;
-            coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
+
+            // developer foundation
+            const nFeeDevFoundation = parseInt(Constants.DEV_FOUNDATION_SHARE * totalTxnsFees);
+            coinbase.addReceiver(nFeeDevFoundation, Constants.DEV_FOUNDATION_ADDRESS);
+
+            // block creator
+            coinbase.addReceiver(totalTxnsFees - nFeeDevFoundation, buffReceiverAddr);
 
             // to make coinbase hash unique add one more random output with 0 coins
             coinbase.addReceiver(0, Crypto.randomBytes(20));
