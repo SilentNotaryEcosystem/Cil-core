@@ -5,14 +5,14 @@ const assert = require('assert');
 const v8 = require('v8');
 const types = require('../types');
 
-module.exports = (factory, {witnessGroupDefinitionProto}) =>
-    class WitnessGroupDefinition {
+module.exports = ({Constants}, {conciliumDefinitionProto, conciliumParametersProto}) =>
+    class ConciliumDefinition {
         constructor(data) {
             if (Buffer.isBuffer(data)) {
                 this._data = v8.deSerialize(data);
             } else if (typeof data === 'object') {
-                const errMsg = witnessGroupDefinitionProto.verify(data);
-                if (errMsg) throw new Error(`WitnessGroupDefinition: ${errMsg}`);
+                const errMsg = conciliumDefinitionProto.verify(data);
+                if (errMsg) throw new Error(`ConciliumDefinition: ${errMsg}`);
 
                 // we store publicKeys as buffers!
                 assert(data.publicKeys.length, 'No keys in group definition!');
@@ -30,7 +30,7 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
                 // if delegatesPublicKeys omitted - all of participants are delegates
                 if (!data.delegatesPublicKeys) data.delegatesPublicKeys = data.publicKeys;
 
-                this._data = witnessGroupDefinitionProto.create(data);
+                this._data = conciliumDefinitionProto.create(data);
             } else {
                 throw new Error('Construct from Buffer|Object');
             }
@@ -49,12 +49,12 @@ module.exports = (factory, {witnessGroupDefinitionProto}) =>
 
         /**
          *
-         * @param {Object} objContractData - contract data, now {_arrGroupDefinitions: []}
-         * @returns {Array} of WitnessGroupDefinition
+         * @param {Object} objContractData - contract data, now {_arrConciliums: []}
+         * @returns {Array} of ConciliumDefinition
          */
         static getFromContractData(objContractData) {
-            const {_arrGroupDefinitions} = objContractData;
-            return _arrGroupDefinitions.map(objDefData => new this(objDefData));
+            const {_arrConciliums} = objContractData;
+            return _arrConciliums.map(objDefData => new this(objDefData));
         }
 
         getPublicKeys() {

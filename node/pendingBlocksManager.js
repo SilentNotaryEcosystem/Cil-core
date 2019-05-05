@@ -60,13 +60,13 @@ module.exports = (factory) => {
             if (!vertex) return -1;
             const arrPaths = [...this._dag.findPathsDown(vertex)];
             return arrPaths.reduce((maxNum, path) => {
-                const setWitnessGroupIds = new Set();
+                const setConciliumIds = new Set();
                 path.forEach(vertex => {
                     const {blockHeader} = this._dag.readObj(vertex) || {};
                     if (!blockHeader) return;
-                    setWitnessGroupIds.add(blockHeader.witnessGroupId);
+                    setConciliumIds.add(blockHeader.witnessGroupId);
                 });
-                return maxNum > setWitnessGroupIds.size ? maxNum : setWitnessGroupIds.size;
+                return maxNum > setConciliumIds.size ? maxNum : setConciliumIds.size;
             }, 0);
         }
 
@@ -79,7 +79,7 @@ module.exports = (factory) => {
         }
 
         /**
-         * @param {String} blockHash
+         * @param {String} hash
          * @returns {Array}  of blocks that are children of a block with hash
          */
         getChildren(hash) {
@@ -88,7 +88,7 @@ module.exports = (factory) => {
         }
 
         /**
-         * @param {String} blockHash
+         * @param {String} hash
          */
         getBlock(hash) {
             typeforce(types.Str64, hash);
@@ -264,14 +264,14 @@ module.exports = (factory) => {
          * @private
          */
         _findTopStableForPath(path, nMajority) {
-            const setWitnessGroupIds = new Set();
+            const setConciliumIds = new Set();
 
             for (let vertex of path) {
                 const {blockHeader} = this._dag.readObj(vertex) || {};
                 if (!blockHeader) continue;
-                setWitnessGroupIds.add(blockHeader.witnessGroupId);
+                setConciliumIds.add(blockHeader.witnessGroupId);
 
-                if (setWitnessGroupIds.size >= nMajority) return vertex;
+                if (setConciliumIds.size >= nMajority) return vertex;
             }
 
             // no stable - return undefined!

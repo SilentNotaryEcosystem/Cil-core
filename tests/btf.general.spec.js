@@ -21,15 +21,15 @@ const createDummyBFT = (groupId = 0, numOfKeys = 2) => {
     }
     const newWallet = new factory.Wallet(arrKeyPairs[0].privateKey);
 
-    const groupDefinition = factory.WitnessGroupDefinition.create(groupId, arrPublicKeys);
+    const concilium = factory.ConciliumDefinition.create(groupId, arrPublicKeys);
 
     const newBft = new factory.BFT({
-        groupDefinition,
+        concilium,
         wallet: newWallet
     });
     newBft._stopTimer();
 
-    return {arrKeyPairs, newWallet, groupDefinition, newBft};
+    return {arrKeyPairs, newWallet, concilium, newBft};
 };
 
 describe('BFT general tests', () => {
@@ -51,7 +51,7 @@ describe('BFT general tests', () => {
         const kp2 = factory.Crypto.createKeyPair();
         const newWallet = new factory.Wallet(kp1.privateKey);
 
-        const groupDefinition = factory.WitnessGroupDefinition.create(
+        const concilium = factory.ConciliumDefinition.create(
             groupId,
             [kp1.publicKey, kp2.publicKey],
             undefined,
@@ -59,7 +59,7 @@ describe('BFT general tests', () => {
         );
 
         const newBft = new factory.BFT({
-            groupDefinition,
+            concilium,
             wallet: newWallet
         });
         newBft._stopTimer();
@@ -73,14 +73,14 @@ describe('BFT general tests', () => {
         const kp2 = factory.Crypto.createKeyPair();
         const newWallet = new factory.Wallet(kp1.privateKey);
 
-        const groupDefinition = factory.WitnessGroupDefinition.create(
+        const concilium = factory.ConciliumDefinition.create(
             groupId,
             [kp1.publicKey, kp2.publicKey],
             undefined
         );
 
         const newBft = new factory.BFT({
-            groupDefinition,
+            concilium,
             wallet: newWallet
         });
         newBft._stopTimer();
@@ -91,9 +91,9 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS (one witness)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(groupId, 1);
+        const {newBft, concilium} = createDummyBFT(groupId, 1);
         const sampleData = {data: 1};
-        const [myWalletPubKey] = groupDefinition.getPublicKeys();
+        const [myWalletPubKey] = concilium.getPublicKeys();
         newBft._resetState();
         newBft._addViewOfNodeWithPubKey(myWalletPubKey, myWalletPubKey, sampleData);
         const value = newBft.runConsensus();
@@ -101,8 +101,8 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS (two witness same data)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(groupId, 2);
-        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(groupId, 2);
+        const [myWalletPubKey, anotherPubKey] = concilium.getPublicKeys();
         const sampleData = {data: 1};
         newBft._resetState();
 
@@ -122,8 +122,8 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS (two witness same data - BUFFER)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(groupId, 2);
-        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(groupId, 2);
+        const [myWalletPubKey, anotherPubKey] = concilium.getPublicKeys();
 
         const sampleData = Buffer.from('1234');
         newBft._resetState();
@@ -144,8 +144,8 @@ describe('BFT general tests', () => {
     });
 
     it('should FAIL (two witness different data)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(groupId, 2);
-        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(groupId, 2);
+        const [myWalletPubKey, anotherPubKey] = concilium.getPublicKeys();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -166,8 +166,8 @@ describe('BFT general tests', () => {
     });
 
     it('should FAIL (two witness party tries to forge my data)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(groupId, 2);
-        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(groupId, 2);
+        const [myWalletPubKey, anotherPubKey] = concilium.getPublicKeys();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -188,8 +188,8 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS 3 witness same data', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(0, 3);
-        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = concilium.getPublicKeys();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -226,8 +226,8 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS 3 witness (one dead)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(0, 3);
-        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = concilium.getPublicKeys();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -264,8 +264,8 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS 3 witness (one tries to misbehave)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(0, 3);
-        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = concilium.getPublicKeys();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -302,8 +302,8 @@ describe('BFT general tests', () => {
     });
 
     it('should PASS 3 witness (MY data is wrong)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(0, 3);
-        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = concilium.getPublicKeys();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -340,8 +340,8 @@ describe('BFT general tests', () => {
     });
 
     it('should FAIL 3 witness (two tries to misbehave)', async () => {
-        const {newBft, groupDefinition} = createDummyBFT(0, 3);
-        const [myWalletPubKey, anotherPubKey, thirdPubKey] = groupDefinition.getPublicKeys();
+        const {newBft, concilium} = createDummyBFT(0, 3);
+        const [myWalletPubKey, anotherPubKey, thirdPubKey] = concilium.getPublicKeys();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -761,8 +761,8 @@ describe('BFT general tests', () => {
     });
 
     it('should get signatures', async () => {
-        const {arrKeyPairs, newBft, groupDefinition} = createDummyBFT(groupId, 2);
-        const [myWalletPubKey, anotherPubKey] = groupDefinition.getPublicKeys();
+        const {arrKeyPairs, newBft, concilium} = createDummyBFT(groupId, 2);
+        const [myWalletPubKey, anotherPubKey] = concilium.getPublicKeys();
 
         newBft._resetState();
         newBft._block = createDummyBlock(factory);
@@ -820,7 +820,7 @@ describe('BFT general tests', () => {
         const {newBft} = createDummyBFT(groupId, 2);
         newBft._block = createDummyBlock(factory);
 
-        newBft._groupDefinition.getQuorum = sinon.fake.returns(0);
+        newBft._concilium.getQuorum = sinon.fake.returns(0);
 
         try {
             newBft._getSignaturesForBlock();

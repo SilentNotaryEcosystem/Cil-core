@@ -19,11 +19,11 @@ const maxConnections = 4;
 
 let groupId = 11;
 let arrKeyPairs;
-let groupDefinition;
+let concilium;
 
-const patchNodeForWitnesses = (node, groupDefinition) => {
-    node._storage.getWitnessGroupsByKey = sinon.fake.returns([groupDefinition]);
-    node._storage.getWitnessGroupById = sinon.fake.returns(groupDefinition);
+const patchNodeForWitnesses = (node, concilium) => {
+    node._storage.getConciliumsByKey = sinon.fake.returns([concilium]);
+    node._storage.getConciliumById = sinon.fake.returns(concilium);
 };
 
 const createDummyDefinition = (groupId = 0, numOfKeys = 2) => {
@@ -34,9 +34,9 @@ const createDummyDefinition = (groupId = 0, numOfKeys = 2) => {
         arrKeyPairs.push(keyPair);
         arrPublicKeys.push(keyPair.publicKey);
     }
-    const groupDefinition = factory.WitnessGroupDefinition.create(groupId, arrPublicKeys);
+    const concilium = factory.ConciliumDefinition.create(groupId, arrPublicKeys);
 
-    return {arrKeyPairs, groupDefinition};
+    return {arrKeyPairs, concilium};
 };
 
 let witnesNo = 1;
@@ -51,7 +51,7 @@ const createWitnesses = (num, seedAddress) => {
             delay,
             arrSeedAddresses: [seedAddress]
         });
-        patchNodeForWitnesses(witness, groupDefinition);
+        patchNodeForWitnesses(witness, concilium);
         arrWitnesses.push(witness);
     }
     witnesNo += num;
@@ -102,7 +102,7 @@ describe('Witness integration tests', () => {
     });
 
     beforeEach(async function() {
-        ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupId, maxConnections));
+        ({arrKeyPairs, concilium} = createDummyDefinition(groupId, maxConnections));
     });
 
     after(async function() {
@@ -198,11 +198,11 @@ describe('Witness integration tests', () => {
         const seedNode = new factory.Node({
             listenAddr: seedAddress,
             delay,
-            arrTestDefinition: [groupDefinition],
+            arrTestDefinition: [concilium],
             isSeed: true
         });
 
-        patchNodeForWitnesses(seedNode, groupDefinition);
+        patchNodeForWitnesses(seedNode, concilium);
         await seedNode.ensureLoaded();
         await processBlock(seedNode, genesis);
 
@@ -246,7 +246,7 @@ describe('Witness integration tests', () => {
     it('should work for SINGLE WITNESS (commit one block tx in mempool)', async function() {
         this.timeout(maxConnections * 60000);
 
-        ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupId, 1));
+        ({arrKeyPairs, concilium} = createDummyDefinition(groupId, 1));
         const {genesis, tx} = createGenesisBlockAndSpendingTx(groupId);
 
         const seedAddress = factory.Transport.generateAddress();
@@ -257,7 +257,7 @@ describe('Witness integration tests', () => {
             rpcPass: 'test',
             isSeed: true
         });
-        patchNodeForWitnesses(seedNode, groupDefinition);
+        patchNodeForWitnesses(seedNode, concilium);
         await seedNode.ensureLoaded();
         await processBlock(seedNode, genesis);
 
@@ -306,7 +306,7 @@ describe('Witness integration tests', () => {
             rpcPass: 'test',
             isSeed: true
         });
-//        patchNodeForWitnesses(seedNode, groupDefinition);
+//        patchNodeForWitnesses(seedNode, concilium);
         await seedNode.ensureLoaded();
         await processBlock(seedNode, genesis);
 

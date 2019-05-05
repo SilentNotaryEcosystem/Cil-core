@@ -6,7 +6,7 @@ const {assert} = require('chai');
 const factory = require('./testFactory');
 const {pseudoRandomBuffer} = require('./testUtil');
 
-describe('Group Definition', () => {
+describe('Concilium Definition', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -17,18 +17,23 @@ describe('Group Definition', () => {
     });
 
     it('should FAIL to create', async () => {
-        assert.throws(() => new factory.WitnessGroupDefinition());
+        assert.throws(() => new factory.ConciliumDefinition());
     });
 
     it('should create', async () => {
-        new factory.WitnessGroupDefinition({
+        new factory.ConciliumDefinition({
             publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
             groupId: 10,
             quorum: 1,
-            delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]
+            delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
+            parameters: {
+                feeTxSize: 15000,
+                feeContractCreation: 1e12,
+                feeContractInvocation: 15000
+            }
         });
 
-        factory.WitnessGroupDefinition.create(
+        factory.ConciliumDefinition.create(
             10,
             [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
             [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]
@@ -37,7 +42,7 @@ describe('Group Definition', () => {
 
     it('should fill delegates if we omit them', async () => {
         {
-            const def = new factory.WitnessGroupDefinition({
+            const def = new factory.ConciliumDefinition({
                 publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
                 groupId: 10
             });
@@ -45,7 +50,7 @@ describe('Group Definition', () => {
             assert.isOk(Array.isArray(def.getDelegatesPublicKeys()));
         }
         {
-            const def = factory.WitnessGroupDefinition.create(10, [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]);
+            const def = factory.ConciliumDefinition.create(10, [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]);
 
             assert.isOk(Array.isArray(def.getDelegatesPublicKeys()));
         }
@@ -53,7 +58,7 @@ describe('Group Definition', () => {
 
     it('should assign all participants as delegates', async () => {
         const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-        const def = factory.WitnessGroupDefinition.create(
+        const def = factory.ConciliumDefinition.create(
             10,
             arrPubKeys
         );
@@ -67,7 +72,7 @@ describe('Group Definition', () => {
     it('should assign separate delegates', async () => {
         const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
         const arrDelegatesKeys = [arrPubKeys[0]];
-        const def = factory.WitnessGroupDefinition.create(
+        const def = factory.ConciliumDefinition.create(
             10,
             arrPubKeys,
             arrDelegatesKeys
@@ -83,21 +88,21 @@ describe('Group Definition', () => {
         {
             const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
             const arrDelegatesKeys = [arrPubKeys[0]];
-            const def = factory.WitnessGroupDefinition.create(10, arrPubKeys, arrDelegatesKeys);
+            const def = factory.ConciliumDefinition.create(10, arrPubKeys, arrDelegatesKeys);
 
             // one delegate
             assert.equal(def.getQuorum(), 1);
         }
         {
             const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-            const def = factory.WitnessGroupDefinition.create(10, arrPubKeys);
+            const def = factory.ConciliumDefinition.create(10, arrPubKeys);
 
             // two delegates from pubKeys
             assert.equal(def.getQuorum(), 2);
         }
         {
             const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-            const def = factory.WitnessGroupDefinition.create(10, arrPubKeys, undefined, 10);
+            const def = factory.ConciliumDefinition.create(10, arrPubKeys, undefined, 10);
 
             // manually specified
             assert.equal(def.getQuorum(), 10);
@@ -105,11 +110,33 @@ describe('Group Definition', () => {
 
         {
             const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-            const def = factory.WitnessGroupDefinition.create(10, arrPubKeys);
+            const def = factory.ConciliumDefinition.create(10, arrPubKeys);
             def.setQuorum(10);
 
             // manually specified
             assert.equal(def.getQuorum(), 10);
         }
+    });
+
+    it('should get fees parameters', async () => {
+        const feeTxSize = 15000;
+        const feeContractCreation = 1e12;
+        const feeContractInvocation = 15000;
+
+        const concilium = new factory.ConciliumDefinition({
+            publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
+            groupId: 10,
+            quorum: 1,
+            delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
+            parameters: {
+                feeTxSize,
+                feeContractCreation,
+                feeContractInvocation
+            }
+        });
+
+        assert.equal(concilium.getFeeTxSize(), feeTxSize);
+        assert.equal(concilium.getContractCreationFee(), feeContractCreation);
+        assert.equal(concilium.getContractInvocationFee(), feeContractInvocation);
     });
 });

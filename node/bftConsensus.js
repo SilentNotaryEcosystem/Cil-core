@@ -27,20 +27,20 @@ module.exports = (factory) => {
          */
         constructor(options) {
             super();
-            const {groupDefinition, wallet} = options;
+            const {concilium, wallet} = options;
 
             this._networkOffset = 0;
 
             this._nonce = parseInt(Math.random() * 100000);
 
-            if (!groupDefinition) throw new Error('Use group definition to construct');
-            this._groupDefinition = groupDefinition;
+            if (!concilium) throw new Error('Use group definition to construct');
+            this._concilium = concilium;
 
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
             // delegates public keys are buffers, transform it to strings, to use with maps
-            this._arrPublicKeys = groupDefinition.getDelegatesPublicKeys().sort().map(key => key.toString('hex'));
+            this._arrPublicKeys = concilium.getDelegatesPublicKeys().sort().map(key => key.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
@@ -54,7 +54,7 @@ module.exports = (factory) => {
         }
 
         get groupId() {
-            return this._groupDefinition.getGroupId();
+            return this._concilium.getGroupId();
         }
 
         updateNetworkTime(nNewOffset) {
@@ -153,7 +153,7 @@ module.exports = (factory) => {
         runConsensus() {
 
             // i'm a single node (for example Initial witness)
-            if (this._groupDefinition.getQuorum() === 1 &&
+            if (this._concilium.getQuorum() === 1 &&
                 this._arrPublicKeys.includes(this._wallet.publicKey)) {
                 return this._views[this._wallet.publicKey][this._wallet.publicKey];
             }
@@ -211,7 +211,7 @@ module.exports = (factory) => {
                 return maxCount;
             }, 0);
 
-            return count >= this._groupDefinition.getQuorum() ? majorityValue : undefined;
+            return count >= this._concilium.getQuorum() ? majorityValue : undefined;
         }
 
         /**
@@ -236,7 +236,7 @@ module.exports = (factory) => {
             this._blockStateHandler(true);
 
             const message = this._createBlockAcceptMessage(
-                this._groupDefinition.getGroupId(),
+                this._concilium.getGroupId(),
                 Buffer.from(block.hash(), 'hex')
             );
             this.emit('message', message);
@@ -251,7 +251,7 @@ module.exports = (factory) => {
             this._block = undefined;
             this._blockStateHandler(false);
 
-            const message = this._createBlockRejectMessage(this._groupDefinition.getGroupId());
+            const message = this._createBlockRejectMessage(this._concilium.getGroupId());
             this.emit('message', message);
         }
 
@@ -544,7 +544,7 @@ module.exports = (factory) => {
                     arrSignatures.push(votedValue.signature);
                 }
             });
-            const quorum = this._groupDefinition.getQuorum();
+            const quorum = this._concilium.getQuorum();
 
             assert(quorum, `Quorum couldn't be zero!`);
 

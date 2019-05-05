@@ -389,11 +389,11 @@ describe('Storage tests', () => {
         const contractAddress = generateAddress();
         factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = contractAddress;
 
-        const def1 = factory.WitnessGroupDefinition.create(
+        const def1 = factory.ConciliumDefinition.create(
             0,
             [Buffer.from('public1'), Buffer.from('public2')]
         );
-        const def2 = factory.WitnessGroupDefinition.create(
+        const def2 = factory.ConciliumDefinition.create(
             1,
             [Buffer.from('public2'), Buffer.from('public3')]
         );
@@ -402,7 +402,7 @@ describe('Storage tests', () => {
         {
             const contract = new factory.Contract({
                 contractData: {
-                    _arrGroupDefinitions: [
+                    _arrConciliums: [
                         def1.toObject(),
                         def2.toObject()
                     ]
@@ -418,13 +418,13 @@ describe('Storage tests', () => {
         storage.applyPatch(patch);
 
         {
-            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public1'));
+            const arrDefs = await storage.getConciliumsByKey(Buffer.from('public1'));
             assert.isOk(Array.isArray(arrDefs));
             assert.equal(arrDefs.length, 1);
         }
 
         {
-            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public2'));
+            const arrDefs = await storage.getConciliumsByKey(Buffer.from('public2'));
             assert.isOk(Array.isArray(arrDefs));
             assert.equal(arrDefs.length, 2);
         }

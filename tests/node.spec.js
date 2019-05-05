@@ -74,7 +74,7 @@ const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
         arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
     }
     block.addWitnessSignatures(arrSignatures);
-    return factory.WitnessGroupDefinition.create(block.witnessGroupId, arrPubKeys);
+    return factory.ConciliumDefinition.create(block.witnessGroupId, arrPubKeys);
 };
 
 const createSimpleChain = async (callback) => {
@@ -675,7 +675,7 @@ describe('Node tests', () => {
 
         // groupId: 0 will have different keys used for block2
         const node = new factory.Node();
-        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef2);
+        node._storage.getConciliumById = sinon.fake.resolves(groupDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -696,7 +696,7 @@ describe('Node tests', () => {
 
         // groupId: 0 will have different keys used for block2
         const node = new factory.Node();
-        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef2);
+        node._storage.getConciliumById = sinon.fake.resolves(groupDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -712,7 +712,7 @@ describe('Node tests', () => {
         const block = createDummyBlock(factory);
         const groupDef = createGroupDefAndSignBlock(block);
         const node = new factory.Node();
-        node._storage.getWitnessGroupById = sinon.fake.resolves(groupDef);
+        node._storage.getConciliumById = sinon.fake.resolves(groupDef);
 
         await node._verifyBlockSignatures(block);
     });
@@ -1097,7 +1097,7 @@ describe('Node tests', () => {
         const node = new factory.Node();
         await node.ensureLoaded();
 
-        node._storage.getWitnessGroupsCount = sinon.fake.returns(11);
+        node._storage.getConciliumsCount = sinon.fake.returns(11);
 
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 1);
@@ -1143,7 +1143,7 @@ describe('Node tests', () => {
         await node.ensureLoaded();
         const block = createDummyBlock(factory);
 
-        const blockAndState = {block: block, state:8};
+        const blockAndState = {block: block, state: 8};
         const fake = sinon.fake();
         node._rpc.informWsSubscribersNewBlock = fake;
         const getBlockFake = sinon.fake.resolves(blockAndState);
@@ -1151,7 +1151,7 @@ describe('Node tests', () => {
         await node._postAcceptBlock(block);
 
         assert.isOk(fake.calledOnce);
-        const [ objData] = fake.args[0];
+        const [objData] = fake.args[0];
 
         assert.deepEqual(objData, blockAndState);
     });
@@ -1292,7 +1292,7 @@ describe('Node tests', () => {
             node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
 
             const [objResult] = await node.rpcHandler({event: 'getNext', content: arrExpectedHashes[8]});
-            
+
             assert.isOk(objResult);
             assert.deepEqual(
                 prepareForStringifyObject(objResult),

@@ -281,7 +281,7 @@ describe('Node integration tests', () => {
         const amount = 1e6;
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._storage.getWitnessGroupsCount = () => 3;
+        node._storage.getConciliumsCount = () => 3;
         node._unwindBlock = sinon.fake();
 
         const kpReceiver = factory.Crypto.createKeyPair();

@@ -101,7 +101,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         }));
 
         // we have definition for initial witness
-        assert.isOk(await witnessGroupOne._storage.getWitnessGroupById(0));
+        assert.isOk(await witnessGroupOne._storage.getConciliumById(0));
         await witnessGroupOne.start();
 
         stepDone = true;
@@ -147,8 +147,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         await donePromise;
 
-        assert.isOk(await witnessGroupOne._storage.getWitnessGroupById(1));
-        assert.isOk(await witnessGroupTwo._storage.getWitnessGroupById(1));
+        assert.isOk(await witnessGroupOne._storage.getConciliumById(1));
+        assert.isOk(await witnessGroupTwo._storage.getConciliumById(1));
         await witnessGroupTwo.start();
 
         stepDone = true;
@@ -384,11 +384,11 @@ function createGenesisBlock() {
         .join(',');
 
     const contractCode = `
-class GroupDefinition extends Base{
+class Concilium extends Base{
     constructor(...arrKeys) {
         super();
-        this._arrGroupDefinitions=[];
-        this._arrGroupDefinitions.push({
+        this._arrConciliums=[];
+        this._arrConciliums.push({
             publicKeys: arrKeys,
             groupCreationTx: contractTx,
             groupId: 0,
@@ -400,28 +400,28 @@ class GroupDefinition extends Base{
     changeDefinition(objNewDefinition){
     }
     
-    addDefinition(objGroupDefinition){
+    addDefinition(objConcilium){
     
         // check fee!
-        this._validateDefinition(objGroupDefinition);
-        this._arrGroupDefinitions.push({
-            groupId: this._arrGroupDefinitions.length, 
+        this._validateDefinition(objConcilium);
+        this._arrConciliums.push({
+            groupId: this._arrConciliums.length, 
             groupCreationTx: contractTx,
 
-            quorum: objGroupDefinition.quorum,
-            publicKeys: objGroupDefinition.publicKeys,
-            delegatesPublicKeys: objGroupDefinition.delegatesPublicKeys
+            quorum: objConcilium.quorum,
+            publicKeys: objConcilium.publicKeys,
+            delegatesPublicKeys: objConcilium.delegatesPublicKeys
         });
     }
     
-    _validateDefinition(objGroupDefinition){
-        if(!objGroupDefinition.publicKeys 
-            || !objGroupDefinition.quorum 
-            || !objGroupDefinition.delegatesPublicKeys) throw ('Bad definition');
+    _validateDefinition(objConcilium){
+        if(!objConcilium.publicKeys 
+            || !objConcilium.quorum 
+            || !objConcilium.delegatesPublicKeys) throw ('Bad definition');
     }
 }
 
-exports=new GroupDefinition(${strCommaSeparatedKeys});
+exports=new Concilium(${strCommaSeparatedKeys});
 `;
 
     const genesis = new factory.Block(0);

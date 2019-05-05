@@ -284,7 +284,7 @@ describe('Pending block manager', async () => {
 
         it('should reach the FINALITY (3 groups. conflicting branches)', async () => {
 
-            const numOfWitnessGroup = 3;
+            const numOfConcilium = 3;
 
             // see illustration page "rejected block consensus"
             const block1 = createDummyBlock(factory, 0);
@@ -319,7 +319,7 @@ describe('Pending block manager', async () => {
                 block6 = createDummyBlock(factory, 1);
                 block6.parentHashes = arrParents;
                 pbm.addBlock(block6, new factory.PatchDB(0));
-                const result = pbm.checkFinality(block6.getHash(), numOfWitnessGroup);
+                const result = pbm.checkFinality(block6.getHash(), numOfConcilium);
 
                 // no finality
                 assert.notOk(result);
@@ -328,7 +328,7 @@ describe('Pending block manager', async () => {
             // connection to group0 restored
             pbm.addBlock(block1, new factory.PatchDB(0));
             {
-                const result = pbm.checkFinality(block1.getHash(), numOfWitnessGroup);
+                const result = pbm.checkFinality(block1.getHash(), numOfConcilium);
 
                 // no finality
                 assert.notOk(result);
@@ -340,7 +340,7 @@ describe('Pending block manager', async () => {
                 pbm.addBlock(block7, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfWitnessGroup);
+                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfConcilium);
 
                 assert.equal(setBlocksToRollback.size, 1);
                 assert.isOk(setBlocksToRollback.has(block3.getHash()));
@@ -363,7 +363,7 @@ describe('Pending block manager', async () => {
                 pbm.addBlock(block8, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block8.getHash(), numOfWitnessGroup);
+                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block8.getHash(), numOfConcilium);
 
                 // block 3 is already deleted
                 assert.equal(setBlocksToRollback.size, 0);
