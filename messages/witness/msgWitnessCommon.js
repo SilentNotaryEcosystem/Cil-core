@@ -5,7 +5,7 @@ const typeforce = require('typeforce');
  * - Decode MessageCommon from wire
  * - Detect signature
  * - Decode WitnessMessageCommon from MessageCommon
- * - Get groupId from WitnessMessageCommon and pass it to respective BFT
+ * - Get conciliumId from WitnessMessageCommon and pass it to respective BFT
  * - Decode specific Witness msg from WitnessMessageCommon
  *
  * @param {Object} Constants
@@ -46,17 +46,17 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
                 super();
 
                 // constructing it manually
-                if (data.groupId === undefined) {
-                    throw new Error('Specify "groupId"');
+                if (data.conciliumId === undefined) {
+                    throw new Error('Specify "conciliumId"');
                 }
                 this._msgData = {
-                    groupId: data.groupId
+                    conciliumId: data.conciliumId
                 };
             }
         }
 
-        get groupId() {
-            return this._msgData.groupId;
+        get conciliumId() {
+            return this._msgData.conciliumId;
         }
 
         get content() {

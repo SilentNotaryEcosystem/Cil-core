@@ -72,8 +72,8 @@ module.exports = (factory, {contractProto}) =>
             return serializeContractData(this._contractData);
         }
 
-        getGroupId() {
-            return this._data.groupId;
+        getConciliumId() {
+            return this._data.conciliumId;
         }
 
         getDataSize() {
@@ -101,7 +101,7 @@ module.exports = (factory, {contractProto}) =>
          * @return {Buffer}
          */
         encode() {
-            assert(this._data.groupId !== undefined, 'Contract "groupId" not specified!');
+            assert(this._data.conciliumId !== undefined, 'Contract "conciliumId" not specified!');
 
             this._data.contractData = serializeContractData(this._contractData);
             return contractProto.encode(this._data).finish();

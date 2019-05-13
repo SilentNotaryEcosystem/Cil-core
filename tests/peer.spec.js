@@ -153,8 +153,8 @@ describe('Peer tests', () => {
     it('should emit empty "witnessMessage" (wrong signature)', async () => {
         const keyPair = factory.Crypto.createKeyPair();
 
-        // create message and sign it with key that doesn't belong to our group
-        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
+        // create message and sign it with key that doesn't belong to our concilium
+        const msg = new factory.Messages.MsgWitnessCommon({conciliumId: 0});
         msg.handshakeMessage = true;
         msg.sign(keyPair.getPrivate());
 

@@ -11,7 +11,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             this._final = false;
             if (typeof data === 'number') {
-                data = {header: blockHeaderProto.create({witnessGroupId: data})};
+                data = {header: blockHeaderProto.create({conciliumId: data})};
             }
 
             if (Buffer.isBuffer(data)) {
@@ -22,7 +22,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
                 if (errMsg) throw new Error(`Block: ${errMsg}`);
                 this._data = blockProto.create(data);
             } else {
-                throw new Error('witnessGroupId mandatory for block creation');
+                throw new Error('conciliumId mandatory for block creation');
             }
 
             if (!this._data.header.version) this._data.header.version = Constants.BLOCK_VERSION || 1;
@@ -45,8 +45,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this._data.header.merkleRoot;
         }
 
-        get witnessGroupId() {
-            return this._data.header.witnessGroupId;
+        get conciliumId() {
+            return this._data.header.conciliumId;
         }
 
         get txns() {
@@ -144,7 +144,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
 
             const coinbase = Transaction.createCoinbase();
-            coinbase.witnessGroupId = this.witnessGroupId;
+            coinbase.conciliumId = this.conciliumId;
             coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
 
             // to make coinbase hash unique add one more random output with 0 coins

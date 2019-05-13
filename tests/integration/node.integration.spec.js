@@ -291,7 +291,7 @@ describe('Node integration tests', () => {
         let gBlock;
         {
             const tx = new factory.Transaction();
-            tx.witnessGroupId = 1;
+            tx.conciliumId = 1;
 
             // spend idx 0
             tx.addInput(pseudoRandomBuffer(), 0);
@@ -322,7 +322,7 @@ describe('Node integration tests', () => {
         let block21;
         {
             const tx = new factory.Transaction();
-            tx.witnessGroupId = 1;
+            tx.conciliumId = 1;
             tx.addInput(txHash, 0);
             tx.addReceiver(1e3, generateAddress());
             tx.addReceiver(1e3, kpReceiver.getAddress(true));
@@ -350,7 +350,7 @@ describe('Node integration tests', () => {
         let block10;
         {
             const tx = new factory.Transaction();
-            tx.witnessGroupId = 0;
+            tx.conciliumId = 0;
 
             // spend idx 0
             tx.addInput(txHash, 0);

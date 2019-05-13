@@ -31,7 +31,7 @@ module.exports = ({ Constants, Transaction }) =>
         removeTxns(arrTxHashes) {
             for (let txHash of arrTxHashes) {
 
-                // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
+                // TODO: check could be here descendants (i.e. when we undo block, from misbehaving concilium). if so - implement queue
                 // TODO: think about: is it problem that TX isn't present in mempool, but present in block
                 if (this._mapTxns.has(txHash)) {
                     this._mapTxns.delete(txHash);
@@ -99,16 +99,16 @@ module.exports = ({ Constants, Transaction }) =>
 
         /**
          *
-         * @param {Number} groupId - witness groupId
+         * @param {Number} conciliumId - witness conciliumId
          * @returns {IterableIterator<any>} {tx, arrived ...}
          */
-        getFinalTxns(groupId) {
+        getFinalTxns(conciliumId) {
 
             // TODO: implement lock_time
             // TODO: implement cache if mempool becomes huge
             const arrResult = [];
             for (let r of this._mapTxns.values()) {
-                if (r.tx.witnessGroupId === groupId) arrResult.push(r.tx);
+                if (r.tx.conciliumId === conciliumId) arrResult.push(r.tx);
             }
             return arrResult;
         }

@@ -21,7 +21,7 @@ const createBlockInfo = () => {
     return new factory.BlockInfo({
         parentHashes: [],
         merkleRoot: pseudoRandomBuffer(),
-        witnessGroupId: 0,
+        conciliumId: 0,
         timestamp: timestamp(),
         version: 1
     });
@@ -290,8 +290,8 @@ describe('Storage tests', () => {
     });
 
     it('should apply patch with contract and getContract', async () => {
-        const groupId = 10;
-        const patch = new factory.PatchDB(groupId);
+        const conciliumId = 10;
+        const patch = new factory.PatchDB(conciliumId);
         const address = generateAddress();
         const data = {value: 10};
         const strCode = 'getData(){return this._data}';
@@ -299,7 +299,7 @@ describe('Storage tests', () => {
             const contract = new factory.Contract({
                 contractData: data,
                 contractCode: strCode,
-                groupId
+                conciliumId
             });
             contract.storeAddress(address);
             patch.setContract(contract);
@@ -310,14 +310,14 @@ describe('Storage tests', () => {
 
         const contract = await storage.getContract(address);
         assert.isOk(contract);
-        assert.equal(contract.getGroupId(), groupId);
+        assert.equal(contract.getConciliumId(), conciliumId);
         assert.deepEqual(contract.getData(), data);
         assert.equal(contract.getCode(), strCode);
     });
 
     it('should write to db encoded data (buffers)', async () => {
-        const groupId = 10;
-        const patch = new factory.PatchDB(groupId);
+        const conciliumId = 10;
+        const patch = new factory.PatchDB(conciliumId);
         const storage = new factory.Storage();
 
         const buffUtxoHash = pseudoRandomBuffer();
@@ -327,7 +327,7 @@ describe('Storage tests', () => {
             const contract = new factory.Contract({
                 contractData: {data: 1},
                 contractCode: `let code=1`,
-                groupId
+                conciliumId
             });
             contract.storeAddress(buffContractAddr);
             patch.setContract(contract);
@@ -371,7 +371,7 @@ describe('Storage tests', () => {
             const contract = new factory.Contract({
                 contractData,
                 contractCode,
-                groupId: 0
+                conciliumId: 0
             });
             contract.storeAddress(contractAddress);
             patch.setContract(contract);
@@ -385,7 +385,7 @@ describe('Storage tests', () => {
         assert.equal(contract.getCode(), contractCode);
     });
 
-    it('should read group definitions', async () => {
+    it('should read concilium definitions', async () => {
         const contractAddress = generateAddress();
         factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = contractAddress;
 
@@ -408,7 +408,7 @@ describe('Storage tests', () => {
                     ]
                 },
                 contractCode: '',
-                groupId: 0
+                conciliumId: 0
             });
             contract.storeAddress(contractAddress);
             patch.setContract(contract);

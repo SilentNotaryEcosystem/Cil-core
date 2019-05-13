@@ -25,12 +25,12 @@ const createDummyPeer = (pubkey = '0a0b0c0d', address = factory.Transport.genera
 
 const createDummyPeerInfo = (pubkey, address) => createDummyPeer(pubkey, address).peerInfo;
 
-const createDummyDefinitionWallet = (groupId = 0) => {
+const createDummyDefinitionWallet = (conciliumId = 0) => {
     const keyPair1 = factory.Crypto.createKeyPair();
     const keyPair2 = factory.Crypto.createKeyPair();
     const newWallet = new factory.Wallet(keyPair1.privateKey);
 
-    const concilium = factory.ConciliumDefinition.create(groupId,
+    const concilium = factory.ConciliumDefinition.create(conciliumId,
         [keyPair1.publicKey, keyPair2.publicKey]
     );
 
@@ -65,9 +65,9 @@ describe('Witness tests', () => {
         new factory.Witness({wallet});
     });
 
-    it('should get peers for my group', async () => {
-        const groupId = 0;
-        const {keyPair1, keyPair2, concilium} = createDummyDefinitionWallet(groupId);
+    it('should get peers for my concilium', async () => {
+        const conciliumId = 0;
+        const {keyPair1, keyPair2, concilium} = createDummyDefinitionWallet(conciliumId);
         const witness = new factory.Witness({wallet, arrTestDefinition: [concilium], isSeed: true});
         await witness.ensureLoaded();
 
@@ -79,27 +79,27 @@ describe('Witness tests', () => {
             await witness._peerManager.addPeer(peer);
         }
 
-        const result = await witness._getGroupPeers(concilium);
+        const result = await witness._getConciliumPeers(concilium);
         assert.isOk(Array.isArray(result));
         assert.equal(result.length, 2);
     });
 
     it('should reject message with wrong signature prom peer', async () => {
-        const groupId = 11;
+        const conciliumId = 11;
 
-        // mock peer with public key from group
+        // mock peer with public key from concilium
         const peer = createDummyPeer();
 
         const def = factory.ConciliumDefinition.create(
-            groupId,
+            conciliumId,
             [wallet.publicKey, Buffer.from('pubkey1'), Buffer.from('pubkey2')]
         );
         const arrTestDefinition = [def];
 
         // create witness
         const witness = new factory.Witness({wallet, arrTestDefinition});
-        await witness._createConsensusForGroup(def);
-        const newBft = witness._consensuses.get(def.getGroupId());
+        await witness._createConsensusForConcilium(def);
+        const newBft = witness._consensuses.get(def.getConciliumId());
         newBft._stopTimer();
 
         try {
@@ -137,7 +137,7 @@ describe('Witness tests', () => {
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
-        const {block, patch} = await witness._createBlock(concilium.getGroupId());
+        const {block, patch} = await witness._createBlock(concilium.getConciliumId());
         assert.equal(block.txns.length, 3);
 
         assert.isOk(patch.getUtxo(new factory.Transaction(block.txns[0]).hash()));

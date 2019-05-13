@@ -4,9 +4,9 @@ const {assert} = require('chai');
 const {sleep} = require('../../utils');
 const factory = require('../testFactory');
 
-const groupId = 11;
+const conciliumId = 11;
 
-const createDummyBFT = (groupId = 0, numOfKeys = 2) => {
+const createDummyBFT = (conciliumId = 0, numOfKeys = 2) => {
     const arrKeyPairs = [];
     const arrPublicKeys = [];
     for (let i = 0; i < numOfKeys; i++) {
@@ -16,7 +16,7 @@ const createDummyBFT = (groupId = 0, numOfKeys = 2) => {
     }
     const newWallet = new factory.Wallet(arrKeyPairs[0].privateKey);
 
-    const concilium = factory.ConciliumDefinition.create(groupId, arrPublicKeys);
+    const concilium = factory.ConciliumDefinition.create(conciliumId, arrPublicKeys);
 
     const newBft = new factory.BFT({
         concilium,
@@ -27,8 +27,8 @@ const createDummyBFT = (groupId = 0, numOfKeys = 2) => {
     return {arrKeyPairs, newWallet, concilium, newBft};
 };
 
-const createBlockAckMessage = (groupId, privateKey, blockHash) => {
-    const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupId, blockHash});
+const createBlockAckMessage = (conciliumId, privateKey, blockHash) => {
+    const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({conciliumId, blockHash});
     msgBlockAck.sign(privateKey);
     return msgBlockAck;
 };
@@ -56,18 +56,18 @@ describe('BFT consensus integration tests', () => {
             hash: () => fakeBlockHash.toString('hex')
         };
 
-        const createBlockAckMessage = (groupId, privateKey, blockHash) => {
-            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({groupId, blockHash});
+        const createBlockAckMessage = (conciliumId, privateKey, blockHash) => {
+            const msgBlockAck = new factory.Messages.MsgWitnessBlockVote({conciliumId, blockHash});
             msgBlockAck.sign(privateKey);
             return msgBlockAck;
         };
 
         // Message received from party
-        const msgParty = createBlockAckMessage(groupId, keyPair2.privateKey, fakeBlockHash);
+        const msgParty = createBlockAckMessage(conciliumId, keyPair2.privateKey, fakeBlockHash);
         newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
 
         // My message
-        const msgMy = createBlockAckMessage(groupId, keyPair1.privateKey, fakeBlockHash2);
+        const msgMy = createBlockAckMessage(conciliumId, keyPair1.privateKey, fakeBlockHash2);
         newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
 
         // My message returned by party
@@ -92,11 +92,11 @@ describe('BFT consensus integration tests', () => {
         };
 
         // Message received from party
-        const msgParty = createBlockAckMessage(groupId, keyPair2.privateKey, fakeBlockHash);
+        const msgParty = createBlockAckMessage(conciliumId, keyPair2.privateKey, fakeBlockHash);
         newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
 
         // My message
-        const msgMy = createBlockAckMessage(groupId, keyPair1.privateKey, fakeBlockHash);
+        const msgMy = createBlockAckMessage(conciliumId, keyPair1.privateKey, fakeBlockHash);
         newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
 
         // My message returned by party

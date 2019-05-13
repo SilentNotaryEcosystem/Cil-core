@@ -366,7 +366,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             const contract = new Contract({
                 contractCode: strCodeExportedFunctions,
                 contractData: data,
-                groupId: this._groupId
+                conciliumId: this._conciliumId
             });
             contract.storeAddress(contractAddr);
 

@@ -21,7 +21,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             } else if (data === undefined) {
                 this._data = {
                     payload: {
-                        witnessGroupId: 0,
+                        conciliumId: 0,
                         ins: [],
                         outs: []
                     },
@@ -31,8 +31,8 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
                 throw new Error('Contruct from Buffer|Object|Empty');
             }
             if (!this._data.payload.version) this._data.payload.version = CURRENT_TX_VERSION;
-            if (this._data.payload.witnessGroupId === undefined) {
-                throw new Error('Specify witness group, who will notarize this TX');
+            if (this._data.payload.conciliumId === undefined) {
+                throw new Error('Specify witness concilium, who will notarize this TX');
             }
 
             // fix fixed64 conversion to Long. see https://github.com/dcodeIO/ProtoBuf.js/
@@ -46,12 +46,12 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             }
         }
 
-        get witnessGroupId() {
-            return this._data.payload.witnessGroupId;
+        get conciliumId() {
+            return this._data.payload.conciliumId;
         }
 
-        set witnessGroupId(groupId) {
-            return this._data.payload.witnessGroupId = groupId;
+        set conciliumId(conciliumId) {
+            return this._data.payload.conciliumId = conciliumId;
         }
 
         get rawData() {
@@ -275,7 +275,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         verify() {
 
-            assert(this.witnessGroupId !== undefined, 'witnessGroupId undefined');
+            assert(this.conciliumId !== undefined, 'conciliumId undefined');
 
             // check inputs (not a coinbase & nTxOutput - non negative)
             const inputs = this.inputs;

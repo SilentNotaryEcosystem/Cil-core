@@ -183,7 +183,7 @@ describe('Contract integration tests', () => {
             undefined
         );
 
-        // tx1 & tx2 created with witnessGroupId 0
+        // tx1 & tx2 created with conciliumId 0
         const block = new factory.Block(0);
         block.addTx(tx1);
         block.addTx(tx2);
@@ -192,7 +192,7 @@ describe('Contract integration tests', () => {
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();
         node._storage.getContract = () => new factory.Contract({
-            groupId: 0,
+            conciliumId: 0,
             contractCode: '{"add": "(a){this.value+=a;}"}',
             contractData: {value: 23}
         }, strContractAddr);
@@ -236,7 +236,7 @@ describe('Contract integration tests', () => {
         const tx2 = new factory.Transaction();
         tx2.addReceiver(3000, buffContractAddr);
 
-        // tx1 & tx2 created with witnessGroupId 0
+        // tx1 & tx2 created with conciliumId 0
         const block = new factory.Block(0);
         block.addTx(tx1);
         block.addTx(tx2);
@@ -245,7 +245,7 @@ describe('Contract integration tests', () => {
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();
         node._storage.getContract = () => new factory.Contract({
-            groupId: 0,
+            conciliumId: 0,
             contractCode: '{"_default": "(){}"}'
         }, strContractAddr);
 

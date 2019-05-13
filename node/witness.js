@@ -44,13 +44,13 @@ module.exports = (factory, factoryOptions) => {
             const arrConciliums = await this._storage.getConciliumsByKey(this._wallet.publicKey);
 
             for (let def of arrConciliums) {
-                await this._createConsensusForGroup(def);
+                await this._createConsensusForConcilium(def);
             }
             await super.bootstrap();
         }
 
         /**
-         * Establish connection for all groups which this witness listed (publicKey in group definition)
+         * Establish connection for all conciliums which this witness listed (publicKey in concilium definition)
          *
          * @return {Promise<void>}
          */
@@ -61,7 +61,7 @@ module.exports = (factory, factoryOptions) => {
             const wasInitialized = this._consensuses.size;
 
             for (let def of arrConciliums) {
-                if (!wasInitialized) await this._createConsensusForGroup(def);
+                if (!wasInitialized) await this._createConsensusForConcilium(def);
                 await this.startConcilium(def);
             }
 
@@ -70,15 +70,15 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
-         * Establish connection with other witnesses in specified group
+         * Establish connection with other witnesses in specified concilium
          *
          * @param {ConciliumDefinition} concilium
          * @return {Promise<void>}
          */
         async startConcilium(concilium) {
-            const peers = await this._getGroupPeers(concilium);
+            const peers = await this._getConciliumPeers(concilium);
             debugWitness(
-                `******* "${this._debugAddress}" started WITNESS for group: "${concilium.getGroupId()}" ${peers.length} peers *******`);
+                `******* "${this._debugAddress}" started WITNESS for concilium: "${concilium.getConciliumId()}" ${peers.length} peers *******`);
 
             for (let peer of peers) {
                 debugWitness(`--------- "${this._debugAddress}" started WITNESS handshake with "${peer.address}" ----`);
@@ -92,7 +92,7 @@ module.exports = (factory, factoryOptions) => {
                 if (!peer.disconnected) {
 
                     // to prove that it's real witness it should perform signed handshake
-                    const handshakeMsg = this._createHandshakeMessage(concilium.getGroupId());
+                    const handshakeMsg = this._createHandshakeMessage(concilium.getConciliumId());
                     debugWitnessMsg(
                         `(address: "${this._debugAddress}") sending SIGNED message "${handshakeMsg.message}" to "${peer.address}"`);
                     await peer.pushMessage(handshakeMsg);
@@ -101,7 +101,7 @@ module.exports = (factory, factoryOptions) => {
                     if (peer.witnessLoadDone) {
 
                         // mark it for broadcast
-                        peer.addTag(createPeerTag(concilium.getGroupId()));
+                        peer.addTag(createPeerTag(concilium.getConciliumId()));
 
                         // prevent witness disconnect by timer or bytes threshold
                         peer.markAsPersistent();
@@ -127,27 +127,27 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<void>}
          * @private
          */
-        async _createConsensusForGroup(concilium) {
+        async _createConsensusForConcilium(concilium) {
             const consensus = new BFT({
                 concilium,
                 wallet: this._wallet
             });
             this._setConsensusHandlers(consensus);
-            this._consensuses.set(concilium.getGroupId(), consensus);
+            this._consensuses.set(concilium.getConciliumId(), consensus);
         }
 
         /**
          *
          * @param {ConciliumDefinition} concilium
-         * @return {Array} of Peers with capability WITNESS which belongs to group
+         * @return {Array} of Peers with capability WITNESS which belongs to concilium
          * @private
          */
-        async _getGroupPeers(concilium) {
-            const arrGroupKeys = concilium.getPublicKeys();
+        async _getConciliumPeers(concilium) {
+            const arrConciliumKeys = concilium.getPublicKeys();
             const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS}, true);
             const arrPeers = [];
             for (let peer of arrAllWitnessesPeers) {
-                if (~arrGroupKeys.findIndex(key => {
+                if (~arrConciliumKeys.findIndex(key => {
                     const buffKey = Buffer.isBuffer(key) ? key : Buffer.from(key, 'hex');
                     return buffKey.equals(peer.publicKey);
                 })) {
@@ -160,7 +160,7 @@ module.exports = (factory, factoryOptions) => {
         async _incomingWitnessMessage(peer, message) {
             try {
                 const messageWitness = this._checkPeerAndMessage(peer, message);
-                const consensus = this._consensuses.get(messageWitness.groupId);
+                const consensus = this._consensuses.get(messageWitness.conciliumId);
 
                 if (messageWitness.isHandshake()) {
                     await this._processHandshakeMessage(peer, messageWitness, consensus);
@@ -192,7 +192,7 @@ module.exports = (factory, factoryOptions) => {
 
         async _processHandshakeMessage(peer, messageWitness, consensus) {
 
-            // check whether this witness belong to our group
+            // check whether this witness belong to our concilium
             if (!consensus.checkPublicKey(peer.publicKey)) {
                 peer.ban();
                 throw(`Witness: "${this._debugAddress}" this guy UNKNOWN!`);
@@ -204,11 +204,11 @@ module.exports = (factory, factoryOptions) => {
                 peer.markAsPersistent();
 
                 // we don't check version & self connection because it's done on previous step (node connection)
-                const response = this._createHandshakeMessage(messageWitness.groupId);
+                const response = this._createHandshakeMessage(messageWitness.conciliumId);
                 debugWitnessMsg(
                     `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
                 await peer.pushMessage(response);
-                peer.addTag(createPeerTag(messageWitness.groupId));
+                peer.addTag(createPeerTag(messageWitness.conciliumId));
             } else {
                 peer.witnessLoadDone = true;
             }
@@ -275,7 +275,7 @@ module.exports = (factory, factoryOptions) => {
                 `(address: "${this._debugAddress}") received SIGNED message "${message.message}" from "${peer.address}"`);
 
             messageWitness = new MsgWitnessCommon(message);
-            const consensus = this._consensuses.get(messageWitness.groupId);
+            const consensus = this._consensuses.get(messageWitness.conciliumId);
             if (!consensus) {
                 throw new Error(`Witness: "${this._debugAddress}" send us message for UNKNOWN GROUP!`);
             }
@@ -298,15 +298,15 @@ module.exports = (factory, factoryOptions) => {
             });
             consensus.on('createBlock', async () => {
                 try {
-                    const {groupId} = consensus;
-                    const {block, patch} = await this._createBlock(groupId);
+                    const {conciliumId} = consensus;
+                    const {block, patch} = await this._createBlock(conciliumId);
                     if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
 
                         // catch it below
                         throw (0);
                     }
 
-                    await this._broadcastBlock(groupId, block);
+                    await this._broadcastBlock(conciliumId, block);
 
                     consensus.processValidBlock(block, patch);
                 } catch (e) {
@@ -355,8 +355,8 @@ module.exports = (factory, factoryOptions) => {
          * @return {MsgWitnessCommon}
          * @private
          */
-        _createHandshakeMessage(groupId) {
-            const msg = new MsgWitnessCommon({groupId});
+        _createHandshakeMessage(conciliumId) {
+            const msg = new MsgWitnessCommon({conciliumId});
             msg.handshakeMessage = true;
             msg.sign(this._wallet.privateKey);
             return msg;
@@ -365,25 +365,25 @@ module.exports = (factory, factoryOptions) => {
         /**
          * broadcast MSG_WITNESS_BLOCK to other witnesses
          *
-         * @param {Number} groupId
+         * @param {Number} conciliumId
          * @param {Block} block
          * @returns {Promise<*>}
          * @private
          */
-        async _broadcastBlock(groupId, block) {
-            const msg = new MsgWitnessBlock({groupId});
+        async _broadcastBlock(conciliumId, block) {
+            const msg = new MsgWitnessBlock({conciliumId});
 
             msg.block = block;
             msg.sign(this._wallet.privateKey);
 
-            this._peerManager.broadcastToConnected(createPeerTag(groupId), msg);
+            this._peerManager.broadcastToConnected(createPeerTag(conciliumId), msg);
             debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} broadcasted`);
         }
 
         _broadcastConsensusInitiatedMessage(msg) {
-            const groupId = msg.groupId;
-            this._peerManager.broadcastToConnected(createPeerTag(groupId), msg);
-            const consensusInstance = this._consensuses.get(groupId);
+            const conciliumId = msg.conciliumId;
+            this._peerManager.broadcastToConnected(createPeerTag(conciliumId), msg);
+            const consensusInstance = this._consensuses.get(conciliumId);
 
             // set my own view
             consensusInstance.processMessage(msg);
@@ -391,23 +391,23 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
-         * @param {Number} groupId - for which witnessGroupId we create block
+         * @param {Number} conciliumId - for which conciliumId we create block
          * @returns {Promise<{block, patch}>}
          * @private
          */
-        async _createBlock(groupId) {
+        async _createBlock(conciliumId) {
 
-            const block = new Block(groupId);
+            const block = new Block(conciliumId);
             let {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
             patchMerged = patchMerged ? patchMerged : new PatchDB();
-            patchMerged.setGroupId(groupId);
+            patchMerged.setConciliumId(conciliumId);
 
             assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
             block.parentHashes = arrParents;
 
             const arrBadHashes = [];
             let totalFee = 0;
-            for (let tx of this._mempool.getFinalTxns(groupId)) {
+            for (let tx of this._mempool.getFinalTxns(conciliumId)) {
                 try {
                     const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
                     totalFee += fee;

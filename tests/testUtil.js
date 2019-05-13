@@ -10,12 +10,12 @@ const generateAddress = () => {
     return pseudoRandomBuffer(20);
 };
 
-const createDummyTx = (hash, witnessGroupId) => {
+const createDummyTx = (hash, conciliumId) => {
     return {
         payload: {
             ins: [{txHash: hash ? hash : pseudoRandomBuffer(), nTxOutput: parseInt(Math.random() * 1000) + 1}],
             outs: [{amount: parseInt(Math.random() * 1000) + 1, receiverAddr: generateAddress()}],
-            witnessGroupId: witnessGroupId !== undefined ? witnessGroupId : 0
+            conciliumId: conciliumId !== undefined ? conciliumId : 0
         },
         claimProofs: [pseudoRandomBuffer()]
     };

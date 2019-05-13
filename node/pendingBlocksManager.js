@@ -11,7 +11,7 @@ const {mergeSets} = require('../utils');
 const debug = debugLib('pendingBlocksManager:');
 
 // IMPORTANT: how many witnesses should include it in graph to make it stable
-const majority = (nGroup) => parseInt(nGroup / 2) + 1;
+const majority = (nConcilium) => parseInt(nConcilium / 2) + 1;
 
 module.exports = (factory) => {
     const {Constants, PatchDB} = factory;
@@ -64,7 +64,7 @@ module.exports = (factory) => {
                 path.forEach(vertex => {
                     const {blockHeader} = this._dag.readObj(vertex) || {};
                     if (!blockHeader) return;
-                    setConciliumIds.add(blockHeader.witnessGroupId);
+                    setConciliumIds.add(blockHeader.conciliumId);
                 });
                 return maxNum > setConciliumIds.size ? maxNum : setConciliumIds.size;
             }, 0);
@@ -188,14 +188,14 @@ module.exports = (factory) => {
          * Undefined means that no new stable vertices found
          *
          * @param {String} newVertex - blockHash of processed block
-         * @param {Number} nGroupCount - how many groups definition existed now
+         * @param {Number} nConciliumCount - how many conciliums definition existed now
          * @return {undefined | {patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
          */
-        checkFinality(newVertex, nGroupCount) {
+        checkFinality(newVertex, nConciliumCount) {
             typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
 
             // find all path from this vertex
-            const arrTopStable = this._findTopStable(newVertex, majority(nGroupCount));
+            const arrTopStable = this._findTopStable(newVertex, majority(nConciliumCount));
 
             // no stable yet - stop here
             if (!arrTopStable.length) return;
@@ -269,7 +269,7 @@ module.exports = (factory) => {
             for (let vertex of path) {
                 const {blockHeader} = this._dag.readObj(vertex) || {};
                 if (!blockHeader) continue;
-                setConciliumIds.add(blockHeader.witnessGroupId);
+                setConciliumIds.add(blockHeader.conciliumId);
 
                 if (setConciliumIds.size >= nMajority) return vertex;
             }
@@ -351,22 +351,22 @@ module.exports = (factory) => {
         /**
          *
          * @param {String} strContractAddr
-         * @param {Number} nGroupId
+         * @param {Number} nConciliumId
          * @returns {Contract | undefined}
          */
-        getContract(strContractAddr, nGroupId) {
+        getContract(strContractAddr, nConciliumId) {
             typeforce(typeforce.tuple(types.StrAddress, typeforce.Number), arguments);
 
             const arrTips = this.getTips();
 
-            // find longest path containing patches with ${nGroupId}
+            // find longest path containing patches with ${nConciliumId}
             let strHashBestTip = undefined;
             let nMaxLevel = 0;
             for (let hash of arrTips) {
                 const {patch} = this._dag.readObj(hash);
-                if (patch.getLevel(nGroupId) > nMaxLevel) {
+                if (patch.getLevel(nConciliumId) > nMaxLevel) {
                     strHashBestTip = hash;
-                    nMaxLevel = patch.getLevel(nGroupId);
+                    nMaxLevel = patch.getLevel(nConciliumId);
                 }
             }
             if (!strHashBestTip) return undefined;
@@ -376,7 +376,7 @@ module.exports = (factory) => {
                     const {patch} = this._dag.readObj(vertex);
 
                     // we find most recent one
-                    if (patch.getLevel(nGroupId) === nMaxLevel && patch.getGroupId() === nGroupId) {
+                    if (patch.getLevel(nConciliumId) === nMaxLevel && patch.getConciliumId() === nConciliumId) {
                         return patch.getContract(strContractAddr);
                     }
                 }

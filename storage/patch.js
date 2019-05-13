@@ -11,7 +11,7 @@ const debug = debugLib('patch:');
 
 module.exports = ({UTXO, Contract}) =>
     class PatchDB {
-        constructor(nGroupId) {
+        constructor(nConciliumId) {
             this._data = {
                 coins: new Map()
             };
@@ -19,8 +19,8 @@ module.exports = ({UTXO, Contract}) =>
             // it will keep tracks which tx spend particular output
             this._mapSpentUtxos = new Map();
 
-            this._mapGroupLevel = new Map();
-            this.setGroupId(nGroupId);
+            this._mapConciliumLevel = new Map();
+            this.setConciliumId(nConciliumId);
 
             this._mapContractStates = new Map();
             this._mapTxReceipts = new Map();
@@ -98,8 +98,8 @@ module.exports = ({UTXO, Contract}) =>
         }
 
         /**
-         * Important! resultPatch doesn't contain _groupId! Because we merge patches for various purposes.
-         * For new block we couldn't predict _groupId
+         * Important! resultPatch doesn't contain _conciliumId! Because we merge patches for various purposes.
+         * For new block we couldn't predict _conciliumId
          *
          * @param {PatchDB} patch - to merge with this
          * @param {Boolean} bPreferPatchData - force using contracts from "patch" (used only for processing block)
@@ -107,22 +107,25 @@ module.exports = ({UTXO, Contract}) =>
          */
         merge(patch, bPreferPatchData = false) {
 
-            // same group + same level. it's definitely error!
-            if (this._groupId !== undefined && patch._groupId !== undefined && !bPreferPatchData) {
+            // same concilium + same level. it's definitely error!
+            if (this._conciliumId !== undefined && patch._conciliumId !== undefined && !bPreferPatchData) {
                 assert(
-                    this._groupId !== patch._groupId || this.getLevel(this._groupId) !== patch.getLevel(patch._groupId),
+                    this._conciliumId !== patch._conciliumId || this.getLevel(this._conciliumId) !==
+                    patch.getLevel(patch._conciliumId),
                     'It seems we have unexpected fork!'
                 );
             }
 
             const resultPatch = new PatchDB();
 
-            // merge groupLevels
-            const arrGroupIds = getMapsKeysUnique(this._mapGroupLevel, patch._mapGroupLevel);
-            for (let groupId of arrGroupIds) {
-                resultPatch._mapGroupLevel.set(
-                    groupId,
-                    Math.max(this._mapGroupLevel.get(groupId) || 0, patch._mapGroupLevel.get(groupId) || 0)
+            // merge conciliumLevels
+            const arrConciliumIds = getMapsKeysUnique(this._mapConciliumLevel, patch._mapConciliumLevel);
+            for (let conciliumId of arrConciliumIds) {
+                resultPatch._mapConciliumLevel.set(
+                    conciliumId,
+                    Math.max(this._mapConciliumLevel.get(conciliumId) || 0,
+                        patch._mapConciliumLevel.get(conciliumId) || 0
+                    )
                 );
             }
 
@@ -194,18 +197,18 @@ module.exports = ({UTXO, Contract}) =>
 
                 let winnerContract;
 
-                // contract belongs always to one group
+                // contract belongs always to one concilium
                 const contractThis = this.getContract(strAddr);
                 const contractPatch = patch.getContract(strAddr);
                 if (contractThis && contractPatch) {
                     assert(
-                        contractThis.getGroupId() === contractPatch.getGroupId(),
-                        'Contract belongs to different groups'
+                        contractThis.getConciliumId() === contractPatch.getConciliumId(),
+                        'Contract belongs to different conciliums'
                     );
 
                     winnerContract = bPreferPatchData ||
-                                     patch.getLevel(contractPatch.getGroupId()) >=
-                                     this.getLevel(contractThis.getGroupId())
+                                     patch.getLevel(contractPatch.getConciliumId()) >=
+                                     this.getLevel(contractThis.getConciliumId())
                         ? contractPatch
                         : contractThis;
                 } else {
@@ -267,9 +270,9 @@ module.exports = ({UTXO, Contract}) =>
             for (let contractAddr of patch._mapContractStates.keys()) {
                 if (this._mapContractStates.has(contractAddr)) {
 
-                    // we could check patch level for contract's groupId (faster, but could keep unchanged data)
+                    // we could check patch level for contract's conciliumId (faster, but could keep unchanged data)
                     // or compare entire data (could be time consuming)
-                    // contract belong only to one group. so groupId is same for both
+                    // contract belong only to one concilium. so conciliumId is same for both
                     const thisContract = this.getContract(contractAddr);
                     const patchContract = patch.getContract(contractAddr);
 
@@ -341,39 +344,39 @@ module.exports = ({UTXO, Contract}) =>
                 .reduce((result, strUtxoHash) => result + this._mapSpentUtxos.get(strUtxoHash).size, 0);
         }
 
-        setGroupId(nId) {
+        setConciliumId(nId) {
 
             // invoked from constructor, which invoked from merge
             if (nId === undefined) return;
 
-            // it's equal block.witnessGroupId
-            assert(this._groupId === undefined, '"groupId" already specified!');
-            this._groupId = nId;
+            // it's equal block.conciliumId
+            assert(this._conciliumId === undefined, '"conciliumId" already specified!');
+            this._conciliumId = nId;
 
-            // patch could be derived from various blocks, we'll maintain level for every group
+            // patch could be derived from various blocks, we'll maintain level for every concilium
             // we'll use it to resolve conflicts while merging contract data.
-            // for same group: the highest level will win
-            // for different group i have no solution yet
+            // for same concilium: the highest level will win
+            // for different concilium i have no solution yet
             // it should be just monotonic, nobody cares about values
-            const groupLevel = (this._mapGroupLevel.get(nId) || 0) + 1;
-            this._mapGroupLevel.set(nId, groupLevel);
+            const conciliumLevel = (this._mapConciliumLevel.get(nId) || 0) + 1;
+            this._mapConciliumLevel.set(nId, conciliumLevel);
         }
 
-        getGroupId() {
-            return this._groupId;
+        getConciliumId() {
+            return this._conciliumId;
         }
 
         /**
-         * @see comment for this.setGroupId
+         * @see comment for this.setConciliumId
          *
-         * @param {Number} nGroupId
+         * @param {Number} nConciliumId
          * @returns {any}
          */
-        getLevel(nGroupId) {
-            nGroupId = nGroupId === undefined ? this._groupId : nGroupId;
-            assert(this._groupId !== undefined, '"groupId" not specified!');
+        getLevel(nConciliumId) {
+            nConciliumId = nConciliumId === undefined ? this._conciliumId : nConciliumId;
+            assert(this._conciliumId !== undefined, '"conciliumId" not specified!');
 
-            return this._mapGroupLevel.get(nGroupId);
+            return this._mapConciliumLevel.get(nConciliumId);
         }
 
         /**

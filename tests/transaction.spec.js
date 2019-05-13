@@ -120,13 +120,13 @@ describe('Transaction tests', () => {
 
     it('should test setters/getters', async () => {
         const tx = new factory.Transaction();
-        tx.witnessGroupId = 17;
+        tx.conciliumId = 17;
         const [input1, input2] = [pseudoRandomBuffer(), pseudoRandomBuffer()];
         tx.addInput(input1, 15);
         tx.addInput(input2, 11);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
 
-        assert.equal(tx.witnessGroupId, 17);
+        assert.equal(tx.conciliumId, 17);
         assert.isOk(tx.inputs && tx.inputs.length === 2);
         assert.isOk(tx.outputs && tx.outputs.length === 1);
         assert.isNotOk(tx.claimProofs.length);
@@ -191,7 +191,7 @@ describe('Transaction tests', () => {
 
     it('should verify', async () => {
         const tx = new factory.Transaction();
-        tx.witnessGroupId = 0;
+        tx.conciliumId = 0;
         tx.addInput(pseudoRandomBuffer(), 0);
         tx.addReceiver(1, Buffer.allocUnsafe(20));
         tx.claim(0, keyPair.privateKey);

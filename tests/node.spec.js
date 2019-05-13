@@ -21,7 +21,7 @@ const {
 let seedAddress;
 let seedNode;
 
-const groupId = 10;
+const conciliumId = 10;
 
 const createContractInvocationTx = (code = {}, hasChangeReceiver = true) => {
     const contractAddr = generateAddress().toString('hex');
@@ -34,7 +34,7 @@ const createContractInvocationTx = (code = {}, hasChangeReceiver = true) => {
     } else {
         tx = factory.Transaction.invokeContract(contractAddr, code, 0);
     }
-    tx.witnessGroupId = groupId;
+    tx.conciliumId = conciliumId;
     tx.addInput(pseudoRandomBuffer(), 12);
 
     tx.verify = sinon.fake();
@@ -64,7 +64,7 @@ const createTxAddCoinsToNode = (node) => {
     return {tx, keyPair};
 };
 
-const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
+const createConciliumDefAndSignBlock = (block, numOfSignatures = 2) => {
     const arrPubKeys = [];
     const arrSignatures = [];
     const buffHash = block.hash();
@@ -74,7 +74,7 @@ const createGroupDefAndSignBlock = (block, numOfSignatures = 2) => {
         arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
     }
     block.addWitnessSignatures(arrSignatures);
-    return factory.ConciliumDefinition.create(block.witnessGroupId, arrPubKeys);
+    return factory.ConciliumDefinition.create(block.conciliumId, arrPubKeys);
 };
 
 const createSimpleChain = async (callback) => {
@@ -532,8 +532,8 @@ describe('Node tests', () => {
     it('should discard INVALID block from MsgBlock', async () => {
         const block = createDummyBlockWithTx(factory);
 
-        const groupDef = createGroupDefAndSignBlock(block);
-        const node = new factory.Node({arrTestDefinition: [groupDef]});
+        const conciliumDef = createConciliumDefAndSignBlock(block);
+        const node = new factory.Node({arrTestDefinition: [conciliumDef]});
         await node.ensureLoaded();
 
         node._requestCache.request(block.hash());
@@ -652,7 +652,7 @@ describe('Node tests', () => {
         assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut()));
     });
 
-    it('should fail check BLOCK SIGNATURES (unknown group)', async () => {
+    it('should fail check BLOCK SIGNATURES (unknown concilium)', async () => {
         const block = createDummyBlock(factory);
         const node = new factory.Node();
 
@@ -660,7 +660,7 @@ describe('Node tests', () => {
             await node._verifyBlockSignatures(block);
         } catch (e) {
             console.error(e);
-            assert.equal(e.message, 'Unknown witnessGroupId: 0');
+            assert.equal(e.message, 'Unknown conciliumId: 0');
             return;
         }
         throw ('Unexpected success');
@@ -668,14 +668,14 @@ describe('Node tests', () => {
 
     it('should fail check BLOCK SIGNATURES (not enough signatures)', async () => {
         const block = createDummyBlock(factory);
-        createGroupDefAndSignBlock(block);
+        createConciliumDefAndSignBlock(block);
 
         const block2 = createDummyBlock(factory);
-        const groupDef2 = createGroupDefAndSignBlock(block2, 7);
+        const conciliumDef2 = createConciliumDefAndSignBlock(block2, 7);
 
-        // groupId: 0 will have different keys used for block2
+        // conciliumId: 0 will have different keys used for block2
         const node = new factory.Node();
-        node._storage.getConciliumById = sinon.fake.resolves(groupDef2);
+        node._storage.getConciliumById = sinon.fake.resolves(conciliumDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -689,14 +689,14 @@ describe('Node tests', () => {
 
     it('should fail check BLOCK SIGNATURES (bad signatures)', async () => {
         const block = createDummyBlock(factory);
-        createGroupDefAndSignBlock(block);
+        createConciliumDefAndSignBlock(block);
 
         const block2 = createDummyBlock(factory);
-        const groupDef2 = createGroupDefAndSignBlock(block2);
+        const conciliumDef2 = createConciliumDefAndSignBlock(block2);
 
-        // groupId: 0 will have different keys used for block2
+        // conciliumId: 0 will have different keys used for block2
         const node = new factory.Node();
-        node._storage.getConciliumById = sinon.fake.resolves(groupDef2);
+        node._storage.getConciliumById = sinon.fake.resolves(conciliumDef2);
 
         try {
             await node._verifyBlockSignatures(block);
@@ -710,9 +710,9 @@ describe('Node tests', () => {
 
     it('should check BLOCK SIGNATURES', async () => {
         const block = createDummyBlock(factory);
-        const groupDef = createGroupDefAndSignBlock(block);
+        const conciliumDef = createConciliumDefAndSignBlock(block);
         const node = new factory.Node();
-        node._storage.getConciliumById = sinon.fake.resolves(groupDef);
+        node._storage.getConciliumById = sinon.fake.resolves(conciliumDef);
 
         await node._verifyBlockSignatures(block);
     });
@@ -1111,11 +1111,11 @@ describe('Node tests', () => {
         const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
         await node._updateLastAppliedBlocks(arrLastBlocks);
 
-        // replace group 1 & 10 with new blocks
+        // replace concilium 1 & 10 with new blocks
         const block4 = createDummyBlock(factory, 1);
         const block5 = createDummyBlock(factory, 10);
 
-        // and add new for group 5
+        // and add new for concilium 5
         const block6 = createDummyBlock(factory, 5);
 
         // add them to dag
@@ -1478,14 +1478,14 @@ describe('Node tests', () => {
                 const contractPending = new factory.Contract({
                     contractData: {sampleResult: pendingData},
                     contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    groupId
+                    conciliumId
                 }, generateAddress().toString('hex'));
 
                 const stableData = {a: 100, b: 200};
                 const contractStable = new factory.Contract({
                     contractData: {sampleResult: stableData},
                     contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    groupId
+                    conciliumId
                 }, generateAddress().toString('hex'));
 
                 node._storage.getContract = sinon.fake.resolves(contractStable);
@@ -1510,14 +1510,14 @@ describe('Node tests', () => {
                 const contractPending = new factory.Contract({
                     contractData: {sampleResult: pendingData},
                     contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    groupId
+                    conciliumId
                 }, generateAddress().toString('hex'));
 
                 const stableData = {a: 100, b: 200};
                 const contractStable = new factory.Contract({
                     contractData: {sampleResult: stableData},
                     contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    groupId
+                    conciliumId
                 }, generateAddress().toString('hex'));
 
                 node._storage.getContract = sinon.fake.resolves(contractStable);
@@ -1879,9 +1879,9 @@ describe('Node tests', () => {
         it('should get contact from Patch', async () => {
             const node = new factory.Node();
             const {tx} = createContractInvocationTx();
-            const patch = new factory.PatchDB(groupId);
+            const patch = new factory.PatchDB(conciliumId);
 
-            patch.getContract = sinon.fake.returns(new factory.Contract({groupId}));
+            patch.getContract = sinon.fake.returns(new factory.Contract({conciliumId}));
             node._storage.getContract = sinon.fake();
 
             const contract = await node._getContractByAddr(tx.getContractAddr(), patch);
@@ -1893,10 +1893,10 @@ describe('Node tests', () => {
         it('should get contact from Storage', async () => {
             const node = new factory.Node();
             const {tx} = createContractInvocationTx();
-            const patch = new factory.PatchDB(groupId);
+            const patch = new factory.PatchDB(conciliumId);
 
             patch.getContract = sinon.fake.returns(undefined);
-            node._storage.getContract = sinon.fake.resolves(new factory.Contract({groupId}));
+            node._storage.getContract = sinon.fake.resolves(new factory.Contract({conciliumId}));
 
             const contract = await node._getContractByAddr(tx.getContractAddr(), patch);
             assert.isOk(contract);
@@ -1955,12 +1955,12 @@ describe('Node tests', () => {
         it('should call runContract', async () => {
             const node = new factory.Node();
             const contractAddr = generateAddress();
-            const groupId = 10;
+            const conciliumId = 10;
 
             const {tx} = createContractInvocationTx();
 
             node._storage.getContract =
-                sinon.fake.returns(new factory.Contract({groupId}, contractAddr.toString('hex')));
+                sinon.fake.returns(new factory.Contract({conciliumId}, contractAddr.toString('hex')));
             node._app.runContract =
                 sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK}));
 
@@ -1980,7 +1980,7 @@ describe('Node tests', () => {
 
             const {tx, strContractAddr} = createContractInvocationTx({});
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
@@ -2004,7 +2004,7 @@ describe('Node tests', () => {
             tx.addReceiver(nChange, generateAddress());
             tx.signForContract(kp.privateKey);
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.runContract = sinon.fake.returns(
@@ -2032,7 +2032,7 @@ describe('Node tests', () => {
             const {tx, strContractAddr} = createContractInvocationTx({});
             tx.addReceiver(nChange, generateAddress());
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.runContract = sinon.fake.returns(
@@ -2054,7 +2054,7 @@ describe('Node tests', () => {
 
             const {tx, strContractAddr} = createContractInvocationTx({}, false);
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({groupId}, strContractAddr));
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.runContract = sinon.fake.returns(
@@ -2073,7 +2073,7 @@ describe('Node tests', () => {
             const buffContractAddr = generateAddress();
 
             node._storage.getContract =
-                sinon.fake.returns(new factory.Contract({groupId}, buffContractAddr.toString('hex')));
+                sinon.fake.returns(new factory.Contract({conciliumId}, buffContractAddr.toString('hex')));
             node._app.runContract =
                 sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK}));
 
@@ -2083,10 +2083,10 @@ describe('Node tests', () => {
                 0,
                 generateAddress()
             );
-            tx.witnessGroupId = groupId;
+            tx.conciliumId = conciliumId;
             tx.addInput(pseudoRandomBuffer(), 12);
 
-            const patch = new factory.PatchDB(groupId);
+            const patch = new factory.PatchDB(conciliumId);
             patch.getContract = sinon.fake.returns(undefined);
 
             await node._processTx(patch, true, tx);

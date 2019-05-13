@@ -23,7 +23,7 @@ describe('Concilium Definition', () => {
     it('should create', async () => {
         new factory.ConciliumDefinition({
             publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-            groupId: 10,
+            conciliumId: 10,
             quorum: 1,
             delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
             parameters: {
@@ -44,7 +44,7 @@ describe('Concilium Definition', () => {
         {
             const def = new factory.ConciliumDefinition({
                 publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-                groupId: 10
+                conciliumId: 10
             });
 
             assert.isOk(Array.isArray(def.getDelegatesPublicKeys()));
@@ -125,7 +125,7 @@ describe('Concilium Definition', () => {
 
         const concilium = new factory.ConciliumDefinition({
             publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-            groupId: 10,
+            conciliumId: 10,
             quorum: 1,
             delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
             parameters: {

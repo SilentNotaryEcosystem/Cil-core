@@ -15,7 +15,7 @@ module.exports = ({Constants}, {conciliumDefinitionProto, conciliumParametersPro
                 if (errMsg) throw new Error(`ConciliumDefinition: ${errMsg}`);
 
                 // we store publicKeys as buffers!
-                assert(data.publicKeys.length, 'No keys in group definition!');
+                assert(data.publicKeys.length, 'No keys in concilium definition!');
                 for (let i in data.publicKeys) {
                     if (!Buffer.isBuffer(data.publicKeys[i])) {
                         data.publicKeys[i] = Buffer.from(data.publicKeys[i], 'hex');
@@ -36,12 +36,12 @@ module.exports = ({Constants}, {conciliumDefinitionProto, conciliumParametersPro
             }
         }
 
-        static create(groupId, arrPublicKeys, delegatesPublicKeys, quorum) {
+        static create(conciliumId, arrPublicKeys, delegatesPublicKeys, quorum) {
             typeforce(typeforce.tuple('Number', 'Array'), arguments);
 
             return new this({
                 publicKeys: arrPublicKeys,
-                groupId,
+                conciliumId,
                 delegatesPublicKeys: delegatesPublicKeys || arrPublicKeys,
                 quorum
             });
@@ -65,8 +65,8 @@ module.exports = ({Constants}, {conciliumDefinitionProto, conciliumParametersPro
             return this._data.delegatesPublicKeys;
         }
 
-        getGroupId() {
-            return this._data.groupId;
+        getConciliumId() {
+            return this._data.conciliumId;
         }
 
         setQuorum(quorum) {
@@ -81,5 +81,17 @@ module.exports = ({Constants}, {conciliumDefinitionProto, conciliumParametersPro
 
         toObject() {
             return this._data;
+        }
+
+        getFeeTxSize() {
+            return this._data.parameters ? this._data.parameters.feeTxSize : undefined;
+        }
+
+        getContractCreationFee() {
+            return this._data.parameters ? this._data.parameters.feeContractCreation : undefined;
+        }
+
+        getContractInvocationFee() {
+            return this._data.parameters ? this._data.parameters.feeContractInvocation : undefined;
         }
     };

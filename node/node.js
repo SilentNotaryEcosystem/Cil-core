@@ -911,7 +911,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _processTx(patchForBlock, isGenesis, tx, amountHas) {
-            let patchThisTx = new PatchDB(tx.witnessGroupId);
+            let patchThisTx = new PatchDB(tx.conciliumId);
             let totalHas = amountHas === undefined ? 0 : amountHas;
             let fee = 0;
 
@@ -1033,8 +1033,8 @@ module.exports = (factory, factoryOptions) => {
 
                 // contract invocation
                 assert(
-                    contract.getGroupId() === tx.witnessGroupId,
-                    `TX groupId: "${tx.witnessGroupId}" != contract groupId`
+                    contract.getConciliumId() === tx.conciliumId,
+                    `TX conciliumId: "${tx.conciliumId}" != contract conciliumId`
                 );
 
                 const invocationCode = tx.getContractCode();
@@ -1191,7 +1191,7 @@ module.exports = (factory, factoryOptions) => {
 
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
-                patchState.setGroupId(block.witnessGroupId);
+                patchState.setConciliumId(block.conciliumId);
 
                 const tx = new Transaction(blockTxns[i]);
                 const {fee, patchThisTx} = await this._processTx(patchState, isGenesis, tx);
@@ -1238,7 +1238,7 @@ module.exports = (factory, factoryOptions) => {
 
             // check for finality
             await this._processFinalityResults(
-                await this._pendingBlocks.checkFinality(block.getHash(), await this._storage.getWitnessGroupsCount())
+                await this._pendingBlocks.checkFinality(block.getHash(), await this._storage.getConciliumsCount())
             );
 
             // store pending blocks (for restore state after node restart)
@@ -1279,25 +1279,25 @@ module.exports = (factory, factoryOptions) => {
 
         async _updateLastAppliedBlocks(arrTopStable) {
             const arrPrevTopStableBlocks = await this._storage.getLastAppliedBlockHashes();
-            const mapPrevGroupIdHash = new Map();
+            const mapPrevConciliumIdHash = new Map();
             arrPrevTopStableBlocks.forEach(hash => {
                 const cBlockInfo = this._mainDag.getBlockInfo(hash);
-                mapPrevGroupIdHash.set(cBlockInfo.getWitnessId(), hash);
+                mapPrevConciliumIdHash.set(cBlockInfo.getWitnessId(), hash);
             });
 
-            const mapNewGroupIdHash = new Map();
+            const mapNewConciliumIdHash = new Map();
             arrTopStable.forEach(hash => {
                 const cBlockInfo = this._mainDag.getBlockInfo(hash);
-                mapNewGroupIdHash.set(cBlockInfo.getWitnessId(), hash);
+                mapNewConciliumIdHash.set(cBlockInfo.getWitnessId(), hash);
             });
 
             const arrNewLastApplied = [];
 
-            const nGroupCount = await this._storage.getWitnessGroupsCount();
-            for (let i = 0; i <= nGroupCount; i++) {
-                const hash = mapNewGroupIdHash.get(i) || mapPrevGroupIdHash.get(i);
+            const nConciliumCount = await this._storage.getConciliumsCount();
+            for (let i = 0; i <= nConciliumCount; i++) {
+                const hash = mapNewConciliumIdHash.get(i) || mapPrevConciliumIdHash.get(i);
 
-                // group could be created, but still no final blocks
+                // concilium could be created, but still no final blocks
                 if (hash) arrNewLastApplied.push(hash);
             }
 
@@ -1313,7 +1313,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _postAcceptBlock(block) {
             logger.log(
-                `Block ${block.hash()}. GroupId: ${block.witnessGroupId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
+                `Block ${block.hash()}. ConciliumId: ${block.conciliumId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
             );
 
             if (this._rpc) {
@@ -1365,7 +1365,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
-         * Ok, if all block signatures (number og it equals to group quorum) matches delegates pubKeys
+         * Ok, if all block signatures (number og it equals to concilium quorum) matches delegates pubKeys
          *
          * @param {Blob} block
          * @returns {Promise<void>}
@@ -1374,12 +1374,12 @@ module.exports = (factory, factoryOptions) => {
         async _verifyBlockSignatures(block) {
             const buffBlockHash = Buffer.from(block.hash(), 'hex');
 
-            const witnessGroupDefinition = await this._storage.getWitnessGroupById(block.witnessGroupId);
-            assert(witnessGroupDefinition, `Unknown witnessGroupId: ${block.witnessGroupId}`);
-            const arrPubKeys = witnessGroupDefinition.getDelegatesPublicKeys();
+            const witnessConciliumDefinition = await this._storage.getConciliumById(block.conciliumId);
+            assert(witnessConciliumDefinition, `Unknown conciliumId: ${block.conciliumId}`);
+            const arrPubKeys = witnessConciliumDefinition.getDelegatesPublicKeys();
             assert(
-                block.signatures.length === witnessGroupDefinition.getQuorum(),
-                `Expected ${witnessGroupDefinition.getQuorum()} signatures, got ${block.signatures.length}`
+                block.signatures.length === witnessConciliumDefinition.getQuorum(),
+                `Expected ${witnessConciliumDefinition.getQuorum()} signatures, got ${block.signatures.length}`
             );
             for (let sig of block.signatures) {
                 const buffPubKey = Buffer.from(Crypto.recoverPubKey(buffBlockHash, sig), 'hex');
@@ -1399,7 +1399,7 @@ module.exports = (factory, factoryOptions) => {
         async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
             this._mainDag = new MainDag();
 
-            // if we have only one group - all blocks becomes stable, and no pending!
+            // if we have only one concilium - all blocks becomes stable, and no pending!
             // so we need to start from stables
             let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
                 ? arrPedingBlocksHashes
@@ -1907,7 +1907,7 @@ module.exports = (factory, factoryOptions) => {
             if (!contract) throw new Error(`Contract ${contractAddress} not found`);
 
             if (!completed) {
-                const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getGroupId());
+                const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getConciliumId());
                 if (pendingContract) contract = pendingContract;
             }
 

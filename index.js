@@ -31,8 +31,8 @@ process.on('warning', e => console.warn(e.stack));
     }
 
     if (objCmdLineParams.genesisHash) factory.Constants.GENESIS_BLOCK = objCmdLineParams.genesisHash;
-    if (objCmdLineParams.groupDefContract) {
-        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.groupDefContract;
+    if (objCmdLineParams.conciliumDefContract) {
+        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.conciliumDefContract;
     }
 
     const commonOptions = {

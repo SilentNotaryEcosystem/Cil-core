@@ -26,9 +26,9 @@ describe('Block tests', () => {
         assert.equal(block.txns.length, 1);
     });
 
-    it('should create block for specified group', async () => {
+    it('should create block for specified concilium', async () => {
         const block = new factory.Block(3);
-        assert.equal(block.witnessGroupId, 3);
+        assert.equal(block.conciliumId, 3);
     });
 
     it('should test block header fields', async () => {
@@ -45,7 +45,7 @@ describe('Block tests', () => {
 
         assert.isOk(block.header.timestamp);
         assert.equal(block.header.version, 1);
-        assert.equal(block.header.witnessGroupId, 7);
+        assert.equal(block.header.conciliumId, 7);
 
         assert.isOk(Array.isArray(block.header.parentHashes));
         assert.equal(block.header.parentHashes.length, 2);

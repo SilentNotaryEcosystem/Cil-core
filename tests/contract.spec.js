@@ -17,7 +17,7 @@ describe('Contract tests', () => {
         new factory.Contract({
             contractData: {a: 1},
             contractCode: '{"add": "(a){this.value+=a;}"}',
-            groupId: 1
+            conciliumId: 1
         });
 
         new factory.Contract({
@@ -32,7 +32,7 @@ describe('Contract tests', () => {
         const contract = new factory.Contract({
             contractData: data,
             contractCode: '{"add": "(a){this.value+=a;}"}',
-            groupId: 1
+            conciliumId: 1
         });
         assert.deepEqual(data, contract.getData());
     });
@@ -41,7 +41,7 @@ describe('Contract tests', () => {
         const code = '{"add": "(a){this.value+=a;}"}';
         const contract = new factory.Contract({
             contractCode: code,
-            groupId: 1
+            conciliumId: 1
         });
         assert.deepEqual(code, contract.getCode());
     });
@@ -61,7 +61,7 @@ describe('Contract tests', () => {
         const data = {a: 1, m: new Map([[1, 1]]), s: new Set([1, 2, 3])};
         const contract = new factory.Contract({
             contractData: data,
-            groupId: 10,
+            conciliumId: 10,
             balance: 100
         });
 
@@ -74,7 +74,7 @@ describe('Contract tests', () => {
     it('should clone Contract', async () => {
         const contract = new factory.Contract({
             contractData: {a: 10},
-            groupId: 10
+            conciliumId: 10
         });
 
         const clone = contract.clone();
@@ -137,7 +137,7 @@ describe('Contract tests', () => {
         it('should be zero', async () => {
             {
                 const contract = new factory.Contract({
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 assert.equal(contract.getDataSize(), 0);
@@ -145,14 +145,14 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 assert.equal(contract.getDataSize(), 0);
             }
             {
                 const contract = new factory.Contract({
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 const decodedContract = new factory.Contract(contract.encode());
@@ -161,7 +161,7 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 const decodedContract = new factory.Contract(contract.encode());
@@ -173,7 +173,7 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {a: 1},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 assert.notEqual(contract.getDataSize(), 0);
@@ -181,7 +181,7 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {a: 1},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 const decodedContract = new factory.Contract(contract.encode());
@@ -193,7 +193,7 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {a: 1},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 const prevDataSize = contract.getDataSize();
@@ -206,7 +206,7 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 const prevDataSize = contract.getDataSize();
@@ -219,7 +219,7 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 const decodedContract = new factory.Contract(contract.encode());
@@ -230,7 +230,7 @@ describe('Contract tests', () => {
             {
                 const contract = new factory.Contract({
                     contractData: {a: 1},
-                    groupId: 10
+                    conciliumId: 10
                 });
 
                 const decodedContract = new factory.Contract(contract.encode());
