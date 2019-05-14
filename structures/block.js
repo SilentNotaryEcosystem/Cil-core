@@ -144,8 +144,14 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
 
             const coinbase = Transaction.createCoinbase();
-            coinbase.conciliumId = this.conciliumId;
-            coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
+            coinbase.witnessGroupId = this.witnessGroupId;
+
+            // developer foundation
+            const nFeeDevFoundation = parseInt(Constants.DEV_FOUNDATION_SHARE * totalTxnsFees);
+            coinbase.addReceiver(nFeeDevFoundation, Constants.DEV_FOUNDATION_ADDRESS);
+
+            // block creator
+            coinbase.addReceiver(totalTxnsFees - nFeeDevFoundation, buffReceiverAddr);
 
             // to make coinbase hash unique add one more random output with 0 coins
             coinbase.addReceiver(0, Crypto.randomBytes(20));
