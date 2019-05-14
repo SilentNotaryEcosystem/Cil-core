@@ -215,20 +215,8 @@ class CryptoLib {
         return createHash('rmd160').update(buffer).digest().toString('hex');
     }
 
-    static sha1(buffer) {
-        return createHash('sha1').update(buffer).digest().toString('hex');
-    }
-
-    static sha256(buffer) {
-        return createHash('sha256').update(buffer).digest().toString('hex');
-    }
-
     static hash160(buffer) {
-        return this.ripemd160(this.sha256(buffer));
-    }
-
-    static hash256(buffer) {
-        return this.sha256(this.sha256(buffer));
+        return this.ripemd160(this.createHash(buffer));
     }
 
     /**
@@ -260,7 +248,7 @@ class CryptoLib {
      * @return {Buffer} - decrypted key
      */
     static async decrypt(password, buffer) {
-        const key = Buffer.from(this.sha256(password), 'hex');
+        const key = Buffer.from(this.createHash(password), 'hex');
         //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
         const ivEnc = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer, 'base64');
         const iv = ivEnc.slice(0, LENGTH);
@@ -281,7 +269,7 @@ class CryptoLib {
      * @return {Buffer} encrypted buffer
      */
     static async encrypt(password, buffer) {
-        const key = Buffer.from(this.sha256(password), 'hex');
+        const key = Buffer.from(this.createHash(password), 'hex');
         //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
         const iv = this.randomBytes(LENGTH);
         const cipher = crypto.createCipheriv(ALGO, key, iv);

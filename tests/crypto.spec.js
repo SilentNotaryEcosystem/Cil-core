@@ -15,7 +15,7 @@ describe('Crypto library', () => {
     it('create KeyPair from private key (hex)', async () => {
         const strPrivKey = 'b7760a01705490e5e153a6ef7732369a72dbf9aaafb5c482cdfd960546909ec1';
         const strPublicKey = '03ee7b7818bdc27be0030c2edf44ec1cce20c1f7561fc8412e467320b77e20f716';
-        const address = '100966b8535d47ef4c5cc5a02d81873c071289be';
+        const address = '6e2a3a4b77e682b6b9dda5a889304a9d80e4a9c7';
         const keyPair = Crypto.keyPairFromPrivate(strPrivKey, 'hex');
 
         assert.equal(strPrivKey, keyPair.getPrivate());
