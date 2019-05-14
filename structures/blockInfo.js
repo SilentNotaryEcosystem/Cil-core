@@ -52,6 +52,10 @@ module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
             return Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
         }
 
+        getHeight() {
+            return this._data.header.height;
+        }
+
         getWitnessId() {
             return this._data.header.conciliumId;
         }

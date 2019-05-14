@@ -83,6 +83,7 @@ const createSimpleChain = async (callback) => {
     let prevBlock = null;
     for (let i = 0; i < 10; i++) {
         const block = createDummyBlock(factory);
+        block.setHeight(i + 1);
         if (prevBlock) {
             block.parentHashes = [prevBlock.getHash()];
         } else {
@@ -101,8 +102,10 @@ const createSimpleFork = async (callback) => {
 
     const block1 = createDummyBlock(factory);
     block1.parentHashes = [genesis.getHash()];
+
     const block2 = createDummyBlock(factory);
     block2.parentHashes = [genesis.getHash()];
+
     const block3 = createDummyBlock(factory);
     block3.parentHashes = [block1.getHash(), block2.getHash()];
 
@@ -801,6 +804,7 @@ describe('Node tests', () => {
         //
         await node._storage.updatePendingBlocks(arrHashes);
         node._checkCoinbaseTx = sinon.fake();
+        node._checkHeight = sinon.fake.returns(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
         const arrStableHashes = await node._storage.getLastAppliedBlockHashes();
@@ -826,6 +830,7 @@ describe('Node tests', () => {
             [arrBlocks[0].getHash(), arrBlocks[1].getHash(), arrBlocks[2].getHash(), arrBlocks[3].getHash()]
         );
         node._checkCoinbaseTx = sinon.fake();
+        node._checkHeight = sinon.fake.returns(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
         const arrStableHashes = await node._storage.getLastAppliedBlockHashes();
@@ -1196,6 +1201,24 @@ describe('Node tests', () => {
         assert.equal(fakePeer.pushMessage.callCount, 1);
         const [msgGetData] = fakePeer.pushMessage.args[0];
         assert.equal(msgGetData.inventory.vector.length, 3);
+    });
+
+    it('should calc height for parents', async () => {
+        const blockHash1 = pseudoRandomBuffer().toString('hex');
+        const blockHash2 = pseudoRandomBuffer().toString('hex');
+        const blockHash3 = pseudoRandomBuffer().toString('hex');
+        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+        await node.ensureLoaded();
+
+        node._mainDag.getBlockInfo = (hash) => {
+            if (hash === blockHash1) return {getHeight: () => 1};
+            if (hash === blockHash2) return {getHeight: () => 5};
+            if (hash === blockHash3) return {getHeight: () => 10};
+        };
+
+        assert.equal(node._calcHeight([blockHash1, blockHash2, blockHash3]), 11);
+        assert.equal(node._calcHeight([blockHash2, blockHash1, blockHash3]), 11);
+        assert.equal(node._calcHeight([blockHash3, blockHash2, blockHash1]), 11);
     });
 
     describe('RPC tests', () => {

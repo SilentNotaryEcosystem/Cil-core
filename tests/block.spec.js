@@ -115,4 +115,44 @@ describe('Block tests', () => {
         const restoredTx = new factory.Transaction(restoredBlock.txns[1]);
         assert.isOk(restoredTx.equals(tx));
     });
+
+    describe('Block verification', async () => {
+        it('should FAIL to verify parentHashes', async () => {
+            const block = new factory.Block(0);
+            assert.throws(() => block.verify(), 'Bad block parents');
+        });
+        it('should FAIL to verify signatures', async () => {
+            const block = new factory.Block(0);
+            block.parentHashes = [pseudoRandomBuffer()];
+            assert.throws(() => block.verify(), 'Bad block signatures');
+        });
+        it('should SKIP verifying signatures', async () => {
+            const block = new factory.Block(0);
+            block.parentHashes = [pseudoRandomBuffer()];
+            assert.throws(() => block.verify(false), /Empty block/);
+        });
+        it('should FAIL to verify merkleRoot', async () => {
+            const block = new factory.Block(0);
+            block.parentHashes = [pseudoRandomBuffer()];
+            block.addWitnessSignatures([pseudoRandomBuffer(65)]);
+            block.addTx(factory.Transaction.createCoinbase());
+            assert.throws(() => block.verify(), 'Bad merkle root');
+        });
+        it('should FAIL to verify height', async () => {
+            const block = new factory.Block(0);
+            block.parentHashes = [pseudoRandomBuffer()];
+            block.addWitnessSignatures([pseudoRandomBuffer(65)]);
+            block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+            assert.throws(() => block.verify(), 'Bad height');
+        });
+
+        it('should SUCCESS to verify', async () => {
+            const block = new factory.Block(0);
+            block.parentHashes = [pseudoRandomBuffer()];
+            block.addWitnessSignatures([pseudoRandomBuffer(65)]);
+            block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+            block.setHeight(20);
+            block.verify();
+        });
+    });
 });

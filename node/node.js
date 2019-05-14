@@ -2,7 +2,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 
 const debugLib = require('debug');
-const {sleep} = require('../utils');
+const {sleep, arrayEquals} = require('../utils');
 const types = require('../types');
 const Tick = require('tick-tock');
 
@@ -834,7 +834,7 @@ module.exports = (factory, factoryOptions) => {
                     }
                     case 'getNext': {
                         let arrChildHashes = this._mainDag.getChildren(content);
-                        if(!arrChildHashes || !arrChildHashes.length) {
+                        if (!arrChildHashes || !arrChildHashes.length) {
                             arrChildHashes = this._pendingBlocks.getChildren(content);
                         }
                         if (!arrChildHashes) return [];
@@ -849,7 +849,8 @@ module.exports = (factory, factoryOptions) => {
                         }
                         if (!cBlockInfo) return [];
                         return await Promise.all(
-                            cBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
+                            cBlockInfo.parentHashes.map(
+                                async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
                         );
                     }
                     case 'getTx':
@@ -1172,9 +1173,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _execBlock(block) {
-
-            // since we executing only one block per time (mute) we could use global variable
-            this._processedBlock = block;
+            const isGenesis = this.isGenesisBlock(block);
 
             // double check: whether we already processed this block?
             const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
@@ -1183,8 +1182,10 @@ module.exports = (factory, factoryOptions) => {
                 return null;
             }
 
+            // check for correct block height
+            if (!isGenesis) this._checkHeight(block);
+
             let patchState = this._pendingBlocks.mergePatches(block.parentHashes);
-            const isGenesis = this.isGenesisBlock(block);
 
             let blockFees = 0;
             const blockTxns = block.txns;
@@ -1347,18 +1348,17 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _verifyBlock(block, checkSignatures = true) {
+            const isGenesis = this.isGenesisBlock(block);
 
             // we create Genesis manually, so we sure that it's valid
-            if (block.getHash() === Constants.GENESIS_BLOCK) return;
+            if (isGenesis) return;
 
-            // block should have at least one parent!
-            assert(Array.isArray(block.parentHashes) && block.parentHashes.length);
+            block.verify(checkSignatures);
+
+            // we can't check height here, so we'll check it upon execution
 
             // signatures
-            if (checkSignatures && !this.isGenesisBlock(block)) await this._verifyBlockSignatures(block);
-
-            // merkleRoot
-            assert(block.hash() !== block.merkleRoot.toString('hex'), `Bad merkle root for ${block.hash()}`);
+            if (checkSignatures && !isGenesis) await this._verifyBlockSignatures(block);
 
             // TX collision
             await this._storage.checkTxCollision(block.getTxHashes());
@@ -1924,6 +1924,34 @@ module.exports = (factory, factoryOptions) => {
                 undefined,
                 this._createCallbacksForApp(new PatchDB(), new PatchDB(), Crypto.randomBytes(32)),
                 true
+            );
+        }
+
+        /**
+         * Height is longest path in DAG
+         *
+         * @param {Array} arrParentHashes - of strHashes
+         * @return {Number}
+         * @private
+         */
+        _calcHeight(arrParentHashes) {
+            typeforce(typeforce.arrayOf(types.Hash256bit), arrParentHashes);
+
+            return arrParentHashes.reduce((maxHeight, hash) => {
+                const blockInfo = this._mainDag.getBlockInfo(hash);
+                return maxHeight > blockInfo.getHeight() ? maxHeight : blockInfo.getHeight();
+            }, 0) + 1;
+        }
+
+        /**
+         *
+         * @param {Block} block
+         * @private
+         */
+        _checkHeight(block) {
+            const calculatedHash = this._calcHeight(block.parentHashes);
+            assert(calculatedHash === block.getHeight(),
+                `Block ${block.getHash()} has incorrect height ${calculatedHash} (expected ${block.getHash()}`
             );
         }
     };
