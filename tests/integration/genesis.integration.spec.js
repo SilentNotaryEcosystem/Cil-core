@@ -442,6 +442,7 @@ exports=new Concilium(${strCommaSeparatedKeys});
 
     genesis.addTx(moneyIssueTx);
     genesis.addTx(contractDeployTx);
+    genesis.setHeight(1);
     genesis.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
 
     console.log(`Genesis hash: ${genesis.getHash()}`);

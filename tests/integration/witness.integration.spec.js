@@ -82,6 +82,7 @@ const createGenesisBlockAndSpendingTx = (conciliumId = 0) => {
     // create "genesis" block
     const genesis = new factory.Block(0);
     genesis.addTx(txGen);
+    genesis.setHeight(1);
     genesis.finish(0, pseudoRandomBuffer(33));
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 

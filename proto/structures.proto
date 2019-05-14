@@ -49,6 +49,7 @@ message BlockHeader{
     uint32 conciliumId=3;
     uint32 timestamp=6;
     uint32 version=7;
+    uint32 height=8;
 }
 
 message Block{

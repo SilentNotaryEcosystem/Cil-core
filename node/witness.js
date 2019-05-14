@@ -1,6 +1,9 @@
 const assert = require('assert');
-const {sleep} = require('../utils');
+const typeforce = require('typeforce');
 const debugLib = require('debug');
+
+const {sleep} = require('../utils');
+const types = require('../types');
 
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
@@ -404,6 +407,7 @@ module.exports = (factory, factoryOptions) => {
 
             assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
             block.parentHashes = arrParents;
+            block.setHeight(this._calcHeight(arrParents));
 
             const arrBadHashes = [];
             let totalFee = 0;
@@ -431,6 +435,5 @@ module.exports = (factory, factoryOptions) => {
 
             return {block, patch: patchMerged};
         }
-
     };
 };

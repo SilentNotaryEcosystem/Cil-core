@@ -137,6 +137,8 @@ describe('Witness tests', () => {
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
+        witness._calcHeight = sinon.fake.returns(10);
+
         const {block, patch} = await witness._createBlock(concilium.getConciliumId());
         assert.equal(block.txns.length, 3);
 
