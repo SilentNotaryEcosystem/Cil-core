@@ -236,13 +236,13 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         async walletListUnspent(args) {
-            let {strAddress} = args;
+            let {strAddress, bStableOnly} = args;
             strAddress = stripAddressPrefix(Constants, strAddress);
 
 
             const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
                 event: 'walletListUnspent',
-                content: {strAddress}
+                content: {strAddress, bStableOnly}
             });
 
             const representResults = (arrUtxos, isStable) => {
