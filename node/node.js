@@ -958,8 +958,8 @@ module.exports = (factory, factoryOptions) => {
                     totalSent = this._app.processPayments(tx, patchThisTx);
                     if (!isGenesis) {
                         fee = nRemainingCoins - totalSent;
-                        if (fee < Constants.fees.TX_FEE) {
-                            throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+                        if (fee < nFeeTx) {
+                            throw new Error(`Tx ${tx.hash()} fee ${fee} too small! Expected ${nFeeTx}`);
                         }
                     }
                 }
