@@ -107,7 +107,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _ensureArrConciliumDefinition() {
-            const cont = await this.getContract(Buffer.from(Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'));
+            const cont = await this.getContract(Buffer.from(Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS, 'hex'));
             this._arrConciliumDefinition = cont ? ConciliumDefinition.getFromContractData(cont.getData()) : [];
         }
 
@@ -119,7 +119,7 @@ module.exports = (factory, factoryOptions) => {
         async getConciliumsByKey(publicKey) {
             const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
 
-            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return [];
+            if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return [];
             await this._ensureArrConciliumDefinition();
 
             const arrResult = [];
@@ -138,7 +138,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async getConciliumById(id) {
 
-            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return undefined;
+            if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return undefined;
             await this._ensureArrConciliumDefinition();
 
             return id > this._arrConciliumDefinition.length ?
@@ -147,7 +147,7 @@ module.exports = (factory, factoryOptions) => {
 
         async getConciliumsCount() {
 
-            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return 0;
+            if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return 0;
             await this._ensureArrConciliumDefinition();
 
             return this._arrConciliumDefinition.length;
@@ -367,7 +367,7 @@ module.exports = (factory, factoryOptions) => {
                 for (let [strContractAddr, contract] of statePatch.getContracts()) {
 
                     // if we change concilium contract - update cache
-                    if (Constants.GROUP_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {
+                    if (Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {
                         this._arrConciliumDefinition = contract.getData();
                     }
                     const key = this.constructor.createKey(CONTRACT_PREFIX, Buffer.from(strContractAddr, 'hex'));

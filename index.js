@@ -32,7 +32,7 @@ process.on('warning', e => console.warn(e.stack));
 
     if (objCmdLineParams.genesisHash) factory.Constants.GENESIS_BLOCK = objCmdLineParams.genesisHash;
     if (objCmdLineParams.conciliumDefContract) {
-        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.conciliumDefContract;
+        factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.conciliumDefContract;
     }
 
     const commonOptions = {

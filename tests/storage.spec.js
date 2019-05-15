@@ -387,7 +387,7 @@ describe('Storage tests', () => {
 
     it('should read concilium definitions', async () => {
         const contractAddress = generateAddress();
-        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = contractAddress;
+        factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = contractAddress;
 
         const def1 = factory.ConciliumDefinition.create(
             0,

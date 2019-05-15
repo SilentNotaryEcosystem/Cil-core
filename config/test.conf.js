@@ -7,7 +7,7 @@ module.exports = {
 
         ...commonConfig.constants,
 
-        GROUP_DEFINITION_CONTRACT_ADDRESS: undefined,
+        CONCILIUM_DEFINITION_CONTRACT_ADDRESS: undefined,
         GENESIS_BLOCK: undefined,
 
         strIdent: 'Test',

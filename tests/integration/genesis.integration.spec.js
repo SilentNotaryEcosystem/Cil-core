@@ -66,12 +66,12 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         if (patch) {
             receipt = patch.getReceipt(strConciliumDefContractTx);
-            factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = receipt.getContractAddress().toString('hex');
+            factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = receipt.getContractAddress().toString('hex');
         } else {
             throw new Error('Something went wrong! No patch to Genesis');
         }
 
-        assert.isOk(factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS);
+        assert.isOk(factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS);
         assert.isOk(factory.Constants.GENESIS_BLOCK);
 
         stepDone = true;
@@ -468,7 +468,7 @@ function createAnotherConcilium(strClaimPrivateKey, witnessPubKey, utxo, idx) {
 
     // WARNING! it's just test/demo. All coins at this UTXO become fee
     const tx = factory.Transaction.invokeContract(
-        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS,
+        factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS,
         contractCode,
         0
     );
