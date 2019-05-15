@@ -348,4 +348,8 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             const outputs = this.outputs;
             return outputs[0];
         }
+
+        getSize() {
+            return (transactionProto.encode(this._data).finish()).length;
+        }
     };

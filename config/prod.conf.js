@@ -108,11 +108,14 @@ module.exports = {
         // fees
         fees: {
 
-            // money send fee
-            TX_FEE: 100,
+            // money send fee per Kbyte
+            TX_FEE: 4000,
 
-            // contract creation & invocation
-            CONTRACT_FEE: 3000,
+            // contract creation
+            CONTRACT_CREATION_FEE: 30000,
+
+            // contract invocation
+            CONTRACT_INVOCATION_FEE: 10000,
 
             // contract send moneys
             INTERNAL_TX_FEE: 300,

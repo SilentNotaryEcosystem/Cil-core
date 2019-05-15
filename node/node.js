@@ -915,15 +915,24 @@ module.exports = (factory, factoryOptions) => {
             let patchThisTx = new PatchDB(tx.conciliumId);
             let totalHas = amountHas === undefined ? 0 : amountHas;
             let fee = 0;
+            let nFeeTx;
 
             const lock = await this._mutex.acquire(['transaction']);
             try {
+
                 // process input (for regular block only)
                 if (!isGenesis) {
                     tx.verify();
                     const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
                     const patchMerged = patchForBlock ? patchForBlock.merge(patchUtxos) : patchUtxos;
                     ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
+                }
+
+                // calculate TX size fee
+                nFeeTx = await this._calculateSizeFee(tx);
+                const nRemainingCoins = totalHas - nFeeTx;
+                if (!isGenesis) {
+                    assert(nRemainingCoins > 0, `Require fee at least ${nFeeTx} but you sent only ${totalHas}`);
                 }
 
                 let totalSent = 0;
@@ -936,7 +945,9 @@ module.exports = (factory, factoryOptions) => {
                 ) {
 
                     // process contract creation/invocation
-                    fee = await this._processContract(isGenesis, contract, tx, patchThisTx, patchForBlock, totalHas);
+                    fee = await this._processContract(isGenesis, contract, tx, patchThisTx, patchForBlock,
+                        nRemainingCoins, nFeeTx
+                    );
                     const receipt = patchThisTx.getReceipt(tx.getHash());
                     if (!receipt || !receipt.isSuccessful()) {
                         throw new Error(`Tx ${tx.hash()} contract invocation failed`);
@@ -946,7 +957,7 @@ module.exports = (factory, factoryOptions) => {
                     // regular payment
                     totalSent = this._app.processPayments(tx, patchThisTx);
                     if (!isGenesis) {
-                        fee = totalHas - totalSent;
+                        fee = nRemainingCoins - totalSent;
                         if (fee < Constants.fees.TX_FEE) {
                             throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
                         }
@@ -956,8 +967,8 @@ module.exports = (factory, factoryOptions) => {
                 this._mutex.release(lock);
             }
 
-            // TODO: fees.TX_FEE is fee per 1Kb of TX size
-            // TODO: rework fee
+            // add TX fee size
+            fee += nFeeTx;
 
             return {fee, patchThisTx};
         }
@@ -1026,17 +1037,17 @@ module.exports = (factory, factoryOptions) => {
             if (!isGenesis) {
                 const totalSent = this._app.processPayments(tx, patchThisTx, 1);
                 coinsLimit = nCoinsIn - totalSent;
-
-                if (coinsLimit < Constants.fees.CONTRACT_FEE) {
-                    throw new Error(
-                        `Tx ${tx.hash()} CONTRACT fee ${coinsLimit} less than ${Constants.fees.CONTRACT_FEE}!`);
-                }
-
             } else {
                 coinsLimit = Number.MAX_SAFE_INTEGER;
             }
 
             if (!contract) {
+
+                const nFeeContractCreation = this._getFeeContractCreation(tx);
+                if (coinsLimit < nFeeContractCreation) {
+                    throw new Error(
+                        `Tx ${tx.hash()} fee ${coinsLimit} for contract creation less than ${nFeeContractCreation}!`);
+                }
 
                 // contract creation
                 // address creation should be deterministic (same for all nodes!)
@@ -1050,6 +1061,12 @@ module.exports = (factory, factoryOptions) => {
                 ({receipt, contract} =
                     await this._app.createContract(coinsLimit, tx.getContractCode(), environment));
             } else {
+
+                const nFeeContractInvocation = this._getFeeContractInvocatoin(tx);
+                if (coinsLimit < nFeeContractInvocation) {
+                    throw new Error(
+                        `Tx ${tx.hash()} fee ${coinsLimit} for contract invocation less than ${nFeeContractInvocation}!`);
+                }
 
                 // contract invocation
                 assert(

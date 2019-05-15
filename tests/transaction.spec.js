@@ -364,4 +364,26 @@ describe('Transaction tests', () => {
 
         assert.isOk(buffAddr.equals(tx.getContractAddr()));
     });
+
+    it('should calculate size', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+        const size = tx.getSize();
+        assert.isOk(size);
+
+        // size of tx with 1 input, 1 output, claimProof (signature)
+        assert.isOk(size >= 111);
+    });
+
+    it('should calculate size with signature for contract', async () => {
+        const kp = factory.Crypto.createKeyPair();
+        const tx = new factory.Transaction(createDummyTx());
+        tx.signForContract(kp.privateKey);
+
+        const size = tx.getSize();
+        assert.isOk(size);
+
+        // size of tx with 1 input, 1 output, claimProof (signature), 1 tx signature
+        console.log(size);
+        assert.isOk(size >= 177);
+    });
 });

@@ -278,7 +278,8 @@ describe('Application layer', () => {
         assert.isOk(receipt.isSuccessful());
         assert.equal(
             receipt.getCoinsUsed(),
-            factory.Constants.fees.CONTRACT_FEE + contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE
+            factory.Constants.fees.CONTRACT_CREATION_FEE + contract.getDataSize() *
+            factory.Constants.fees.STORAGE_PER_BYTE_FEE
         );
         assert.deepEqual(contract.getData(), {_data: 10});
 
@@ -315,7 +316,7 @@ describe('Application layer', () => {
         const receipt = await app.runContract(1e5, {method: 'add', arrArguments: [10]}, contract, {});
 
         assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 110});
     });
 
@@ -330,7 +331,7 @@ describe('Application layer', () => {
 
         const receipt = await app.runContract(1e5, {method: 'subtract', arrArguments: [10]}, contract, {});
         assert.isNotOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
@@ -345,7 +346,7 @@ describe('Application layer', () => {
 
         const receipt = await app.runContract(1e5, '', contract, {});
         assert.isNotOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
@@ -360,7 +361,7 @@ describe('Application layer', () => {
 
         const receipt = await app.runContract(1e5, '', contract, {});
         assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 117});
     });
 

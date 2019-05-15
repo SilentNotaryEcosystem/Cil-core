@@ -48,7 +48,7 @@ describe('Contract integration tests', () => {
         assert.isOk(changeTxHash);
         const changeUxo = patchTx.getUtxo(changeTxHash);
         assert.isOk(changeUxo);
-        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_CREATION_FEE);
 
         // no UTXO created for transferred coins
         assert.isNotOk(patchTx.getUtxo(tx.getHash()));
@@ -86,7 +86,7 @@ describe('Contract integration tests', () => {
         assert.isOk(changeUxo);
 
         const expectedChange = nCoinsIn -
-                               factory.Constants.fees.CONTRACT_FEE -
+                               factory.Constants.fees.CONTRACT_CREATION_FEE -
                                contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
 
         assert.equal(changeUxo.amountOut(), expectedChange);
@@ -158,7 +158,7 @@ describe('Contract integration tests', () => {
             assert.isOk(changeTxHash);
             const changeUxo = patchRun.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
-            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
+            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_INVOCATION_FEE);
 
             // no UTXO created for transferred coins
             assert.isNotOk(patchRun.getUtxo(tx.getHash()));
@@ -306,7 +306,7 @@ describe('Contract integration tests', () => {
             const changeUxo = patchTx.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
             const expectedChange = nCoinsIn -
-                                   factory.Constants.fees.CONTRACT_FEE -
+                                   factory.Constants.fees.CONTRACT_CREATION_FEE -
                                    contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
 
             assert.equal(changeUxo.amountOut(), expectedChange);
@@ -348,7 +348,7 @@ describe('Contract integration tests', () => {
             const changeUxo = patchRun.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
             const expectedChange = nCoinsIn -
-                                   factory.Constants.fees.CONTRACT_FEE -
+                                   factory.Constants.fees.CONTRACT_INVOCATION_FEE -
                                    (contract.getDataSize() - contractDataSize) *
                                    factory.Constants.fees.STORAGE_PER_BYTE_FEE;
 
@@ -385,8 +385,8 @@ describe('Contract integration tests', () => {
             };
         });
 
-        it('should FAIL (not enough moneys)', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+        it('should FAIL (not enough coins)', async () => {
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             const txReceipt = await node._app.runContract(
                 coinsLimit,
                 createObjInvocationCode('test', [strAddress, contractBalance + 1]),
@@ -401,7 +401,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL (not enough coins to perform send)', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             const txReceipt = await node._app.runContract(
                 coinsLimit - 1,
                 createObjInvocationCode('test', [strAddress, contractBalance]),
@@ -416,7 +416,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should Success', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             const strThisTxHash = pseudoRandomBuffer().toString('hex');
             const patchTx = new factory.PatchDB();
             const txReceipt = await node._app.runContract(
@@ -467,7 +467,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL to call (not enough coins to perform)', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE;
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
             const txReceipt = await node._app.runContract(
                 coinsLimit - 1,
                 createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
@@ -482,7 +482,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL to call (trying to pass more coins than have)', async () => {
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_FEE;
+            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE;
 
             contract = new factory.Contract({
                 contractCode: `{"test": "<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments, coinsLimit: ${coinsLimit}})}"}`
@@ -504,7 +504,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL to call (trying to pass negative coinsLimit)', async () => {
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_FEE;
+            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE;
 
             contract = new factory.Contract({
                 contractCode: `{"test": "<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments, coinsLimit: -1})}"}`
@@ -526,7 +526,8 @@ describe('Contract integration tests', () => {
         });
 
         it('should SUCCESSFULLY "call" nested contract with nested send', async () => {
-            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                               factory.Constants.fees.INTERNAL_TX_FEE;
 
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
@@ -595,7 +596,8 @@ describe('Contract integration tests', () => {
         });
 
         it('should SUCCESSFULLY "delegatecall" nested contract with nested send', async () => {
-            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE + 1;
+            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                               factory.Constants.fees.INTERNAL_TX_FEE + 1;
 
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
