@@ -958,7 +958,7 @@ module.exports = (factory, factoryOptions) => {
                     totalSent = this._app.processPayments(tx, patchThisTx);
                     if (!isGenesis) {
                         fee = nRemainingCoins - totalSent;
-                        if (fee < nFeeTx) {
+                        if (fee < 0 || fee < nFeeTx) {
                             throw new Error(`Tx ${tx.hash()} fee ${fee} too small! Expected ${nFeeTx}`);
                         }
                     }
@@ -1043,7 +1043,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (!contract) {
 
-                const nFeeContractCreation = this._getFeeContractCreation(tx);
+                const nFeeContractCreation = await this._getFeeContractCreation(tx);
                 if (coinsLimit < nFeeContractCreation) {
                     throw new Error(
                         `Tx ${tx.hash()} fee ${coinsLimit} for contract creation less than ${nFeeContractCreation}!`);
@@ -1062,7 +1062,7 @@ module.exports = (factory, factoryOptions) => {
                     await this._app.createContract(coinsLimit, tx.getContractCode(), environment));
             } else {
 
-                const nFeeContractInvocation = this._getFeeContractInvocatoin(tx);
+                const nFeeContractInvocation = await this._getFeeContractInvocatoin(tx);
                 if (coinsLimit < nFeeContractInvocation) {
                     throw new Error(
                         `Tx ${tx.hash()} fee ${coinsLimit} for contract invocation less than ${nFeeContractInvocation}!`);

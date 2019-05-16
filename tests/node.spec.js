@@ -577,6 +577,7 @@ describe('Node tests', () => {
 
     it('should throw while _processReceivedTx (fee is too small)', async () => {
         const node = new factory.Node();
+        const amount = 1e5;
 
         const patch = new factory.PatchDB(0);
         const keyPair = factory.Crypto.createKeyPair();
@@ -584,17 +585,17 @@ describe('Node tests', () => {
         const txHash = pseudoRandomBuffer().toString('hex');
 
         // create "genesis"
-        const coins = new factory.Coins(100000, buffAddress);
+        const coins = new factory.Coins(amount, buffAddress);
         patch.createCoins(txHash, 12, coins);
 
         node._storage.applyPatch(patch);
 
         const tx = new factory.Transaction();
         tx.addInput(txHash, 12);
-        tx.addReceiver(100000, buffAddress);
+        tx.addReceiver(amount, buffAddress);
         tx.claim(0, keyPair.privateKey);
 
-        assert.isRejected(node._processReceivedTx(tx), /fee 0 too small!$/);
+        return assert.isRejected(node._processReceivedTx(tx), /fee .+ too small!$/);
     });
 
     it('should accept TX', async () => {
@@ -2041,7 +2042,7 @@ describe('Node tests', () => {
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
 
-            assert.isRejected(node._processTx(undefined, false, tx), /for contract invocation less than/);
+            return assert.isRejected(node._processTx(undefined, false, tx), /for contract invocation less than/);
         });
 
         it('should invoke contract with environment', async () => {
