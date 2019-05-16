@@ -595,7 +595,7 @@ describe('Node tests', () => {
         tx.addReceiver(amount, buffAddress);
         tx.claim(0, keyPair.privateKey);
 
-        return assert.isRejected(node._processReceivedTx(tx), /fee .+ too small!$/);
+        return assert.isRejected(node._processReceivedTx(tx), /fee .+ too small!/);
     });
 
     it('should accept TX', async () => {

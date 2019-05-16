@@ -432,7 +432,7 @@ describe('Storage tests', () => {
 
     it('should NOT find UTXO', async () => {
         const storage = new factory.Storage();
-        assert.isRejected(storage.getUtxo(pseudoRandomBuffer()));
+        return assert.isRejected(storage.getUtxo(pseudoRandomBuffer()));
     });
 
     it('should get UTXO', async () => {
@@ -543,12 +543,19 @@ describe('Storage tests', () => {
             storage = new factory.Storage({walletSupport: true});
         });
 
-        it('should throw (no wallet support)', async () => {
+        it('should throw _ensureWalletInitialized (no wallet support)', async () => {
             const storage = new factory.Storage();
+            return assert.isRejected(storage._ensureWalletInitialized());
+        });
 
-            assert.isRejected(storage._ensureWalletInitialized());
-            assert.isRejected(storage._walletWriteAddressUtxo());
-            assert.isRejected(storage.walletListUnspent());
+        it('should throw _walletWriteAddressUtxo (no wallet support)', async () => {
+            const storage = new factory.Storage();
+            return assert.isRejected(storage._walletWriteAddressUtxo());
+        });
+
+        it('should throw walletListUnspent (no wallet support)', async () => {
+            const storage = new factory.Storage();
+            return assert.isRejected(storage.walletListUnspent());
         });
 
         it('should load empty wallet', async () => {
@@ -666,7 +673,7 @@ describe('Storage tests', () => {
             const addr = generateAddress().toString('hex');
             storage._arrStrWalletAddresses = [addr];
 
-            assert.isRejected(storage.walletWatchAddress(addr));
+            return assert.isRejected(storage.walletWatchAddress(addr));
         });
 
         it('should add new watched address ', async () => {
