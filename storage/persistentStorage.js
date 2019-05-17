@@ -26,16 +26,19 @@ const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
  * @param db - levelup instance
  * @returns {Promise<any>}
  */
-const eraseDbContent = (db) => {
-    return new Promise(resolve => {
+const eraseDbContent = async (db) => {
+    const arrBuffers = [];
+    await new Promise(resolve => {
         db.createKeyStream({keyAsBuffer: true, valueAsBuffer: false})
             .on('data', function(data) {
-                db.del(data, {keyAsBuffer: true, valueAsBuffer: false});
+                arrBuffers.push({type: 'del', key: data});
+//                db.del(data, {keyAsBuffer: true, valueAsBuffer: false});
             })
             .on('close', function() {
                 resolve();
             });
     });
+    await db.batch(arrBuffers);
 };
 
 module.exports = (factory, factoryOptions) => {
@@ -683,6 +686,7 @@ module.exports = (factory, factoryOptions) => {
             const keyStart = this.constructor.createUtxoKey(Buffer.from([]));
             const keyEnd = this.constructor.createUtxoKey(Buffer.from('FF', 'hex'));
 
+            const arrRecords = [];
             await new Promise(resolve => {
                     this._db
                         .createReadStream({gte: keyStart, lte: keyEnd, keyAsBuffer: true, valueAsBuffer: true})
@@ -693,12 +697,16 @@ module.exports = (factory, factoryOptions) => {
                             const utxo = new UTXO({txHash: hash, data: data.value});
                             for (let strAddr of this._arrStrWalletAddresses) {
                                 const arrIndexes = utxo.getOutputsForAddress(strAddr);
-                                if (arrIndexes.length) await this._walletWriteAddressUtxo(strAddr, hash);
+//                                if (arrIndexes.length) await this._walletWriteAddressUtxo(strAddr, hash);
+                                if (arrIndexes.length) arrRecords.push({strAddr, hash});
                             }
                         })
                         .on('close', () => resolve());
                 }
             );
+            for (const {strAddr, hash} of arrRecords) {
+                await this._walletWriteAddressUtxo(strAddr, hash);
+            }
         }
 
         async getWallets() {
