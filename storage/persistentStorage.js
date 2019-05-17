@@ -700,5 +700,10 @@ module.exports = (factory, factoryOptions) => {
                 }
             );
         }
+
+        async getWallets() {
+            await this._ensureWalletInitialized();
+            return this._arrStrWalletAddresses;
+        }
     };
 };

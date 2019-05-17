@@ -95,7 +95,8 @@ module.exports = {
             {name: "txIndex", type: Boolean, multiple: false},
             {name: "watchAddress", type: String, multiple: true},
             {name: "reIndexWallet", type: Boolean, multiple: false},
-            {name: "walletSupport", type: Boolean, multiple: false}
+            {name: "walletSupport", type: Boolean, multiple: false},
+            {name: "listWallets", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },
