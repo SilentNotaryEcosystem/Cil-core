@@ -1,3 +1,5 @@
+const readline = require('readline');
+const fs = require('fs');
 const commandLineArgs = require('command-line-args');
 
 const arrayIntersection = (array1, array2) => {
@@ -42,6 +44,25 @@ const getMapsKeys = (...arrMaps) => {
     }
     return arrResultKeys;
 };
+
+function questionAsync(prompt, password = false) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    if (password) {
+        process.stdout.cork();
+        rl.write(null, {ctrl: true, name: 'u'});
+    }
+
+    return new Promise(resolve => {
+        rl.question(prompt, answer => {
+            rl.close();
+            resolve(answer.trim());
+        });
+    });
+}
 
 module.exports = {
     sleep: (delay) => {
@@ -103,9 +124,19 @@ module.exports = {
 
     prepareForStringifyObject,
 
+    questionAsync,
+
     stripAddressPrefix(Constants, strAddr) {
         return strAddr.substring(0, 2) === Constants.ADDRESS_PREFIX ?
             strAddr.substring(Constants.ADDRESS_PREFIX.length)
             : strAddr;
+    },
+
+    async readPrivateKeyFromFile(Crypto, path) {
+        const encodedContent = fs.readFileSync(path, 'utf8');
+
+        // TODO suppress echo
+        const password = await questionAsync('Enter password to decrypt private key: ');
+        return await Crypto.decrypt(password, encodedContent);
     }
 };

@@ -1,6 +1,6 @@
 const factory = require('./factory');
 
-const {readCmdLineOptions, sleep, stripAddressPrefix} = require('./utils');
+const {readCmdLineOptions, sleep, stripAddressPrefix, readPrivateKeyFromFile} = require('./utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -34,7 +34,9 @@ process.on('warning', e => console.warn(e.stack));
 
     let node;
     if (objCmdLineParams.privateKey) {
-        const witnessWallet = new factory.Wallet(objCmdLineParams.privateKey);
+        const decryptedPk = await readPrivateKeyFromFile(factory.Crypto, objCmdLineParams.privateKey);
+        if (!decryptedPk) throw new Error('failed to decrypt file with private key');
+        const witnessWallet = new factory.Wallet(decryptedPk);
         node = new factory.Witness({
             ...commonOptions,
             wallet: witnessWallet
@@ -60,7 +62,10 @@ process.on('warning', e => console.warn(e.stack));
     }
 
 })()
-    .catch(err => console.error(err));
+    .catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
 
 async function walletTasks(objCmdLineParams) {
     const {listWallets, reIndexWallet, watchAddress} = objCmdLineParams;
