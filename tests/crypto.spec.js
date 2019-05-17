@@ -45,10 +45,24 @@ describe('Crypto library', () => {
         const encryptedKey = (await Crypto.encrypt(
             '234',
             Buffer.from(strPrivKey, 'hex')
-        )).toString('base64');
+        )).toString('hex');
+        console.log(encryptedKey);
 
         const decryptedKey = await Crypto.decrypt('234', encryptedKey);
         assert.equal(strPrivKey, decryptedKey.toString('hex'));
+    });
+
+    it('FAIL to decrypt key (wrong password)', async () => {
+        const keyPair = Crypto.createKeyPair();
+        const strPrivKey = keyPair.getPrivate();
+        const encryptedKey = (await Crypto.encrypt(
+            '234',
+            Buffer.from(strPrivKey, 'hex')
+        )).toString('hex');
+        console.log(encryptedKey);
+
+        const decryptedKey = await Crypto.decrypt('111', encryptedKey);
+        assert.isNotOk(decryptedKey);
     });
 
     it('should recover public key from signature buffer', async () => {

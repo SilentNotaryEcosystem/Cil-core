@@ -250,7 +250,7 @@ class CryptoLib {
     static async decrypt(password, buffer) {
         const key = Buffer.from(this.createHash(password), 'hex');
         //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
-        const ivEnc = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer, 'base64');
+        const ivEnc = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer, 'hex');
         const iv = ivEnc.slice(0, LENGTH);
         const enc = ivEnc.slice(LENGTH);
         const decipher = crypto.createDecipheriv(ALGO, key, iv);
