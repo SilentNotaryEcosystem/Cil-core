@@ -973,21 +973,41 @@ module.exports = (factory, factoryOptions) => {
             return {fee, patchThisTx};
         }
 
+        /**
+         * Get fee ot use one input. Useful to estimate minimal useful UTXO
+         *
+         * @param {Number} conciliumId
+         * @return {Promise<number>}
+         * @private
+         */
+        async _getFeeSizePerInput(conciliumId) {
+            const witnessConcilium = await this._storage.getConciliumById(conciliumId);
+            const nFeePerKb = witnessConcilium && witnessConcilium.getFeeTxSize() || Constants.fees.TX_FEE;
+
+            // index - 4 bytes,
+            // txHash - 32 bytes,
+            // claimProof - 65 bytes
+            // some protobuff overhead - 3 bytes? so 111 - is good estimate
+            // size of one input in Kbytes = 111 / 1024 and it's nearly 0.11
+            const nKbytes = 0.11;
+            return parseInt(nFeePerKb * nKbytes);
+        }
+
         async _calculateSizeFee(tx) {
-            const witnessConcilium = await this._storage.getConciliumById(tx.witnessGroupId);
+            const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
             const nFeePerKb = witnessConcilium && witnessConcilium.getFeeTxSize() || Constants.fees.TX_FEE;
             const nKbytes = tx.getSize() / 1024;
             return parseInt(nFeePerKb * nKbytes);
         }
 
         async _getFeeContractCreation(tx) {
-            const witnessConcilium = await this._storage.getConciliumById(tx.witnessGroupId);
+            const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
             return witnessConcilium && witnessConcilium.getContractCreationFee() ||
                    Constants.fees.CONTRACT_CREATION_FEE;
         }
 
         async _getFeeContractInvocatoin(tx) {
-            const witnessConcilium = await this._storage.getConciliumById(tx.witnessGroupId);
+            const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
             return witnessConcilium && witnessConcilium.getContractInvocationFee() ||
                    Constants.fees.CONTRACT_INVOCATION_FEE;
         }
@@ -1254,7 +1274,7 @@ module.exports = (factory, factoryOptions) => {
          */
         _processBlockCoinbaseTX(block, blockFees, patchState) {
             const coinbase = new Transaction(block.txns[0]);
-            this._checkCoinbaseTx(coinbase, blockFees);
+            coinbase.verifyCoinbase(blockFees);
             const coins = coinbase.getOutCoins();
             for (let i = 0; i < coins.length; i++) {
 
@@ -1357,18 +1377,6 @@ module.exports = (factory, factoryOptions) => {
                 const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
                 this._rpc.informWsSubscribersNewBlock(blockAndState);
             }
-        }
-
-        /**
-         * You can add block reward checks here
-         *
-         * @param {Transaction} tx
-         * @param {Number} blockFees - calculated (for each TX) value
-         * @private
-         */
-        _checkCoinbaseTx(tx, blockFees) {
-            assert(tx.isCoinbase(), 'Not a coinbase TX!');
-            assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
         }
 
         isGenesisBlock(block) {

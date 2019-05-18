@@ -633,26 +633,6 @@ describe('Node tests', () => {
         assert.isOk(patch);
     });
 
-    it('should fail to check COINBASE (not a coinbase)', async () => {
-        const node = new factory.Node();
-        const tx = new factory.Transaction(createDummyTx());
-        assert.throws(() => node._checkCoinbaseTx(tx.rawData, tx.amountOut()));
-    });
-
-    it('should fail to check COINBASE (bad amount)', async () => {
-        const node = new factory.Node();
-        const coinbase = factory.Transaction.createCoinbase();
-        coinbase.addReceiver(100, generateAddress());
-        assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut() - 1));
-    });
-
-    it('should accept COINBASE', async () => {
-        const node = new factory.Node();
-        const coinbase = factory.Transaction.createCoinbase();
-        coinbase.addReceiver(100, pseudoRandomBuffer(20));
-        assert.throws(() => node._checkCoinbaseTx(coinbase.rawData, tx.amountOut()));
-    });
-
     it('should fail check BLOCK SIGNATURES (unknown concilium)', async () => {
         const block = createDummyBlock(factory);
         const node = new factory.Node();
@@ -801,11 +781,12 @@ describe('Node tests', () => {
 
         //
         await node._storage.updatePendingBlocks(arrHashes);
-        node._checkCoinbaseTx = sinon.fake();
+        node._processBlockCoinbaseTX = sinon.fake();
         node._checkHeight = sinon.fake.returns(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
         const arrStableHashes = await node._storage.getLastAppliedBlockHashes();
+
         await node._rebuildPending(arrStableHashes, arrPendingHashes);
 
         assert.equal(node._pendingBlocks.getDag().order, 10);
@@ -827,7 +808,7 @@ describe('Node tests', () => {
         await node._storage.updatePendingBlocks(
             [arrBlocks[0].getHash(), arrBlocks[1].getHash(), arrBlocks[2].getHash(), arrBlocks[3].getHash()]
         );
-        node._checkCoinbaseTx = sinon.fake();
+        node._processBlockCoinbaseTX = sinon.fake();
         node._checkHeight = sinon.fake.returns(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
@@ -1901,7 +1882,7 @@ describe('Node tests', () => {
             const txSize = 100;
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves(undefined);
-            const fakeTx = {witnessGroupId: 0, getSize: () => txSize};
+            const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
             assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));
@@ -1912,7 +1893,7 @@ describe('Node tests', () => {
             const groupFee = 1e5;
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves({getFeeTxSize: () => groupFee});
-            const fakeTx = {witnessGroupId: 0, getSize: () => txSize};
+            const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
             assert.equal(nFeeSize, parseInt(groupFee * txSize / 1024));
@@ -1922,7 +1903,7 @@ describe('Node tests', () => {
             const txSize = 5000;
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves(undefined);
-            const fakeTx = {witnessGroupId: 0, getSize: () => txSize};
+            const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
             assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));

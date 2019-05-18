@@ -44,6 +44,7 @@ describe('Block tests', () => {
         block.finish(factory.Constants.fees.TX_FEE, keyPair.publicKey);
 
         assert.isOk(block.header.timestamp);
+        assert.isOk(block.timestamp);
         assert.equal(block.header.version, 1);
         assert.equal(block.header.conciliumId, 7);
 
@@ -114,6 +115,40 @@ describe('Block tests', () => {
         assert.isOk(coinbase.isCoinbase());
         const restoredTx = new factory.Transaction(restoredBlock.txns[1]);
         assert.isOk(restoredTx.equals(tx));
+    });
+
+    describe('Coinbase creation', async () => {
+        let block;
+
+        beforeEach(async () => {
+            block = new factory.Block(0);
+        });
+
+        it('should create coinbase', async () => {
+            block.finish(1e6, pseudoRandomBuffer(33));
+            assert.isOk(block.txns.length, 1);
+        });
+
+        it('should create 3 outputs', async () => {
+            block.finish(1e6, pseudoRandomBuffer(33));
+
+            const tx = new factory.Transaction(block.txns[0]);
+            assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 3);
+        });
+
+        it('should create 2 outputs (without foundation share, because its 2 small)', async () => {
+            block.finish(1e4, pseudoRandomBuffer(33), 1e4);
+
+            const tx = new factory.Transaction(block.txns[0]);
+            assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 2);
+        });
+
+        it('should create 1 output (to make random hash for coinbase tx)', async () => {
+            block.finish(1e4, pseudoRandomBuffer(33), 1e4);
+
+            const tx = new factory.Transaction(block.txns[0]);
+            assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 2);
+        });
     });
 
     describe('Block verification', async () => {
