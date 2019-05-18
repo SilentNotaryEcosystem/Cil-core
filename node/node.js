@@ -1254,7 +1254,7 @@ module.exports = (factory, factoryOptions) => {
          */
         _processBlockCoinbaseTX(block, blockFees, patchState) {
             const coinbase = new Transaction(block.txns[0]);
-            this._checkCoinbaseTx(coinbase, blockFees);
+            coinbase.verifyCoinbase(blockFees);
             const coins = coinbase.getOutCoins();
             for (let i = 0; i < coins.length; i++) {
 
@@ -1357,18 +1357,6 @@ module.exports = (factory, factoryOptions) => {
                 const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
                 this._rpc.informWsSubscribersNewBlock(blockAndState);
             }
-        }
-
-        /**
-         * You can add block reward checks here
-         *
-         * @param {Transaction} tx
-         * @param {Number} blockFees - calculated (for each TX) value
-         * @private
-         */
-        _checkCoinbaseTx(tx, blockFees) {
-            assert(tx.isCoinbase(), 'Not a coinbase TX!');
-            assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
         }
 
         isGenesisBlock(block) {

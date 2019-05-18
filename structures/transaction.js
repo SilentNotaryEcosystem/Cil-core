@@ -310,6 +310,11 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
                    && inputs[0].nTxOutput === 0;
         }
 
+        verifyCoinbase(blockFees) {
+            assert(this.isCoinbase(), 'Not a coinbase TX!');
+            assert(this.amountOut() === blockFees, 'Bad amount in coinbase!');
+        }
+
         isContractCreation() {
             const outCoins = this.getOutCoins();
             return outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());

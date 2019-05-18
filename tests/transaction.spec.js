@@ -386,4 +386,23 @@ describe('Transaction tests', () => {
         console.log(size);
         assert.isOk(size >= 177);
     });
+
+    describe('COINBASE TX', async () => {
+        it('should fail to verifyCoinbase (not a coinbase)', async () => {
+            const tx = new factory.Transaction(createDummyTx());
+            assert.throws(() => tx.verifyCoinbase(tx.amountOut()));
+        });
+
+        it('should fail to verifyCoinbase (bad amount)', async () => {
+            const coinbase = factory.Transaction.createCoinbase();
+            coinbase.addReceiver(100, generateAddress());
+            assert.throws(() => coinbase.verifyCoinbase(tx.amountOut() - 1));
+        });
+
+        it('should pass verifyCoinbase', async () => {
+            const coinbase = factory.Transaction.createCoinbase();
+            coinbase.addReceiver(100, pseudoRandomBuffer(20));
+            assert.doesNotThrow(() => coinbase.verifyCoinbase(coinbase.amountOut()));
+        });
+    });
 });
