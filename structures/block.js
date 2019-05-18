@@ -59,7 +59,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         get timestamp() {
-            return this._data.timestamp;
+            return this._data.header.timestamp;
         }
 
         get header() {

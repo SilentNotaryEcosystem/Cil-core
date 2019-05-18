@@ -44,6 +44,7 @@ describe('Block tests', () => {
         block.finish(factory.Constants.fees.TX_FEE, keyPair.publicKey);
 
         assert.isOk(block.header.timestamp);
+        assert.isOk(block.timestamp);
         assert.equal(block.header.version, 1);
         assert.equal(block.header.conciliumId, 7);
 
