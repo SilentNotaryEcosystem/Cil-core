@@ -116,6 +116,40 @@ describe('Block tests', () => {
         assert.isOk(restoredTx.equals(tx));
     });
 
+    describe('Coinbase creation', async () => {
+        let block;
+
+        beforeEach(async () => {
+            block = new factory.Block(0);
+        });
+
+        it('should create coinbase', async () => {
+            block.finish(1e6, pseudoRandomBuffer(33));
+            assert.isOk(block.txns.length, 1);
+        });
+
+        it('should create 3 outputs', async () => {
+            block.finish(1e6, pseudoRandomBuffer(33));
+
+            const tx = new factory.Transaction(block.txns[0]);
+            assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 3);
+        });
+
+        it('should create 2 outputs (without foundation share, because its 2 small)', async () => {
+            block.finish(1e4, pseudoRandomBuffer(33), 1e4);
+
+            const tx = new factory.Transaction(block.txns[0]);
+            assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 2);
+        });
+
+        it('should create 1 output (to make random hash for coinbase tx)', async () => {
+            block.finish(1e4, pseudoRandomBuffer(33), 1e4);
+
+            const tx = new factory.Transaction(block.txns[0]);
+            assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 2);
+        });
+    });
+
     describe('Block verification', async () => {
         it('should FAIL to verify parentHashes', async () => {
             const block = new factory.Block(0);

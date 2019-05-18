@@ -138,7 +138,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this.txns.length === 1 && (new Transaction(this.txns[0])).isCoinbase();
         }
 
-        finish(totalTxnsFees, pubkeyReceiver) {
+        finish(totalTxnsFees, pubkeyReceiver, minUsefulAmount = 0) {
             typeforce.Number(totalTxnsFees);
             typeforce(types.PublicKey, pubkeyReceiver);
 
@@ -148,15 +148,23 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             const coinbase = Transaction.createCoinbase();
             coinbase.witnessGroupId = this.witnessGroupId;
 
-            // developer foundation
-            const nFeeDevFoundation = parseInt(Constants.DEV_FOUNDATION_SHARE * totalTxnsFees);
-            coinbase.addReceiver(nFeeDevFoundation, Constants.DEV_FOUNDATION_ADDRESS);
+            // we'll create outputs ONLY if there are coins! if 0 - no outputs will be created
+            if (totalTxnsFees) {
 
-            // block creator
-            coinbase.addReceiver(totalTxnsFees - nFeeDevFoundation, buffReceiverAddr);
+                // developer foundation. send only if it at least twice more than minUsefulAmount
+                let nFeeDevFoundation = parseInt(Constants.DEV_FOUNDATION_SHARE * totalTxnsFees);
+                if (nFeeDevFoundation >= minUsefulAmount * 2) {
+                    coinbase.addReceiver(nFeeDevFoundation, Constants.DEV_FOUNDATION_ADDRESS);
+                } else {
+                    nFeeDevFoundation = 0;
+                }
 
-            // to make coinbase hash unique add one more random output with 0 coins
-            coinbase.addReceiver(0, Crypto.randomBytes(20));
+                // block creator
+                coinbase.addReceiver(totalTxnsFees - nFeeDevFoundation, buffReceiverAddr);
+
+                // to make coinbase hash unique we'll add random output with 0 coins
+                coinbase.addReceiver(0, Crypto.randomBytes(20));
+            }
 
             this._data.txns.unshift(coinbase.rawData);
             this._data.header.merkleRoot = this._buildTxTree();

@@ -973,6 +973,26 @@ module.exports = (factory, factoryOptions) => {
             return {fee, patchThisTx};
         }
 
+        /**
+         * Get fee ot use one input. Useful to estimate minimal useful UTXO
+         *
+         * @param {Number} conciliumId
+         * @return {Promise<number>}
+         * @private
+         */
+        async _getFeeSizePerInput(conciliumId) {
+            const witnessConcilium = await this._storage.getConciliumById(conciliumId);
+            const nFeePerKb = witnessConcilium && witnessConcilium.getFeeTxSize() || Constants.fees.TX_FEE;
+
+            // index - 4 bytes,
+            // txHash - 32 bytes,
+            // claimProof - 65 bytes
+            // some protobuff overhead - 3 bytes? so 111 - is good estimate
+            // size of one input in Kbytes = 111 / 1024 and it's nearly 0.11
+            const nKbytes = 0.11;
+            return parseInt(nFeePerKb * nKbytes);
+        }
+
         async _calculateSizeFee(tx) {
             const witnessConcilium = await this._storage.getConciliumById(tx.witnessGroupId);
             const nFeePerKb = witnessConcilium && witnessConcilium.getFeeTxSize() || Constants.fees.TX_FEE;

@@ -426,7 +426,7 @@ module.exports = (factory, factoryOptions) => {
             // remove failed txns
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
-            block.finish(totalFee, this._wallet.publicKey);
+            block.finish(totalFee, this._wallet.publicKey, await this._getFeeSizePerInput());
 
             this._processBlockCoinbaseTX(block, totalFee, patchMerged);
 
