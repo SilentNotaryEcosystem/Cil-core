@@ -146,7 +146,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
 
             const coinbase = Transaction.createCoinbase();
-            coinbase.witnessGroupId = this.witnessGroupId;
+            coinbase.conciliumId = this.conciliumId;
 
             // we'll create outputs ONLY if there are coins! if 0 - no outputs will be created
             if (totalTxnsFees) {

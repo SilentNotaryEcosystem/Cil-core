@@ -1882,7 +1882,7 @@ describe('Node tests', () => {
             const txSize = 100;
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves(undefined);
-            const fakeTx = {witnessGroupId: 0, getSize: () => txSize};
+            const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
             assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));
@@ -1893,7 +1893,7 @@ describe('Node tests', () => {
             const groupFee = 1e5;
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves({getFeeTxSize: () => groupFee});
-            const fakeTx = {witnessGroupId: 0, getSize: () => txSize};
+            const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
             assert.equal(nFeeSize, parseInt(groupFee * txSize / 1024));
@@ -1903,7 +1903,7 @@ describe('Node tests', () => {
             const txSize = 5000;
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves(undefined);
-            const fakeTx = {witnessGroupId: 0, getSize: () => txSize};
+            const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
             assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));

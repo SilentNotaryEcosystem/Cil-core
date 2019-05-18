@@ -994,20 +994,20 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _calculateSizeFee(tx) {
-            const witnessConcilium = await this._storage.getConciliumById(tx.witnessGroupId);
+            const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
             const nFeePerKb = witnessConcilium && witnessConcilium.getFeeTxSize() || Constants.fees.TX_FEE;
             const nKbytes = tx.getSize() / 1024;
             return parseInt(nFeePerKb * nKbytes);
         }
 
         async _getFeeContractCreation(tx) {
-            const witnessConcilium = await this._storage.getConciliumById(tx.witnessGroupId);
+            const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
             return witnessConcilium && witnessConcilium.getContractCreationFee() ||
                    Constants.fees.CONTRACT_CREATION_FEE;
         }
 
         async _getFeeContractInvocatoin(tx) {
-            const witnessConcilium = await this._storage.getConciliumById(tx.witnessGroupId);
+            const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
             return witnessConcilium && witnessConcilium.getContractInvocationFee() ||
                    Constants.fees.CONTRACT_INVOCATION_FEE;
         }
