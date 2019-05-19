@@ -871,7 +871,7 @@ module.exports = (factory, factoryOptions) => {
                     case 'getUnspent':
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
-                    case 'walletListUnspent':
+                    case 'walletListUnspent': {
                         const {strAddress, bStableOnly = false} = content;
 
                         let arrPendingUtxos = [];
@@ -882,9 +882,13 @@ module.exports = (factory, factoryOptions) => {
                         const arrStableUtxos = await this._storage.walletListUnspent(strAddress);
 
                         return {arrStableUtxos, arrPendingUtxos};
-                    case 'watchAddress':
-                        await this._storage.walletWatchAddress(content);
+                    }
+                    case 'watchAddress': {
+                        const {strAddress, bReindex} = content;
+                        await this._storage.walletWatchAddress(strAddress);
+                        if (bReindex) this._storage.walletReIndex();
                         break;
+                    }
                     case 'getWallets':
                         return await this._storage.getWallets();
                         break;

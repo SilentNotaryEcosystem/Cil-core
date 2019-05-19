@@ -241,7 +241,6 @@ module.exports = ({Constants, Transaction}) =>
             let {strAddress, bStableOnly} = args;
             strAddress = stripAddressPrefix(Constants, strAddress);
 
-
             const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
                 event: 'walletListUnspent',
                 content: {strAddress, bStableOnly}
@@ -300,10 +299,11 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         async watchAddress(args) {
-            let {strAddress} = args;
+            let {strAddress, bReindex} = args;
+            strAddress = stripAddressPrefix(Constants, strAddress);
             await this._nodeInstance.rpcHandler({
                 event: 'watchAddress',
-                content: strAddress
+                content: {strAddress, bReindex}
             });
         }
 
