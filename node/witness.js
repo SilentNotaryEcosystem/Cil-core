@@ -280,7 +280,7 @@ module.exports = (factory, factoryOptions) => {
             messageWitness = new MsgWitnessCommon(message);
             const consensus = this._consensuses.get(messageWitness.conciliumId);
             if (!consensus) {
-                throw new Error(`Witness: "${this._debugAddress}" send us message for UNKNOWN GROUP!`);
+                throw new Error(`Witness: "${this._debugAddress}" send us message for UNKNOWN CONCILIUM!`);
             }
 
             return messageWitness;

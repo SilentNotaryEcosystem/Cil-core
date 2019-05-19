@@ -1907,7 +1907,7 @@ describe('Node tests', () => {
     });
 
     describe('Fees calculation', async () => {
-        it('should fail to get fees from group, and use Constants', async () => {
+        it('should fail to get fees from concilium, and use Constants', async () => {
             const txSize = 100;
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves(undefined);
@@ -1919,13 +1919,13 @@ describe('Node tests', () => {
 
         it('should get it from concilium', async () => {
             const txSize = 100;
-            const groupFee = 1e5;
+            const conciliumFee = 1e5;
             const node = new factory.Node();
-            node._storage.getConciliumById = sinon.fake.resolves({getFeeTxSize: () => groupFee});
+            node._storage.getConciliumById = sinon.fake.resolves({getFeeTxSize: () => conciliumFee});
             const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
-            assert.equal(nFeeSize, parseInt(groupFee * txSize / 1024));
+            assert.equal(nFeeSize, parseInt(conciliumFee * txSize / 1024));
         });
 
         it('should calculate fee for size more than 1Kb', async () => {

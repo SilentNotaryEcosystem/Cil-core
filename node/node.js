@@ -1354,13 +1354,13 @@ module.exports = (factory, factoryOptions) => {
             const mapPrevConciliumIdHash = new Map();
             arrPrevTopStableBlocks.forEach(hash => {
                 const cBlockInfo = this._mainDag.getBlockInfo(hash);
-                mapPrevConciliumIdHash.set(cBlockInfo.getWitnessId(), hash);
+                mapPrevConciliumIdHash.set(cBlockInfo.conciliumId(), hash);
             });
 
             const mapNewConciliumIdHash = new Map();
             arrTopStable.forEach(hash => {
                 const cBlockInfo = this._mainDag.getBlockInfo(hash);
-                mapNewConciliumIdHash.set(cBlockInfo.getWitnessId(), hash);
+                mapNewConciliumIdHash.set(cBlockInfo.conciliumId(), hash);
             });
 
             const arrNewLastApplied = [];
