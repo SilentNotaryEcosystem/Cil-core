@@ -882,6 +882,12 @@ module.exports = (factory, factoryOptions) => {
                         const arrStableUtxos = await this._storage.walletListUnspent(strAddress);
 
                         return {arrStableUtxos, arrPendingUtxos};
+                    case 'watchAddress':
+                        await this._storage.walletWatchAddress(content);
+                        break;
+                    case 'getWallets':
+                        return await this._storage.getWallets();
+                        break;
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }

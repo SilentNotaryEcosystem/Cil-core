@@ -48,6 +48,8 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
             this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
             this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
+            this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
+            this._server.expose('getWallets', asyncRPC(this.getWallets.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -294,6 +296,20 @@ module.exports = ({Constants, Transaction}) =>
             return prepareForStringifyObject({
                 confirmedBalance,
                 unconfirmedBalance
+            });
+        }
+
+        async watchAddress(args) {
+            let {strAddress} = args;
+            await this._nodeInstance.rpcHandler({
+                event: 'watchAddress',
+                content: strAddress
+            });
+        }
+
+        async getWallets(args) {
+            return await this._nodeInstance.rpcHandler({
+                event: 'getWallets'
             });
         }
     };
