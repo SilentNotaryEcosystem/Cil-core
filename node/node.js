@@ -384,7 +384,6 @@ module.exports = (factory, factoryOptions) => {
 
             const lock = await this._mutex.acquire([`blockReceived`]);
             try {
-                this._requestCache.done(block.getHash());
                 await this._verifyBlock(block);
 
                 this._mapUnknownBlocks.delete(block.getHash());
@@ -420,7 +419,7 @@ module.exports = (factory, factoryOptions) => {
                 let nBlocksInMsg = 0;
                 for (let objVector of invMsg.inventory.vector) {
 
-                    // we already requested it (from another node), so let's skip it
+                    // we already requested it (from another peer), so let's skip it
                     if (this._requestCache.isRequested(objVector.hash)) continue;
 
                     let bShouldRequest = false;
@@ -1842,6 +1841,8 @@ module.exports = (factory, factoryOptions) => {
                 await this._acceptBlock(block, patchState);
                 await this._postAcceptBlock(block);
                 await this._informNeighbors(block);
+
+                this._requestCache.done(block.getHash());
                 await this._queryPeerForRestOfBlocks(peer);
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);

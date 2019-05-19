@@ -18,7 +18,7 @@ module.exports = ({Constants}) =>
          * @param {Buffer | String} hash - hash to be requested
          * @returns {boolean}
          *   true - means we should request (not requested yet, or previous request was timed out
-         *   false - request is pending
+         *   false - request is already pending
          */
         request(hash) {
             typeforce(types.Hash256bit, hash);
