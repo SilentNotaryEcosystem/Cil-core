@@ -2,6 +2,8 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
+        LOCAL_TX_FILE_NAME: 'txns.json',
+
         ADDRESS_PREFIX: 'Ux',
 
         DEV_FOUNDATION_ADDRESS: '92002a7379ba99472af1d31226f469bf78cf95e2',

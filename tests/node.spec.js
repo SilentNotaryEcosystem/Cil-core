@@ -479,29 +479,6 @@ describe('Node tests', () => {
         assert.isOk(txToSend.equals(tx));
     });
 
-    it('pass TX, received via RPC, to processing', async function() {
-        this.timeout(5000);
-
-        const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
-        await node.ensureLoaded();
-
-        node._mempool.addTx = sinon.fake();
-        node._informNeighbors = sinon.fake();
-
-        const {tx} = createTxAddCoinsToNode(node);
-        const donePromise = new Promise((resolve, reject) => {
-            node._processReceivedTx = async (cTx) => {
-                if (cTx.hash() === tx.hash()) {
-                    resolve();
-                } else {
-                    reject();
-                }
-            };
-        });
-        node.rpc.sendRawTx({strTx: tx.encode().toString('hex')});
-        await donePromise;
-    });
-
     it('should process NEW block from MsgBlock', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
@@ -819,53 +796,17 @@ describe('Node tests', () => {
         assert.equal(node._pendingBlocks.getDag().size, 4);
     });
 
-    it('should process MSG_GET_BLOCKS (simple chain)', async () => {
+    it('should process MSG_GET_BLOCKS', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
-
-        const arrHashes = await createSimpleChain(
-            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
-
-        // we expect receive INV message with all hashes except Genesis
-        const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [factory.Constants.GENESIS_BLOCK];
+        node._mainDag = {order: 1};
+        node._getBlocksFromLastKnown = sinon.fake.returns([pseudoRandomBuffer(), pseudoRandomBuffer()]);
+        node._localTxns.getAllTxnHashes = sinon.fake.returns([pseudoRandomBuffer()]);
 
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
-        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
-        await node._handleGetBlocksMessage(peer, msgCommon);
-
-        assert.isOk(peer.pushMessage.calledOnce);
-        const [msg] = peer.pushMessage.args[0];
-        assert.isOk(msg.isInv());
-        const vector = msg.inventory.vector;
-        assert.equal(vector.length, 9);
-        assert.isOk(
-            vector.every(v =>
-                Buffer.isBuffer(v.hash) &&
-                v.hash.length === 32 &&
-                v.type === factory.Constants.INV_BLOCK
-                && arrHashes.includes(v.hash.toString('hex'))
-            )
-        );
-    });
-
-    it('should process MSG_GET_BLOCKS (simple fork)', async () => {
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        const arrHashes = [];
-        await createSimpleFork(block => {
-            node._mainDag.addBlock(new factory.BlockInfo(block.header));
-            arrHashes.push(block.getHash());
-        });
-
-        // we expect receive INV message with all hashes except Genesis
         const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [factory.Constants.GENESIS_BLOCK];
-
-        const peer = createDummyPeer(factory);
-        peer.pushMessage = sinon.fake();
+        msgGetBlock.arrHashes = [pseudoRandomBuffer().toString('hex')];
         const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
 
         await node._handleGetBlocksMessage(peer, msgCommon);
@@ -875,68 +816,6 @@ describe('Node tests', () => {
         assert.isOk(msg.isInv());
         const vector = msg.inventory.vector;
         assert.equal(vector.length, 3);
-        assert.isOk(
-            vector.every(v =>
-                Buffer.isBuffer(v.hash) &&
-                v.hash.length === 32 &&
-                v.type === factory.Constants.INV_BLOCK
-                && arrHashes.includes(v.hash.toString('hex'))
-            )
-        );
-    });
-
-    it('should process 2 good hashed from fork', async () => {
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        const arrHashes = [];
-        await createSimpleFork(block => {
-            node._mainDag.addBlock(new factory.BlockInfo(block.header));
-            arrHashes.push(block.getHash());
-        });
-
-        // we expect receive INV message with tip only
-        const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [arrHashes[1], arrHashes[2]];
-
-        const peer = createDummyPeer(factory);
-        peer.pushMessage = sinon.fake();
-        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
-
-        await node._handleGetBlocksMessage(peer, msgCommon);
-
-        assert.isOk(peer.pushMessage.calledOnce);
-        const [msg] = peer.pushMessage.args[0];
-        assert.isOk(msg.isInv());
-        const vector = msg.inventory.vector;
-        assert.equal(vector.length, 1);
-        const [{hash}] = vector;
-        assert.equal(hash.toString('hex'), arrHashes[3]);
-    });
-
-    it('should return full DAG (empty hash array received)', async () => {
-        const node = new factory.Node();
-        await node.ensureLoaded();
-
-        const arrHashes = await createSimpleChain(
-            block => node._mainDag.addBlock(new factory.BlockInfo(block.header)));
-
-        const msgGetBlock = new factory.Messages.MsgGetBlocks();
-        msgGetBlock.arrHashes = [];
-
-        const peer = createDummyPeer(factory);
-        peer.pushMessage = sinon.fake();
-        const msgCommon = new factory.Messages.MsgCommon(msgGetBlock.encode());
-
-        await node._handleGetBlocksMessage(peer, msgCommon);
-
-        assert.isOk(peer.pushMessage.calledOnce);
-        const [msg] = peer.pushMessage.args[0];
-        assert.isOk(msg.isInv());
-        const vector = msg.inventory.vector;
-
-        assert.equal(vector.length, 10);
-        assert.isOk(arrayEquals(vector.map(v => v.hash.toString('hex')), arrHashes));
     });
 
     it('should send Reject message if time offset very large', async () => {
@@ -969,8 +848,8 @@ describe('Node tests', () => {
         await node._peerManager.addPeer(newPeer);
 
         await node._handleVersionMessage(newPeer, msgCommon);
-        assert.equal(sendMessage.callCount, 1);
 
+        assert.equal(sendMessage.callCount, 1);
         const [msg] = sendMessage.args[0];
         assert.isTrue(msg.isReject());
 
@@ -1201,6 +1080,21 @@ describe('Node tests', () => {
     });
 
     describe('RPC tests', () => {
+        it('send TX', async function() {
+            const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+            await node.ensureLoaded();
+            node._processReceivedTx = sinon.fake();
+            node._localTxns.addTx = sinon.fake();
+
+            await node.rpcHandler({
+                event: 'tx',
+                content: new factory.Transaction(createDummyTx()).encode().toString('hex')
+            });
+
+            assert.isOk(node._processReceivedTx.calledOnce);
+            assert.isOk(node._localTxns.addTx.calledOnce);
+        });
+
         it('should get TX receipt', async () => {
             const node = new factory.Node();
             await node.ensureLoaded();
