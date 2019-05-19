@@ -37,7 +37,8 @@ module.exports = (factory, factoryOptions) => {
         BlockInfo,
         Mutex,
         RequestCache,
-        TxReceipt
+        TxReceipt,
+        LocalTxns
     } = factory;
     const {
         MsgCommon,
@@ -78,6 +79,9 @@ module.exports = (factory, factoryOptions) => {
 
             // create mempool
             this._mempool = new Mempool(options);
+
+            // create storage for own TXns and load saved TXns
+            this._localTxns = new LocalTxns(options);
 
             this._transport = new Transport(options);
             this._transport.on('connect', this._incomingConnection.bind(this));
@@ -479,29 +483,21 @@ module.exports = (factory, factoryOptions) => {
             for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
                 inventory.addBlockHash(hash);
             }
+            debugMsg(
+                `(address: "${this._debugAddress}") sending ${inventory.vector.length} blocks to "${peer.address}"`);
 
-            {
-                const msgInv = new MsgInv();
-                msgInv.inventory = inventory;
-                if (inventory.vector.length) {
-                    debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
-                    await peer.pushMessage(msgInv);
-                }
+            // append local TXns to this inv
+            const arrLocalTxHashes = this._localTxns.getAllTxnHashes();
+            arrLocalTxHashes.forEach(hash => inventory.addTxHash(hash));
+            debugMsg(
+                `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} local TXns to "${peer.address}"`);
+
+            const msgInv = new MsgInv();
+            msgInv.inventory = inventory;
+            if (inventory.vector.length) {
+                debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+                await peer.pushMessage(msgInv);
             }
-
-            {
-                // next stage: send INV with mempool
-                // TODO send ONLY own TXns!
-                const msgInv = new MsgInv();
-                const inventory = new Inventory();
-                this._mempool.getAllTxnHashes().forEach(hash => inventory.addTxHash(hash));
-                msgInv.inventory = inventory;
-                if (inventory.vector.length) {
-                    debugMsg(`(address: "${this._debugAddress}") sharing mempool to "${peer.address}"`);
-                    await peer.pushMessage(msgInv);
-                }
-            }
-
         }
 
         /**
@@ -828,6 +824,7 @@ module.exports = (factory, factoryOptions) => {
                 switch (event) {
                     case 'tx':
                         await this._processReceivedTx(content);
+                        this._localTxns.addTx(content);
                         break;
                     case 'txReceipt':
                         return await this._storage.getTxReceipt(content);
@@ -1305,8 +1302,9 @@ module.exports = (factory, factoryOptions) => {
             // save block to graph of pending blocks
             this._pendingBlocks.addBlock(block, patchState);
 
-            // TODO: filter for coinbase TX (we don't find it in mempool)
-            this._mempool.removeForBlock(block.getTxHashes());
+            const arrStrHashes = block.getTxHashes();
+            this._mempool.removeForBlock(arrStrHashes);
+            this._localTxns.removeForBlock(arrStrHashes);
 
             // check for finality
             await this._processFinalityResults(
