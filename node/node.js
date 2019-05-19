@@ -181,8 +181,8 @@ module.exports = (factory, factoryOptions) => {
          */
         async _connectToPeer(peer) {
             debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
-            return await peer.connect();
-
+            await peer.connect();
+            debugNode(`(address: "${this._debugAddress}") CONNECTED to "${peer.address}"`);
         }
 
         /**
@@ -241,7 +241,7 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
-                    logger.error(e);
+                    logger.error(e.message);
                 }
             }
         }
@@ -380,13 +380,13 @@ module.exports = (factory, factoryOptions) => {
 
             const lock = await this._mutex.acquire([`blockReceived`]);
             try {
+                this._requestCache.done(block.getHash());
                 await this._verifyBlock(block);
 
                 this._mapUnknownBlocks.delete(block.getHash());
 
                 // store it in DAG & disk
                 await this._blockInFlight(block);
-
                 await this._processBlock(block, peer);
             } catch (e) {
                 await this._blockBad(block);
@@ -413,6 +413,7 @@ module.exports = (factory, factoryOptions) => {
 
             const lock = await this._mutex.acquire(['inventory']);
             try {
+                let nBlocksInMsg = 0;
                 for (let objVector of invMsg.inventory.vector) {
 
                     // we already requested it (from another node), so let's skip it
@@ -424,7 +425,7 @@ module.exports = (factory, factoryOptions) => {
                         // TODO: more checks? for example search this hash in UTXOs?
                         bShouldRequest = !this._mempool.hasTx(objVector.hash);
                     } else if (objVector.type === Constants.INV_BLOCK) {
-
+                        nBlocksInMsg++;
                         bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
                                          !await this._storage.hasBlock(objVector.hash);
                     }
@@ -442,6 +443,14 @@ module.exports = (factory, factoryOptions) => {
                     debugMsg(
                         `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
                     await peer.pushMessage(msgGetData);
+                }
+
+                // if peer expose us more than MAX_BLOCKS_INV - it seems it is ahead
+                // so we should resend MSG_GET_BLOCKS later
+                if (nBlocksInMsg >= Constants.MAX_BLOCKS_INV) {
+                    peer.markAsPossiblyAhead();
+                } else {
+                    peer.markAsEven();
                 }
             } catch (e) {
                 throw e;
@@ -471,12 +480,28 @@ module.exports = (factory, factoryOptions) => {
                 inventory.addBlockHash(hash);
             }
 
-            const msgInv = new MsgInv();
-            msgInv.inventory = inventory;
-            if (inventory.vector.length) {
-                debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
-                await peer.pushMessage(msgInv);
+            {
+                const msgInv = new MsgInv();
+                msgInv.inventory = inventory;
+                if (inventory.vector.length) {
+                    debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+                    await peer.pushMessage(msgInv);
+                }
             }
+
+            {
+                // next stage: send INV with mempool
+                // TODO send ONLY own TXns!
+                const msgInv = new MsgInv();
+                const inventory = new Inventory();
+                this._mempool.getAllTxnHashes().forEach(hash => inventory.addTxHash(hash));
+                msgInv.inventory = inventory;
+                if (inventory.vector.length) {
+                    debugMsg(`(address: "${this._debugAddress}") sharing mempool to "${peer.address}"`);
+                    await peer.pushMessage(msgInv);
+                }
+            }
+
         }
 
         /**
@@ -752,16 +777,6 @@ module.exports = (factory, factoryOptions) => {
                 if (newPeer instanceof Peer) {
                     debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
                 }
-            }
-
-            // next stage: send INV with mempool
-            const msgInv = new MsgInv();
-            const inventory = new Inventory();
-            this._mempool.getAllTxnHashes().forEach(hash => inventory.addTxHash(hash));
-            msgInv.inventory = inventory;
-            if (inventory.vector.length) {
-                debugMsg(`(address: "${this._debugAddress}") sharing mempool to "${peer.address}"`);
-                await peer.pushMessage(msgInv);
             }
 
             // next stage: request unknown blocks
@@ -1748,14 +1763,6 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._mapUnknownBlocks.size) {
                 await this._requestUnknownBlocks();
-            } else {
-
-                // each 20 cycles - request blocks
-                const tickCount = 20;
-                if (this._getBlocksCounter === undefined) this._getBlocksCounter = 0;
-                if (!(this._getBlocksCounter++) % tickCount) {
-                    this._peerManager.broadcastToConnected('fullyConnected', await this._createGetBlocksMsg());
-                }
             }
         }
 
@@ -1837,6 +1844,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._acceptBlock(block, patchState);
                 await this._postAcceptBlock(block);
                 await this._informNeighbors(block);
+                await this._queryPeerForRestOfBlocks(peer);
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);
                 await this._blockBad(block);
@@ -1846,27 +1854,50 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        async _queryPeerForRestOfBlocks(peer) {
+
+            // if peer is ahead (last time reply with MAX blocks) and we got everything already
+            // here we could request next portion of blocks
+            if (peer.isAhead() && !peer.isGetBlocksSent() && this._requestCache.isEmpty()) {
+                const msg = await this._createGetBlocksMsg();
+                debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+                await peer.pushMessage(msg);
+            }
+        }
+
         async _requestUnknownBlocks() {
 
             // request all unknown blocks
-            const mapPeerBlocks = this._createMapBlockPeer();
+            const {mapPeerBlocks, mapPeerAhead} = this._createMapBlockPeer();
+            for (let peer of mapPeerAhead.values()) {
+                this._queryPeerForRestOfBlocks(peer);
+            }
             await this._sendMsgGetDataToPeers(mapPeerBlocks);
 
         }
 
         /**
          * Which hashes of this._mapUnknownBlocks should be queried from which peer
+         * Or if peer seems to be ahead of us - send MsgGetBlocks
          *
-         * @returns {Map<any, any>} peerKey => Set of hashes
+         * @returns {Map, Map} mapPeerBlocks: {peerKey => Set of hashes}, mapPeerAhead {peerKey => peer}
          * @private
          */
         _createMapBlockPeer() {
             const mapPeerBlocks = new Map();
+            const mapPeerAhead = new Map();
 
             for (let [hash, peer] of this._mapUnknownBlocks) {
                 if (this._requestCache.isRequested(hash) || this._mainDag.getBlockInfo(hash)) continue;
 
                 const key = createPeerKey(peer);
+
+                // we'll batch request block from this peer
+                if (peer.isAhead()) {
+                    mapPeerAhead.set(key, peer);
+                    continue;
+                }
+
                 let setBlocks = mapPeerBlocks.get(key);
                 if (!setBlocks) {
                     setBlocks = new Set();
@@ -1874,7 +1905,7 @@ module.exports = (factory, factoryOptions) => {
                 }
                 setBlocks.add(hash);
             }
-            return mapPeerBlocks;
+            return {mapPeerBlocks, mapPeerAhead};
         }
 
         async _sendMsgGetDataToPeers(mapPeerBlocks) {

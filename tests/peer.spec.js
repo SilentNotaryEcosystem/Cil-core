@@ -75,8 +75,8 @@ describe('Peer tests', () => {
         assert.isOk(newPeer);
 
         newPeer.connect().then(() => {
-            newPeer.on('message', (peer, msg) => msg === 'test' ? done() : done('Message corrupted'));
-            newPeer._connection.emit('message', 'test');
+            newPeer.on('message', (peer, msg) => done());
+            newPeer._connection.emit('message', {isInv: () => false});
         });
     });
 
@@ -99,7 +99,7 @@ describe('Peer tests', () => {
             }
         });
         for (let i = 0; i < 5; i++) {
-            newPeer.pushMessage({message: `testMessage${i}`});
+            newPeer.pushMessage({message: `testMessage${i}`, isGetBlocks: () => false});
         }
         await sleep(delay * 6);
         assert.equal(nSendMessages, 5);
@@ -340,7 +340,7 @@ describe('Peer tests', () => {
         await newPeer.connect();
         newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
 
-        newPeer._connection.emit('message', 'test');
+        newPeer._connection.emit('message', {isInv: () => false});
         newPeer._tick();
 
         assert.isNotOk(newPeer.disconnected);

@@ -1141,7 +1141,7 @@ describe('Node tests', () => {
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
-        const fakePeer = {pushMessage: sinon.fake()};
+        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake()};
         const msgInv = new factory.Messages.MsgInv();
 
         const inv = new factory.Inventory();
@@ -1162,7 +1162,7 @@ describe('Node tests', () => {
     });
 
     it('should REQUEST all items (_handleInvMessage)', async () => {
-        const fakePeer = {pushMessage: sinon.fake()};
+        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake()};
         const msgInv = new factory.Messages.MsgInv();
 
         const inv = new factory.Inventory();
@@ -1688,38 +1688,54 @@ describe('Node tests', () => {
 
         describe('_createMapBlockPeer', () => {
             it('should query all hashes from one peer', async () => {
-                const peer = {address: 'addr1', port: 1234};
+                const peer = {address: 'addr1', port: 1234, isAhead: () => false};
                 node._mapUnknownBlocks = new Map();
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
 
-                const resultMap = node._createMapBlockPeer();
+                const {mapPeerBlocks: resultMap, mapPeerAhead} = node._createMapBlockPeer();
                 assert.isOk(resultMap);
                 assert.equal(resultMap.size, 1);
                 const [[, setHashes]] = [...resultMap];
                 assert.equal(setHashes.size, 3);
+
+                assert.equal(mapPeerAhead.size, 0);
             });
             it('should query all hashes from different peer', async () => {
-                const peer = {address: 'addr1', port: 1234};
-                const peer2 = {address: 'addr2', port: 1234};
-                const peer3 = {address: 'addr3', port: 1234};
+                const peer = {address: 'addr1', port: 1234, isAhead: () => false};
+                const peer2 = {address: 'addr2', port: 1234, isAhead: () => false};
+                const peer3 = {address: 'addr3', port: 1234, isAhead: () => false};
                 node._mapUnknownBlocks = new Map();
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer3);
 
-                const resultMap = node._createMapBlockPeer();
+                const {mapPeerBlocks: resultMap, mapPeerAhead} = node._createMapBlockPeer();
                 assert.isOk(resultMap);
                 assert.equal(resultMap.size, 3);
+            });
+
+            it('should skip hashes for peer1 (and request batch, since its ahead', async () => {
+                const peer = {address: 'addr1', port: 1234, isAhead: () => true};
+                const peer2 = {address: 'addr2', port: 1234, isAhead: () => false};
+                const peer3 = {address: 'addr3', port: 1234, isAhead: () => false};
+                node._mapUnknownBlocks = new Map();
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
+                node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer3);
+
+                const {mapPeerBlocks, mapPeerAhead} = node._createMapBlockPeer();
+                assert.equal(mapPeerBlocks.size, 2);
+                assert.equal(mapPeerAhead.size, 1);
             });
         });
 
         describe('_sendMsgGetDataToPeers', () => {
-            let mapBlockPeers;
-            const peer = {address: 'addr1', port: 1234};
-            const peer2 = {address: 'addr2', port: 1234};
-            const peer3 = {address: 'addr3', port: 1234};
+            let mapPeerBlocks;
+            const peer = {address: 'addr1', port: 1234, isAhead: () => false};
+            const peer2 = {address: 'addr2', port: 1234, isAhead: () => false};
+            const peer3 = {address: 'addr3', port: 1234, isAhead: () => false};
 
             beforeEach(() => {
 
@@ -1732,7 +1748,7 @@ describe('Node tests', () => {
 
                 [peer, peer2, peer3].forEach(p => p.pushMessage = sinon.fake());
 
-                mapBlockPeers = node._createMapBlockPeer();
+                ({mapPeerBlocks} = node._createMapBlockPeer());
             });
 
             it('should do nothing since no connected peers', async () => {
@@ -1743,7 +1759,7 @@ describe('Node tests', () => {
 
             it('should request all hashes', async () => {
                 node._peerManager.getConnectedPeers = sinon.fake.returns([peer, peer2, peer3]);
-                await node._sendMsgGetDataToPeers(mapBlockPeers);
+                await node._sendMsgGetDataToPeers(mapPeerBlocks);
 
                 assert.isOk(peer.pushMessage.calledOnce);
                 assert.isOk(peer2.pushMessage.calledOnce);
@@ -1766,7 +1782,7 @@ describe('Node tests', () => {
 
         describe('_blockProcessorExecBlock', () => {
             it('should process from hash (fail to exec)', async () => {
-                const peer = {misbehave: sinon.fake()};
+                const peer = {misbehave: sinon.fake(), isAhead: sinon.fake.returns(false)};
                 node._storage.getBlock = sinon.fake.resolves(createDummyBlock(factory));
                 node._execBlock = sinon.fake.throws(new Error('error'));
                 node._blockBad = sinon.fake();
@@ -1777,7 +1793,7 @@ describe('Node tests', () => {
             });
 
             it('should process from block (fail to exec)', async () => {
-                const peer = {misbehave: sinon.fake()};
+                const peer = {misbehave: sinon.fake(), isAhead: sinon.fake.returns(false)};
                 node._storage.getBlock = sinon.fake();
                 node._execBlock = sinon.fake.throws(new Error('error'));
                 node._blockBad = sinon.fake();
@@ -1785,6 +1801,19 @@ describe('Node tests', () => {
                 await node._blockProcessorExecBlock(createDummyBlock(factory), peer);
                 assert.isNotOk(node._storage.getBlock.called);
                 assert.isOk(node._blockBad.calledOnce);
+            });
+
+            it('should exec and send MsgGetBlocks', async () => {
+                const peer = {isAhead: sinon.fake.returns(true)};
+                node._storage.getBlock = sinon.fake();
+                node._execBlock = sinon.fake();
+                node._acceptBlock = sinon.fake();
+                node._postAcceptBlock = sinon.fake();
+                node._informNeighbors = sinon.fake();
+                node._queryPeerForRestOfBlocks = sinon.fake();
+
+                await node._blockProcessorExecBlock(createDummyBlock(factory), peer);
+                assert.isOk(node._queryPeerForRestOfBlocks.calledOnce);
             });
         });
 

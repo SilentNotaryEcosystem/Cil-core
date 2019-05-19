@@ -64,7 +64,6 @@ process.on('warning', e => console.warn(e.stack));
 })()
     .catch(err => {
         console.error(err);
-        process.exit(1);
     });
 
 async function walletTasks(objCmdLineParams) {

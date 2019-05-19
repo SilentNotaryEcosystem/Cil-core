@@ -263,6 +263,9 @@ module.exports = (factory) => {
 
         async _onMessageHandler(msg) {
 
+            // part of node bootstrap mechanism
+            if (msg.isInv() && this.isGetBlocksSent()) this.doneGetBlocks();
+
             // count incoming bytes
             if (msg.payload && Buffer.isBuffer(msg.payload)) {
                 this._updateReceived(msg.payload.length);
@@ -293,6 +296,9 @@ module.exports = (factory) => {
 
         // TODO: for MsgGetData - make a cache for already requested hashes!
         async pushMessage(msg) {
+
+            // part of node bootstrap mechanism
+            if (msg.isGetBlocks()) this.getBlocksSent();
 
             // we have pending messages
             if (Array.isArray(this._queue)) {
@@ -437,6 +443,30 @@ module.exports = (factory) => {
         _updateMisbehave(score) {
             this.peerInfo.lifetimeMisbehaveScore += score;
             this._misbehaveScore += score;
+        }
+
+        markAsPossiblyAhead() {
+            this._bPossiblyAhead = true;
+        }
+
+        markAsEven() {
+            this._bPossiblyAhead = false;
+        }
+
+        isAhead() {
+            return this._bPossiblyAhead;
+        }
+
+        getBlocksSent() {
+            this._getBlocksValidTill = Date.now() + Constants.INV_REQUEST_HOLDOFF;
+        }
+
+        isGetBlocksSent() {
+            return this._getBlocksValidTill && this._getBlocksValidTill > Date.now();
+        }
+
+        doneGetBlocks() {
+            this._getBlocksValidTill = undefined;
         }
     };
 };
