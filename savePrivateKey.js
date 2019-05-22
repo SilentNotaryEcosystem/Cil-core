@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 const factory = require('./factory');
-const {questionAsync} = require('./utils');
+const {questionAsync, prepareForStringifyObject} = require('./utils');
 
 ;(async () => {
     await factory.asyncLoad();
@@ -14,9 +14,19 @@ const {questionAsync} = require('./utils');
     if (password !== passwordCheck) throw('Passwords are not same!');
 
     const filename = await questionAsync('Enter filename: ');
+    const keyGenFunction = await questionAsync(
+        'Enter key generation mechanism (avail: "sha3", "scrypt". default: "scrypt"): ');
 
-    const encryptedPk = await factory.Crypto.encrypt(password, Buffer.from(pk, 'hex'));
-    fs.writeFileSync(filename, encryptedPk.toString('hex'));
+    const objEncryptedPk = await factory.Crypto.encrypt(
+        password,
+        Buffer.from(pk, 'hex'), {
+            keyAlgo: keyGenFunction === '' ? "scrypt" : keyGenFunction
+        }
+    );
+    fs.writeFileSync(filename, JSON.stringify({
+        ...prepareForStringifyObject(objEncryptedPk),
+        version: 1
+    }));
 
 })().then(() => {
     console.log('Done');
