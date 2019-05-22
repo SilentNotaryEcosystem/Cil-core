@@ -17,7 +17,8 @@ const prepareForStringifyObject = (obj) => {
 
     const resultObject = {};
     for (let key of Object.keys(obj)) {
-        if (typeof obj[key] === 'function') continue;
+        if (typeof obj[key] === 'function' || typeof obj[key] === 'undefined') continue;
+
         if (Buffer.isBuffer(obj[key])) {
             resultObject[key] = obj[key].toString('hex');
         } else if (Array.isArray(obj[key])) {
@@ -51,14 +52,13 @@ function questionAsync(prompt, password = false) {
         output: process.stdout
     });
 
-    if (password) {
-        process.stdout.cork();
-        rl.write(null, {ctrl: true, name: 'u'});
-    }
-
     return new Promise(resolve => {
         rl.question(prompt, answer => {
             rl.close();
+            if (password) {
+                if (process.stdout.moveCursor) process.stdout.moveCursor(0, -1);
+                if (process.stdout.clearLine) process.stdout.clearLine();
+            }
             resolve(answer.trim());
         });
     });
@@ -136,7 +136,7 @@ module.exports = {
         const encodedContent = fs.readFileSync(path, 'utf8');
 
         // TODO suppress echo
-        const password = await questionAsync('Enter password to decrypt private key: ');
-        return await Crypto.decrypt(password, encodedContent);
+        const password = await questionAsync('Enter password to decrypt private key: ', true);
+        return await Crypto.decrypt(password, JSON.parse(encodedContent));
     }
 };

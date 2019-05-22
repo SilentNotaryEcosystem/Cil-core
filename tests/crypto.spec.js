@@ -2,6 +2,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
 const Crypto = require('../crypto/crypto');
+const {prepareForStringifyObject} = require('../utils');
 
 describe('Crypto library', () => {
     before(async function() {
@@ -39,17 +40,58 @@ describe('Crypto library', () => {
         assert.isOk(Crypto.verify('string', buffSignature, keyPair.getPublic(), 'hex'));
     });
 
-    it('encrypt/decrypt key', async () => {
+    it('encrypt/decrypt key (default sha3. result - buffer)', async () => {
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
         const encryptedKey = (await Crypto.encrypt(
             '234',
             Buffer.from(strPrivKey, 'hex')
         )).toString('hex');
-        console.log(encryptedKey);
 
         const decryptedKey = await Crypto.decrypt('234', encryptedKey);
         assert.equal(strPrivKey, decryptedKey.toString('hex'));
+    });
+
+    it('encrypt/decrypt key (default sha3. result - object)', async () => {
+        const keyPair = Crypto.createKeyPair();
+        const strPrivKey = keyPair.getPrivate();
+        const objEncryptedKey = await Crypto.encrypt(
+            '234',
+            Buffer.from(strPrivKey, 'hex'),
+            {keyAlgo: 'sha3', result: 'object'}
+        );
+
+        {
+            // from object
+            const decryptedKey = await Crypto.decrypt('234', objEncryptedKey);
+            assert.equal(strPrivKey, decryptedKey.toString('hex'));
+        }
+        {
+            // from stringifyed options
+            const decryptedKey = await Crypto.decrypt('234', prepareForStringifyObject(objEncryptedKey));
+            assert.equal(strPrivKey, decryptedKey.toString('hex'));
+        }
+    });
+
+    it('encrypt/decrypt key (scrypt)', async () => {
+        const keyPair = Crypto.createKeyPair();
+        const strPrivKey = keyPair.getPrivate();
+        const objEncryptedKey = await Crypto.encrypt(
+            '234',
+            Buffer.from(strPrivKey, 'hex'),
+            {keyAlgo: 'scrypt', result: 'object'}
+        );
+
+        {
+            // from object
+            const decryptedKey = await Crypto.decrypt('234', objEncryptedKey);
+            assert.equal(strPrivKey, decryptedKey.toString('hex'));
+        }
+        {
+            // from stringifyed options
+            const decryptedKey = await Crypto.decrypt('234', prepareForStringifyObject(objEncryptedKey));
+            assert.equal(strPrivKey, decryptedKey.toString('hex'));
+        }
     });
 
     it('FAIL to decrypt key (wrong password)', async () => {
@@ -59,7 +101,6 @@ describe('Crypto library', () => {
             '234',
             Buffer.from(strPrivKey, 'hex')
         )).toString('hex');
-        console.log(encryptedKey);
 
         const decryptedKey = await Crypto.decrypt('111', encryptedKey);
         assert.isNotOk(decryptedKey);
