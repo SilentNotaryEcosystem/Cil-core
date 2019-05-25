@@ -1154,11 +1154,20 @@ module.exports = (factory, factoryOptions) => {
             };
         }
 
+        /**
+         * Send coins from contract
+         *
+         * @param {Patch} patchTx
+         * @param {String} strTxHash
+         * @param {String} strAddress
+         * @param {Number} amount
+         * @private
+         */
         _sendCoins(patchTx, strTxHash, strAddress, amount) {
             typeforce(typeforce.tuple(types.Patch, types.Str64, types.Address, typeforce.Number), arguments);
 
             if (amount === 0) return;
-            const internalTxHash = this._createInternalTx(patchTx, strAddress, amount);
+            const internalTxHash = this._createInternalTx(patchTx, strAddress, amount, strTxHash);
 
             // it's some sorta fake receipt, it will be overridden (or "merged") by original receipt
             const receipt = new TxReceipt({status: Constants.TX_STATUS_OK});
@@ -1663,17 +1672,18 @@ module.exports = (factory, factoryOptions) => {
          * @param {PatchDB} patch
          * @param {Buffer | String} receiver
          * @param {Number} amount
+         * @param {String} strHash
          * @returns {String} - new internal TX hash
          * @private
          */
-        _createInternalTx(patch, receiver, amount) {
-            typeforce(typeforce.tuple(types.Address, typeforce.Number), [receiver, amount]);
+        _createInternalTx(patch, receiver, amount, strHash) {
+            typeforce(typeforce.tuple(types.Address, typeforce.Number, types.Str64), [receiver, amount, strHash]);
 
             assert(amount > 0, 'Internal TX with non positive amount!');
             receiver = Buffer.isBuffer(receiver) ? receiver : Buffer.from(receiver, 'hex');
 
             const coins = new Coins(amount, receiver);
-            const txHash = Crypto.createHash(Crypto.randomBytes(32));
+            const txHash = Crypto.createHash(strHash + patch.getNonce());
             patch.createCoins(txHash, 0, coins);
 
             return txHash;
@@ -1705,7 +1715,8 @@ module.exports = (factory, factoryOptions) => {
                     const changeTxHash = this._createInternalTx(
                         patch,
                         tx.getContractChangeReceiver(),
-                        maxFee - fee
+                        maxFee - fee,
+                        tx.getHash()
                     );
                     receipt.addInternalTx(changeTxHash);
                 }

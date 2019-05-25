@@ -192,6 +192,8 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @return {String} !!
          */
         getHash() {
+
+            // TODO: implement cache
             return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());
         }
 

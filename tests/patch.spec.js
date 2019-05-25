@@ -610,6 +610,13 @@ describe('PatchDB', () => {
         patch.validateAgainstStable(patchStable);
     });
 
+    it('should increment nonce', async () => {
+        const patch = new factory.PatchDB(0);
+        assert.equal(patch.getNonce(), 0);
+        assert.equal(patch.getNonce(), 1);
+        assert.equal(patch.getNonce(), 2);
+    });
+
     describe('setReceipt', () => {
         it('should save receipt to patch', async () => {
             const patch = new factory.PatchDB(0);
@@ -682,7 +689,7 @@ describe('PatchDB', () => {
             {
                 const arrReceipts = [...patch.getReceipts()];
                 assert.equal(arrReceipts.length, 1);
-                const [txHash, receipt] = arrReceipts[0];
+                const [, receipt] = arrReceipts[0];
                 assert.equal(receipt.getInternalTxns().length, 2);
             }
 
@@ -695,7 +702,7 @@ describe('PatchDB', () => {
             {
                 const arrReceipts = [...patch.getReceipts()];
                 assert.equal(arrReceipts.length, 1);
-                const [txHash, receipt] = arrReceipts[0];
+                const [, receipt] = arrReceipts[0];
                 assert.equal(receipt.getInternalTxns().length, 4);
             }
         });

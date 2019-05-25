@@ -24,6 +24,8 @@ module.exports = ({UTXO, Contract}) =>
 
             this._mapContractStates = new Map();
             this._mapTxReceipts = new Map();
+
+            this._nonce = 0;
         }
 
         /**
@@ -476,6 +478,10 @@ module.exports = ({UTXO, Contract}) =>
                     assert(utxo.coinsAtIndex(idx));
                 }
             }
+        }
+
+        getNonce() {
+            return this._nonce++;
         }
 
     };
