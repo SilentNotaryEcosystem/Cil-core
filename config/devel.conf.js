@@ -21,6 +21,8 @@ module.exports = {
 
         // how much we suppress creating empty blocks
 
-        WITNESS_HOLDOFF: 5 * 60 * 1000
+        WITNESS_HOLDOFF: 5 * 60 * 1000,
+
+        INV_REQUEST_HOLDOFF: 5 * 60 * 1000
     }
 };

@@ -384,13 +384,12 @@ module.exports = (factory, factoryOptions) => {
 
             const lock = await this._mutex.acquire([`blockReceived`]);
             try {
-                await this._verifyBlock(block);
-
+                this._requestCache.done(block.getHash());
                 this._mapUnknownBlocks.delete(block.getHash());
+                await this._verifyBlock(block);
 
                 // store it in DAG & disk
                 await this._blockInFlight(block);
-                await this._processBlock(block, peer);
             } catch (e) {
                 await this._blockBad(block);
                 logger.error(e);
@@ -399,6 +398,7 @@ module.exports = (factory, factoryOptions) => {
             } finally {
                 this._mutex.release(lock);
             }
+            await this._processBlock(block, peer);
         }
 
         /**
@@ -450,10 +450,13 @@ module.exports = (factory, factoryOptions) => {
 
                 // if peer expose us more than MAX_BLOCKS_INV - it seems it is ahead
                 // so we should resend MSG_GET_BLOCKS later
-                if (nBlocksInMsg >= Constants.MAX_BLOCKS_INV) {
-                    peer.markAsPossiblyAhead();
-                } else {
-                    peer.markAsEven();
+                if (peer.isGetBlocksSent()) {
+                    if (nBlocksInMsg >= Constants.MAX_BLOCKS_INV) {
+                        peer.markAsPossiblyAhead();
+                        peer.doneGetBlocks();
+                    } else {
+                        peer.markAsEven();
+                    }
                 }
             } catch (e) {
                 throw e;
@@ -774,9 +777,15 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
-            // next stage: request unknown blocks
-            const msg = await this._createGetBlocksMsg();
-            debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+            // next stage: request unknown blocks or just GENESIS, if we are at very beginning
+            let msg;
+            if (!this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
+                msg = this._createGetDataMsg([Constants.GENESIS_BLOCK]);
+                peer.markAsPossiblyAhead();
+            } else {
+                msg = await this._createGetBlocksMsg();
+                debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+            }
             await peer.pushMessage(msg);
 
             // TODO: move loadDone after we got all we need from peer
@@ -1749,6 +1758,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
+         * Main worker that will be restarted periodically
+         *
          * _mapBlocksToExec is map of hash => peer (that sent us a block)
          * @returns {Promise<void>}
          * @private
@@ -1757,7 +1768,6 @@ module.exports = (factory, factoryOptions) => {
             if (this._mapBlocksToExec.size) {
                 debugBlock(`Block processor started. ${this._mapBlocksToExec.size} blocks awaiting to exec`);
 
-//                const arrReversed=[...this._mapBlocksToExec].reverse();
                 for (let [hash, peer] of this._mapBlocksToExec) {
                     let blockOrInfo = this._mainDag.getBlockInfo(hash);
                     if (!blockOrInfo) blockOrInfo = await this._storage.getBlock(hash).catch(err => debugBlock(err));
@@ -1766,9 +1776,7 @@ module.exports = (factory, factoryOptions) => {
                         if (!blockOrInfo || (blockOrInfo.isBad && blockOrInfo.isBad())) {
                             throw new Error(`Block ${hash} is not found or bad`);
                         }
-
                         await this._processBlock(blockOrInfo, peer);
-
                     } catch (e) {
                         logger.error(e);
                         if (blockOrInfo) await this._blockBad(blockOrInfo);
@@ -1776,6 +1784,13 @@ module.exports = (factory, factoryOptions) => {
                         debugBlock(`Removing block ${hash} from BlocksToExec`);
                         this._mapBlocksToExec.delete(hash);
                     }
+                }
+            } else {
+                const arrConnectedPeers = this._peerManager.getConnectedPeers();
+
+                // request rest of blocks
+                for (let peer of arrConnectedPeers) {
+                    await this._queryPeerForRestOfBlocks(peer);
                 }
             }
 
@@ -1807,9 +1822,6 @@ module.exports = (factory, factoryOptions) => {
                     const arrChildrenHashes = this._mainDag.getChildren(block.getHash());
                     for (let hash of arrChildrenHashes) {
                         this._queueBlockExec(hash, peer);
-
-                        //consume too much memory
-//                        await this._processBlock(await this._storage.getBlock(hash));
                     }
                 }
             } else {
@@ -1862,9 +1874,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._acceptBlock(block, patchState);
                 await this._postAcceptBlock(block);
                 await this._informNeighbors(block);
-
-                this._requestCache.done(block.getHash());
-                await this._queryPeerForRestOfBlocks(peer);
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);
                 await this._blockBad(block);
@@ -1878,7 +1887,7 @@ module.exports = (factory, factoryOptions) => {
 
             // if peer is ahead (last time reply with MAX blocks) and we got everything already
             // here we could request next portion of blocks
-            if (peer.isAhead() && !peer.isGetBlocksSent() && this._requestCache.isEmpty()) {
+            if (peer.isAhead() && !peer.isGetBlocksSent()) {
                 const msg = await this._createGetBlocksMsg();
                 debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
                 await peer.pushMessage(msg);

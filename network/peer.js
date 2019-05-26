@@ -263,9 +263,6 @@ module.exports = (factory) => {
 
         async _onMessageHandler(msg) {
 
-            // part of node bootstrap mechanism
-            if (msg.isInv() && this.isGetBlocksSent()) this.doneGetBlocks();
-
             // count incoming bytes
             if (msg.payload && Buffer.isBuffer(msg.payload)) {
                 this._updateReceived(msg.payload.length);
