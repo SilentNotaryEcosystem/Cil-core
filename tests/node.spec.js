@@ -1028,7 +1028,7 @@ describe('Node tests', () => {
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
-        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake()};
+        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake(), isGetBlocksSent: sinon.fake()};
         const msgInv = new factory.Messages.MsgInv();
 
         const inv = new factory.Inventory();
@@ -1049,7 +1049,7 @@ describe('Node tests', () => {
     });
 
     it('should REQUEST all items (_handleInvMessage)', async () => {
-        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake()};
+        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake(), isGetBlocksSent: sinon.fake()};
         const msgInv = new factory.Messages.MsgInv();
 
         const inv = new factory.Inventory();
@@ -1703,19 +1703,6 @@ describe('Node tests', () => {
                 await node._blockProcessorExecBlock(createDummyBlock(factory), peer);
                 assert.isNotOk(node._storage.getBlock.called);
                 assert.isOk(node._blockBad.calledOnce);
-            });
-
-            it('should exec and send MsgGetBlocks', async () => {
-                const peer = {isAhead: sinon.fake.returns(true)};
-                node._storage.getBlock = sinon.fake();
-                node._execBlock = sinon.fake();
-                node._acceptBlock = sinon.fake();
-                node._postAcceptBlock = sinon.fake();
-                node._informNeighbors = sinon.fake();
-                node._queryPeerForRestOfBlocks = sinon.fake();
-
-                await node._blockProcessorExecBlock(createDummyBlock(factory), peer);
-                assert.isOk(node._queryPeerForRestOfBlocks.calledOnce);
             });
         });
 

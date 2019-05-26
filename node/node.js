@@ -451,7 +451,8 @@ module.exports = (factory, factoryOptions) => {
                 // if peer expose us more than MAX_BLOCKS_INV - it seems it is ahead
                 // so we should resend MSG_GET_BLOCKS later
                 if (peer.isGetBlocksSent()) {
-                    if (nBlocksInMsg >= Constants.MAX_BLOCKS_INV) {
+                    if (invToRequest.vector.length >= Constants.MAX_BLOCKS_INV &&
+                        nBlocksInMsg >= Constants.MAX_BLOCKS_INV) {
                         peer.markAsPossiblyAhead();
                         peer.doneGetBlocks();
                     } else {
