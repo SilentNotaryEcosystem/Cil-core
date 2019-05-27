@@ -37,7 +37,7 @@ module.exports = (factory, factoryOptions) => {
         BlockInfo,
         Mutex,
         RequestCache,
-        TxReceipt,
+        TxReceipt
     } = factory;
     const {
         MsgCommon,
@@ -81,34 +81,6 @@ module.exports = (factory, factoryOptions) => {
 
             this._transport = new Transport(options);
             this._transport.on('connect', this._incomingConnection.bind(this));
-            this._listenPromise = this._transport.listen()
-                .then(() => {
-
-                    this._myPeerInfo = new PeerInfo({
-                        capabilities: [
-                            {service: Constants.NODE}
-                        ],
-                        address: Transport.strToAddress(this._transport.myAddress),
-                        port: this._transport.port
-                    });
-
-                    // used only for debugging purpose. Feel free to remove
-                    this._debugAddress = this._transport.myAddress;
-
-                    this._peerManager =
-                        new PeerManager({transport: this._transport, storage: this._storage, ...options});
-
-                    // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
-                    this._peerManager.on('message', this._incomingMessage.bind(this));
-                    debugNode(`(address: "${this._debugAddress}") start listening`);
-                    this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
-
-                    //start RPC
-                    if (options.rpcAddress) {
-                        this._rpc = new RPC(this, options);
-                    }
-                })
-                .catch(err => console.error(err));
 
             this._mapBlocksToExec = new Map();
             this._mapUnknownBlocks = new Map();
@@ -116,11 +88,46 @@ module.exports = (factory, factoryOptions) => {
             this._app = new Application(options);
 
             this._rebuildPromise = this._rebuildBlockDb();
+            this._listenPromise = this._initNetwork(options);
 
             this._msecOffset = 0;
 
             this._reconnectTimer = new Tick(this);
             this._requestCache = new RequestCache();
+        }
+
+        _initNetwork(options) {
+            return new Promise(async resolve => {
+                const nRebuildStarted = Date.now();
+                await this._rebuildPromise;
+                await this._transport.listen();
+                logger.log(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
+
+                this._myPeerInfo = new PeerInfo({
+                    capabilities: [
+                        {service: Constants.NODE}
+                    ],
+                    address: Transport.strToAddress(this._transport.myAddress),
+                    port: this._transport.port
+                });
+
+                this._debugAddress = this._transport.myAddress;
+
+                this._peerManager =
+                    new PeerManager({transport: this._transport, storage: this._storage, ...options});
+
+                // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
+                this._peerManager.on('message', this._incomingMessage.bind(this));
+                debugNode(`(address: "${this._debugAddress}") start listening`);
+                this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
+
+                //start RPC
+                if (options.rpcAddress) {
+                    this._rpc = new RPC(this, options);
+                }
+
+                resolve();
+            });
         }
 
         get rpc() {
@@ -136,7 +143,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         ensureLoaded() {
-            return Promise.all([this._listenPromise, this._rebuildPromise]);
+            return Promise.all([this._listenPromise, this._rebuildPromise]).catch(err => console.error(err));
         }
 
         async bootstrap() {
