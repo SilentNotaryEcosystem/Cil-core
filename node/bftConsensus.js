@@ -215,15 +215,14 @@ module.exports = (factory) => {
         }
 
         /**
-         * - Store block & patch for further processing
+         * - Store block for further processing
          * - advance state to Vote
          * - send it to other witnesses
          *
          * @param {Block} block
-         * @param {PatchDB} patch
          */
-        processValidBlock(block, patch) {
-            typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
+        processValidBlock(block) {
+            typeforce(types.Block, block);
 
             debug(`BFT "${this._nonce}". Received block with hash: ${block.hash()}. State ${this._state}`);
             if (this._state !== States.BLOCK) {
@@ -231,7 +230,6 @@ module.exports = (factory) => {
                 return;
             }
             this._block = block;
-            this._patch = patch;
             this._lastBlockTime = Date.now();
             this._blockStateHandler(true);
 
@@ -407,7 +405,7 @@ module.exports = (factory) => {
                         }
 
                         this._block.addWitnessSignatures(arrSignatures);
-                        this.emit('commitBlock', this._block, this._patch);
+                        this.emit('commitBlock', this._block);
                     } else {
 
                         // Proposer misbehave!! sent us different block than other!

@@ -635,7 +635,7 @@ describe('BFT general tests', () => {
 
         assert.isNotOk(newBft._views[newBft._wallet.publicKey][newBft._wallet.publicKey]);
 
-        newBft.processValidBlock(createDummyBlock(factory), new factory.PatchDB());
+        newBft.processValidBlock(createDummyBlock(factory));
 
         assert.isOk(newBft._block);
     });

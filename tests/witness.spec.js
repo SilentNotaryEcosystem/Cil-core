@@ -139,9 +139,7 @@ describe('Witness tests', () => {
 
         witness._calcHeight = sinon.fake.returns(10);
 
-        const {block, patch} = await witness._createBlock(concilium.getConciliumId());
+        const {block} = await witness._createBlock(concilium.getConciliumId());
         assert.equal(block.txns.length, 3);
-
-        assert.isOk(patch.getUtxo(new factory.Transaction(block.txns[0]).hash()));
     });
 });

@@ -381,7 +381,10 @@ module.exports = (factory, factoryOptions) => {
                 logger.error(`Block ${block.hash()} already known!`);
                 return;
             }
+            await this._handleArrivedBlock(block, peer);
+        }
 
+        async _handleArrivedBlock(block, peer) {
             const lock = await this._mutex.acquire([`blockReceived`]);
             try {
                 this._requestCache.done(block.getHash());
@@ -393,7 +396,7 @@ module.exports = (factory, factoryOptions) => {
             } catch (e) {
                 await this._blockBad(block);
                 logger.error(e);
-                peer.misbehave(10);
+                if (peer) peer.misbehave(10);
                 throw e;
             } finally {
                 this._mutex.release(lock);
@@ -583,7 +586,7 @@ module.exports = (factory, factoryOptions) => {
                         // we allow to request txns only from mempool!
                         // TODO: LocalTxns to mempool!
                         let tx;
-                        if (this._localTxns.hasTx(objVector.hash)) tx = this._localTxns.get(objVector.hash);
+                        if (this._localTxns.hasTx(objVector.hash)) tx = this._localTxns.getTx(objVector.hash);
                         tx = this._mempool.getTx(objVector.hash);
                         msg = new MsgTx(tx);
                     } else if (objVector.type === Constants.INV_BLOCK) {

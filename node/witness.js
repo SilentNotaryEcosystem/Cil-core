@@ -241,8 +241,8 @@ module.exports = (factory, factoryOptions) => {
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
                     if (await this._canExecuteBlock(block)) {
-                        const patchState = await this._execBlock(block);
-                        consensus.processValidBlock(block, patchState);
+                        await this._execBlock(block);
+                        consensus.processValidBlock(block);
                     } else {
                         throw new Error(`Block ${block.hash()} couldn't be executed right now!`);
                     }
@@ -302,7 +302,7 @@ module.exports = (factory, factoryOptions) => {
             consensus.on('createBlock', async () => {
                 try {
                     const {conciliumId} = consensus;
-                    const {block, patch} = await this._createBlock(conciliumId);
+                    const {block} = await this._createBlock(conciliumId);
                     if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
 
                         // catch it below
@@ -311,7 +311,7 @@ module.exports = (factory, factoryOptions) => {
 
                     await this._broadcastBlock(conciliumId, block);
 
-                    consensus.processValidBlock(block, patch);
+                    consensus.processValidBlock(block);
                 } catch (e) {
                     if (typeof e === 'number') {
                         this._suppressedBlockHandler();
@@ -320,12 +320,10 @@ module.exports = (factory, factoryOptions) => {
                     }
                 }
             });
-            consensus.on('commitBlock', async (block, patch) => {
-                await this._storeBlockAndInfo(block, new BlockInfo(block.header));
-                await this._acceptBlock(block, patch);
+            consensus.on('commitBlock', async (block) => {
+                await this._handleArrivedBlock(block);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
-                await this._postAcceptBlock(block);
                 consensus.blockCommited();
             });
         }
@@ -426,14 +424,12 @@ module.exports = (factory, factoryOptions) => {
             // remove failed txns
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
-            block.finish(totalFee, this._wallet.publicKey, await this._getFeeSizePerInput());
-
-            this._processBlockCoinbaseTX(block, totalFee, patchMerged);
+            block.finish(totalFee, this._wallet.publicKey, await this._getFeeSizePerInput(conciliumId));
 
             debugWitness(
                 `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
 
-            return {block, patch: patchMerged};
+            return {block};
         }
     };
 };
