@@ -50,7 +50,6 @@ const PatchWrapper = require('../storage/patch');
 const PendingBlocksManagerWrapper = require('../node/pendingBlocksManager');
 const MainDagWrapper = require('../node/mainDag');
 const RequestCacheWrapper = require('../node/requestsCache');
-const LocalTxnsWrapper = require('../node/localTxns');
 
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
@@ -112,7 +111,6 @@ class Factory {
                 this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
                 this._mainDagImplementation = MainDagWrapper(this);
                 this._requestCacheImplementation = RequestCacheWrapper(this);
-                this._localTxnsImplementation = LocalTxnsWrapper(this);
 
                 // all componenst should be declared above
                 this._nodeImplementation = NodeWrapper(this, {...options, workerSuspended: true});
@@ -131,10 +129,6 @@ class Factory {
 
     get Mutex() {
         return this._mutexImplementation;
-    }
-
-    get LocalTxns() {
-        return this._localTxnsImplementation;
     }
 
     get version() {

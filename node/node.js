@@ -38,7 +38,6 @@ module.exports = (factory, factoryOptions) => {
         Mutex,
         RequestCache,
         TxReceipt,
-        LocalTxns
     } = factory;
     const {
         MsgCommon,
@@ -79,9 +78,6 @@ module.exports = (factory, factoryOptions) => {
 
             // create mempool
             this._mempool = new Mempool(options);
-
-            // create storage for own TXns and load saved TXns
-            this._localTxns = new LocalTxns(options);
 
             this._transport = new Transport(options);
             this._transport.on('connect', this._incomingConnection.bind(this));
@@ -492,8 +488,9 @@ module.exports = (factory, factoryOptions) => {
             debugMsg(
                 `(address: "${this._debugAddress}") sending ${inventory.vector.length} blocks to "${peer.address}"`);
 
+            // TODO: find a better place to inform peer about our local TXNS
             // append local TXns to this inv
-            const arrLocalTxHashes = this._localTxns.getAllTxnHashes();
+            const arrLocalTxHashes = this._mempool.getLocalTxnHashes();
             arrLocalTxHashes.forEach(hash => inventory.addTxHash(hash));
             debugMsg(
                 `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} local TXns to "${peer.address}"`);
@@ -584,10 +581,7 @@ module.exports = (factory, factoryOptions) => {
                     if (objVector.type === Constants.INV_TX) {
 
                         // we allow to request txns only from mempool!
-                        // TODO: LocalTxns to mempool!
-                        let tx;
-                        if (this._localTxns.hasTx(objVector.hash)) tx = this._localTxns.getTx(objVector.hash);
-                        tx = this._mempool.getTx(objVector.hash);
+                        const tx = this._mempool.getTx(objVector.hash);
                         msg = new MsgTx(tx);
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         const block = await this._storage.getBlock(objVector.hash);
@@ -839,8 +833,8 @@ module.exports = (factory, factoryOptions) => {
             try {
                 switch (event) {
                     case 'tx':
-                        await this._processReceivedTx(content);
-                        this._localTxns.addTx(content);
+                        await this._processReceivedTx(content, false);
+                        this._mempool.addLocalTx(content);
                         break;
                     case 'txReceipt':
                         return await this._storage.getTxReceipt(content);
@@ -924,7 +918,7 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<void>}
          * @private
          */
-        async _processReceivedTx(tx) {
+        async _processReceivedTx(tx, bStoreInMempool = true) {
             typeforce(types.Transaction, tx);
 
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
@@ -935,7 +929,7 @@ module.exports = (factory, factoryOptions) => {
 
             await this._storage.checkTxCollision([tx.hash()]);
             await this._processTx(undefined, false, tx);
-            this._mempool.addTx(tx);
+            if (bStoreInMempool) this._mempool.addTx(tx);
 
             await this._informNeighbors(tx);
         }
@@ -1339,7 +1333,6 @@ module.exports = (factory, factoryOptions) => {
 
             const arrStrHashes = block.getTxHashes();
             this._mempool.removeForBlock(arrStrHashes);
-            this._localTxns.removeForBlock(arrStrHashes);
 
             // check for finality
             await this._processFinalityResults(
