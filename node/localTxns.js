@@ -30,6 +30,23 @@ module.exports = ({Constants, Transaction}) =>
             this._dumpToDisk();
         }
 
+        hasTx(txHash) {
+            typeforce(types.Hash256bit, txHash);
+
+            let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+            return !!this._mapTxns.get(strTxHash);
+        }
+
+        getTx(txHash) {
+            typeforce(types.Hash256bit, txHash);
+
+            let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+            const tx = this._mapTxns.get(strTxHash);
+            if (!tx) throw new Error(`LocalTxns: No tx found by hash ${strTxHash}`);
+
+            return tx;
+        }
+
         removeTx(strTxHash, bSuppressDump = false) {
             typeforce(types.Str64, strTxHash);
 

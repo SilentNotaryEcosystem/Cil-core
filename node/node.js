@@ -581,12 +581,16 @@ module.exports = (factory, factoryOptions) => {
                     if (objVector.type === Constants.INV_TX) {
 
                         // we allow to request txns only from mempool!
-                        const tx = this._mempool.getTx(objVector.hash);
+                        // TODO: LocalTxns to mempool!
+                        let tx;
+                        if (this._localTxns.hasTx(objVector.hash)) tx = this._localTxns.get(objVector.hash);
+                        tx = this._mempool.getTx(objVector.hash);
                         msg = new MsgTx(tx);
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         const block = await this._storage.getBlock(objVector.hash);
                         msg = new MsgBlock(block);
                     } else {
+
                         throw new Error(`Unknown inventory type: ${objVector.type}`);
                     }
                     debugMsg(
