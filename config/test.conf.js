@@ -24,6 +24,8 @@ module.exports = {
 
         MEMPOOL_TX_QTY: 5,
         MEMPOOL_TX_LIFETIME: 5000,
-        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000
+        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
+
+        DB_PATH_PREFIX: './testDb'
     }
 };

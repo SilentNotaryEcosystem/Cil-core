@@ -801,7 +801,7 @@ describe('Node tests', () => {
         await node.ensureLoaded();
         node._mainDag = {order: 1};
         node._getBlocksFromLastKnown = sinon.fake.returns([pseudoRandomBuffer(), pseudoRandomBuffer()]);
-        node._localTxns.getAllTxnHashes = sinon.fake.returns([pseudoRandomBuffer()]);
+        node._mempool.getLocalTxnHashes = sinon.fake.returns([pseudoRandomBuffer()]);
 
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();
@@ -1092,7 +1092,7 @@ describe('Node tests', () => {
             const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
             await node.ensureLoaded();
             node._processReceivedTx = sinon.fake();
-            node._localTxns.addTx = sinon.fake();
+            node._mempool.addLocalTx = sinon.fake();
 
             await node.rpcHandler({
                 event: 'tx',
@@ -1100,7 +1100,7 @@ describe('Node tests', () => {
             });
 
             assert.isOk(node._processReceivedTx.calledOnce);
-            assert.isOk(node._localTxns.addTx.calledOnce);
+            assert.isOk(node._mempool.addLocalTx.calledOnce);
         });
 
         it('should get TX receipt', async () => {

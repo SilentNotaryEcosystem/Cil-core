@@ -215,7 +215,7 @@ describe('Peer tests', () => {
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
         newPeer = new factory.Peer({peerInfo});
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
         await newPeer.connect();
         newPeer._connection.emit('message', msg);
 
@@ -234,7 +234,7 @@ describe('Peer tests', () => {
     it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
         newPeer = new factory.Peer({peerInfo});
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
         await newPeer.connect();
         newPeer.markAsPersistent();
         newPeer._connection.emit('message', msg);
@@ -250,7 +250,7 @@ describe('Peer tests', () => {
 
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
 
         const newPeer = new factory.Peer({
             connection: {
@@ -277,7 +277,7 @@ describe('Peer tests', () => {
 
     it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
 
         const newPeer = new factory.Peer({
             connection: {
