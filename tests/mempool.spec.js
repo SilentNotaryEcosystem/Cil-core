@@ -10,7 +10,8 @@ const sinon = require('sinon').createSandbox();
 const factory = require('./testFactory');
 
 let keyPair;
-let stub;
+let stubWrite;
+let stubRead;
 
 describe('Mempool tests', () => {
     before(async function() {
@@ -24,7 +25,8 @@ describe('Mempool tests', () => {
     });
 
     beforeEach(async () => {
-        stub = sinon.stub(fs, 'writeFileSync');
+        stubWrite = sinon.stub(fs, 'writeFileSync');
+        stubRead = sinon.stub(fs, 'readFileSync').returns('{}');
     });
 
     afterEach(async () => {
@@ -151,7 +153,7 @@ describe('Mempool tests', () => {
     });
 
     it('should get TXns with specific conciliumId', async () => {
-        const mempool = new factory.Mempool();
+        const mempool = new factory.Mempool({testStorage: true});
         const tx1 = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
         const tx3 = new factory.Transaction();
@@ -241,8 +243,8 @@ describe('Mempool tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         mempool.addLocalTx(tx);
 
-        assert.isOk(stub.calledOnce);
-        const [, strJson] = stub.args[0];
+        assert.isOk(stubWrite.calledOnce);
+        const [, strJson] = stubWrite.args[0];
         const objSaved = JSON.parse(strJson);
         assert.deepEqual(objSaved, {[tx.getHash()]: tx.encode().toString('hex')});
     });
@@ -250,6 +252,7 @@ describe('Mempool tests', () => {
     it('should load local TXns from disk', async () => {
         const mempool = new factory.Mempool();
 
+        sinon.restore();
         sinon.stub(fs, 'readFileSync')
             .returns(
                 '{"0a48cb13f67da62195d60dc2ace499a97ec29537b86bbf161ca6cd1998b006c3": "0a4c0a250a20ed000000000000000000000000000000000000000000000070706e0300000000109307121f095b010000000000001214dc6b50030000000040706e030000000007f5152e180120001220ec6c50030000000088706e03000000007f24aa3e04000000c8726e0300000000"}');
@@ -260,7 +263,7 @@ describe('Mempool tests', () => {
     });
 
     it('should getLocalTxnHashes', async () => {
-        const mempool = new factory.Mempool();
+        const mempool = new factory.Mempool({testStorage: true});
 
         const tx = new factory.Transaction(createDummyTx());
         mempool.addLocalTx(tx);

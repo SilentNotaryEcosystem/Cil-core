@@ -111,7 +111,7 @@ module.exports = ({Constants, Transaction}) =>
             const strHash = tx.getHash();
             if (this.hasTx(strHash)) throw new Error(`Local tx ${strHash} already in mempool`);
 
-            this._mapLocalTxns.set(strHash, {tx, arrived: Date.now()});
+            this._mapLocalTxns.set(strHash, tx);
             debug(`Local TX ${strHash} added`);
 
             this._dumpToDisk();
@@ -127,9 +127,10 @@ module.exports = ({Constants, Transaction}) =>
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             if (!this.hasTx(strTxHash)) throw new Error(`Mempool: No tx found by hash ${strTxHash}`);
-            const tx = this._mapTxns.get(strTxHash) || this._mapLocalTxns.get(strTxHash);
+            let tx = this._mapTxns.get(strTxHash);
 
-            return tx.tx;
+            if (tx) return tx.tx;
+            return this._mapLocalTxns.get(strTxHash);
         }
 
         /**
@@ -146,8 +147,8 @@ module.exports = ({Constants, Transaction}) =>
                 if (r.tx.conciliumId === conciliumId) arrResult.push(r.tx);
             }
 
-            for (let r of this._mapLocalTxns.values()) {
-                if (r.tx.conciliumId === conciliumId) arrResult.push(r.tx);
+            for (let tx of this._mapLocalTxns.values()) {
+                if (tx.conciliumId === conciliumId) arrResult.push(tx);
             }
             return arrResult;
         }
@@ -157,7 +158,7 @@ module.exports = ({Constants, Transaction}) =>
          * @return {string[]}
          */
         getLocalTxnHashes() {
-            return [...this._mapLocalTxns.values()].map(v => v.tx.getHash().toString('hex'));
+            return [...this._mapLocalTxns.keys()];
         }
 
         /**
@@ -171,7 +172,7 @@ module.exports = ({Constants, Transaction}) =>
         _dumpToDisk() {
             debug('Dumping to disk');
             const objToSave = {};
-            for (let [txHash, {tx}] of this._mapLocalTxns) {
+            for (let [txHash, tx] of this._mapLocalTxns) {
                 objToSave[txHash] = tx.encode().toString('hex');
             }
 
