@@ -204,6 +204,35 @@ describe('Contract integration tests', () => {
         assert.deepEqual(patchContract.getData(), {value: 133});
     });
 
+//    it('should create block with 2 subsequent calls', async () => {
+//        const keyPair1 = factory.Crypto.createKeyPair();
+//        const wallet = new factory.Wallet(keyPair1.privateKey);
+//        const witness = new factory.Witness({wallet});
+//        await witness.ensureLoaded();
+//
+//        const strContractAddr = generateAddress().toString('hex');
+//        const tx1 = factory.Transaction.invokeContract(
+//            strContractAddr,
+//            createObjInvocationCode('add', [10]),
+//            100,
+//            undefined
+//        );
+//        const tx2 = factory.Transaction.invokeContract(
+//            strContractAddr,
+//            createObjInvocationCode('add', [100]),
+//            100,
+//            undefined
+//        );
+//
+//        witness._pendingBlocks.getBestParents =sinon.fake.resolves({arrParents: pseudoRandomBuffer()});
+//        witness._calcHeight =sinon.fake.returns(10);
+//        witness._mempool.getFinalTxns=sinon.fake.returns([tx1, tx2]);
+//        witness._processTx=sinon.fake((n1,n2,tx) =>{
+//
+//        });
+//
+//    });
+
     it('should INVOKE CONTRACT with EMPTY CODE when transferring moneys to contract', async () => {
         const buffContractAddr = generateAddress();
 

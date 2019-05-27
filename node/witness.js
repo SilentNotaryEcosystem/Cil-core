@@ -26,7 +26,10 @@ module.exports = (factory, factoryOptions) => {
             };
 
             super(options);
+
             const {wallet} = options;
+            this._wallet = wallet;
+            if (!this._wallet) throw new Error('Pass wallet into witness');
 
             // upgrade capabilities from regular Node to Witness
             this._listenPromise.then(() => {
@@ -34,9 +37,6 @@ module.exports = (factory, factoryOptions) => {
                     {service: Constants.WITNESS, data: Buffer.from(wallet.publicKey, 'hex')});
                 this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
             });
-
-            this._wallet = wallet;
-            if (!this._wallet) throw new Error('Pass wallet into witness');
 
             this._consensuses = new Map();
         }
@@ -300,6 +300,8 @@ module.exports = (factory, factoryOptions) => {
                 this._broadcastConsensusInitiatedMessage(message);
             });
             consensus.on('createBlock', async () => {
+                const lock = await this._mutex.acquire(['createBlock']);
+
                 try {
                     const {conciliumId} = consensus;
                     const {block} = await this._createBlock(conciliumId);
@@ -318,6 +320,8 @@ module.exports = (factory, factoryOptions) => {
                     } else {
                         logger.error(e);
                     }
+                } finally {
+                    this._mutex.release(lock);
                 }
             });
             consensus.on('commitBlock', async (block) => {
@@ -413,7 +417,7 @@ module.exports = (factory, factoryOptions) => {
                 try {
                     const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
                     totalFee += fee;
-                    patchMerged = patchMerged.merge(patchThisTx);
+                    patchMerged = patchMerged.merge(patchThisTx, true);
                     block.addTx(tx);
                 } catch (e) {
                     logger.error(e);

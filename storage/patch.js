@@ -112,8 +112,8 @@ module.exports = ({UTXO, Contract}) =>
             // same concilium + same level. it's definitely error!
             if (this._conciliumId !== undefined && patch._conciliumId !== undefined && !bPreferPatchData) {
                 assert(
-                    this._conciliumId !== patch._conciliumId || this.getLevel(this._conciliumId) !==
-                    patch.getLevel(patch._conciliumId),
+                    this._conciliumId !== patch._conciliumId ||
+                    this.getLevel(this._conciliumId) !== patch.getLevel(patch._conciliumId),
                     'It seems we have unexpected fork!'
                 );
             }
@@ -375,9 +375,9 @@ module.exports = ({UTXO, Contract}) =>
          * @returns {any}
          */
         getLevel(nConciliumId) {
-            nConciliumId = nConciliumId === undefined ? this._conciliumId : nConciliumId;
             assert(this._conciliumId !== undefined, '"conciliumId" not specified!');
 
+            nConciliumId = nConciliumId === undefined ? this._conciliumId : nConciliumId;
             return this._mapConciliumLevel.get(nConciliumId);
         }
 
