@@ -1281,8 +1281,7 @@ module.exports = (factory, factoryOptions) => {
             const isGenesis = this.isGenesisBlock(block);
 
             // double check: whether we already processed this block?
-            const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
-            if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
+            if (this._isBlockExecuted(block.getHash())) {
                 logger.error(`Trying to process ${block.getHash()} more than one time!`);
                 return null;
             }
@@ -1882,9 +1881,11 @@ module.exports = (factory, factoryOptions) => {
             const lock = await this._mutex.acquire(['blockExec']);
             try {
                 const patchState = await this._execBlock(block);
-                await this._acceptBlock(block, patchState);
-                await this._postAcceptBlock(block);
-                await this._informNeighbors(block);
+                if (patchState) {
+                    await this._acceptBlock(block, patchState);
+                    await this._postAcceptBlock(block);
+                    await this._informNeighbors(block);
+                }
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);
                 await this._blockBad(block);
