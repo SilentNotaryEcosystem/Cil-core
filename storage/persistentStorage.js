@@ -20,6 +20,8 @@ const PENDING_BLOCKS = 'PENDING';
 const WALLET_PREFIX = 'w';
 const WALLET_ADDRESSES = 'WALLETS';
 const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
+const TX_INDEX_PREFIX = 'T';
+const INTENRAL_TX_INDEX_PREFIX = 'I';
 
 /**
  *
@@ -109,6 +111,14 @@ module.exports = (factory, factoryOptions) => {
             return this.createKey(UTXO_PREFIX, Buffer.from(hash, 'hex'));
         }
 
+        static createInternalTxKey(hash) {
+            return this.createKey(INTENRAL_TX_INDEX_PREFIX, Buffer.from(hash, 'hex'));
+        }
+
+        static createTxKey(hash) {
+            return this.createKey(TX_INDEX_PREFIX, Buffer.from(hash, 'hex'));
+        }
+
         async _ensureArrConciliumDefinition() {
             const cont = await this.getContract(Buffer.from(Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS, 'hex'));
             this._arrConciliumDefinition = cont ? ConciliumDefinition.getFromContractData(cont.getData()) : [];
@@ -174,17 +184,7 @@ module.exports = (factory, factoryOptions) => {
             await this.saveBlockInfo(blockInfo);
 
             if (this._buildTxIndex) {
-                debug(`Storing TX index for ${block.getHash()}`);
-
-                const arrOps = [];
-                const buffBlockHash = Buffer.from(block.getHash(), 'hex');
-                for (let strTxHash of block.getTxHashes()) {
-                    const key = this.constructor.createKey('', Buffer.from(strTxHash, 'hex'));
-                    arrOps.push({type: 'put', key, value: buffBlockHash});
-                }
-
-                // BATCH WRITE
-                await this._txIndexStorage.batch(arrOps);
+                await this._storeTxnsIndex(Buffer.from(block.getHash(), 'hex'), block.getTxHashes());
             }
         }
 
@@ -379,10 +379,14 @@ module.exports = (factory, factoryOptions) => {
 
                 // save contract receipt
                 // because we use receipts only for contracts, i decided to keep single txReceipts instead of array of receipts
-                //      for whole block
+                // for whole block
                 for (let [strTxHash, receipt] of statePatch.getReceipts()) {
                     const key = this.constructor.createKey(RECEIPT_PREFIX, Buffer.from(strTxHash, 'hex'));
                     arrOps.push({type: 'put', key, value: receipt.encode()});
+
+                    if (this._buildTxIndex) {
+                        await this._storeInternalTxnsIndex(Buffer.from(strTxHash, 'hex'), receipt.getInternalTxns());
+                    }
                 }
 
                 // BATCH WRITE
@@ -522,13 +526,33 @@ module.exports = (factory, factoryOptions) => {
 
             if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
 
-            const key = this.constructor.createKey('', Buffer.from(strTxHash, 'hex'));
+            const key = this.constructor.createTxKey(Buffer.from(strTxHash, 'hex'));
 
             try {
                 const blockHash = await this._txIndexStorage.get(key);
                 return await this.getBlock(blockHash);
             } catch (e) {
                 debugLib(`Index or block for ${strTxHash} not found!`);
+            }
+            return undefined;
+        }
+
+        /**
+         *
+         * @param {String} strTxHash - to find
+         * @returns {Promise<String>} - Source TX hash
+         */
+        async findInternalTx(strTxHash) {
+            typeforce(types.Hash256bit, strTxHash);
+
+            if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
+
+            const key = this.constructor.createInternalTxKey(Buffer.from(strTxHash, 'hex'));
+
+            try {
+                return await this._txIndexStorage.get(key);
+            } catch (e) {
+                debugLib(`Internal tx with hash ${strTxHash} not found!`);
             }
             return undefined;
         }
@@ -712,6 +736,39 @@ module.exports = (factory, factoryOptions) => {
         async getWallets() {
             await this._ensureWalletInitialized();
             return this._arrStrWalletAddresses;
+        }
+
+        async _storeTxnsIndex(buffBlockHash, arrTxnsHashes) {
+            debug(`Storing TX index for ${buffBlockHash.toString('hex')}`);
+
+            const arrOps = [];
+            for (let strTxHash of arrTxnsHashes) {
+                const key = this.constructor.createTxKey(strTxHash);
+                arrOps.push({type: 'put', key, value: buffBlockHash});
+            }
+
+            // BATCH WRITE
+            await this._txIndexStorage.batch(arrOps);
+        }
+
+        /**
+         *
+         * @param {Buffer} buffSourceTxHash - hash of original TX, produced all of those internal txns
+         * @param {Array} arrInternalTxnsHashes - of internal TXns hashes (BUFFERS!)
+         * @return {Promise<void>}
+         * @private
+         */
+        async _storeInternalTxnsIndex(buffSourceTxHash, arrInternalTxnsHashes) {
+            debug(`Storing internal TXns for ${buffSourceTxHash.toString('hex')}`);
+
+            const arrOps = [];
+            for (let strInternalTxHash of arrInternalTxnsHashes) {
+                const key = this.constructor.createInternalTxKey(strInternalTxHash);
+                arrOps.push({type: 'put', key, value: buffSourceTxHash});
+            }
+
+            // BATCH WRITE
+            await this._txIndexStorage.batch(arrOps);
         }
     };
 };

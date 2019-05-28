@@ -537,6 +537,21 @@ describe('Storage tests', () => {
             assert.isOk(arrRecords.every((rec, i) => rec.key.equals(factory.Storage.createTxKey(arrTxHashes[i])) &&
                                                      rec.value.toString('hex') === block.getHash()));
         });
+
+        it('should _storeInternalTxnsIndex', async () => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            const storeIndexFake = storage._txIndexStorage.batch = sinon.fake();
+
+            const buffTxSourceHash = pseudoRandomBuffer();
+            const arrInternalTxnsHashes = [pseudoRandomBuffer(), pseudoRandomBuffer()];
+            await storage._storeInternalTxnsIndex(buffTxSourceHash, arrInternalTxnsHashes);
+
+            assert.isOk(storeIndexFake.calledOnce);
+            const [arrRecords] = storeIndexFake.args[0];
+            assert.isOk(arrRecords.every(
+                (rec, i) => rec.key.equals(factory.Storage.createInternalTxKey(arrInternalTxnsHashes[i])) &&
+                            rec.value.equals(buffTxSourceHash)));
+        });
     });
 
     describe('Wallet support', async () => {
