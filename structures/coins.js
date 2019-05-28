@@ -1,3 +1,5 @@
+// part of protobuff
+const Long = require('long');
 const typeforce = require('typeforce');
 const types = require('../types');
 
@@ -14,7 +16,7 @@ module.exports = () =>
         }
 
         static createFromData({amount, receiverAddr}) {
-            if (typeof amount.toNumber === 'function') amount = amount.toNumber();
+            if (Long.isLong(amount)) amount = amount.toNumber();
 
             return new this(amount, receiverAddr);
         }

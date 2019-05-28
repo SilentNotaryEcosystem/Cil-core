@@ -1,3 +1,5 @@
+// part of protobuff
+const Long = require('long');
 const assert = require('assert');
 const typeforce = require('typeforce');
 const types = require('../types');
@@ -42,7 +44,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             // unsafe JavaScript number (see).
 
             for (let output of this._data.payload.outs) {
-                if (typeof output.amount.toNumber === 'function') output.amount = output.amount.toNumber();
+                if (Long.isLong(output.amount)) output.amount = output.amount.toNumber();
             }
         }
 

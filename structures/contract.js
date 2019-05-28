@@ -1,3 +1,5 @@
+// part of protobuff
+const Long = require('long');
 const typeforce = require('typeforce');
 const assert = require('assert');
 
@@ -49,7 +51,7 @@ module.exports = (factory, {contractProto}) =>
 
             // deal with LONG https://github.com/dcodeIO/long.js
             // convert it toNumber
-            if (typeof this._data.balance.toNumber === 'function') this._data.balance = this._data.balance.toNumber();
+            if (Long.isLong(this._data.balance)) this._data.balance = this._data.balance.toNumber();
 
             // just to show that we'll not use it after decode
             this._data.contractData = undefined;
