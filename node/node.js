@@ -1994,6 +1994,19 @@ module.exports = (factory, factoryOptions) => {
             // look it in mempool first
             if (this._mempool.hasTx(strTxHash)) return formResult(this._mempool.getTx(strTxHash), 'mempool', undefined);
 
+            // look among internal TXns
+            const buffSourceTx = await this._storage.findInternalTx(strTxHash);
+            if (buffSourceTx) {
+                const receipt = await this._storage.getTxReceipt(buffSourceTx);
+                const coins = receipt.getCoinsForTx(strTxHash);
+
+                return formResult(
+                    {coins: coins.getRawData(), from: buffSourceTx.toString('hex')},
+                    'internal',
+                    undefined
+                );
+            }
+
             // search by tx will work only with --txIndex so let's use that index
             const block = await this._storage.findBlockByTxHash(strTxHash);
 
