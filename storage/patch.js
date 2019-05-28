@@ -446,7 +446,10 @@ module.exports = ({UTXO, Contract}) =>
 
             // it was already added to patch by nested contract call
             for (let buffInternalTxHash of receipt.getInternalTxns()) {
-                sameTxReceipt.addInternalTx(buffInternalTxHash.toString('hex'));
+                sameTxReceipt.addInternalUtxo(
+                    new UTXO({txHash: buffInternalTxHash.toString('hex')})
+                        .addCoins(0, receipt.getCoinsForTx(buffInternalTxHash))
+                );
             }
             sameTxReceipt.setStatus(receipt.getStatus());
         }

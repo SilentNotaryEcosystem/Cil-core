@@ -1,3 +1,5 @@
+// part of protobuff
+const Long = require('long');
 const readline = require('readline');
 const fs = require('fs');
 const commandLineArgs = require('command-line-args');
@@ -23,6 +25,8 @@ const prepareForStringifyObject = (obj) => {
             resultObject[key] = obj[key].toString('hex');
         } else if (Array.isArray(obj[key])) {
             resultObject[key] = prepareForStringifyObject(obj[key]);
+        } else if (Long.isLong(obj[key])) {
+            resultObject[key] = obj[key].toNumber();
         } else if (obj[key] instanceof Object) {
             resultObject[key] = prepareForStringifyObject(obj[key]);
         } else {

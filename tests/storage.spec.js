@@ -27,6 +27,9 @@ const createBlockInfo = () => {
     });
 };
 
+const createInternalUtxo = (buffHash) => new factory.UTXO({txHash: buffHash || pseudoRandomBuffer()})
+    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
+
 describe('Storage tests', () => {
     before(async function() {
         await factory.asyncLoad();
@@ -466,7 +469,7 @@ describe('Storage tests', () => {
             contractAddress: buffContractAddr,
             coinsUsed
         });
-        arrInternalTxns.forEach(tx => rcpt.addInternalTx(tx));
+        arrInternalTxns.forEach(hash => rcpt.addInternalUtxo(createInternalUtxo(hash)));
         patch.setReceipt(buffUtxoHash.toString('hex'), rcpt);
 
         // set
@@ -521,7 +524,7 @@ describe('Storage tests', () => {
             assert.isOk(storage.getBlock.calledOnce);
         });
 
-        it('should just save block and index', async () => {
+        it('should save block and index', async () => {
             const storage = new factory.Storage({buildTxIndex: true});
             const storeIndexFake = storage._txIndexStorage.batch = sinon.fake();
             const block = createDummyBlock(factory);
@@ -531,8 +534,8 @@ describe('Storage tests', () => {
             assert.isOk(storeIndexFake.calledOnce);
             const [arrRecords] = storeIndexFake.args[0];
             const arrTxHashes = block.getTxHashes();
-            assert.isOk(arrRecords.every(rec => arrTxHashes.includes(rec.key.toString('hex')) &&
-                                                rec.value.toString('hex') === block.getHash()));
+            assert.isOk(arrRecords.every((rec, i) => rec.key.equals(factory.Storage.createTxKey(arrTxHashes[i])) &&
+                                                     rec.value.toString('hex') === block.getHash()));
         });
     });
 

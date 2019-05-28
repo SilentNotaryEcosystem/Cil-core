@@ -120,6 +120,9 @@ const createSimpleFork = async (callback) => {
     return [genesis, block1, block2, block3].map(block => block.getHash());
 };
 
+const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer()})
+    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
+
 describe('Node tests', () => {
     before(async function() {
         this.timeout(15000);
@@ -927,10 +930,9 @@ describe('Node tests', () => {
         const amount = 1000;
         const patch = new factory.PatchDB();
 
-        const strHash = node._createInternalTx(patch, address, amount, pseudoRandomBuffer().toString('hex'));
+        const utxo = node._createInternalTx(patch, address, amount, pseudoRandomBuffer().toString('hex'));
 
-        const utxo = patch.getUtxo(strHash);
-        assert.isOk(utxo);
+        assert.isOk(patch.getUtxo(utxo.getTxHash()));
         assert.isNotOk(utxo.isEmpty());
         assert.deepEqual(utxo.getIndexes(), [0]);
         const coins = utxo.coinsAtIndex(0);
@@ -943,8 +945,8 @@ describe('Node tests', () => {
         const node = new factory.Node();
         const patch = new factory.PatchDB(0);
         const strTxHash = 'c7e35e8f5a2ee41e030c8a904228e54eb3056925b6f4fcd667010c4df73d3286';
-        const strInternalHash = node._createInternalTx(patch, generateAddress(), 1000, strTxHash);
-        assert.equal(strInternalHash, 'de58878a4858b7a99d63c07766ac23e36cd42892b6d97979783d6597a644d060');
+        const utxo = node._createInternalTx(patch, generateAddress(), 1000, strTxHash);
+        assert.equal(utxo.getTxHash(), 'de58878a4858b7a99d63c07766ac23e36cd42892b6d97979783d6597a644d060');
     });
 
     it('should CREATE LAST_APPLIED_BLOCKS', async () => {
@@ -1257,7 +1259,7 @@ describe('Node tests', () => {
             assert.deepEqual(expectedResult, objOneTip);
         });
 
-        it('should fail to get TX', (done) => {
+        it('should fail to get TX', async () => {
             const node = new factory.Node();
 
             const block = createDummyBlockWithTx(factory);
@@ -1265,12 +1267,10 @@ describe('Node tests', () => {
 
             node._storage.findBlockByTxHash = sinon.fake.throws('Block not found');
 
-            node.rpcHandler({
-                    event: 'getTx',
-                    content: strTxHash
-                })
-                .then(_ => done('Unexpected success'))
-                .catch(_ => done());
+            return assert.isRejected(node.rpcHandler({
+                event: 'getTx',
+                content: strTxHash
+            }));
         });
 
         it('should fail to get UTXO', async () => {
@@ -1299,7 +1299,7 @@ describe('Node tests', () => {
             let strHash;
 
             beforeEach(async () => {
-                node = new factory.Node();
+                node = new factory.Node({buildTxIndex: true});
                 await node.ensureLoaded();
 
                 strHash = pseudoRandomBuffer().toString('hex');
@@ -1352,6 +1352,26 @@ describe('Node tests', () => {
                 assert.equal(status, 'in block');
                 assert.deepEqual(tx, block.txns[0]);
                 assert.equal(foundBlock, block.getHash());
+            });
+
+            it('should get find internal TX and return coins', async () => {
+                const receipt = new factory.TxReceipt({});
+                receipt.addInternalUtxo(createInternalUtxo());
+                receipt.getCoinsForTx =
+                    sinon.fake.returns(factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()})
+                    );
+
+                node._storage.findInternalTx = sinon.fake.resolves(pseudoRandomBuffer());
+                node._storage.getTxReceipt = sinon.fake.resolves(receipt);
+
+                const {tx, status, block: foundBlock} = await node.rpcHandler({
+                    event: 'getTx',
+                    content: pseudoRandomBuffer().toString('hex')
+                });
+
+                assert.equal(status, 'internal');
+                assert.isOk(tx && tx.coins);
+                assert.notOk(foundBlock);
             });
 
             it('should not find TX', async () => {
@@ -1756,7 +1776,10 @@ describe('Node tests', () => {
             const patchTx = new factory.PatchDB();
             const strTxHash = pseudoRandomBuffer().toString('hex');
 
-            node._createInternalTx = sinon.fake.returns(pseudoRandomBuffer().toString('hex'));
+            node._createInternalTx = sinon.fake.returns(
+                new factory.UTXO({txHash: pseudoRandomBuffer()})
+                    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}))
+            );
             const {createInternalTx} = node._createCallbacksForApp(undefined, patchTx, strTxHash);
 
             const strAddress = generateAddress().toString('hex');

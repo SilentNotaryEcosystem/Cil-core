@@ -137,4 +137,7 @@ message TxReceipt{
 
     // hashes
     repeated bytes internalTxns=4;
+
+    // coins from internalTxns (i.e. same indexes)
+    repeated output coins=6;
 }

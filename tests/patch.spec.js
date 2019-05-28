@@ -17,6 +17,9 @@ const createUtxo = (arrIndexes) => {
     return utxo;
 };
 
+const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer()})
+    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
+
 describe('PatchDB', () => {
     before(async function() {
         this.timeout(15000);
@@ -681,8 +684,8 @@ describe('PatchDB', () => {
             const strTxHash = pseudoRandomBuffer().toString('hex');
 
             const receipt1 = new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK});
-            receipt1.addInternalTx(pseudoRandomBuffer().toString('hex'));
-            receipt1.addInternalTx(pseudoRandomBuffer().toString('hex'));
+            receipt1.addInternalUtxo(createInternalUtxo());
+            receipt1.addInternalUtxo(createInternalUtxo());
 
             patch.setReceipt(strTxHash, receipt1);
 
@@ -694,8 +697,8 @@ describe('PatchDB', () => {
             }
 
             const receipt2 = new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK});
-            receipt2.addInternalTx(pseudoRandomBuffer().toString('hex'));
-            receipt2.addInternalTx(pseudoRandomBuffer().toString('hex'));
+            receipt2.addInternalUtxo(createInternalUtxo());
+            receipt2.addInternalUtxo(createInternalUtxo());
 
             patch.setReceipt(strTxHash, receipt2);
 

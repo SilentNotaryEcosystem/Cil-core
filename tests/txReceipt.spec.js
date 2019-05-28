@@ -135,12 +135,39 @@ describe('TX Receipt tests', () => {
 
     it('should add internal tx', async () => {
         const receipt = new factory.TxReceipt({});
-        const arrInternalTxns = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
-        arrInternalTxns.forEach(tx => receipt.addInternalTx(tx));
+        const arrInternalTxnsHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+        arrInternalTxnsHashes
+            .map(
+                txHash => new factory.UTXO({txHash}).addCoins(
+                    0,
+                    factory.Coins.createFromData({
+                        amount: 100,
+                        receiverAddr: generateAddress()
+                    })
+                ))
+            .forEach(utxo => receipt.addInternalUtxo(utxo));
 
         const arrBuffTxns = receipt.getInternalTxns();
         assert.equal(arrBuffTxns.length, 2);
-        assert.isOk(arrBuffTxns.every(buffTxns => arrInternalTxns.includes(buffTxns.toString('hex'))));
+        assert.isOk(arrBuffTxns.every(buffTxns => arrInternalTxnsHashes.includes(buffTxns.toString('hex'))));
+    });
+
+    it('should getCoinsForTx', async () => {
+        const receipt = new factory.TxReceipt({});
+        const arrInternalTxnsHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+        arrInternalTxnsHashes
+            .map(
+                txHash => new factory.UTXO({txHash}).addCoins(
+                    0,
+                    factory.Coins.createFromData({
+                        amount: 100,
+                        receiverAddr: generateAddress()
+                    })
+                ))
+            .forEach(utxo => receipt.addInternalUtxo(utxo));
+
+        assert.isOk(receipt.getCoinsForTx(arrInternalTxnsHashes[0]));
+        assert.isOk(receipt.getCoinsForTx(arrInternalTxnsHashes[1]));
     });
 
     it('should convert to object', async () => {
@@ -151,6 +178,10 @@ describe('TX Receipt tests', () => {
             internalTxns: [
                 pseudoRandomBuffer(),
                 pseudoRandomBuffer()
+            ],
+            coins: [
+                {amount: 100, receiverAddr: generateAddress()},
+                {amount: 100, receiverAddr: generateAddress()}
             ]
         };
         const receipt2 = new factory.TxReceipt(objReceipt);
