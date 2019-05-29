@@ -3,7 +3,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const types = require('../types');
-const {arrayIntersection, getMapsKeys} = require('../utils');
+const {arrayIntersection, getMapsKeysUnique} = require('../utils');
 
 const debug = debugLib('patch:');
 
@@ -16,12 +16,14 @@ module.exports = ({UTXO, Contract}) =>
                 coins: new Map()
             };
 
+            // it will keep tracks which tx spend particular output
             this._mapSpentUtxos = new Map();
 
             this._mapGroupLevel = new Map();
             this.setGroupId(nGroupId);
 
             this._mapContractStates = new Map();
+            this._mapTxReceipts = new Map();
         }
 
         /**
@@ -75,25 +77,48 @@ module.exports = ({UTXO, Contract}) =>
 
         /**
          *
-         * @param {String} txHash
+         * @param {String | Buffer} txHash
          * @returns {UTXO}
          */
         getUtxo(txHash) {
-            typeforce(types.Str64, txHash);
+            typeforce(types.Hash256bit, txHash);
 
-            return this._data.coins.get(txHash);
+            const strHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
+            return this._data.coins.get(strHash);
         }
 
         /**
          *
-         * @param {PatchDB} patch to merge with this
+         * @param {UTXO} utxo
+         */
+        setUtxo(utxo) {
+            typeforce(types.UTXO, utxo);
+
+            this._data.coins.set(utxo.getTxHash(), utxo.clone());
+        }
+
+        /**
+         * Important! resultPatch doesn't contain _groupId! Because we merge patches for various purposes.
+         * For new block we couldn't predict _groupId
+         *
+         * @param {PatchDB} patch - to merge with this
+         * @param {Boolean} bPreferPatchData - force using contracts from "patch" (used only for processing block)
          * @return {PatchDB} NEW patch!
          */
-        merge(patch) {
+        merge(patch, bPreferPatchData = false) {
+
+            // same group + same level. it's definitely error!
+            if (this._groupId !== undefined && patch._groupId !== undefined && !bPreferPatchData) {
+                assert(
+                    this._groupId !== patch._groupId || this.getLevel(this._groupId) !== patch.getLevel(patch._groupId),
+                    'It seems we have unexpected fork!'
+                );
+            }
+
             const resultPatch = new PatchDB();
 
             // merge groupLevels
-            const arrGroupIds = getMapsKeys(this._mapGroupLevel, patch._mapGroupLevel);
+            const arrGroupIds = getMapsKeysUnique(this._mapGroupLevel, patch._mapGroupLevel);
             for (let groupId of arrGroupIds) {
                 resultPatch._mapGroupLevel.set(
                     groupId,
@@ -107,12 +132,14 @@ module.exports = ({UTXO, Contract}) =>
 
             const setUnionHashes = new Set(arrThisCoinsHashes.concat(arrAnotherCoinsHashes));
             for (let coinHash of setUnionHashes) {
+
                 if ((this._data.coins.has(coinHash) && !patch._data.coins.has(coinHash)) ||
                     (!this._data.coins.has(coinHash) && patch._data.coins.has(coinHash))) {
 
                     // only one patch have this utxo -> put it in result
                     const utxo = this._data.coins.get(coinHash) || patch._data.coins.get(coinHash);
-                    const mapSpentOutputs = this._getSpentOutputs(coinHash) || patch._getSpentOutputs(coinHash);
+                    const mapSpentOutputs = this._getSpentOutputs(coinHash).size ?
+                        this._getSpentOutputs(coinHash) : patch._getSpentOutputs(coinHash);
 
                     resultPatch._data.coins.set(coinHash, utxo.clone());
                     for (let [idx, hash] of mapSpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
@@ -127,6 +154,8 @@ module.exports = ({UTXO, Contract}) =>
                     // if only one has - this means it's spent -> don't put it in result
                     // if both doesn't have - check it for double spend. if found - throws
                     // so if we need only intersection we could travers any for indexes
+
+                    // process common (both has) indexes. we could choose any to pick indexes
                     for (let idx of utxoMy.getIndexes()) {
                         try {
                             const coins = utxoHis.coinsAtIndex(idx);
@@ -153,36 +182,55 @@ module.exports = ({UTXO, Contract}) =>
                         );
                     }
 
-                    // no conflicts - store all spendings into resulting patch
+                    // no conflicts - store all spending into resulting patch
                     for (let [idx, hash] of mapMySpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
                     for (let [idx, hash] of mapHisSpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
                 }
             }
 
             // merge contracts
-            const arrContractAddresses = getMapsKeys(this._mapContractStates, patch._mapContractStates);
+            const arrContractAddresses = getMapsKeysUnique(this._mapContractStates, patch._mapContractStates);
             for (let strAddr of arrContractAddresses) {
 
                 let winnerContract;
 
                 // contract belongs always to one group
-                const contractOne = this.getContract(strAddr);
-                const contractTwo = patch.getContract(strAddr);
-                if (contractOne && contractTwo) {
+                const contractThis = this.getContract(strAddr);
+                const contractPatch = patch.getContract(strAddr);
+                if (contractThis && contractPatch) {
                     assert(
-                        contractOne.getGroupId() === contractTwo.getGroupId(),
+                        contractThis.getGroupId() === contractPatch.getGroupId(),
                         'Contract belongs to different groups'
                     );
 
-                    winnerContract = this.getLevel(contractOne.getGroupId()) > patch.getLevel(contractTwo.getGroupId())
-                        ? contractOne
-                        : contractTwo;
+                    winnerContract = bPreferPatchData ||
+                                     patch.getLevel(contractPatch.getGroupId()) >=
+                                     this.getLevel(contractThis.getGroupId())
+                        ? contractPatch
+                        : contractThis;
                 } else {
 
                     // no conflict
-                    winnerContract = contractOne || contractTwo;
+                    winnerContract = contractThis || contractPatch;
                 }
-                resultPatch.setContract(strAddr, winnerContract.getDataBuffer(), winnerContract.getCode());
+
+                resultPatch.setContract(winnerContract.clone());
+            }
+
+            // merge receipts
+            // TODO: think is TX collisions possible?
+            const arrTxHashes = getMapsKeysUnique(this._mapTxReceipts, patch._mapTxReceipts);
+            for (let strHash of arrTxHashes) {
+
+                // receipts should be same (if no tx collision)
+                const receiptThis = this._mapTxReceipts.get(strHash);
+                const receiptPatch = patch._mapTxReceipts.get(strHash);
+                if (receiptThis && receiptPatch) {
+                    assert(receiptThis.equals(receiptPatch), 'patch.merge: Tx Collision detected');
+                }
+                const receipt = receiptThis || receiptPatch;
+                patch._mapTxReceipts.get(strHash);
+                resultPatch.setReceipt(strHash, receipt);
             }
 
             return resultPatch;
@@ -203,7 +251,12 @@ module.exports = ({UTXO, Contract}) =>
 
                 // keep UTXO if it was changed
                 const utxo = this.getUtxo(hash);
-                if (!utxo.equals(patch.getUtxo(hash))) continue;
+                if (!utxo ||
+                    !utxo.equals(patch.getUtxo(hash)) ||
+                    !this._spendingTnxsEqual(this._getSpentOutputs(hash), patch._getSpentOutputs(hash))
+                ) {
+                    continue;
+                }
 
                 // remove it, if unchanged since (patch)
                 this._data.coins.delete(utxo.getTxHash());
@@ -226,8 +279,21 @@ module.exports = ({UTXO, Contract}) =>
                     }
                 }
             }
+
+            // remove receipts
+            for (let strHash of patch._mapTxReceipts.keys()) {
+                if (this._mapTxReceipts.has(strHash)) this._mapTxReceipts.delete(strHash);
+            }
         }
 
+        /**
+         * We'll keep tracks in which {buffTxHashSpent} output {nTxOutput} of utxo with {strUtxoHash} was spent!
+         *
+         * @param {String} strUtxoHash
+         * @param {Number} nTxOutput
+         * @param {Buffer} buffTxHashSpent - TX that spent nTxOutput of strUtxoHash
+         * @private
+         */
         _setSpentOutput(strUtxoHash, nTxOutput, buffTxHashSpent) {
             let mapSpent = this._mapSpentUtxos.get(strUtxoHash);
             if (!mapSpent) mapSpent = new Map();
@@ -235,8 +301,32 @@ module.exports = ({UTXO, Contract}) =>
             this._mapSpentUtxos.set(strUtxoHash, mapSpent);
         }
 
+        /**
+         *
+         * @param {String} strUtxoHash
+         * @returns {Map<Number, Buffer>} map <Index, buffTxHashSpentThisIndex>
+         * @private
+         */
         _getSpentOutputs(strUtxoHash) {
             return this._mapSpentUtxos.get(strUtxoHash) || new Map();
+        }
+
+        /**
+         * this function used to compare maps of spended outputs @see _getSpentOutputs
+         *
+         * @param {Map} thisMapSpent - @see this._getSpentOutputs
+         * @param {Map} patchMapSpent - @see this._getSpentOutputs
+         * @returns {boolean} - true - equal. i.e. output indexes was spen in same txns
+         * @private
+         */
+        _spendingTnxsEqual(thisMapSpent, patchMapSpent) {
+            if (thisMapSpent.size !== patchMapSpent.size) return false;
+
+            for (let [nTxOutput, buffTxHashSpent] of thisMapSpent) {
+                const patchBuffSpendingTx = patchMapSpent.get(nTxOutput);
+                if (!patchBuffSpendingTx || !patchBuffSpendingTx.equals(buffTxHashSpent)) return false;
+            }
+            return true;
         }
 
         /**
@@ -253,6 +343,9 @@ module.exports = ({UTXO, Contract}) =>
 
         setGroupId(nId) {
 
+            // invoked from constructor, which invoked from merge
+            if (nId === undefined) return;
+
             // it's equal block.witnessGroupId
             assert(this._groupId === undefined, '"groupId" already specified!');
             this._groupId = nId;
@@ -266,6 +359,16 @@ module.exports = ({UTXO, Contract}) =>
             this._mapGroupLevel.set(nId, groupLevel);
         }
 
+        getGroupId() {
+            return this._groupId;
+        }
+
+        /**
+         * @see comment for this.setGroupId
+         *
+         * @param {Number} nGroupId
+         * @returns {any}
+         */
         getLevel(nGroupId) {
             nGroupId = nGroupId === undefined ? this._groupId : nGroupId;
             assert(this._groupId !== undefined, '"groupId" not specified!');
@@ -275,28 +378,15 @@ module.exports = ({UTXO, Contract}) =>
 
         /**
          *
-         * @param {String | Buffer} contractAddr - address of newly created contract
-         * @param {Object | Buffer} data - contract data
-         * @param {String} strCodeExportedFunctions - code of contract
+         * @param {Contract} contract
          */
-        setContract(contractAddr, data, strCodeExportedFunctions) {
-            typeforce(typeforce.oneOf('String', types.Address), contractAddr);
-            typeforce(typeforce.oneOf('Buffer', 'Object'), data);
+        setContract(contract) {
+            const foundContract = this._mapContractStates.get(contract.getStoredAddress());
 
-            if (Buffer.isBuffer) contractAddr = contractAddr.toString('hex');
-
-            const contract = this._mapContractStates.get(contractAddr);
-            if (contract) {
-                contract.updateData(data);
+            if (foundContract) {
+                foundContract.updateData(contract.getData());
             } else {
-                const contract = new Contract({
-                    contractCode: strCodeExportedFunctions,
-                    contractData: data,
-                    groupId: this._groupId
-                });
-                contract.storeAddress(contractAddr);
-
-                this._mapContractStates.set(contractAddr, contract);
+                this._mapContractStates.set(contract.getStoredAddress(), contract);
             }
         }
 
@@ -318,6 +408,71 @@ module.exports = ({UTXO, Contract}) =>
          */
         getContracts() {
             return this._mapContractStates.entries();
+        }
+
+        /**
+         *
+         * @param {String} strTxHash
+         * @returns {TxReceipt}
+         */
+        getReceipt(strTxHash) {
+            typeforce(types.Str64, strTxHash);
+
+            return this._mapTxReceipts.get(strTxHash);
+        }
+
+        /**
+         *
+         * @param {String} strTxHash
+         * @param {TxReceipt} receipt
+         */
+        setReceipt(strTxHash, receipt) {
+            typeforce(types.Str64, strTxHash);
+
+            const sameTxReceipt = this._mapTxReceipts.get(strTxHash);
+
+            // first time encountered
+            if (!sameTxReceipt) {
+                this._mapTxReceipts.set(strTxHash, receipt);
+                return;
+            }
+
+            assert(sameTxReceipt.isSuccessful(), `You shouldn't continue exec of already failed TX ${strTxHash}`);
+
+            // it was already added to patch by nested contract call
+            for (let buffInternalTxHash of receipt.getInternalTxns()) {
+                sameTxReceipt.addInternalTx(buffInternalTxHash.toString('hex'));
+            }
+            sameTxReceipt.setStatus(receipt.getStatus());
+        }
+
+        /**
+         *
+         * @return {IterableIterator<any>}
+         */
+        getReceipts() {
+            return this._mapTxReceipts.entries();
+        }
+
+        /**
+         *
+         * @param {PatchDB} stablePatch - @see Storage.getUtxosPatch
+         * @throws assertion error if find spending of indexes that already absent in stablePatch
+         */
+        validateAgainstStable(stablePatch) {
+            for (let hash of this.getCoins().keys()) {
+
+                // it could be UTXO from pending parent blocks. we'll check in later, when it become stable
+                const utxo = stablePatch.getUtxo(hash);
+                if (!utxo) continue;
+
+                const mapPatchSpentOutputs = this._getSpentOutputs(hash);
+
+                // we can't spend indexes that aren't on "stable" utxo (utxo on disk)
+                for (let [idx] of mapPatchSpentOutputs) {
+                    assert(utxo.coinsAtIndex(idx));
+                }
+            }
         }
 
     };

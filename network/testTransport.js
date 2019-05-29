@@ -17,6 +17,8 @@ const TestConnectionWrapper = require('./testConnection');
  */
 
 
+const createPipeName = (address) => path.join(`${pathPrefix}`, os.tmpdir(), `cil-addr-${address}`);
+
 const EventBus = new EventEmitter();
 
 module.exports = (factory) => {
@@ -42,11 +44,16 @@ module.exports = (factory) => {
             this._port = options.listenPort || Constants.port;
         }
 
+        /**
+         *
+         * @returns {String} !!!
+         */
         get myAddress() {
-            if (!this._cachedAddr) {
-                this._cachedAddr = this.constructor.strToAddress(this._address);
-            }
-            return this._cachedAddr;
+//            if (!this._cachedAddr) {
+//                this._cachedAddr = this.constructor.strToAddress(this._address);
+//            }
+//            return this._cachedAddr;
+            return this._address;
         }
 
         get port() {
@@ -62,12 +69,12 @@ module.exports = (factory) => {
          * @return {Buffer}
          */
         static strToAddress(address) {
-            const buffer = Buffer.from(address);
+            const buffer = Buffer.from(address, 'hex');
             const bytestoPadd = buffer.length > 16 ? 0 : 16 - buffer.length;
             return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
         }
 
-        static addressToString(buffer, encoding = 'utf8') {
+        static addressToString(buffer, encoding = 'hex') {
             let i = 0;
 
             // skip leading 0
@@ -76,12 +83,33 @@ module.exports = (factory) => {
         }
 
         /**
+         * Dummy
+         *
+         * @returns {boolean}
+         */
+        static isRoutableAddress() {
+            return true;
+        }
+
+        /**
          * Only for tests
          *
-         * @return {Buffer}
+         * @return {String} !!
          */
         static generateAddress() {
-            return this.strToAddress(uuid.v4().substring(0, 8));
+
+            // this awful construction will format address as needed (pad with zeroes ahead)
+            return this.addressToString(this.strToAddress(uuid.v4().substring(0, 8)));
+        }
+
+        /**
+         * Dummy. Not used in test transport
+         *
+         * @param address
+         * @returns {*}
+         */
+        static toIpV6Address(address) {
+            return address;
         }
 
         static isPrivateAddress(address) {
@@ -95,7 +123,7 @@ module.exports = (factory) => {
          * @return {Promise<*|string[]>}
          */
         static async resolveName(name) {
-            return name.split(':');
+            return name.split('-');
         }
 
         /**
@@ -104,13 +132,14 @@ module.exports = (factory) => {
          */
         connect(address) {
             if (Buffer.isBuffer(address)) address = this.constructor.addressToString(address, 'hex');
-            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), address);
+
+            const netAddr = createPipeName(address);
 
             return new Promise((resolve, reject) => {
                 const socket = net.createConnection(netAddr,
                     async (err) => {
                         if (err) return reject(err);
-                        const remoteAddress = await this._exchangeAddresses(socket);
+                        const remoteAddress = Buffer.from(await this._exchangeAddresses(socket), 'hex');
                         if (this._delay) await sleep(this._delay);
                         resolve(
                             new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress}));
@@ -124,11 +153,10 @@ module.exports = (factory) => {
          * Emit 'connect' with new Connection
          *
          */
-        listen() {
+        async listen() {
 
             // for test only
-            const strAddress = this.constructor.addressToString(this._address, 'hex');
-            const netAddr = path.join(`${pathPrefix}`, os.tmpdir(), strAddress);
+            const netAddr = createPipeName(this._address);
 
             // Unix sockets are persistent, let's erase it first
             try {
@@ -136,9 +164,8 @@ module.exports = (factory) => {
                 fs.unlinkSync(netAddr);
             } catch (err) {}
 
-            // TODO: use port
             net.createServer(async (socket) => {
-                const remoteAddress = await this._exchangeAddresses(socket);
+                const remoteAddress = Buffer.from(await this._exchangeAddresses(socket), 'hex');
                 this.emit('connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress})
                 );
@@ -171,11 +198,11 @@ module.exports = (factory) => {
          */
         _exchangeAddresses(socket) {
             debug(`sending my address: ${this._address}`);
-            socket.write(this._address);
+            socket.write(TestTransport.strToAddress(this._address));
 
             return new Promise((resolve, reject) => {
                 socket.once('data', (addressBuff) => {
-                    debug(`got remote address: ${addressBuff}`);
+                    debug(`got remote address: ${TestTransport.addressToString(addressBuff)}`);
                     resolve(addressBuff);
                 });
             });

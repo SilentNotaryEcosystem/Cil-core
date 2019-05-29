@@ -3,12 +3,13 @@ const types = require('../types');
 
 module.exports = () =>
     class Coins {
+
         constructor(amount, receiverAddr) {
-            typeforce(typeforce.tuple(types.Amount, 'Buffer'), arguments);
+            typeforce(typeforce.tuple(types.Amount, types.Address), arguments);
 
             this._data = {
                 amount,
-                receiverAddr
+                receiverAddr: Buffer.isBuffer(receiverAddr) ? receiverAddr : Buffer.from(receiverAddr, 'hex')
             };
         }
 
@@ -22,7 +23,7 @@ module.exports = () =>
 
         /**
          *
-         * @return {Buffer}
+         * @return {Buffer} address
          */
         getReceiverAddr() {
             return this._data.receiverAddr;

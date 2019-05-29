@@ -2,7 +2,6 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer} = require('./testUtil');

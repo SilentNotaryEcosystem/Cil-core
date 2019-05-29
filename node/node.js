@@ -4,11 +4,18 @@ const typeforce = require('typeforce');
 const debugLib = require('debug');
 const {sleep} = require('../utils');
 const types = require('../types');
+const Tick = require('tick-tock');
 
 const debugNode = debugLib('node:app');
+const debugBlock = debugLib('node:block');
 const debugMsg = debugLib('node:messages');
+const debugMsgFull = debugLib('node:messages:full');
 
-module.exports = (factory) => {
+function createPeerKey(peer) {
+    return peer.address + peer.port;
+}
+
+module.exports = (factory, factoryOptions) => {
     const {
         Transport,
         Messages,
@@ -28,7 +35,10 @@ module.exports = (factory) => {
         Coins,
         PendingBlocksManager,
         MainDag,
-        BlockInfo
+        BlockInfo,
+        Mutex,
+        RequestCache,
+        TxReceipt
     } = factory;
     const {
         MsgCommon,
@@ -46,54 +56,72 @@ module.exports = (factory) => {
 
     return class Node {
         constructor(options) {
-            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout} = options;
 
-            this._storage = new Storage(options);
+            // mix in factory (common for all instance) options
+            options = {
+                ...factoryOptions,
+                ...options
+            };
+
+            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout, workerSuspended} = options;
+
+            this._mutex = new Mutex();
+
+            this._storage = new Storage({...options, mutex: this._mutex});
 
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
 
-            this._arrSeedAddresses = arrSeedAddresses;
-            this._arrDnsSeeds = arrDnsSeeds;
-
+            this._arrSeedAddresses = arrSeedAddresses || [];
+            this._arrDnsSeeds = arrDnsSeeds || Constants.DNS_SEED;
+            this._workerSuspended = workerSuspended;
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
-            this._transport = new Transport(options);
-
-            this._myPeerInfo = new PeerInfo({
-                capabilities: [
-                    {service: Constants.NODE}
-                ],
-                address: this._transport.myAddress,
-                port: this._transport.port
-            });
-
-            // used only for debugging purpose. Feel free to remove
-            this._debugAddress = this._transport.constructor.addressToString(this._transport.myAddress);
-
-            this._peerManager = new PeerManager({transport: this._transport});
-
-            // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
-            this._peerManager.on('message', this._incomingMessage.bind(this));
-            debugNode(`(address: "${this._debugAddress}") start listening`);
-            this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
-
-            this._transport.listen();
-            this._transport.on('connect', this._incomingConnection.bind(this));
 
             // create mempool
             this._mempool = new Mempool(options);
 
-            //start RPC
-            this._rpc = new RPC(options);
-            this._rpc.on('rpc', this._rpcHandler.bind(this));
+            this._transport = new Transport(options);
+            this._transport.on('connect', this._incomingConnection.bind(this));
+            this._listenPromise = this._transport.listen()
+                .then(() => {
 
+                    this._myPeerInfo = new PeerInfo({
+                        capabilities: [
+                            {service: Constants.NODE}
+                        ],
+                        address: Transport.strToAddress(this._transport.myAddress),
+                        port: this._transport.port
+                    });
+
+                    // used only for debugging purpose. Feel free to remove
+                    this._debugAddress = this._transport.myAddress;
+
+                    this._peerManager =
+                        new PeerManager({transport: this._transport, storage: this._storage, ...options});
+
+                    // TODO: add handler for new peer, to bradcast it to neighbour (connected peers)!
+                    this._peerManager.on('message', this._incomingMessage.bind(this));
+                    debugNode(`(address: "${this._debugAddress}") start listening`);
+                    this._peerManager.on('disconnect', this._peerDisconnect.bind(this));
+
+                    //start RPC
+                    if (options.rpcAddress) {
+                        this._rpc = new RPC(this, options);
+                    }
+                })
+                .catch(err => console.error(err));
+
+            this._mapBlocksToExec = new Map();
+            this._mapUnknownBlocks = new Map();
+            this._mapBlocksToExec = new Map();
             this._app = new Application(options);
 
-            this._pendingBlocks = new PendingBlocksManager();
-            this._mainDag = new MainDag();
-            this._setUnknownBlocks = new Set();
+            this._rebuildPromise = this._rebuildBlockDb();
+
             this._msecOffset = 0;
 
+            this._reconnectTimer = new Tick(this);
+            this._requestCache = new RequestCache();
         }
 
         get rpc() {
@@ -108,22 +136,42 @@ module.exports = (factory) => {
             return Date.now() + this._msecOffset;
         }
 
+        ensureLoaded() {
+            return Promise.all([this._listenPromise, this._rebuildPromise]);
+        }
+
         async bootstrap() {
             await this._mergeSeedPeers();
 
-            // add seed peers to peerManager
-            for (let strAddr of this._arrSeedAddresses) {
-                const peer = new PeerInfo({
-                    address: Transport.strToAddress(strAddr),
-                    capabilities: [{service: Constants.NODE}]
-                });
-                this._peerManager.addPeer(peer);
+            // will try to load address book
+            const arrPeers = await this._peerManager.loadPeers();
+            if (arrPeers.length) {
+
+                // success, we have address book - let's deal with them
+                arrPeers.forEach(peer => this._peerManager.addPeer(peer, true));
+            } else {
+
+                // empty address book. let's ask seeds for peer list
+                this._arrSeedAddresses.forEach(strAddr =>
+                    this._peerManager.addPeer(new PeerInfo({
+                        address: Transport.strToAddress(factory.Transport.toIpV6Address(strAddr)),
+                        capabilities: [{service: Constants.NODE}]
+                    })), true);
             }
+
+            // start worker
+            if (!this._workerSuspended) setImmediate(this._nodeWorker.bind(this));
 
             // start connecting to peers
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
-            const arrBestPeers = this._findBestPeers();
+            const arrBestPeers = this._peerManager.findBestPeers();
             await this._connectToPeers(arrBestPeers);
+
+            this._reconnectTimer.setInterval(
+                Constants.PEER_RECONNECT_TIMER,
+                this._reconnectPeers,
+                Constants.PEER_RECONNECT_INTERVAL
+            );
         }
 
         /**
@@ -133,25 +181,9 @@ module.exports = (factory) => {
          * @private
          */
         async _connectToPeer(peer) {
-            const address = this._transport.constructor.addressToString(peer.address);
-            debugNode(`(address: "${this._debugAddress}") connecting to "${address}"`);
+            debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
             return await peer.connect();
-        }
 
-        /**
-         *
-         * @return {Array} of Peers we decided to be best peers to connect
-         * @private
-         */
-        _findBestPeers() {
-
-            // we prefer witness nodes
-            // TODO: REWORK! it's not good idea to overload witnesses!
-            const arrWitnessNodes = this._peerManager.filterPeers({service: Constants.WITNESS});
-            if (arrWitnessNodes.length) return arrWitnessNodes;
-
-            // but if there is no such - use any nodes
-            return this._peerManager.filterPeers({service: Constants.NODE});
         }
 
         /**
@@ -161,7 +193,7 @@ module.exports = (factory) => {
          * @private
          */
         async _mergeSeedPeers() {
-            if (this._arrDnsSeeds) {
+            if (this._arrDnsSeeds && this._arrDnsSeeds.length) {
                 const arrDnsPeers = await this._queryDnsRecords(this._arrDnsSeeds);
                 this._arrSeedAddresses = this._arrSeedAddresses.concat(arrDnsPeers);
             }
@@ -170,15 +202,15 @@ module.exports = (factory) => {
         /**
          * Query DNS records for peerAddresses
          *
-         * @param {Array} dnsSeeds
-         * @param {String} dnsSeeds[0] - like 'dnsseed.bluematt.me'
+         * @param {Array} arrDnsSeeds
+         * @param {String} arrDnsSeeds[0] - like 'dnsseed.bluematt.me'
          * @return {Promise<Array>} - array of addresses of seed nodes
          * @private
          */
-        async _queryDnsRecords(dnsSeeds) {
+        async _queryDnsRecords(arrDnsSeeds) {
             let arrResult = [];
             const arrPromises = [];
-            for (let name of dnsSeeds) {
+            for (let name of arrDnsSeeds) {
                 const prom = Transport.resolveName(name)
                     .then(arrAddresses => {
                         arrResult = arrResult.concat(arrAddresses);
@@ -192,48 +224,33 @@ module.exports = (factory) => {
 
         async _incomingConnection(connection) {
             try {
-                debugNode(`(address: "${this._debugAddress}") incoming connection from "${connection.remoteAddress}"`);
-                const newPeer = new Peer({connection, transport: this._transport});
-
-                const result = this._peerManager.addPeer(newPeer);
-                if (result instanceof Peer) return;
-
-                // peer already connected or banned
-                let reason;
-                if (result === Constants.REJECT_BANNED) {
-                    reason = 'You are banned';
-                } else if (result === Constants.REJECT_DUPLICATE) {
-                    reason = 'Duplicate connection';
-                } else if (result === Constants.REJECT_BANNEDADDRESS) reason = 'Address temporary banned';
-
-                const message = new MsgReject({
-                    code: result,
-                    reason
-                });
-                debugMsg(
-                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${newPeer.address}"`);
-                await newPeer.pushMessage(message);
-                newPeer.disconnect();
+                this._peerManager.addCandidateConnection(connection);
             } catch (err) {
                 logger.error(err);
+                connection.close();
             }
         }
 
         async _peerDisconnect(peer) {
             this._msecOffset -= peer.offsetDelta;
-
-            let bestPeers = this._findBestPeers();
-            let peers = bestPeers.filter(p => Buffer.compare(p.address, peer.address) != 0)
-                .splice(0, Constants.MIN_PEERS - this._peerManager.connectedPeers().length);
-            await this._connectToPeers(peers);
         }
 
         async _connectToPeers(peers) {
             for (let peer of peers) {
-                if (peer.disconnected) await this._connectToPeer(peer);
-                await peer.pushMessage(this._createMsgVersion());
-                await peer.loaded();
+                try {
+                    if (peer.disconnected) await this._connectToPeer(peer);
+                    await peer.pushMessage(this._createMsgVersion());
+                    await peer.loaded();
+                } catch (e) {
+                    logger.error(e);
+                }
             }
+        }
+
+        async _reconnectPeers() {
+            let bestPeers = this._peerManager.findBestPeers().filter(p => p.disconnected);
+            let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.getConnectedPeers().length);
+            await this._connectToPeers(peers);
         }
 
         /**
@@ -247,15 +264,17 @@ module.exports = (factory) => {
 
                 debugMsg(
                     `(address: "${this._debugAddress}") received message "${message.message}" from "${peer.address}"`);
+
+                if (message.isPong()) {
+                    return;
+                }
+
                 if (message.isReject()) {
                     const rejectMsg = new MsgReject(message);
 
                     // connection will be closed by other end
-                    logger.log(`Peer: "${peer.address}" rejection reason: "${rejectMsg.reason}"`);
-
-                    // if it's just collision - 1 point not too much, but if peer is malicious - it will raise to ban
-                    peer.misbehave(1);
-                    peer.loadDone = true;
+                    logger.log(
+                        `(address: "${this._debugAddress}") peer: "${peer.address}" rejected with reason: "${rejectMsg.reason}"`);
                     return;
                 }
 
@@ -294,9 +313,10 @@ module.exports = (factory) => {
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
+
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
-                logger.error(err, `Peer ${peer.address}`);
+                logger.error(err, `Incoming message. Peer ${peer.address}`);
 
                 // TODO: implement state (like bitcoin) to keep misbehave score or penalize on each handler?
                 peer.misbehave(1);
@@ -313,17 +333,22 @@ module.exports = (factory) => {
          */
         async _handleTxMessage(peer, message) {
 
-            //TODO: make sure that's a tx we requested! not pushed to us
-
             // this will check syntactic correctness
             const msgTx = new MsgTx(message);
             const tx = msgTx.tx;
+            const strTxHash = tx.hash();
+
+            if (!this._requestCache.isRequested(strTxHash)) {
+                logger.log(`Peer ${peer.address} pushed unrequested TX ${strTxHash} to us`);
+                peer.misbehave(5);
+                return;
+            }
 
             try {
                 await this._processReceivedTx(tx);
             } catch (e) {
-                logger.error(e);
-                peer.ban();
+                logger.error(e, `Bad TX received. Peer ${peer.address}`);
+                peer.misbehave(5);
                 throw e;
             }
         }
@@ -338,87 +363,44 @@ module.exports = (factory) => {
          */
         async _handleBlockMessage(peer, message) {
 
-            //TODO: make sure that's a block we requested! not pushed to us
-
             const msg = new MsgBlock(message);
-            let block;
-            try {
-                block = msg.block;
+            const block = msg.block;
+            debugNode(`Received block ${block.getHash()}`);
 
-                // since we building DAG, it's faster
-                if (await this._mainDag.getBlockInfo(block.hash())) {
-                    //                if (await this._storage.hasBlock(block.hash())) {
-                    logger.error(`Block ${block.hash()} already known!`);
-                    return;
-                }
-
-                // remove it (if was there)
-                this._setUnknownBlocks.delete(block.getHash());
-
-                await this._processBlock(block);
-
-            } catch (e) {
-                await this._blockBad(block);
-                logger.error(e);
-                peer.ban();
-                throw e;
-            }
-        }
-
-        /**
-         * General flow:
-         * 1. Do we have all parents?
-         * - and all of them successfully executed -> exec block
-         * - have bad parent -> this block is bad (marked in _canExecuteBlock)
-         * 2. we don't have all parents -> mark as InFlight, request that block
-         *
-         * @param {Block} block
-         * @return {Promise}
-         * @private
-         */
-        async _processBlock(block) {
-
-            // check: whether we already processed this block?
-            const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
-
-            if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
-                logger.error(`Trying to execute ${block.getHash()} more than one time!`);
+            if (!this._requestCache.isRequested(block.getHash())) {
+                logger.log(`Peer ${peer.address} pushed unrequested Block ${block.getHash()} to us`);
+                peer.misbehave(5);
                 return;
             }
 
-            // TODO: add mutex here?
-            await this._verifyBlock(block);
-
-            // it will check readiness of parents
-            if (this.isGenezisBlock(block) || await this._canExecuteBlock(block)) {
-
-                // we'r ready to execute this block right now
-                const patchState = await this._execBlock(block);
-                await this._acceptBlock(block, patchState);
-                await this._postAccepBlock();
-            } else {
-
-                // not ready, so we should request unknown blocks
-                this._requestUnknownBlocks();
-            }
-        }
-
-        _requestUnknownBlocks() {
-            const msgGetData = new MsgGetData();
-            const invToRequest = new Inventory();
-
-            for (let hash of this._setUnknownBlocks) {
-                invToRequest.addBlockHash(hash);
+            // since we building DAG, it's faster than check storage
+            if (this._mainDag.getBlockInfo(block.hash())) {
+                logger.error(`Block ${block.hash()} already known!`);
+                return;
             }
 
-            msgGetData.inventory = invToRequest;
+            const lock = await this._mutex.acquire([`blockReceived`]);
+            try {
+                await this._verifyBlock(block);
 
-            // TODO: this will result a duplicate responses. Rewrite it.
-            this._peerManager.broadcastToConnected(undefined, msgGetData);
+                this._mapUnknownBlocks.delete(block.getHash());
+
+                // store it in DAG & disk
+                await this._blockInFlight(block);
+
+                await this._processBlock(block, peer);
+            } catch (e) {
+                await this._blockBad(block);
+                logger.error(e);
+                peer.misbehave(10);
+                throw e;
+            } finally {
+                this._mutex.release(lock);
+            }
         }
 
         /**
-         * Handler for MSG_INV message.
+         * Handler for MSG_INV message
          * Send MSG_GET_DATA for unknown hashes
          *
          * @param {Peer} peer - peer that send message
@@ -429,26 +411,43 @@ module.exports = (factory) => {
         async _handleInvMessage(peer, message) {
             const invMsg = new MsgInv(message);
             const invToRequest = new Inventory();
-            for (let objVector of invMsg.inventory.vector) {
-                let bShouldRequest = false;
-                if (objVector.type === Constants.INV_TX) {
 
-                    // TODO: more checks? for example search this hash in UTXOs?
-                    bShouldRequest = !this._mempool.hasTx(objVector.hash);
-                } else if (objVector.type === Constants.INV_BLOCK) {
+            const lock = await this._mutex.acquire(['inventory']);
+            try {
+                for (let objVector of invMsg.inventory.vector) {
 
-                    bShouldRequest = !await this._storage.hasBlock(objVector.hash);
+                    // we already requested it (from another node), so let's skip it
+                    if (this._requestCache.isRequested(objVector.hash)) continue;
+
+                    let bShouldRequest = false;
+                    if (objVector.type === Constants.INV_TX) {
+
+                        // TODO: more checks? for example search this hash in UTXOs?
+                        bShouldRequest = !this._mempool.hasTx(objVector.hash);
+                    } else if (objVector.type === Constants.INV_BLOCK) {
+
+                        bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
+                                         !await this._storage.hasBlock(objVector.hash);
+                    }
+
+                    if (bShouldRequest) {
+                        invToRequest.addVector(objVector);
+                        this._requestCache.request(objVector.hash);
+                        debugMsgFull(`Requesting "${objVector.hash.toString('hex')}" from "${peer.address}"`);
+                    }
                 }
 
-                if (bShouldRequest) invToRequest.addVector(objVector);
-            }
-
-            // TODO: add cache of already requested items to PeerManager, but this cache should expire, because node could fail
-            if (invToRequest.vector.length) {
-                const msgGetData = new MsgGetData();
-                msgGetData.inventory = invToRequest;
-                debugMsg(`(address: "${this._debugAddress}") sending "${msgGetData.message}" to "${peer.address}"`);
-                await peer.pushMessage(msgGetData);
+                if (invToRequest.vector.length) {
+                    const msgGetData = new MsgGetData();
+                    msgGetData.inventory = invToRequest;
+                    debugMsg(
+                        `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
+                    await peer.pushMessage(msgGetData);
+                }
+            } catch (e) {
+                throw e;
+            } finally {
+                this._mutex.release(lock);
             }
         }
 
@@ -463,39 +462,81 @@ module.exports = (factory) => {
          */
         async _handleGetBlocksMessage(peer, message) {
 
-            // TODO: implement better algo
+            // we'r empty. we have nothing to share with party
+            if (!this._mainDag.order) return;
+
             const msg = new MsgGetBlocks(message);
-            let arrHashes = msg.arrHashes;
             const inventory = new Inventory();
 
-            if (!arrHashes.length || !arrHashes.every(hash => !!this._mainDag.getBlockInfo(hash))) {
-
-                // we missed at least one of those hashes! so we think peer is at wrong DAG
-                // sent our version of DAG starting from Genezis
-                arrHashes = [Constants.GENEZIS_BLOCK];
-
-                // Genezis wouldn't be included, so add it here
-                inventory.addBlockHash(Constants.GENEZIS_BLOCK);
+            for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
+                inventory.addBlockHash(hash);
             }
-
-            let currentLevel = [];
-            arrHashes.map(hash => this._mainDag.getChildren(hash).forEach(child => currentLevel.push(child)));
-            do {
-                const nextLevel = [];
-                for (let hash of currentLevel) {
-                    inventory.addBlockHash(hash);
-                    this._mainDag.getChildren(hash).forEach(child => nextLevel.push(child));
-                    if (inventory.vector.length > Constants.MAX_BLOCKS_INV) break;
-                }
-                currentLevel = nextLevel;
-
-            } while (currentLevel.length && inventory.vector.length < Constants.MAX_BLOCKS_INV);
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
+            if (inventory.vector.length) {
+                debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+                await peer.pushMessage(msgInv);
+            }
+        }
 
-            debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
-            await peer.pushMessage(msgInv);
+        /**
+         * Return Set of hashes that are descendants of arrHashes
+         *
+         * @param {Array<String>} arrHashes - last known hashes
+         * @returns {Set<any>} set of hashes descendants of arrHashes
+         * @private
+         */
+        _getBlocksFromLastKnown(arrHashes) {
+            const setBlocksToSend = new Set();
+
+            let arrKnownHashes = arrHashes.reduce((arrResult, hash) => {
+                if (this._mainDag.getBlockInfo(hash)) arrResult.push(hash);
+                return arrResult;
+            }, []);
+
+            if (!arrKnownHashes.length) {
+
+                // we missed at least one of those hashes! so we think peer is at wrong DAG
+                // sent our version of DAG starting from Genesis
+
+                // check do we have GENESIS self?
+                if (this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
+                    arrKnownHashes = [Constants.GENESIS_BLOCK];
+
+                    // Genesis wouldn't be included (same as all of arrHashes), so add it here
+                    setBlocksToSend.add(Constants.GENESIS_BLOCK);
+                } else {
+
+                    // no GENESIS - return empty Set
+                    return new Set();
+                }
+            }
+
+            const setKnownHashes = new Set(arrKnownHashes);
+            let currentLevel = [];
+            arrKnownHashes.forEach(hash => this._mainDag
+                .getChildren(hash)
+                .forEach(child => !setKnownHashes.has(child) && currentLevel.push(child)));
+
+            do {
+                const setNextLevel = new Set();
+                for (let hash of currentLevel) {
+
+                    this._mainDag.getChildren(hash).forEach(
+                        child => {
+
+                            // we already processed it
+                            if (!setBlocksToSend.has(child) && !setKnownHashes.has(child)) setNextLevel.add(child);
+                        });
+                    setBlocksToSend.add(hash);
+                    if (setBlocksToSend.size > Constants.MAX_BLOCKS_INV) break;
+                }
+                currentLevel = [...setNextLevel];
+
+            } while (currentLevel.length && setBlocksToSend.size < Constants.MAX_BLOCKS_INV);
+
+            return setBlocksToSend;
         }
 
         /**
@@ -529,14 +570,17 @@ module.exports = (factory) => {
                     } else {
                         throw new Error(`Unknown inventory type: ${objVector.type}`);
                     }
-                    debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+                    debugMsg(
+                        `(address: "${this._debugAddress}") sending "${msg.message}" with "${objVector.hash.toString(
+                            'hex')}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
-                    logger.error(e);
+                    //                    logger.error(e.message);
+                    logger.error(e, `GetDataMessage. Peer ${peer.address}`);
                     peer.misbehave(5);
 
                     // break loop
-                    if (peer.banned) return;
+                    if (peer.isBanned()) return;
                 }
             }
         }
@@ -564,8 +608,8 @@ module.exports = (factory) => {
                 debugMsg(
                     `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
                 await peer.pushMessage(message);
-
-                peer.disconnect();
+                await sleep(1000);
+                peer.disconnect(reason);
                 return;
             }
 
@@ -573,8 +617,8 @@ module.exports = (factory) => {
             if (message.nonce === this._nonce) {
                 debugNode('Connection to self detected. Disconnecting');
 
-                // TODO: should be reviewed, since ban self not only prevent connection to self, but exclude self from advertising it
-                peer.ban();
+                this._peerManager.removePeer(peer);
+                peer.disconnect('Connection to self detected');
                 return;
             }
 
@@ -586,18 +630,46 @@ module.exports = (factory) => {
                 } else {
 
                     // we are already have it's version
+                    logger.log(`Version message already received. Peer ${peer.address}`);
                     peer.misbehave(1);
                     return;
                 }
 
                 // very beginning of inbound connection
                 if (peer.inbound) {
-                    peer.peerInfo = message.peerInfo;
-                    this._peerManager.updateHandlers(peer);
+                    const result = this._peerManager.associatePeer(peer, message.peerInfo);
+                    if (result instanceof Peer) {
 
-                    // send own version
-                    debugMsg(`(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
-                    await peer.pushMessage(this._createMsgVersion());
+                        // send own version
+                        debugMsg(
+                            `(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`);
+                        await peer.pushMessage(this._createMsgVersion());
+                    } else {
+
+                        // we got an error
+                        let reason;
+                        if (result === Constants.REJECT_BANNED) {
+                            reason = 'You are banned';
+                        } else if (result === Constants.REJECT_DUPLICATE) {
+                            reason = 'Duplicate connection';
+                        } else if (result === Constants.REJECT_RESTRICTED) {
+                            reason = 'Have a break';
+                        } else {
+                            reason = 'Check _peerManager.associatePeer!';
+                        }
+
+                        const message = new MsgReject({
+                            code: result,
+                            reason
+                        });
+                        debugMsg(
+                            `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`);
+                        await peer.pushMessage(message);
+                        await sleep(1000);
+
+                        peer.disconnect(reason);
+                        return;
+                    }
                 }
 
                 this._adjustNetworkTime(_offset);
@@ -609,8 +681,9 @@ module.exports = (factory) => {
                 await peer.pushMessage(msgVerack);
 
             } else {
-                debugNode(`Has incompatible protocol version ${message.protocolVersion}`);
-                peer.disconnect();
+                const reason = `Has incompatible protocol version ${message.protocolVersion}`;
+                debugNode(reason);
+                peer.disconnect(reason);
             }
         }
 
@@ -629,14 +702,17 @@ module.exports = (factory) => {
             if (peer.version) {
                 peer.fullyConnected = true;
 
-                // if we initiated connection to peer, so let's ask for known peers
-                if (!peer.inbound) {
-                    const msgGetAddr = new MsgCommon();
-                    msgGetAddr.getAddrMessage = true;
-                    debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}"`);
-                    await peer.pushMessage(msgGetAddr);
-                }
+                // next stage
+                const msgGetAddr = this._createGetAddrMessage();
+                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}" to "${peer.address}"`);
+                await peer.pushMessage(msgGetAddr);
             }
+        }
+
+        _createGetAddrMessage() {
+            const msgGetAddr = new MsgCommon();
+            msgGetAddr.getAddrMessage = true;
+            return msgGetAddr;
         }
 
         /**
@@ -649,12 +725,17 @@ module.exports = (factory) => {
         async _handlePeerRequest(peer) {
 
             // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
-            const arrPeers = this._peerManager.filterPeers().map(peer => peer.peerInfo.data);
-            if (arrPeers.length > Constants.ADDR_MAX_LENGTH) {
+            const arrPeerInfos = this._peerManager
+                .filterPeers()
+                .map(peer => peer.toObject());
+
+            // add address of this node (it's absent in peerManager)
+            arrPeerInfos.push(this._myPeerInfo.data);
+            if (arrPeerInfos.length > Constants.ADDR_MAX_LENGTH) {
                 logger.error('Its time to implement multiple addr messages');
             }
-            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeers.length} items`);
-            await peer.pushMessage(new MsgAddr({count: arrPeers.length, peers: arrPeers}));
+            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeerInfos.length} items`);
+            await peer.pushMessage(new MsgAddr({count: arrPeerInfos.length, peers: arrPeerInfos}));
         }
 
         /**
@@ -668,22 +749,53 @@ module.exports = (factory) => {
         async _handlePeerList(peer, message) {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
-                const newPeer = this._peerManager.addPeer(peerInfo);
+
+                // don't add own address
+                if (this._myPeerInfo.address.equals(PeerInfo.toAddress(peerInfo.address))) continue;
+
+                const newPeer = await this._peerManager.addPeer(peerInfo, false);
                 if (newPeer instanceof Peer) {
                     debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
                 }
             }
 
-            // if we initiated connection - let's request for new blocks
-            if (!peer.inbound) {
-                const msg = new MsgGetBlocks();
-                msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
-                debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}"`);
-                await peer.pushMessage(msg);
+            // next stage: send INV with mempool
+            const msgInv = new MsgInv();
+            const inventory = new Inventory();
+            this._mempool.getAllTxnHashes().forEach(hash => inventory.addTxHash(hash));
+            msgInv.inventory = inventory;
+            if (inventory.vector.length) {
+                debugMsg(`(address: "${this._debugAddress}") sharing mempool to "${peer.address}"`);
+                await peer.pushMessage(msgInv);
             }
+
+            // next stage: request unknown blocks
+            const msg = await this._createGetBlocksMsg();
+            debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+            await peer.pushMessage(msg);
 
             // TODO: move loadDone after we got all we need from peer
             peer.loadDone = true;
+        }
+
+        async _createGetBlocksMsg() {
+            const msg = new MsgGetBlocks();
+            msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
+            return msg;
+        }
+
+        _createGetDataMsg(arrBlockHashes) {
+            const msg = new MsgGetData();
+            const inv = new Inventory();
+            arrBlockHashes.forEach(hash => {
+                if (!this._requestCache.isRequested(hash)) {
+                    inv.addBlockHash(hash);
+                    this._requestCache.request(hash);
+                }
+            });
+            msg.inventory = inv;
+
+            return msg;
         }
 
         _createMsgVersion() {
@@ -700,88 +812,343 @@ module.exports = (factory) => {
          * @return {Promise<void>}
          * @private
          */
-        async _rpcHandler({event, content}) {
-            switch (event) {
-                case 'tx':
-                    await this._processReceivedTx(content).catch(err => logger.error('RPC error:', err));
-                    break;
+        async rpcHandler({event, content}) {
+
+            try {
+                switch (event) {
+                    case 'tx':
+                        await this._processReceivedTx(content);
+                        break;
+                    case 'txReceipt':
+                        return await this._storage.getTxReceipt(content);
+                    case 'getBlock':
+
+                        // content is hash
+                        return await this._getBlockAndState(content).catch(err => debugNode(err));
+                    case 'getTips': {
+                        let arrHashes = this._pendingBlocks.getTips();
+
+                        if (!arrHashes || !arrHashes.length) {
+                            arrHashes = await this._storage.getLastAppliedBlockHashes();
+                        }
+                        if (!arrHashes) return [];
+
+                        return await Promise.all(
+                            arrHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
+                        );
+                    }
+                    case 'getNext': {
+                        let arrChildHashes = this._mainDag.getChildren(content);
+                        if(!arrChildHashes || !arrChildHashes.length) {
+                            arrChildHashes = this._pendingBlocks.getChildren(content);
+                        }
+                        if (!arrChildHashes) return [];
+                        return await Promise.all(
+                            arrChildHashes.map(async h => await this._getBlockAndState(h).catch(err => debugNode(err)))
+                        );
+                    }
+                    case 'getPrev': {
+                        let cBlockInfo = this._mainDag.getBlockInfo(content);
+                        if (!cBlockInfo) {
+                            cBlockInfo = this._pendingBlocks.getBlock(content).blockHeader;
+                        }
+                        if (!cBlockInfo) return [];
+                        return await Promise.all(
+                            cBlockInfo.parentHashes.map(async h => await this._getBlockAndState(h.toString('hex')).catch(err => debugNode(err)))
+                        );
+                    }
+                    case 'getTx':
+                        return await this._getTxForRpc(content);
+                    case 'constantMethodCall':
+                        return await this._constantMethodCallRpc(content);
+                    case 'getUnspent':
+                        const utxo = await this._storage.getUtxo(content);
+                        return utxo.toObject();
+                    case 'walletListUnspent':
+                        const {strAddress, bStableOnly = false} = content;
+
+                        let arrPendingUtxos = [];
+                        if (!bStableOnly) {
+                            const {patchMerged} = await this._pendingBlocks.getBestParents();
+                            arrPendingUtxos = Array.from(patchMerged.getCoins().values());
+                        }
+                        const arrStableUtxos = await this._storage.walletListUnspent(strAddress);
+
+                        return {arrStableUtxos, arrPendingUtxos};
+                    default:
+                        throw new Error(`Unsupported method ${event}`);
+                }
+            } catch (e) {
+                logger.error('RPC error.', e);
+                throw e;
             }
-        }
-
-        async _processReceivedTx(tx) {
-
-            // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
-            // this will check for double spend in pending txns
-            // if something wrong - it will throw error
-            await this._processTx(false, tx);
-
-            this._mempool.addTx(tx);
-            this._informNeighbors(tx);
         }
 
         /**
          *
-         * @param {Boolean} isGenezis
          * @param {Transaction} tx
-         * @param {PatchDB} patchForBlock - OPTIONAL!
-         * @return {Promise<number>} fee for this TX
+         * @returns {Promise<void>}
          * @private
          */
-        async _processTx(isGenezis, tx, patchForBlock) {
-            const patch = patchForBlock ? patchForBlock : new PatchDB();
-            let totalHas = 0;
+        async _processReceivedTx(tx) {
+            typeforce(types.Transaction, tx);
 
-            // process input (for regular block only)
-            if (!isGenezis) {
-                tx.verify();
-                const mapUtxos = await this._storage.getUtxosCreateMap(tx.utxos);
-                ({totalHas} = this._app.processTxInputs(tx, mapUtxos, patchForBlock));
-            }
+            // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
+            // this will check for double spend in pending txns
+            // if something wrong - it will throw error
 
-            // TODO: check for TX type: payment or smart contract deploy/call and process separately
-            let totalSent = 0;
-            if (tx.hasOneReceiver()) {
-                const [coins] = tx.getOutCoins();
+            if (this._mempool.hasTx(tx.hash())) return;
 
-                if (tx.isContractCreation()) {
-                    totalSent = await this._app.createContract(tx, patch);
+            await this._storage.checkTxCollision([tx.hash()]);
+            await this._processTx(undefined, false, tx);
+            this._mempool.addTx(tx);
+
+            await this._informNeighbors(tx);
+        }
+
+        /**
+         *
+         * @param {PatchDB | undefined} patchForBlock
+         * @param {Boolean} isGenesis
+         * @param {Transaction} tx
+         * @param {Number} amountHas - used only for internal TXNs
+         * @return {Promise<{fee, patchThisTx}>} fee and patch for this TX
+         * @private
+         */
+        async _processTx(patchForBlock, isGenesis, tx, amountHas) {
+            let patchThisTx = new PatchDB(tx.witnessGroupId);
+            let totalHas = amountHas === undefined ? 0 : amountHas;
+            let fee = 0;
+
+            const lock = await this._mutex.acquire(['transaction']);
+            try {
+                // process input (for regular block only)
+                if (!isGenesis) {
+                    tx.verify();
+                    const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
+                    const patchMerged = patchForBlock ? patchForBlock.merge(patchUtxos) : patchUtxos;
+                    ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
+                }
+
+                let totalSent = 0;
+                let contract;
+
+                // TODO: move it to per output processing. So we could use multiple contract invocation in one TX
+                //  it's useful for mass payments, where some of addresses could be contracts!
+                if (tx.isContractCreation() ||
+                    (contract = await this._getContractByAddr(tx.getContractAddr(), patchForBlock))
+                ) {
+
+                    // process contract creation/invocation
+                    fee = await this._processContract(isGenesis, contract, tx, patchThisTx, patchForBlock, totalHas);
+                    const receipt = patchThisTx.getReceipt(tx.getHash());
+                    if (!receipt || !receipt.isSuccessful()) {
+                        throw new Error(`Tx ${tx.hash()} contract invocation failed`);
+                    }
                 } else {
 
-                    // check: whether it's contract invocation
-                    let contract;
-                    if (patchForBlock && patchForBlock.getContract(coins.getReceiverAddr())) {
-
-                        // contract was changed in previous blocks
-                        contract = patchForBlock.getContract(coins.getReceiverAddr());
-                    } else {
-
-                        // try to load contract data from storage
-                        contract = await this._storage.getContract(coins.getReceiverAddr());
-                    }
-
-                    if (contract) {
-                        assert(
-                            contract.getGroupId() === tx.witnessGroupId,
-                            `TX groupId: "${tx.witnessGroupId}" != contract groupId`
-                        );
-
-                        totalSent = await this._app.runContract(tx.getCode(), patch, contract);
-                    } else {
-
-                        // regular payment
-                        totalSent = this._app.processPayments(tx, patch);
+                    // regular payment
+                    totalSent = this._app.processPayments(tx, patchThisTx);
+                    if (!isGenesis) {
+                        fee = totalHas - totalSent;
+                        if (fee < Constants.fees.TX_FEE) {
+                            throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+                        }
                     }
                 }
+            } finally {
+                this._mutex.release(lock);
+            }
+
+            // TODO: fees.TX_FEE is fee per 1Kb of TX size
+            // TODO: rework fee
+
+            return {fee, patchThisTx};
+        }
+
+        /**
+         * Contract creation/invocation tx MUST have zero-index output with code, coins and so on
+         * the rest of outputs could have change output(s)
+         *
+         * @param {Boolean} isGenesis
+         * @param {Contract | undefined} contract
+         * @param {Transaction} tx
+         * @param {PatchDB} patchThisTx
+         * @param {PatchDB} patchForBlock - used for nested contracts
+         * @param {Number} nCoinsIn - sum of all inputs coins
+         * @returns {Promise<number>}
+         * @private
+         */
+        async _processContract(isGenesis, contract, tx, patchThisTx, patchForBlock, nCoinsIn) {
+            let fee = 0;
+
+            // contract creation/invocation has 2 types of change:
+            // 1st - usual for UTXO just send exceeded coins to self
+            // 2nd - not used coins (in/out diff - coinsUsed) as internal TX
+            let receipt;
+
+            // global variables for contract
+            const environment = {
+                contractTx: tx.hash(),
+                callerAddress: tx.getTxSignerAddress(),
+
+                // we fill it before invocation (from contract)
+                contractAddr: undefined,
+                balance: 0,
+                // TODO Fix it (when witness creates block this is unknown!)
+//                block: this._processedBlock ? {
+//                    hash: this._processedBlock.getHash(),
+//                    timestamp: this._processedBlock.timestamp
+//                } : {}
+                block: {
+                    hash: 'stub',
+                    timestamp: 'stub'
+                }
+            };
+
+            // get max contract fee
+            let coinsLimit;
+            if (!isGenesis) {
+                const totalSent = this._app.processPayments(tx, patchThisTx, 1);
+                coinsLimit = nCoinsIn - totalSent;
+
+                if (coinsLimit < Constants.fees.CONTRACT_FEE) {
+                    throw new Error(
+                        `Tx ${tx.hash()} CONTRACT fee ${coinsLimit} less than ${Constants.fees.CONTRACT_FEE}!`);
+                }
+
+            } else {
+                coinsLimit = Number.MAX_SAFE_INTEGER;
+            }
+
+            if (!contract) {
+
+                // contract creation
+                // address creation should be deterministic (same for all nodes!)
+                const addr = environment.contractAddr = Crypto.getAddress(tx.hash());
+
+                // prevent contract collision
+                if (await this._storage.getContract(Buffer.from(addr, 'hex'))) {
+                    throw new Errror('Contract already exists');
+                }
+
+                ({receipt, contract} =
+                    await this._app.createContract(coinsLimit, tx.getContractCode(), environment));
             } else {
 
-                // regular payment
-                totalSent = this._app.processPayments(tx, patch);
-            }
-            const fee = totalHas - totalSent;
+                // contract invocation
+                assert(
+                    contract.getGroupId() === tx.witnessGroupId,
+                    `TX groupId: "${tx.witnessGroupId}" != contract groupId`
+                );
 
-            if (!isGenezis && fee < Constants.MIN_TX_FEE) throw new Error(`Tx ${tx.hash()} fee ${fee} too small!`);
+                const invocationCode = tx.getContractCode();
+
+                environment.contractAddr = contract.getStoredAddress();
+                environment.balance = contract.getBalance();
+
+                receipt = await this._app.runContract(
+                    coinsLimit,
+                    invocationCode && invocationCode.length ? JSON.parse(tx.getContractCode()) : {},
+                    contract,
+                    environment,
+                    undefined,
+                    this._createCallbacksForApp(patchForBlock, patchThisTx, tx.hash())
+                );
+            }
+            patchThisTx.setReceipt(tx.hash(), receipt);
+
+            // send change (not for Genesis)
+            if (!isGenesis) {
+                fee = this._createContractChange(tx, coinsLimit, patchThisTx, contract, receipt);
+            }
+
+            // contract could throw, so it could be undefined
+            if (contract) {
+                patchThisTx.setContract(contract);
+
+                // increase balance of contract
+                if (receipt.isSuccessful()) contract.deposit(tx.getContractSentAmount());
+            }
 
             return fee;
+        }
+
+        _createCallbacksForApp(patchBlock, patchTx, strTxHash) {
+            return {
+                createInternalTx: this._sendCoins.bind(this, patchTx, strTxHash),
+                invokeContract: this._invokeNestedContract.bind(this, patchBlock, patchTx, strTxHash)
+            };
+        }
+
+        _sendCoins(patchTx, strTxHash, strAddress, amount) {
+            typeforce(typeforce.tuple(types.Patch, types.Str64, types.Address, typeforce.Number), arguments);
+
+            if (amount === 0) return;
+            const internalTxHash = this._createInternalTx(patchTx, strAddress, amount);
+
+            // it's some sorta fake receipt, it will be overridden (or "merged") by original receipt
+            const receipt = new TxReceipt({status: Constants.TX_STATUS_OK});
+            receipt.addInternalTx(internalTxHash);
+            patchTx.setReceipt(strTxHash, receipt);
+        }
+
+        async _invokeNestedContract(patchBlock, patchTx, strTxHash, strAddress, objParams) {
+            typeforce(
+                typeforce.tuple(types.Patch, types.Patch, types.Str64, types.Address, typeforce.Object),
+                arguments
+            );
+
+            const {method, arrArguments, context, coinsLimit, environment} = objParams;
+            typeforce(
+                typeforce.tuple(typeforce.String, typeforce.Array, typeforce.Number),
+                [method, arrArguments, coinsLimit]
+            );
+
+            const contract = await this._getContractByAddr(strAddress, patchBlock);
+            if (!contract) throw new Error('Contract not found!');
+            const newEnv = {
+                ...environment,
+                contractAddr: contract.getStoredAddress(),
+                balance: contract.getBalance()
+            };
+            const receipt = await this._app.runContract(
+                coinsLimit,
+                {method, arrArguments},
+                contract,
+                newEnv,
+                context,
+                this._createCallbacksForApp(patchBlock, patchTx, strTxHash)
+            );
+
+            if (receipt.isSuccessful()) {
+                patchTx.setReceipt(strTxHash, receipt);
+                patchTx.setContract(contract);
+            }
+            return {success: receipt.isSuccessful(), fee: receipt.getCoinsUsed()};
+        }
+
+        /**
+         * first try to get contract from patch and then to load contract data from storage
+         *
+         * @param {Buffer | String} contractAddr
+         * @param {PatchDB} patchForBlock
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _getContractByAddr(contractAddr, patchForBlock) {
+            if (!contractAddr) return undefined;
+
+            typeforce(types.Address, contractAddr);
+
+            const buffContractAddr = Buffer.isBuffer(contractAddr) ? contractAddr : Buffer.from(contractAddr, 'hex');
+            let contract;
+
+            if (patchForBlock) {
+                contract = patchForBlock.getContract(buffContractAddr);
+            }
+
+            return contract ? contract.clone() : await this._storage.getContract(buffContractAddr);
         }
 
         /**
@@ -795,8 +1162,8 @@ module.exports = (factory) => {
             const inv = new Inventory();
             item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
-            debugNode(`Informing neighbors about new item ${item.hash()}`);
-            this._peerManager.broadcastToConnected(undefined, msgInv);
+            debugNode(`(address: "${this._debugAddress}") Informing neighbors about new item ${item.hash()}`);
+            this._peerManager.broadcastToConnected('fullyConnected', msgInv);
         }
 
         /**
@@ -811,36 +1178,62 @@ module.exports = (factory) => {
          */
         async _execBlock(block) {
 
-            const patchState = this._pendingBlocks.mergePatches(block.parentHashes);
-            const isGenezis = this.isGenezisBlock(block);
+            // since we executing only one block per time (mute) we could use global variable
+            this._processedBlock = block;
+
+            // double check: whether we already processed this block?
+            const blockInfoDag = this._mainDag.getBlockInfo(block.getHash());
+            if (blockInfoDag && (blockInfoDag.isFinal() || this._pendingBlocks.hasBlock(block.getHash()))) {
+                logger.error(`Trying to process ${block.getHash()} more than one time!`);
+                return null;
+            }
+
+            let patchState = this._pendingBlocks.mergePatches(block.parentHashes);
+            const isGenesis = this.isGenesisBlock(block);
 
             let blockFees = 0;
             const blockTxns = block.txns;
 
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
+                patchState.setGroupId(block.witnessGroupId);
+
                 const tx = new Transaction(blockTxns[i]);
-                const fee = await this._processTx(isGenezis, tx, patchState);
+                const {fee, patchThisTx} = await this._processTx(patchState, isGenesis, tx);
                 blockFees += fee;
+                patchState = patchState.merge(patchThisTx, true);
             }
 
             // process coinbase tx
-            if (!isGenezis) {
-                const coinbase = new Transaction(blockTxns[0]);
-                this._checkCoinbaseTx(coinbase, blockFees);
-                const coins = coinbase.getOutCoins();
-                for (let i = 0; i < coins.length; i++) {
-                    patchState.createCoins(coinbase.hash(), i, coins[i]);
-                }
+            if (!isGenesis) {
+                this._processBlockCoinbaseTX(block, blockFees, patchState);
             }
 
+            debugNode(`Block ${block.getHash()} being executed`);
             return patchState;
+        }
+
+        /**
+         *
+         * @param {Block} block
+         * @param {Number} blockFees - sum of block TXns fees
+         * @param {PatchDB} patchState - patch to add coins
+         * @private
+         */
+        _processBlockCoinbaseTX(block, blockFees, patchState) {
+            const coinbase = new Transaction(block.txns[0]);
+            this._checkCoinbaseTx(coinbase, blockFees);
+            const coins = coinbase.getOutCoins();
+            for (let i = 0; i < coins.length; i++) {
+
+                // we'll store only non zero outputs to minimise disk usage
+                if (coins[i].getAmount() !== 0) patchState.createCoins(coinbase.hash(), i, coins[i]);
+            }
         }
 
         async _acceptBlock(block, patchState) {
 
-            // write block to storage & DAG
-            await this._storeBlockAndInfo(block, new BlockInfo(block.header));
+            debugNode(`Block ${block.getHash()} accepted`);
 
             // save block to graph of pending blocks
             this._pendingBlocks.addBlock(block, patchState);
@@ -857,12 +1250,6 @@ module.exports = (factory) => {
             await this._storage.updatePendingBlocks(this._pendingBlocks.getAllHashes());
 
             this._informNeighbors(block);
-
-            // process depending blocks (they are unprocessed)
-            const arrChildHashes = this._mainDag.getChildren(block.getHash());
-            for (let hash of arrChildHashes) {
-                await this._processBlock(await this._storage.getBlock(hash));
-            }
         }
 
         async _processFinalityResults(result) {
@@ -874,8 +1261,10 @@ module.exports = (factory) => {
                 arrTopStable
             } = result;
 
+            logger.log(`Blocks ${Array.from(setStableBlocks.keys())} are stable now`);
+
             await this._storage.applyPatch(patchToApply);
-            await this._storage.updateLastAppliedBlocks(arrTopStable);
+            await this._updateLastAppliedBlocks(arrTopStable);
 
             for (let blockHash of setBlocksToRollback) {
                 await this._unwindBlock(await this._storage.getBlock(blockHash));
@@ -888,25 +1277,70 @@ module.exports = (factory) => {
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
             }
+            if (this._rpc) {
+                this._rpc.informWsSubscribersStableBlocks(Array.from(setStableBlocks.keys()));
+            }
+        }
+
+        async _updateLastAppliedBlocks(arrTopStable) {
+            const arrPrevTopStableBlocks = await this._storage.getLastAppliedBlockHashes();
+            const mapPrevGroupIdHash = new Map();
+            arrPrevTopStableBlocks.forEach(hash => {
+                const cBlockInfo = this._mainDag.getBlockInfo(hash);
+                mapPrevGroupIdHash.set(cBlockInfo.getWitnessId(), hash);
+            });
+
+            const mapNewGroupIdHash = new Map();
+            arrTopStable.forEach(hash => {
+                const cBlockInfo = this._mainDag.getBlockInfo(hash);
+                mapNewGroupIdHash.set(cBlockInfo.getWitnessId(), hash);
+            });
+
+            const arrNewLastApplied = [];
+
+            const nGroupCount = await this._storage.getWitnessGroupsCount();
+            for (let i = 0; i <= nGroupCount; i++) {
+                const hash = mapNewGroupIdHash.get(i) || mapPrevGroupIdHash.get(i);
+
+                // group could be created, but still no final blocks
+                if (hash) arrNewLastApplied.push(hash);
+            }
+
+            await this._storage.updateLastAppliedBlocks(arrNewLastApplied);
         }
 
         /**
          * post hook
          *
+         * @param {Block} block
          * @returns {Promise<void>}
          * @private
          */
-        async _postAccepBlock() {
+        async _postAcceptBlock(block) {
+            logger.log(
+                `Block ${block.hash()}. GroupId: ${block.witnessGroupId}. With ${block.txns.length} TXns and parents ${block.parentHashes} was accepted`
+            );
 
+            if (this._rpc) {
+                const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
+                this._rpc.informWsSubscribersNewBlock(blockAndState);
+            }
         }
 
+        /**
+         * You can add block reward checks here
+         *
+         * @param {Transaction} tx
+         * @param {Number} blockFees - calculated (for each TX) value
+         * @private
+         */
         _checkCoinbaseTx(tx, blockFees) {
             assert(tx.isCoinbase(), 'Not a coinbase TX!');
             assert(tx.amountOut() === blockFees, 'Bad amount in coinbase!');
         }
 
-        isGenezisBlock(block) {
-            return block.hash() === Constants.GENEZIS_BLOCK;
+        isGenesisBlock(block) {
+            return block.getHash() === Constants.GENESIS_BLOCK;
         }
 
         /**
@@ -919,14 +1353,14 @@ module.exports = (factory) => {
          */
         async _verifyBlock(block, checkSignatures = true) {
 
-            // TODO: think about it.
-            if (block.getHash() === Constants.GENEZIS_BLOCK) return;
+            // we create Genesis manually, so we sure that it's valid
+            if (block.getHash() === Constants.GENESIS_BLOCK) return;
 
             // block should have at least one parent!
             assert(Array.isArray(block.parentHashes) && block.parentHashes.length);
 
             // signatures
-            if (checkSignatures && !this.isGenezisBlock(block)) await this._verifyBlockSignatures(block);
+            if (checkSignatures && !this.isGenesisBlock(block)) await this._verifyBlockSignatures(block);
 
             // merkleRoot
             assert(block.hash() !== block.merkleRoot.toString('hex'), `Bad merkle root for ${block.hash()}`);
@@ -935,6 +1369,13 @@ module.exports = (factory) => {
             await this._storage.checkTxCollision(block.getTxHashes());
         }
 
+        /**
+         * Ok, if all block signatures (number og it equals to group quorum) matches delegates pubKeys
+         *
+         * @param {Blob} block
+         * @returns {Promise<void>}
+         * @private
+         */
         async _verifyBlockSignatures(block) {
             const buffBlockHash = Buffer.from(block.hash(), 'hex');
 
@@ -955,43 +1396,62 @@ module.exports = (factory) => {
         }
 
         /**
-         * Build DAG of FINAL blocks! The rest of blocks will be added upon processing INV requests
+         * Build DAG of all known blocks! The rest of blocks will be added upon processing INV requests
          *
+         * @param {Array} arrLastStableHashes - hashes of all stable blocks
+         * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
-        async buildMainDag() {
-            let arrCurrentLevel = await this._storage.getLastAppliedBlockHashes();
+        async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
+            this._mainDag = new MainDag();
+
+            // if we have only one group - all blocks becomes stable, and no pending!
+            // so we need to start from stables
+            let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
+                ? arrPedingBlocksHashes
+                : arrLastStableHashes;
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 for (let hash of arrCurrentLevel) {
-                    hash = hash.toString('hex');
-                    let bi = this._mainDag.getBlockInfo(hash);
-                    if (!bi) bi = await this._storage.getBlockInfo(hash);
-                    if (!bi) throw new Error('buildMainDag. Found missed blocks!');
-                    if (bi.isBad()) throw new Error(`buildMainDag: found bad block ${hash} in final DAG!`);
+                    debugNode(`Added ${hash} into dag`);
+
+                    // we already processed this block
+                    if (this._mainDag.getBlockInfo(hash)) continue;
+
+                    let bi = await this._storage.getBlockInfo(hash);
+                    if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
+                    if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
 
                     this._mainDag.addBlock(bi);
 
                     for (let parentHash of bi.parentHashes) {
-                        setNextLevel.add(parentHash);
+                        if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
                     }
                 }
 
-                // Do we reach GENEZIS?
-                if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENEZIS_BLOCK) break;
+                // Do we reach GENESIS?
+                if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
             }
         }
 
-        async rebuildPending() {
-            const arrHashes = await this._storage.getPendingBlockHashes();
+        /**
+         * Used at startup to rebuild DAG of pending blocks
+         *
+         * @param {Array} arrLastStableHashes - hashes of LAST stable blocks
+         * @param {Array} arrPendingBlocksHashes - hashes of all pending blocks
+         * @returns {Promise<void>}
+         */
+        async _rebuildPending(arrLastStableHashes, arrPendingBlocksHashes) {
+            this._pendingBlocks = new PendingBlocksManager(arrLastStableHashes);
+
             const mapBlocks = new Map();
             const mapPatches = new Map();
-            for (let hash of arrHashes) {
+            for (let hash of arrPendingBlocksHashes) {
                 hash = hash.toString('hex');
-                const bi = await this._storage.getBlockInfo(hash);
-
+                let bi = this._mainDag.getBlockInfo(hash);
+                if (!bi) bi = await this._storage.getBlockInfo(hash);
                 if (!bi) throw new Error('rebuildPending. Found missed blocks!');
                 if (bi.isBad()) throw new Error(`rebuildPending: found bad block ${hash} in DAG!`);
                 mapBlocks.set(hash, await this._storage.getBlock(hash));
@@ -999,7 +1459,7 @@ module.exports = (factory) => {
 
             const runBlock = async (hash) => {
 
-                // we are already executed this block
+                // are we already executed this block
                 if (!mapBlocks.get(hash) || mapPatches.has(hash)) return;
 
                 const block = mapBlocks.get(hash);
@@ -1009,7 +1469,7 @@ module.exports = (factory) => {
                 mapPatches.set(hash, await this._execBlock(block));
             };
 
-            for (let hash of arrHashes) {
+            for (let hash of arrPendingBlocksHashes) {
                 await runBlock(hash);
             }
 
@@ -1020,80 +1480,95 @@ module.exports = (factory) => {
             }
         }
 
-        async _blockBad(block) {
-            const blockInfo = new BlockInfo(block.header);
-            blockInfo.markAsBad();
-            await this._storeBlockAndInfo(block, blockInfo);
-        }
+        async _blockBad(blockOrBlockInfo) {
+            typeforce(typeforce.oneOf(types.BlockInfo, types.Block), blockOrBlockInfo);
 
-        async _blockFinal(block) {
-            const blockInfo = new BlockInfo(block.header);
-            blockInfo.markAsFinal();
-            await this._storeBlockAndInfo(block, blockInfo);
+            const blockInfo = blockOrBlockInfo instanceof Block
+                ? new BlockInfo(blockOrBlockInfo.header)
+                : blockOrBlockInfo;
+
+            blockInfo.markAsBad();
+            await this._storeBlockAndInfo(undefined, blockInfo);
         }
 
         async _blockInFlight(block) {
+            debugNode(`Block "${block.getHash()}" stored`);
+
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsInFlight();
             await this._storeBlockAndInfo(block, blockInfo);
         }
 
+        _isBlockExecuted(hash) {
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            return (blockInfo && blockInfo.isFinal()) || this._pendingBlocks.hasBlock(hash);
+        }
+
+        async _isBlockKnown(hash) {
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            return blockInfo || await this._storage.hasBlock(hash);
+        }
+
         /**
          * Depending of BlockInfo flag - store block & it's info in _mainDag & _storage
          *
-         * @param {Block} block
+         * @param {Block | undefined} block
          * @param {BlockInfo} blockInfo
          * @private
          */
         async _storeBlockAndInfo(block, blockInfo) {
-            typeforce(typeforce.tuple(types.Block, types.BlockInfo), arguments);
+            typeforce(typeforce.tuple(typeforce.oneOf(types.Block, undefined), types.BlockInfo), arguments);
 
-            this._mainDag.addBlock(blockInfo);
             if (blockInfo.isBad()) {
 
-                // we don't store entire of bad blocks, but store its headers (to prevent processing it again)
-                await this._storage.saveBlockInfo(blockInfo);
+                const storedBI = await this._storage.getBlockInfo(blockInfo.getHash()).catch(err => debugNode(err));
+                if (storedBI && !storedBI.isBad()) {
+
+                    // rewrite it's blockInfo
+                    await this._storage.saveBlockInfo(blockInfo);
+
+                    // remove block (it was marked as good block)
+                    await this._storage.removeBlock(blockInfo.getHash());
+                } else {
+
+                    // we don't store entire of bad blocks, but store its headers (to prevent processing it again)
+                    await this._storage.saveBlockInfo(blockInfo);
+                }
             } else {
 
                 // save block, and it's info
-                await this._storage.saveBlock(block, blockInfo);
+                await this._storage.saveBlock(block, blockInfo).catch(err => debugNode(err));
             }
+            this._mainDag.addBlock(blockInfo);
         }
 
         /**
+         * Check was parents executed?
          *
-         * @param {Block} block
+         * @param {Block | BlockInfo} block
          * @return {Promise<boolean || Set>}
          * @private
          */
-        async _canExecuteBlock(block) {
-            let result = true;
+        _canExecuteBlock(block) {
+            if (this.isGenesisBlock(block)) return true;
+
             for (let hash of block.parentHashes) {
                 let blockInfo = this._mainDag.getBlockInfo(hash);
 
-                // parent is good!
-                if ((blockInfo && blockInfo.isFinal()) || this._pendingBlocks.hasBlock(hash)) continue;
-
                 // parent is bad
                 if (blockInfo && blockInfo.isBad()) {
+
+                    // it will be marked as bad in _handleBlockMessage
                     throw new Error(
                         `Block ${block.getHash()} refer to bad parent ${hash}`);
                 }
 
-                // parent is not processed yet. block couldn't be executed
-                if (!blockInfo) {
-                    if (!this._setUnknownBlocks.has(hash)) {
+                // parent is good!
+                if ((blockInfo && blockInfo.isFinal()) || this._pendingBlocks.hasBlock(hash)) continue;
 
-                        // we didn't heard about this block. let's add it for downloading
-                        this._setUnknownBlocks.add(hash);
-                    }
-                }
-                result = false;
+                return false;
             }
-
-            // mark block for future processing
-            if (!result) await this._blockInFlight(block);
-            return result;
+            return true;
         }
 
         /**
@@ -1103,10 +1578,358 @@ module.exports = (factory) => {
          * @private
          */
         async _unwindBlock(block) {
-            debugNode(`(address: "${this._debugAddress}") Unwinding txns from block: "${block.getHash()}"`);
+            logger.log(`(address: "${this._debugAddress}") Unwinding txns from block: "${block.getHash()}"`);
             for (let objTx of block.txns) {
                 this._mempool.addTx(new Transaction(objTx));
             }
+        }
+
+        /**
+         * SIGINT & SIGTERM handlers
+         * @private
+         */
+        gracefulShutdown() {
+
+            // TODO: implement flushing all in memory data to disk
+            this._peerManager.saveAllPeers().then(_ => {
+                console.log('Shutting down');
+                process.exit(1);
+            });
+        }
+
+        /**
+         *
+         * @param {PatchDB} patch
+         * @param {Buffer | String} receiver
+         * @param {Number} amount
+         * @returns {String} - new internal TX hash
+         * @private
+         */
+        _createInternalTx(patch, receiver, amount) {
+            typeforce(typeforce.tuple(types.Address, typeforce.Number), [receiver, amount]);
+
+            assert(amount > 0, 'Internal TX with non positive amount!');
+            receiver = Buffer.isBuffer(receiver) ? receiver : Buffer.from(receiver, 'hex');
+
+            const coins = new Coins(amount, receiver);
+            const txHash = Crypto.createHash(Crypto.randomBytes(32));
+            patch.createCoins(txHash, 0, coins);
+
+            return txHash;
+        }
+
+        /**
+         *
+         * @param {Transaction} tx
+         * @param {Number} maxFee
+         * @param {PatchDB} patch
+         * @param {Contract} contract
+         * @param {TxReceipt} receipt
+         * @returns {Number} - fee
+         * @private
+         */
+        _createContractChange(tx, maxFee, patch, contract, receipt) {
+
+            // no changeReceiver? ok - no change. all coins become goes to witness!
+            const addrChangeReceiver = tx.getContractChangeReceiver();
+            if (!addrChangeReceiver || !addrChangeReceiver.length) return maxFee;
+
+            let fee = maxFee;
+            assert(maxFee >= fee, 'We spent more than have!');
+
+            if (Buffer.isBuffer(addrChangeReceiver)) {
+                fee = receipt.getCoinsUsed();
+
+                if (maxFee - fee !== 0) {
+                    const changeTxHash = this._createInternalTx(
+                        patch,
+                        tx.getContractChangeReceiver(),
+                        maxFee - fee
+                    );
+                    receipt.addInternalTx(changeTxHash);
+                }
+
+                // receipt changed by ref, no need to add it to patch
+            }
+
+            return fee;
+        }
+
+        /**
+         * Clean and rebuild DB (UTXO) from block storage
+         */
+        reIndex() {
+
+        }
+
+        async _rebuildBlockDb() {
+            const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
+            const arrLastStableHashes = await this._storage.getLastAppliedBlockHashes();
+
+            await this._buildMainDag(arrLastStableHashes, arrPendingBlocksHashes);
+            await this._rebuildPending(arrLastStableHashes, arrPendingBlocksHashes);
+        }
+
+        async _nodeWorker() {
+            await this._blockProcessor().catch(err => console.error(err));
+            await sleep(1000);
+            return setImmediate(this._nodeWorker.bind(this));
+        }
+
+        /**
+         * _mapBlocksToExec is map of hash => peer (that sent us a block)
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _blockProcessor() {
+            if (this._mapBlocksToExec.size) {
+                debugBlock(`Block processor started. ${this._mapBlocksToExec.size} blocks awaiting to exec`);
+
+//                const arrReversed=[...this._mapBlocksToExec].reverse();
+                for (let [hash, peer] of this._mapBlocksToExec) {
+                    let blockOrInfo = this._mainDag.getBlockInfo(hash);
+                    if (!blockOrInfo) blockOrInfo = await this._storage.getBlock(hash).catch(err => debugBlock(err));
+
+                    try {
+                        if (!blockOrInfo || (blockOrInfo.isBad && blockOrInfo.isBad())) {
+                            throw new Error(`Block ${hash} is not found or bad`);
+                        }
+
+                        await this._processBlock(blockOrInfo, peer);
+
+                    } catch (e) {
+                        logger.error(e);
+                        if (blockOrInfo) await this._blockBad(blockOrInfo);
+                    } finally {
+                        debugBlock(`Removing block ${hash} from BlocksToExec`);
+                        this._mapBlocksToExec.delete(hash);
+                    }
+                }
+            }
+
+            if (this._mapUnknownBlocks.size) {
+                await this._requestUnknownBlocks();
+            } else {
+
+                // each 20 cycles - request blocks
+                const tickCount = 20;
+                if (this._getBlocksCounter === undefined) this._getBlocksCounter = 0;
+                if (!(this._getBlocksCounter++) % tickCount) {
+                    this._peerManager.broadcastToConnected('fullyConnected', await this._createGetBlocksMsg());
+                }
+            }
+        }
+
+        /**
+         *
+         * @param {Block | BlockInfo} block
+         * @param {Peer} peer
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _processBlock(block, peer) {
+            typeforce(typeforce.oneOf(types.Block, types.BlockInfo), block);
+
+            debugBlock(`Attempting to exec block "${block.getHash()}"`);
+
+            if (await this._canExecuteBlock(block)) {
+                if (!this._isBlockExecuted(block.getHash())) {
+                    if (block instanceof Block) {
+                        await this._blockProcessorExecBlock(block, peer);
+                    } else {
+                        await this._blockProcessorExecBlock(block.getHash(), peer);
+                    }
+
+                    const arrChildrenHashes = this._mainDag.getChildren(block.getHash());
+                    for (let hash of arrChildrenHashes) {
+                        this._queueBlockExec(hash, peer);
+
+                        //consume too much memory
+//                        await this._processBlock(await this._storage.getBlock(hash));
+                    }
+                }
+            } else {
+                this._queueBlockExec(block.getHash(), peer);
+                const {arrToRequest, arrToExec} = await this._blockProcessorProcessParents(block);
+                arrToRequest.forEach(hash => this._mapUnknownBlocks.set(hash, peer));
+                arrToExec.forEach(hash => this._queueBlockExec(hash, peer));
+            }
+        }
+
+        _queueBlockExec(hash, peer) {
+            debugBlock(`Adding block ${hash} from BlocksToExec`);
+
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            if (blockInfo && blockInfo.isBad()) return;
+
+            this._mapBlocksToExec.set(hash, peer);
+        }
+
+        async _blockProcessorProcessParents(blockInfo) {
+            typeforce(typeforce.oneOf(types.Block, types.BlockInfo), blockInfo);
+
+            const arrToRequest = [];
+            const arrToExec = [];
+            for (let parentHash of blockInfo.parentHashes) {
+
+                // if we didn't queue it for exec & we don't have it yet
+                if (!this._mapBlocksToExec.has(parentHash) && !await this._isBlockKnown(parentHash)) {
+                    arrToRequest.push(parentHash);
+                } else {
+                    if (!this._isBlockExecuted(parentHash)) {
+                        arrToExec.push(parentHash);
+                    }
+                }
+            }
+
+            return {arrToRequest, arrToExec};
+        }
+
+        async _blockProcessorExecBlock(blockOrHash, peer) {
+            typeforce(typeforce.oneOf(types.Hash256bit, types.Block), blockOrHash);
+
+            const block = blockOrHash instanceof Block ? blockOrHash : await this._storage.getBlock(blockOrHash);
+
+            debugBlock(`Executing block "${block.getHash()}"`);
+
+            const lock = await this._mutex.acquire(['blockExec']);
+            try {
+                const patchState = await this._execBlock(block);
+                await this._acceptBlock(block, patchState);
+                await this._postAcceptBlock(block);
+                await this._informNeighbors(block);
+            } catch (e) {
+                logger.error(`Failed to execute "${block.hash()}"`, e);
+                await this._blockBad(block);
+                peer.misbehave(10);
+            } finally {
+                this._mutex.release(lock);
+            }
+        }
+
+        async _requestUnknownBlocks() {
+
+            // request all unknown blocks
+            const mapPeerBlocks = this._createMapBlockPeer();
+            await this._sendMsgGetDataToPeers(mapPeerBlocks);
+
+        }
+
+        /**
+         * Which hashes of this._mapUnknownBlocks should be queried from which peer
+         *
+         * @returns {Map<any, any>} peerKey => Set of hashes
+         * @private
+         */
+        _createMapBlockPeer() {
+            const mapPeerBlocks = new Map();
+
+            for (let [hash, peer] of this._mapUnknownBlocks) {
+                if (this._requestCache.isRequested(hash) || this._mainDag.getBlockInfo(hash)) continue;
+
+                const key = createPeerKey(peer);
+                let setBlocks = mapPeerBlocks.get(key);
+                if (!setBlocks) {
+                    setBlocks = new Set();
+                    mapPeerBlocks.set(key, setBlocks);
+                }
+                setBlocks.add(hash);
+            }
+            return mapPeerBlocks;
+        }
+
+        async _sendMsgGetDataToPeers(mapPeerBlocks) {
+            const arrConnectedPeers = this._peerManager.getConnectedPeers();
+            if (!arrConnectedPeers || !arrConnectedPeers.length) return;
+
+            for (let [key, setBlocks] of mapPeerBlocks) {
+                if (!setBlocks.size) continue;
+
+                const arrHashesToRequest = [...setBlocks].slice(0, Constants.MAX_BLOCKS_INV);
+                const msg = this._createGetDataMsg(arrHashesToRequest);
+                if (!msg.inventory.vector.length) return;
+
+                const foundPeer = arrConnectedPeers.find(p => createPeerKey(p) === key);
+                const peer = foundPeer ? foundPeer : arrConnectedPeers[0];
+
+                msg.inventory.vector.forEach(v => this._requestCache.request(v.hash));
+
+                if (peer && !peer.disconnected) {
+                    debugMsg(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
+                    await peer.pushMessage(msg);
+                }
+            }
+        }
+
+        async _getBlockAndState(hash) {
+            typeforce(types.Str64, hash);
+
+            const cBlock = await this._storage.getBlock(hash);
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+
+            return {block: cBlock, state: blockInfo ? blockInfo.getState() : undefined};
+        }
+
+        /**
+         *
+         * @param {String} strTxHash
+         * @returns {Promise<{tx, block, status}>}
+         * @private
+         */
+        async _getTxForRpc(strTxHash) {
+            const formResult = (tx, status, block) => {
+                return {tx, status, block};
+            };
+
+            // look it in mempool first
+            if (this._mempool.hasTx(strTxHash)) return formResult(this._mempool.getTx(strTxHash), 'mempool', undefined);
+
+            // search by tx will work only with --txIndex so let's use that index
+            const block = await this._storage.findBlockByTxHash(strTxHash);
+
+            // not found
+            if (!block) return formResult(undefined, 'unknown', undefined);
+
+            // find tx in block
+            const objTx = block.txns.find(objTx => (new Transaction(objTx)).getHash() === strTxHash);
+
+            // is this block still pending?
+            const status = this._pendingBlocks.hasBlock(block.getHash()) ? 'in block' : 'confirmed';
+
+            return formResult(objTx, status, block.getHash());
+        }
+
+        async _constantMethodCallRpc({method, arrArguments, contractAddress, completed}) {
+            typeforce(
+                typeforce.tuple(typeforce.String, typeforce.Array, types.StrAddress),
+                [method, arrArguments, contractAddress]
+            );
+
+            // allow use pending blocks data
+            completed = completed !== undefined;
+
+            let contract = await this._storage.getContract(contractAddress);
+            if (!contract) throw new Error(`Contract ${contractAddress} not found`);
+
+            if (!completed) {
+                const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getGroupId());
+                if (pendingContract) contract = pendingContract;
+            }
+
+            const newEnv = {
+                contractAddr: contract.getStoredAddress(),
+                balance: contract.getBalance()
+            };
+
+            return await this._app.runContract(
+                Number.MAX_SAFE_INTEGER,
+                {method, arrArguments},
+                contract,
+                newEnv,
+                undefined,
+                this._createCallbacksForApp(new PatchDB(), new PatchDB(), Crypto.randomBytes(32)),
+                true
+            );
         }
     };
 };

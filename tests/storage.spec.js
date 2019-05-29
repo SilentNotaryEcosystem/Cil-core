@@ -1,8 +1,17 @@
 'use strict';
 
 const {describe, it} = require('mocha');
-const {assert} = require('chai');
-const debug = require('debug')('storage:test');
+const chai = require('chai');
+chai.use(require('chai-as-promised'));
+const {assert} = chai;
+
+const sinon = require('sinon').createSandbox();
+
+const debugChannel = 'storage:*';
+process.env['DEBUG'] = `${debugChannel},` + process.env['DEBUG'];
+
+const debugLib = require('debug');
+const debug = debugLib(debugChannel);
 
 const factory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
@@ -24,49 +33,30 @@ describe('Storage tests', () => {
     });
 
     it('should create storage', async () => {
-        const wrapper = () => new factory.Storage({});
+        const wrapper = () => new factory.Storage();
         assert.doesNotThrow(wrapper);
     });
 
-    it('should store group definitions', async () => {
-        const def1 = factory.WitnessGroupDefinition.create(0, [Buffer.from('public1'), Buffer.from('public2')]);
-        const def2 = factory.WitnessGroupDefinition.create(
-            1,
-            [Buffer.from('public2'), Buffer.from('public3')]
-        );
-
-        const storage = new factory.Storage({arrTestDefinition: [def1, def2]});
-
-        {
-            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public1'));
-            assert.isOk(Array.isArray(arrDefs));
-            assert.equal(arrDefs.length, 1);
-        }
-
-        {
-            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public2'));
-            assert.isOk(Array.isArray(arrDefs));
-            assert.equal(arrDefs.length, 2);
-        }
-
-    });
-
-    it('should save block', async () => {
+    it('should save/load block. No txIndex enabled', async () => {
         const block = createDummyBlock(factory);
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.saveBlock(block);
+
+        const restoredBlock = await storage.getBlock(block.getHash());
+
+        assert.equal(block.getHash(), restoredBlock.getHash());
     });
 
     it('should find block in storage', async () => {
         const block = createDummyBlock(factory);
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.saveBlock(block);
 
         assert.isOk(await storage.hasBlock(block.hash()));
     });
 
     it('should THROWS find block in storage (param check failed)', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         try {
             await storage.hasBlock('133');
@@ -77,38 +67,37 @@ describe('Storage tests', () => {
     });
 
     it('should NOT find block in storage', async () => {
-        const storage = new factory.Storage({});
-        assert.isNotOk(await storage.hasBlock(Buffer.allocUnsafe(32)));
+        const storage = new factory.Storage();
+        assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32)));
     });
 
     it('should NOT find block in storage', async () => {
-        const storage = new factory.Storage({});
-        assert.isNotOk(await storage.hasBlock(Buffer.allocUnsafe(32).toString('hex')));
+        const storage = new factory.Storage();
+        assert.isNotOk(await storage.hasBlock(pseudoRandomBuffer(32).toString('hex')));
     });
 
     it('should get saved block', async () => {
         const block = createDummyBlock(factory);
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.saveBlock(block);
 
         const gotBlock = await storage.getBlock(block.hash());
 
         assert.isOk(gotBlock.txns);
-        const rTx = new factory.Transaction(gotBlock.txns[0]);
     });
 
-    it('should apply "addCoins" patch to empty storage (like genezis)', async () => {
-        const storage = new factory.Storage({});
+    it('should apply "addCoins" patch to empty storage (like genesis)', async () => {
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
-        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        const coins = new factory.Coins(100, generateAddress());
         patch.createCoins(txHash, 12, coins);
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 80, coins);
 
         const txHash2 = pseudoRandomBuffer().toString('hex');
-        const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
+        const coins2 = new factory.Coins(200, generateAddress());
         patch.createCoins(txHash2, 22, coins2);
 
         await storage.applyPatch(patch);
@@ -123,18 +112,18 @@ describe('Storage tests', () => {
     });
 
     it('should apply "spendCoins" patch', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         // create coins that we plan to spend
         const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
-        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        const coins = new factory.Coins(100, generateAddress());
         patch.createCoins(txHash, 12, coins);
         patch.createCoins(txHash, 0, coins);
         patch.createCoins(txHash, 80, coins);
 
         const txHash2 = pseudoRandomBuffer().toString('hex');
-        const coins2 = new factory.Coins(200, pseudoRandomBuffer(17));
+        const coins2 = new factory.Coins(200, generateAddress());
         patch.createCoins(txHash2, 22, coins2);
 
         const spendingTx = pseudoRandomBuffer();
@@ -173,14 +162,14 @@ describe('Storage tests', () => {
         }
     });
 
-    it('should get UTXOs from DB as map', async () => {
-        const storage = new factory.Storage({});
+    it('should get UTXOs from DB as patch', async () => {
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
         const txHash = pseudoRandomBuffer().toString('hex');
         const txHash2 = pseudoRandomBuffer().toString('hex');
         const txHash3 = pseudoRandomBuffer().toString('hex');
-        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        const coins = new factory.Coins(100, generateAddress());
 
         patch.createCoins(txHash, 12, coins);
         patch.createCoins(txHash2, 0, coins);
@@ -188,23 +177,23 @@ describe('Storage tests', () => {
 
         await storage.applyPatch(patch);
 
-        const mapUtxos = await storage.getUtxosCreateMap([txHash, txHash2, txHash3]);
+        const patchWithUtxos = await storage.getUtxosPatch([txHash, txHash2, txHash3]);
 
-        assert.isOk(mapUtxos);
-        assert.isOk(mapUtxos[txHash.toString('hex')]);
-        assert.isOk(mapUtxos[txHash2.toString('hex')]);
-        assert.isOk(mapUtxos[txHash3.toString('hex')]);
+        assert.isOk(patchWithUtxos);
+        assert.isOk(patchWithUtxos.getUtxo(txHash));
+        assert.isOk(patchWithUtxos.getUtxo(txHash2));
+        assert.isOk(patchWithUtxos.getUtxo(txHash3));
     });
 
     // if we find UTXO with same hash
     // @see bip30 https://github.com/bitcoin/bitcoin/commit/a206b0ea12eb4606b93323268fc81a4f1f952531)
     it('should find TX COLLISION', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
 
         const txHash = pseudoRandomBuffer().toString('hex');
-        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        const coins = new factory.Coins(100, generateAddress());
         patch.createCoins(txHash, 12, coins);
 
         await storage.applyPatch(patch);
@@ -218,12 +207,12 @@ describe('Storage tests', () => {
     });
 
     it('should NOT find TX COLLISION', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const patch = new factory.PatchDB(0);
 
         const txHash = pseudoRandomBuffer().toString('hex');
-        const coins = new factory.Coins(100, pseudoRandomBuffer(17));
+        const coins = new factory.Coins(100, generateAddress());
         patch.createCoins(txHash, 12, coins);
 
         await storage.applyPatch(patch);
@@ -231,7 +220,7 @@ describe('Storage tests', () => {
     });
 
     it('should SET/GET BlockInfo', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         const blockInfo = createBlockInfo();
         await storage.saveBlockInfo(blockInfo);
         const result = await storage.getBlockInfo(blockInfo.getHash());
@@ -241,7 +230,7 @@ describe('Storage tests', () => {
     });
 
     it('should store LAST_APPLIED_BLOCKS', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 1);
         const block3 = createDummyBlock(factory, 10);
@@ -256,40 +245,8 @@ describe('Storage tests', () => {
         assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrLastBlocks));
     });
 
-    it('should REPLACE LAST_APPLIED_BLOCKS', async () => {
-        const storage = new factory.Storage({});
-        const block1 = createDummyBlock(factory, 0);
-        const block2 = createDummyBlock(factory, 1);
-        const block3 = createDummyBlock(factory, 10);
-
-        // save them
-        await storage.saveBlock(block1);
-        await storage.saveBlock(block2);
-        await storage.saveBlock(block3);
-
-        const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
-        await storage.updateLastAppliedBlocks(arrLastBlocks);
-
-        // replace group 1 & 10 with new blocks
-        const block4 = createDummyBlock(factory, 1);
-        const block5 = createDummyBlock(factory, 10);
-
-        // and add new for group 5
-        const block6 = createDummyBlock(factory, 5);
-
-        // save them
-        await storage.saveBlock(block4);
-        await storage.saveBlock(block5);
-        await storage.saveBlock(block6);
-
-        await storage.updateLastAppliedBlocks([block4.getHash(), block5.getHash(), block6.getHash()]);
-
-        const arrExpected = [block1.getHash(), block4.getHash(), block5.getHash(), block6.getHash()];
-        assert.isOk(arrayEquals(await storage.getLastAppliedBlockHashes(), arrExpected));
-    });
-
     it('should removeBadBlocks', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 1);
         const block3 = createDummyBlock(factory, 10);
@@ -317,7 +274,7 @@ describe('Storage tests', () => {
     });
 
     it('should set/get PendingBlockHashes', async () => {
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
 
         const emptyArr = await storage.getPendingBlockHashes();
         assert.isOk(Array.isArray(emptyArr));
@@ -338,9 +295,17 @@ describe('Storage tests', () => {
         const address = generateAddress();
         const data = {value: 10};
         const strCode = 'getData(){return this._data}';
-        patch.setContract(address, data, strCode);
+        {
+            const contract = new factory.Contract({
+                contractData: data,
+                contractCode: strCode,
+                groupId
+            });
+            contract.storeAddress(address);
+            patch.setContract(contract);
+        }
 
-        const storage = new factory.Storage({});
+        const storage = new factory.Storage();
         await storage.applyPatch(patch);
 
         const contract = await storage.getContract(address);
@@ -348,5 +313,438 @@ describe('Storage tests', () => {
         assert.equal(contract.getGroupId(), groupId);
         assert.deepEqual(contract.getData(), data);
         assert.equal(contract.getCode(), strCode);
+    });
+
+    it('should write to db encoded data (buffers)', async () => {
+        const groupId = 10;
+        const patch = new factory.PatchDB(groupId);
+        const storage = new factory.Storage();
+
+        const buffUtxoHash = pseudoRandomBuffer();
+        patch.createCoins(buffUtxoHash, 1, new factory.Coins(1000, generateAddress()));
+        const buffContractAddr = generateAddress();
+        {
+            const contract = new factory.Contract({
+                contractData: {data: 1},
+                contractCode: `let code=1`,
+                groupId
+            });
+            contract.storeAddress(buffContractAddr);
+            patch.setContract(contract);
+        }
+        patch.setReceipt(buffUtxoHash.toString('hex'), new factory.TxReceipt({
+            contractAddress: buffContractAddr,
+            coinsUsed: 1000
+        }));
+
+        await storage.applyPatch(patch);
+
+        assert.isOk(Buffer.isBuffer(await storage.getUtxo(buffUtxoHash, true)));
+        assert.isOk(Buffer.isBuffer(await storage.getContract(buffContractAddr, true)));
+        assert.isOk(Buffer.isBuffer(await storage.getTxReceipt(buffUtxoHash, true)));
+
+        const block = new factory.Block(0);
+        block.finish(1e5, pseudoRandomBuffer(33));
+        const blockInfo = new factory.BlockInfo(block.header);
+
+        await storage.saveBlock(block, blockInfo);
+
+        assert.isOk(Buffer.isBuffer(await storage.getBlock(block.getHash(), true)));
+        assert.isOk(Buffer.isBuffer(await storage.getBlockInfo(block.getHash(), true)));
+
+        await storage.updateLastAppliedBlocks([block.getHash()]);
+
+        assert.isOk(Buffer.isBuffer(await storage.getLastAppliedBlockHashes(true)));
+
+        await storage.updatePendingBlocks([pseudoRandomBuffer()]);
+
+        assert.isOk(Buffer.isBuffer(await storage.getPendingBlockHashes(true)));
+    });
+
+    it('should store/read contract', async () => {
+        const contractData = {a: 1};
+        const contractCode = 'let a=1;';
+        const contractAddress = generateAddress();
+
+        const patch = new factory.PatchDB();
+        {
+            const contract = new factory.Contract({
+                contractData,
+                contractCode,
+                groupId: 0
+            });
+            contract.storeAddress(contractAddress);
+            patch.setContract(contract);
+        }
+        const storage = new factory.Storage();
+        await storage.applyPatch(patch);
+
+        const contract = await storage.getContract(contractAddress);
+        assert.isOk(contract);
+        assert.deepEqual(contract.getData(), contractData);
+        assert.equal(contract.getCode(), contractCode);
+    });
+
+    it('should read group definitions', async () => {
+        const contractAddress = generateAddress();
+        factory.Constants.GROUP_DEFINITION_CONTRACT_ADDRESS = contractAddress;
+
+        const def1 = factory.WitnessGroupDefinition.create(
+            0,
+            [Buffer.from('public1'), Buffer.from('public2')]
+        );
+        const def2 = factory.WitnessGroupDefinition.create(
+            1,
+            [Buffer.from('public2'), Buffer.from('public3')]
+        );
+
+        const patch = new factory.PatchDB();
+        {
+            const contract = new factory.Contract({
+                contractData: {
+                    _arrGroupDefinitions: [
+                        def1.toObject(),
+                        def2.toObject()
+                    ]
+                },
+                contractCode: '',
+                groupId: 0
+            });
+            contract.storeAddress(contractAddress);
+            patch.setContract(contract);
+        }
+
+        const storage = new factory.Storage();
+        storage.applyPatch(patch);
+
+        {
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public1'));
+            assert.isOk(Array.isArray(arrDefs));
+            assert.equal(arrDefs.length, 1);
+        }
+
+        {
+            const arrDefs = await storage.getWitnessGroupsByKey(Buffer.from('public2'));
+            assert.isOk(Array.isArray(arrDefs));
+            assert.equal(arrDefs.length, 2);
+        }
+    });
+
+    it('should NOT find UTXO', async () => {
+        const storage = new factory.Storage();
+        assert.isRejected(storage.getUtxo(pseudoRandomBuffer()));
+    });
+
+    it('should get UTXO', async () => {
+        const storage = new factory.Storage();
+
+        const hash = pseudoRandomBuffer();
+        const coins = new factory.Coins(1e5, generateAddress());
+        const utxo = new factory.UTXO({txHash: hash});
+        utxo.addCoins(0, coins);
+
+        const patch = new factory.PatchDB();
+        patch.setUtxo(utxo);
+        await storage.applyPatch(patch);
+
+        const utxoFromStorage = await storage.getUtxo(hash);
+
+        assert.isOk(utxoFromStorage);
+        utxoFromStorage.equals(utxo);
+    });
+
+    it('should set/get RECEIPT', async () => {
+        const storage = new factory.Storage();
+
+        const buffContractAddr = generateAddress();
+        const buffUtxoHash = pseudoRandomBuffer();
+        const coinsUsed = 1e5;
+        const arrInternalTxns = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
+
+        const patch = new factory.PatchDB();
+        const rcpt = new factory.TxReceipt({
+            contractAddress: buffContractAddr,
+            coinsUsed
+        });
+        arrInternalTxns.forEach(tx => rcpt.addInternalTx(tx));
+        patch.setReceipt(buffUtxoHash.toString('hex'), rcpt);
+
+        // set
+        await storage.applyPatch(patch);
+
+        // get
+        const receipt = await storage.getTxReceipt(buffUtxoHash.toString('hex'));
+
+        assert.isOk(receipt);
+        assert.equal(coinsUsed, receipt.getCoinsUsed());
+        assert.isOk(buffContractAddr.equals(Buffer.from(receipt.getContractAddress(), 'hex')));
+        assert.isOk(
+            receipt
+                .getInternalTxns()
+                .every(buffTxHash => arrInternalTxns.includes(buffTxHash.toString('hex')))
+        );
+    });
+
+    describe('TX index', () => {
+        it('should throw. No txIndex enabled', (done) => {
+            const storage = new factory.Storage();
+
+            storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
+                .then(_ => done(new Error('Unexpected success')))
+                .catch(_ => done());
+        });
+
+        it('should throw. Hash not found', async () => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            storage._txIndexStorage.get = sinon.fake.throws(new Error('Hash not found'));
+
+            const result = await storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'));
+            assert.isNotOk(result);
+        });
+
+        it('should throw. Block not found', async () => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            storage._txIndexStorage.get = sinon.fake.resolves(pseudoRandomBuffer());
+            storage.getBlock = sinon.fake.throws(new Error('Block not found'));
+
+            const result = await storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'));
+            assert.isNotOk(result);
+        });
+
+        it('should success', async () => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            storage._txIndexStorage.get = sinon.fake.resolves(pseudoRandomBuffer());
+            storage.getBlock = sinon.fake();
+
+            await storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'));
+
+            assert.isOk(storage.getBlock.calledOnce);
+        });
+
+        it('should just save block and index', async () => {
+            const storage = new factory.Storage({buildTxIndex: true});
+            const storeIndexFake = storage._txIndexStorage.batch = sinon.fake();
+            const block = createDummyBlock(factory);
+
+            await storage.saveBlock(block);
+
+            assert.isOk(storeIndexFake.calledOnce);
+            const [arrRecords] = storeIndexFake.args[0];
+            const arrTxHashes = block.getTxHashes();
+            assert.isOk(arrRecords.every(rec => arrTxHashes.includes(rec.key.toString('hex')) &&
+                                                rec.value.toString('hex') === block.getHash()));
+        });
+    });
+
+    describe('Wallet support', async () => {
+        let storage;
+
+        beforeEach(async () => {
+            storage = new factory.Storage({walletSupport: true});
+        });
+
+        it('should throw (no wallet support)', async () => {
+            const storage = new factory.Storage();
+
+            assert.isRejected(storage._ensureWalletInitialized());
+            assert.isRejected(storage._walletWriteAddressUtxo());
+            assert.isRejected(storage.walletListUnspent());
+        });
+
+        it('should load empty wallet', async () => {
+            await storage._ensureWalletInitialized();
+
+            assert.deepEqual(storage._arrStrWalletAddresses, []);
+            assert.equal(storage._nWalletAutoincrement, 0);
+        });
+
+        it('should load wallet addresses', async () => {
+            const addr1 = generateAddress();
+            const addr2 = generateAddress();
+            const autoInc = 10;
+
+            let callCount = 0;
+            storage._walletStorage.get = async () => {
+
+                // first call - request for addresses, second - autoincrement
+                return ++callCount === 1 ? Buffer.concat([addr1, addr2]) : Buffer.from([0, 0, 0, autoInc]);
+            };
+
+            await storage._ensureWalletInitialized();
+
+            assert.isOk(Array.isArray(storage._arrStrWalletAddresses));
+            assert.equal(storage._arrStrWalletAddresses.length, 2);
+            assert.equal(addr1.toString('hex'), storage._arrStrWalletAddresses[0]);
+            assert.equal(addr2.toString('hex'), storage._arrStrWalletAddresses[1]);
+
+            assert.equal(storage._nWalletAutoincrement, autoInc);
+        });
+
+        it('should write/read utxo', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            // this UTXO doesn't belongs to address
+            await storage._walletWriteAddressUtxo(
+                generateAddress().toString('hex'),
+                pseudoRandomBuffer().toString('hex')
+            );
+
+            // read it back
+            const arrHashes = await storage._walletReadAddressRecords(addr);
+
+            // totally we write 3 hashes
+            assert.equal(storage._nWalletAutoincrement, 3);
+
+            // but this address belongs only 2 utxos
+            assert.equal(arrHashes.length, 2);
+            assert.isOk(arrHashes[0].value.equals(hash1));
+            assert.isOk(arrHashes[1].value.equals(hash2));
+        });
+
+        it('should CleanupMissed', async () => {
+            const arrMissedKeys = [pseudoRandomBuffer(), pseudoRandomBuffer()];
+            storage._walletStorage.batch = sinon.fake();
+
+            await storage._walletCleanupMissed(arrMissedKeys);
+
+            assert.isOk(storage._walletStorage.batch.calledOnce);
+            const [arrOps] = storage._walletStorage.batch.args[0];
+
+            assert.deepEqual(arrOps[0], {type: 'del', key: arrMissedKeys[0]});
+            assert.deepEqual(arrOps[1], {type: 'del', key: arrMissedKeys[1]});
+        });
+
+        it('should walletListUnspent (no missed)', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+            const fakeUtxo = 'fakeUtxo';
+            storage.getUtxo = sinon.fake.returns(fakeUtxo);
+            storage._arrStrWalletAddresses = [addr];
+            storage._nWalletAutoincrement = 0;
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            const arrResults = await storage.walletListUnspent(addr);
+
+            assert.equal(arrResults.length, 2);
+            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
+        });
+
+        it('should walletListUnspent (purge missed)', async () => {
+            const addr = generateAddress().toString('hex');
+            const hash1 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer();
+            const fakeUtxo = 'fakeUtxo';
+            storage.getUtxo = async (hash) => {
+                if (hash.equals(hash1)) return fakeUtxo;
+                throw 'not found';
+            };
+            storage._arrStrWalletAddresses = [addr];
+            storage._nWalletAutoincrement = 0;
+            storage._walletCleanupMissed = sinon.fake();
+
+            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
+            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+
+            const arrResults = await storage.walletListUnspent(addr);
+
+            assert.equal(arrResults.length, 1);
+            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
+
+            assert.isOk(storage._walletCleanupMissed.calledOnce);
+            assert.equal(storage._walletCleanupMissed.args[0][0].length, 1);
+        });
+
+        it('should throw (address already in wallet)', async () => {
+            const addr = generateAddress().toString('hex');
+            storage._arrStrWalletAddresses = [addr];
+
+            assert.isRejected(storage.walletWatchAddress(addr));
+        });
+
+        it('should add new watched address ', async () => {
+            storage._walletStorage.put = sinon.fake();
+
+            // previously stored address
+            storage._arrStrWalletAddresses = [generateAddress().toString('hex')];
+            const strAddr = generateAddress().toString('hex');
+
+            await storage.walletWatchAddress(strAddr);
+
+            assert.isOk(storage._walletStorage.put.calledOnce);
+            const [, buffSerializedAddresses] = storage._walletStorage.put.args[0];
+            assert.isOk(Buffer.isBuffer(buffSerializedAddresses));
+            const arrOfStrAddr = new factory.ArrayOfAddresses(buffSerializedAddresses).getArray();
+            assert.equal(arrOfStrAddr.length, 2);
+
+            // new address added
+            assert.equal(arrOfStrAddr[1], strAddr);
+        });
+
+        it('should reIndex wallet', async () => {
+            const buffAddr1 = generateAddress();
+            const buffAddr2 = generateAddress();
+            const buffAddr3 = generateAddress();
+            const coins1 = new factory.Coins(1e5, buffAddr1);
+            const coins2 = new factory.Coins(1e5, buffAddr2);
+
+            // this utxo contains only coins of addr1
+            const hash1 = pseudoRandomBuffer();
+            const utxo1 = new factory.UTXO({txHash: hash1});
+            utxo1.addCoins(0, coins1);
+            utxo1.addCoins(1, coins1);
+            utxo1.addCoins(2, coins1);
+
+            // this utxo contains only coins of addr2
+            const hash2 = pseudoRandomBuffer();
+            const utxo2 = new factory.UTXO({txHash: hash2});
+            utxo2.addCoins(0, coins2);
+            utxo2.addCoins(2, coins2);
+
+            // this utxo contains coins for both addresses
+            const hash3 = pseudoRandomBuffer();
+            const utxo3 = new factory.UTXO({txHash: hash3});
+            utxo3.addCoins(0, coins1);
+            utxo3.addCoins(10, coins2);
+
+            const patch = new factory.PatchDB();
+            patch.setUtxo(utxo1);
+            patch.setUtxo(utxo2);
+            patch.setUtxo(utxo3);
+            await storage.applyPatch(patch);
+
+            await storage.walletWatchAddress(buffAddr1);
+            await storage.walletWatchAddress(buffAddr2);
+            await storage.walletWatchAddress(buffAddr3);
+
+            // before reindex
+            {
+                const arrUtxo1 = await storage.walletListUnspent(buffAddr1.toString('hex'));
+                assert.equal(arrUtxo1.length, 0);
+                const arrUtxo2 = await storage.walletListUnspent(buffAddr2.toString('hex'));
+                assert.equal(arrUtxo2.length, 0);
+                const arrUtxo3 = await storage.walletListUnspent(buffAddr3.toString('hex'));
+                assert.equal(arrUtxo3.length, 0);
+            }
+
+            await storage.walletReIndex();
+
+            // after reindex
+            {
+                const arrUtxo1 = await storage.walletListUnspent(buffAddr1.toString('hex'));
+                assert.equal(arrUtxo1.length, 2);
+                const arrUtxo2 = await storage.walletListUnspent(buffAddr2.toString('hex'));
+                assert.equal(arrUtxo2.length, 2);
+                const arrUtxo3 = await storage.walletListUnspent(buffAddr3.toString('hex'));
+                assert.equal(arrUtxo3.length, 0);
+            }
+        });
     });
 });

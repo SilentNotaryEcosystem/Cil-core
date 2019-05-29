@@ -1,4 +1,5 @@
-const protobuf = require("protobufjs");
+const protobuf = require('protobufjs');
+const Mutex = require('mutex');
 const debugLib = require('debug');
 
 // Uncomment in prod!!
@@ -29,7 +30,6 @@ const config = require('../config/test.conf');
 
 const Crypto = require('../crypto/crypto');
 const TransportWrapper = require('../network/testTransport');
-const Ipv6TransportWrapper = require('../network/ipv6Transport');
 const SerializerWrapper = require('../network/serializer');
 const MessageAssemblerWrapper = require('../network/messageAssembler');
 const PeerWrapper = require('../network/peer');
@@ -45,10 +45,11 @@ const WitnessWrapper = require('../node/witness');
 const RpcWrapper = require('../node/rpc');
 const AppWrapper = require('../node/app');
 
-const StorageWrapper = require('../storage/memoryStorage');
+const StorageWrapper = require('../storage/persistentStorage');
 const PatchWrapper = require('../storage/patch');
 const PendingBlocksManagerWrapper = require('../node/pendingBlocksManager');
 const MainDagWrapper = require('../node/mainDag');
+const RequestCacheWrapper = require('../node/requestsCache');
 
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
@@ -58,14 +59,16 @@ const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
 const WitnessGroupDefinition = require('../structures/witnessGroupDefinition');
 const BlockInfoWrapper = require('../structures/blockInfo');
-const ArrayOfHashesWrapper = require('../structures/arrayOfHashes');
+const ArrayOfWrapper = require('../structures/arrayOf');
 const ContractWrapper = require('../structures/contract');
+const TxReceiptWrapper = require('../structures/txReceipt');
 
 const pack = require('../package');
 
 class Factory {
-    constructor() {
+    constructor(options) {
 
+        this._mutexImplementation = Mutex;
         this._donePromise = this._asyncLoader();
         this._donePromise.then((prototypes) => {
 
@@ -75,7 +78,8 @@ class Factory {
                     ...this._constants,
                     ...prototypes.enumServices.values,
                     ...prototypes.enumRejectCodes.values,
-                    ...prototypes.enumInventory.values
+                    ...prototypes.enumInventory.values,
+                    ...prototypes.enumTxStatus.values
                 };
 
                 // prototypes
@@ -87,8 +91,10 @@ class Factory {
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
                 this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
-                this._arrayOfHashes = ArrayOfHashesWrapper(this);
+                this._arrayOfHashes = ArrayOfWrapper(32);
+                this._arrayOfAddresses = ArrayOfWrapper(20);
                 this._contract = ContractWrapper(this, prototypes);
+                this._txReceipt = TxReceiptWrapper(this, prototypes);
 
                 this._messagesImplementation = MessagesWrapper(this, prototypes);
 
@@ -98,19 +104,30 @@ class Factory {
                 this._transportImplemetation = TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
+<<<<<<< HEAD
+=======
+                this._patchImplementation = PatchWrapper(this);
+>>>>>>> github/master
                 this._storageImplementation = StorageWrapper(this, options);
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this);
                 this._rpcImplementation = RpcWrapper(this);
-                this._patchImplementation = PatchWrapper(this);
                 this._appImplementation = AppWrapper(this);
                 this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
                 this._mainDagImplementation = MainDagWrapper(this);
+                this._requestCacheImplementation = RequestCacheWrapper(this);
 
                 // all componenst should be declared above
+<<<<<<< HEAD
                 this._nodeImplementation = NodeWrapper(this, options);
                 this._witnessImplementation = WitnessWrapper(this, options);
             }).catch(err => {
+=======
+                this._nodeImplementation = NodeWrapper(this, {...options, workerSuspended: true});
+                this._witnessImplementation = WitnessWrapper(this, options);
+            })
+            .catch(err => {
+>>>>>>> github/master
                 logger.error(err);
                 process.exit(10);
             });
@@ -121,11 +138,15 @@ class Factory {
         this._walletImplementation = WalletWrapper(this.Crypto);
     }
 
+    get Mutex() {
+        return this._mutexImplementation;
+    }
+
     get version() {
         const arrSubversions = pack.version.split('.');
         return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
-            parseInt(arrSubversions[1]) * Math.pow(2, 10) +
-            parseInt(arrSubversions[2]);
+               parseInt(arrSubversions[1]) * Math.pow(2, 10) +
+               parseInt(arrSubversions[2]);
     }
 
     get WitnessGroupDefinition() {
@@ -136,12 +157,20 @@ class Factory {
         return this._arrayOfHashes;
     }
 
+    get ArrayOfAddresses() {
+        return this._arrayOfAddresses;
+    }
+
     get MainDag() {
         return this._mainDagImplementation;
     }
 
     get Contract() {
         return this._contract;
+    }
+
+    get TxReceipt() {
+        return this._txReceipt;
     }
 
     get UTXO() {
@@ -164,6 +193,10 @@ class Factory {
         return this._rpcImplementation;
     }
 
+    get RequestCache() {
+        return this._requestCacheImplementation;
+    }
+
     get Mempool() {
         return this._mempoolImplementation;
     }
@@ -174,10 +207,6 @@ class Factory {
 
     get Transport() {
         return this._transportImplemetation;
-    }
-
-    get Ipv6Transport() {
-        return this._ipv6TransportImplemetation;
     }
 
     get Serializer() {
@@ -290,6 +319,7 @@ class Factory {
             enumServices: protoNetwork.lookup("network.Services"),
             enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
             enumInventory: protoStructures.lookup("structures.InventoryTypes"),
+            enumTxStatus: protoStructures.lookup("structures.TxStatuses"),
 
             // Structures
             transactionProto: protoStructures.lookupType("structures.Transaction"),
@@ -306,9 +336,13 @@ class Factory {
 
             witnessGroupDefinitionProto: protoStructures.lookupType("structures.WitnessGroupDefinition"),
 
-            contractProto: protoStructures.lookupType("structures.Contract")
+            contractProto: protoStructures.lookupType("structures.Contract"),
+            txReceiptProto: protoStructures.lookupType("structures.TxReceipt")
         };
     }
 }
 
-module.exports = new Factory();
+module.exports = new Factory({
+    testStorage: true,
+    mutex: new Mutex()
+});

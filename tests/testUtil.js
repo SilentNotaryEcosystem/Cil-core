@@ -21,6 +21,18 @@ const createDummyTx = (hash, witnessGroupId) => {
     };
 };
 
+const createDummyBlock = (factory, witnessId = 0) => {
+    const block = new factory.Block(witnessId);
+    block.parentHashes = [pseudoRandomBuffer().toString('hex')];
+    block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+    return block;
+};
+
+const createDummyBlockInfo = (factory) => {
+    const block = createDummyBlock(factory);
+    return new factory.BlockInfo(block.header);
+};
+
 module.exports = {
     generateAddress,
     sleep: (delay) => {
@@ -38,27 +50,38 @@ module.exports = {
         }
     }),
 
-    createDummyBlock: (factory, witnessId = 0) => {
-        const block = new factory.Block(witnessId);
-        block.parentHashes = [pseudoRandomBuffer().toString('hex')];
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
-        return block;
-    },
+    createDummyBlock,
+    createDummyBlockInfo,
+    pseudoRandomBuffer,
 
     createDummyBlockWithTx: (factory, witnessId = 0) => {
         const block = new factory.Block(witnessId);
         const tx = new factory.Transaction(createDummyTx());
         block.addTx(tx);
         block.parentHashes = [pseudoRandomBuffer().toString('hex')];
-        block.finish(factory.Constants.MIN_TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
         return block;
     },
-
-    pseudoRandomBuffer,
 
     createNonMergeablePatch: (factory) => {
         const patchThatWouldntMerge = new factory.PatchDB(0);
         patchThatWouldntMerge._data = undefined;
         return patchThatWouldntMerge;
+    },
+
+    processBlock: async (node, block) => {
+        await node._blockInFlight(block);
+        const patch = await node._execBlock(block);
+        await node._acceptBlock(block, patch);
+        await node._postAcceptBlock(block);
+        await node._informNeighbors(block);
+
+        return patch;
+    },
+    createObjInvocationCode(strMethod, arrArguments) {
+        return {
+            method: strMethod,
+            arrArguments
+        };
     }
 };

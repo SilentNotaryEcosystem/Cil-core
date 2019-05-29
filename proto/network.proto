@@ -26,6 +26,10 @@ message PeerInfo {
     repeated NodeCapabilities capabilities =1;
     Address address = 2;
     uint32 port = 3;
+    uint32 lifetimeMisbehaveScore = 4;
+    uint32 lifetimeTransmittedBytes = 5;
+    uint32 lifetimeReceivedBytes = 6;
+
 }
 
 enum Services {
@@ -63,7 +67,7 @@ enum RejectCodes {
     REJECT_BAD_WITNESS = 2;
     REJECT_BANNED = 3;
     REJECT_TIMEOFFSET = 4;
-    REJECT_BANNEDADDRESS = 5;
+    REJECT_RESTRICTED = 5;
 }
 
 message RejectPayload {

@@ -7,19 +7,20 @@ const debug = require('debug')('application:test');
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const {arrayEquals} = require('../utils');
 
-const createGenezis = (factory, utxoHash) => {
+const createGenesis = (factory, utxoHash) => {
     const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
-    // create "genezis"
+    // create "genesis"
     const coins = new factory.Coins(100000, buffAddress);
     patch.createCoins(utxoHash, 12, coins);
     patch.createCoins(utxoHash, 0, coins);
     patch.createCoins(utxoHash, 80, coins);
 
-    const storage = new factory.Storage({});
+    const storage = new factory.Storage();
     storage.applyPatch(patch);
 
     return {storage, keyPair};
@@ -43,7 +44,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -52,22 +53,21 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 0);
         tx.addInput(utxoHash, 80);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
-        tx.sign(2, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
+        tx.claim(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patch = await storage.getUtxosPatch(tx.utxos);
 
-        await app.processTxInputs(tx, mapUtxos);
-
+        await app.processTxInputs(tx, patch);
     });
 
     it('should process TX', async () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -76,14 +76,14 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 0);
         tx.addInput(utxoHash, 80);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
-        tx.sign(2, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
+        tx.claim(2, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
 
-        const {patch} = app.processTxInputs(tx, mapUtxos);
+        const {patch} = app.processTxInputs(tx, patchUtxos);
         app.processPayments(tx, patch);
     });
 
@@ -91,20 +91,20 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 17);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
 
         try {
-            app.processTxInputs(tx, mapUtxos);
+            app.processTxInputs(tx, patchUtxos);
         } catch (e) {
             debug(e);
             assert.equal(e.message, `Output #17 of Tx ${utxoHash} already spent!`);
@@ -117,7 +117,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const anotherKeyPair = factory.Crypto.createKeyPair();
 
@@ -125,13 +125,13 @@ describe('Application layer', () => {
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 12);
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, anotherKeyPair.privateKey);
+        tx.claim(0, anotherKeyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
 
         try {
-            app.processTxInputs(tx, mapUtxos);
+            app.processTxInputs(tx, patchUtxos);
         } catch (e) {
             debug(e);
             assert.equal(e.message, 'Claim failed!');
@@ -144,14 +144,14 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const anotherKeyPair = factory.Crypto.createKeyPair();
 
         // create tx
         const tx = new factory.Transaction();
         tx.addReceiver(100000, buffAddress);
-        tx.sign(0, anotherKeyPair.privateKey);
+        tx.claim(0, anotherKeyPair.privateKey);
 
         const patch = new factory.PatchDB(0);
 
@@ -167,7 +167,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
@@ -175,18 +175,17 @@ describe('Application layer', () => {
         tx.addInput(utxoHash, 12);
         tx.addInput(utxoHash, 12);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
-        tx.sign(1, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
+        tx.claim(1, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const utxo = await storage.getUtxo(utxoHash);
-        const mapUtxos = {[utxoHash]: utxo};
+        const patchUtxos = await storage.getUtxosPatch([utxoHash]);
 
         try {
-            app.processTxInputs(tx, mapUtxos);
+            app.processTxInputs(tx, patchUtxos);
         } catch (e) {
             debug(e);
-            assert.equal(e.message, `Output #12 of Tx ${utxoHash} already spent!`);
+            assert.equal(e.message, `Tx ${utxoHash} index 12 already deleted!`);
             return;
         }
         throw new Error('Unexpected success');
@@ -196,18 +195,18 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = createGenezis(factory, utxoHash);
+        const {storage, keyPair} = createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
 
         // create tx
         const tx = new factory.Transaction();
         tx.addInput(utxoHash, 12);
         tx.addReceiver(1000, buffAddress);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         // get utxos from storage, and form object for app.processTx
-        const mapUtxos = await storage.getUtxosCreateMap(tx.utxos);
-        const {patch} = app.processTxInputs(tx, mapUtxos);
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
+        const {patch} = app.processTxInputs(tx, patchUtxos);
         app.processPayments(tx, patch);
 
         // create tx
@@ -216,12 +215,13 @@ describe('Application layer', () => {
         const tx2 = new factory.Transaction();
         tx2.addInput(utxoHash, 12);
         tx2.addReceiver(1000, buffAddress2);
-        tx2.sign(0, keyPair.privateKey);
+        tx2.claim(0, keyPair.privateKey);
 
-        const mapUtxos2 = await storage.getUtxosCreateMap(tx2.utxos);
+        const patchUtxos2 = await storage.getUtxosPatch(tx2.utxos);
 
         try {
-            app.processTxInputs(tx2, mapUtxos2, patch);
+            const patchMerged = patch.merge(patchUtxos2);
+            app.processTxInputs(tx2, patchMerged);
         } catch (e) {
             debug(e);
             assert.equal(e.message, `Output #12 of Tx ${utxoHash} already spent!`);
@@ -230,66 +230,161 @@ describe('Application layer', () => {
         throw new Error('Unexpected success');
     });
 
-    it('should create contract', async () => {
-        const app = new factory.Application();
-        const strGetDataCode = `getData(){
-                return this._data;
-            }`;
-        const strFunc2Code = `getAnother(){
-                return this._data;
-            }`;
+    it('should parse contract code', async () => {
         const strCode = `
-            class A extends Base{
-                constructor(param){
+            class A extends Base {
+                constructor(...arrValues)
+            
+            
+                {
                     super();
-                    this._data=param;
+                    this._data=arrValues[0];
+                }
+            
+                changeDefinition(objNewDefinition)                            {
+                }
+            
+                addDefinition
+                (objGroupDefinition)
+                {
+            
+                    // check fee!
+                    console.log(objGroupDefinition)
+                }
+            
+                noArguments(){}
+            
+                _validateDefinition(objGroupDefinition) {
                 }
                 
-                ${strGetDataCode}
-                ${strFunc2Code}
-                
+                // getters/setters ignored
                 set data(value){
                     return this._data=value;
                 }
-                
+            
                 get data(){
                     return this._data;
                 }
-            };
-            
+            }
             exports=new A(10);
             `;
-        const patch = new factory.PatchDB(0);
-        const tx = factory.Transaction.createContract(strCode, 100000);
-        patch.setContract = sinon.fake();
-        app.createContract(tx, patch);
+        const app = new factory.Application();
+        const {receipt, contract} = app.createContract(
+            1e10,
+            strCode,
+            {contractAddr: 'hash'}
+        );
 
-        assert.isOk(patch.setContract.called);
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(
+            receipt.getCoinsUsed(),
+            factory.Constants.fees.CONTRACT_FEE + contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE
+        );
+        assert.deepEqual(contract.getData(), {_data: 10});
 
-        const [, objData, strCodeExportedFunctions] = patch.setContract.args[0];
+        const strContractCode = contract.getCode();
+        assert.isOk(strContractCode);
+        const objCode = JSON.parse(strContractCode);
+        assert.isOk(objCode);
+        assert.isOk(arrayEquals(Object.keys(objCode),
+            ['changeDefinition', 'addDefinition', 'noArguments', '_validateDefinition']
+        ));
+        console.log(strContractCode);
 
-        assert.deepEqual(objData, {_data: 10});
-        const resultCode = [strGetDataCode, strFunc2Code]
-            .join(factory.Contract.CONTRACT_METHOD_SEPARATOR);
-        assert.equal(strCodeExportedFunctions, resultCode);
+    });
+
+    it('should prepare code for exec (just shouldn\'t throw)', async () => {
+        const contract = new factory.Contract({
+            contractCode: {changeDefinition: "(objNewDefinition){}"},
+            contractData: {_data: 19}
+        });
+
+        const app = new factory.Application();
+        app._prepareCode(contract.getCode());
     });
 
     it('should run contract', async () => {
         const groupId = 10;
-        const contractAddr = generateAddress();
-
         const contract = new factory.Contract({
             contractData: {value: 100},
-            contractCode: 'add(a){this.value+=a;}',
+            contractCode: '{"add": "(a){this.value+=a;}"}',
             groupId
         });
-        contract.storeAddress(contractAddr);
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, {method: 'add', arrArguments: [10]}, contract, {});
+
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 110});
+    });
+
+    it('should throw (unknown method)', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: '{"add": "(a){this.value+=a;}"}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, {method: 'subtract', arrArguments: [10]}, contract, {});
+        assert.isNotOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 100});
+    });
+
+    it('should throw (no default function)', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: '{"add": "(a){this.value+=a;}"}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, '', contract, {});
+        assert.isNotOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 100});
+    });
+
+    it('should call default function', async () => {
+        const groupId = 10;
+        const contract = new factory.Contract({
+            contractData: {value: 100},
+            contractCode: '{"_default": "(){this.value+=17;}"}',
+            groupId
+        });
+        const app = new factory.Application();
+
+        const receipt = await app.runContract(1e5, '', contract, {});
+        assert.isOk(receipt.isSuccessful());
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.deepEqual(contract.getData(), {value: 117});
+    });
+
+    it('should call "constant function"', async () => {
+        const groupId = 10;
+        const sampleResult = {a: 10, b: 20};
+        const contract = new factory.Contract({
+            contractData: {sampleResult},
+            contractCode: `{"test": "() {return this.sampleResult;}"}`,
+            groupId
+        });
 
         const app = new factory.Application();
-        const patch = new factory.PatchDB(groupId);
-        await app.runContract('add(10)', patch, contract);
+        const result = await app.runContract(
+            1e10,
+            {method: 'test', arrArguments: []},
+            contract,
+            {},
+            undefined,
+            {},
+            true
+        );
 
-        const storedContract = patch.getContract(contractAddr.toString('hex'));
-        assert.deepEqual(storedContract.getData(), {value: 110});
+        assert.isOk(result);
+        assert.deepEqual(result, sampleResult);
     });
 });

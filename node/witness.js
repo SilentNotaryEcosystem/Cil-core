@@ -5,24 +5,48 @@ const debugLib = require('debug');
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
-module.exports = (factory) => {
-    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB} = factory;
+const createPeerTag = (nWitnessGroupId) => {
+    return `wg${nWitnessGroupId}`;
+};
+
+module.exports = (factory, factoryOptions) => {
+    const {Node, Messages, Constants, BFT, Block, Transaction, WitnessGroupDefinition, PatchDB, BlockInfo} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {
-        constructor(options = {}) {
+        constructor(options) {
+
+            // mix in factory (common for all instance) options
+            options = {
+                ...factoryOptions,
+                ...options
+            };
+
             super(options);
             const {wallet} = options;
 
             // upgrade capabilities from regular Node to Witness
-            this._myPeerInfo.addCapability({service: Constants.WITNESS, data: Buffer.from(wallet.publicKey, 'hex')});
+            this._listenPromise.then(() => {
+                this._myPeerInfo.addCapability(
+                    {service: Constants.WITNESS, data: Buffer.from(wallet.publicKey, 'hex')});
+                this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
+            });
 
             this._wallet = wallet;
             if (!this._wallet) throw new Error('Pass wallet into witness');
 
-            this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
-
             this._consensuses = new Map();
+        }
+
+        async bootstrap() {
+
+            // try early initialization of consensus engines
+            const arrGroupDefinitions = await this._storage.getWitnessGroupsByKey(this._wallet.publicKey);
+
+            for (let def of arrGroupDefinitions) {
+                await this._createConsensusForGroup(def);
+            }
+            await super.bootstrap();
         }
 
         /**
@@ -33,11 +57,15 @@ module.exports = (factory) => {
         async start() {
             const arrGroupDefinitions = await this._storage.getWitnessGroupsByKey(this._wallet.publicKey);
 
+            // this need only at very beginning when witness start without genesis. In this case
+            const wasInitialized = this._consensuses.size;
+
             for (let def of arrGroupDefinitions) {
-                await this._createConsensusForGroup(def);
+                if (!wasInitialized) await this._createConsensusForGroup(def);
                 await this.startWitnessGroup(def);
             }
 
+            return arrGroupDefinitions.length;
             // TODO: add watchdog to maintain connections to as much as possible witnesses
         }
 
@@ -73,19 +101,20 @@ module.exports = (factory) => {
                     if (peer.witnessLoadDone) {
 
                         // mark it for broadcast
-                        peer.addTag(groupDefinition.getGroupId());
+                        peer.addTag(createPeerTag(groupDefinition.getGroupId()));
 
                         // prevent witness disconnect by timer or bytes threshold
                         peer.markAsPersistent();
 
                         // overwrite this peer definition with freshest data
-                        this._peerManager.addPeer(peer);
-                        debugWitness(`----- "${this._debugAddress}" WITNESS handshake with "${peer.address}" DONE ---`);
+                        await this._peerManager.addPeer(peer, true);
+                        debugWitness(
+                            `----- "${this._debugAddress}". WITNESS handshake with "${peer.address}" DONE ---`);
                     } else {
-                        debugWitness(`----- "${this._debugAddress}" WITNESS "${peer.address}" TIMED OUT ---`);
+                        debugWitness(`----- "${this._debugAddress}". WITNESS peer "${peer.address}" TIMED OUT ---`);
                     }
                 } else {
-                    debugWitness(`----- "${this._debugAddress}" WITNESS "${peer.address}" DISCONNECTED ---`);
+                    debugWitness(`----- "${this._debugAddress}". WITNESS peer "${peer.address}" DISCONNECTED ---`);
                 }
 
                 // TODO: request mempool tx from neighbor with MSG_MEMPOOL (https://en.bitcoin.it/wiki/Protocol_documentation#mempool)
@@ -115,7 +144,7 @@ module.exports = (factory) => {
          */
         async _getGroupPeers(groupDefinition) {
             const arrGroupKeys = groupDefinition.getPublicKeys();
-            const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS});
+            const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS}, true);
             const arrPeers = [];
             for (let peer of arrAllWitnessesPeers) {
                 if (~arrGroupKeys.findIndex(key => {
@@ -127,13 +156,6 @@ module.exports = (factory) => {
             }
             return arrPeers;
         }
-
-        //TODO: fix duplicate connections handling
-//        async _connectToWitness(peer) {
-//            const address = this._transport.constructor.addressToString(peer.address);
-//            debugWitness(`(address: "${this._debugAddress}") connecting to witness ${address}`);
-//            return await peer.connect();
-//        }
 
         async _incomingWitnessMessage(peer, message) {
             try {
@@ -160,7 +182,8 @@ module.exports = (factory) => {
                     const exposeMsg = this._createExposeMessage(messageWitness);
                     this._broadcastConsensusInitiatedMessage(exposeMsg);
                 }
-                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content}`);
+                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content.toString(
+                    'hex')}`);
                 consensus.processMessage(messageWitness);
             } catch (e) {
                 logger.error(e);
@@ -185,9 +208,8 @@ module.exports = (factory) => {
                 debugWitnessMsg(
                     `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
                 await peer.pushMessage(response);
-                peer.addTag(messageWitness.groupId);
+                peer.addTag(createPeerTag(messageWitness.groupId));
             } else {
-
                 peer.witnessLoadDone = true;
             }
         }
@@ -255,7 +277,6 @@ module.exports = (factory) => {
             messageWitness = new MsgWitnessCommon(message);
             const consensus = this._consensuses.get(messageWitness.groupId);
             if (!consensus) {
-                peer.ban();
                 throw new Error(`Witness: "${this._debugAddress}" send us message for UNKNOWN GROUP!`);
             }
 
@@ -280,6 +301,8 @@ module.exports = (factory) => {
                     const {groupId} = consensus;
                     const {block, patch} = await this._createBlock(groupId);
                     if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
+
+                        // catch it below
                         throw (0);
                     }
 
@@ -295,10 +318,11 @@ module.exports = (factory) => {
                 }
             });
             consensus.on('commitBlock', async (block, patch) => {
+                await this._storeBlockAndInfo(block, new BlockInfo(block.header));
                 await this._acceptBlock(block, patch);
                 logger.log(
                     `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
-                await this._postAccepBlock();
+                await this._postAcceptBlock(block);
                 consensus.blockCommited();
             });
         }
@@ -309,7 +333,7 @@ module.exports = (factory) => {
          * @private
          */
         _suppressedBlockHandler() {
-            debugWitness('Suppressing empty block');
+            debugWitness(`(address: "${this._debugAddress}"). Suppressing empty block`);
         }
 
         /**
@@ -352,13 +376,13 @@ module.exports = (factory) => {
             msg.block = block;
             msg.sign(this._wallet.privateKey);
 
-            this._peerManager.broadcastToConnected(groupId, msg);
+            this._peerManager.broadcastToConnected(createPeerTag(groupId), msg);
             debugWitness(`Witness: "${this._debugAddress}". Block ${block.hash()} broadcasted`);
         }
 
         _broadcastConsensusInitiatedMessage(msg) {
             const groupId = msg.groupId;
-            this._peerManager.broadcastToConnected(groupId, msg);
+            this._peerManager.broadcastToConnected(createPeerTag(groupId), msg);
             const consensusInstance = this._consensuses.get(groupId);
 
             // set my own view
@@ -385,7 +409,9 @@ module.exports = (factory) => {
             let totalFee = 0;
             for (let tx of this._mempool.getFinalTxns(groupId)) {
                 try {
-                    totalFee += await this._processTx(false, tx, patchMerged);
+                    const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
+                    totalFee += fee;
+                    patchMerged = patchMerged.merge(patchThisTx);
                     block.addTx(tx);
                 } catch (e) {
                     logger.error(e);
@@ -396,8 +422,10 @@ module.exports = (factory) => {
             // remove failed txns
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
-            // TODO: Store patch in DAG for pending blocks
             block.finish(totalFee, this._wallet.publicKey);
+
+            this._processBlockCoinbaseTX(block, totalFee, patchMerged);
+
             debugWitness(
                 `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
 

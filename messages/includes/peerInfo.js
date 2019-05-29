@@ -65,6 +65,29 @@ module.exports = (Constants, MessageProto) =>
             return this._data.capabilities;
         }
 
+        get lifetimeMisbehaveScore() {
+            return this._data.lifetimeMisbehaveScore;
+        }
+
+        set lifetimeMisbehaveScore(score) {
+            this._data.lifetimeMisbehaveScore = score;
+        }
+
+        get lifetimeTransmittedBytes() {
+            return this._data.lifetimeTransmittedBytes;
+        }
+
+        set lifetimeTransmittedBytes(bytesCount) {
+            this._data.lifetimeTransmittedBytes = bytesCount;
+        }
+
+        get lifetimeReceivedBytes() {
+            return this._data.lifetimeReceivedBytes;
+        }
+
+        set lifetimeReceivedBytes(bytesCount) {
+            this._data.lifetimeReceivedBytes = bytesCount;
+        }
         /**
          *
          * @param {Object} objAddress - {addr0, addr1, addr2, addr3}
@@ -86,10 +109,10 @@ module.exports = (Constants, MessageProto) =>
          */
         static fromAddress(buff) {
             const objAddress = {};
-            objAddress.addr0 = buff.readInt32BE(0);
-            objAddress.addr1 = buff.readInt32BE(4);
-            objAddress.addr2 = buff.readInt32BE(8);
-            objAddress.addr3 = buff.readInt32BE(12);
+            objAddress.addr0 = buff.readUInt32BE(0);
+            objAddress.addr1 = buff.readUInt32BE(4);
+            objAddress.addr2 = buff.readUInt32BE(8);
+            objAddress.addr3 = buff.readUInt32BE(12);
             return objAddress;
         }
 

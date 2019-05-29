@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 let keyPair;
 let privateKey;
@@ -74,7 +74,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         assert.isOk(Array.isArray(tx._data.claimProofs));
         assert.equal(tx._data.claimProofs.length, 1);
         assert.isOk(Buffer.isBuffer(tx._data.claimProofs[0]));
@@ -86,7 +86,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
-        const wrapper = () => tx.sign(0);
+        const wrapper = () => tx.claim(0);
         assert.throws(wrapper);
     });
 
@@ -94,14 +94,14 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(100, Buffer.allocUnsafe(20));
-        const wrapper = () => tx.sign(2, keyPair.privateKey);
+        const wrapper = () => tx.claim(2, keyPair.privateKey);
         assert.throws(wrapper);
     });
 
     it('should FAIL to modify after signing it', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 1);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         const wrapper = () => tx.addInput(pseudoRandomBuffer(), 1);
         assert.throws(wrapper);
     });
@@ -110,7 +110,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         const buffEncoded = tx.encode();
 
@@ -132,7 +132,7 @@ describe('Transaction tests', () => {
         assert.isNotOk(tx.claimProofs.length);
 
         const keyPair = factory.Crypto.createKeyPair();
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
         assert.isOk(tx.claimProofs.length);
 
         const arrUtxos = tx.utxos;
@@ -154,7 +154,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         tx._data.payload.ins[0].nTxOutput = 1;
 
@@ -194,7 +194,7 @@ describe('Transaction tests', () => {
         tx.witnessGroupId = 0;
         tx.addInput(pseudoRandomBuffer(), 0);
         tx.addReceiver(1, Buffer.allocUnsafe(20));
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         assert.doesNotThrow(() => tx.verify());
     });
@@ -231,7 +231,7 @@ describe('Transaction tests', () => {
         const tx = new factory.Transaction();
         const utxo = pseudoRandomBuffer();
         tx.addInput(utxo, 15);
-        tx.sign(0, keyPair.privateKey);
+        tx.claim(0, keyPair.privateKey);
 
         const pubKey = factory.Crypto.recoverPubKey(tx.hash(), tx.claimProofs[0]);
         assert.equal(pubKey, keyPair.publicKey);
@@ -265,14 +265,14 @@ describe('Transaction tests', () => {
         assert.isNotOk(tx.isContractCreation());
     });
 
-    it('should be NON contractCreation (2 outputs)', async () => {
+    it('should be contractCreation (2 outputs)', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 0);
         tx.addInput(pseudoRandomBuffer(), 1);
         tx.addReceiver(1, factory.Crypto.getAddrContractCreation());
         tx.addReceiver(1, pseudoRandomBuffer(20));
 
-        assert.isNotOk(tx.isContractCreation());
+        assert.isOk(tx.isContractCreation());
     });
 
     it('should be contractCreation', async () => {
@@ -285,15 +285,83 @@ describe('Transaction tests', () => {
     });
 
     it('should createContract TX', async () => {
-        const tx = factory.Transaction.createContract('', 1000);
+        const tx = factory.Transaction.createContract('', generateAddress());
         assert.isOk(tx.isContractCreation());
     });
 
     it('should get code', async () => {
         const strCode = 'var a=0;';
-        const tx = factory.Transaction.createContract(strCode, 1000);
-        const strGotCode = tx.getCode();
+        const tx = factory.Transaction.createContract(strCode, generateAddress());
+        const strGotCode = tx.getContractCode();
 
         assert.equal(strCode, strGotCode);
+    });
+
+    it('should VERIFY tx with contract invocation', async () => {
+        const kp = factory.Crypto.createKeyPair();
+        const objCode = {};
+        const tx = factory.Transaction.invokeContract(
+            generateAddress().toString('hex'),
+            objCode,
+            0
+        );
+
+        // spend witness2 coins (WHOLE!)
+        tx.addInput(pseudoRandomBuffer(), 0);
+        tx.claim(0, kp.privateKey);
+
+        tx.verify();
+    });
+
+    it('should get amount sent to contract', async () => {
+        const tx = factory.Transaction.invokeContract(
+            generateAddress().toString('hex'),
+            {},
+            100
+        );
+        tx.addReceiver(1000, generateAddress());
+        tx.addReceiver(2000, generateAddress());
+
+        assert.equal(tx.getContractSentAmount(), 100);
+    });
+
+    it('should sign whole Tx (for contract usage)', async () => {
+        const kp = factory.Crypto.createKeyPair();
+        const tx = new factory.Transaction(createDummyTx());
+        tx.signForContract(kp.privateKey);
+
+        assert.equal(tx.getTxSignerAddress(), kp.address);
+
+        assert.throws(tx._checkDone);
+    });
+
+    it('should get empty address (empty tx)', async () => {
+        const tx = new factory.Transaction();
+
+        assert.equal(tx.getTxSignerAddress(), undefined);
+    });
+
+    it('should get empty address (no signature)', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+
+        assert.equal(tx.getTxSignerAddress(), undefined);
+    });
+
+    it('should get empty address (random bytes as signature)', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+        tx._data.txSignature = pseudoRandomBuffer();
+
+        assert.equal(tx.getTxSignerAddress(), undefined);
+    });
+
+    it('should get Contract Address', async () => {
+        const buffAddr = generateAddress();
+        const tx = factory.Transaction.invokeContract(
+            buffAddr.toString('hex'),
+            {},
+            100
+        );
+
+        assert.isOk(buffAddr.equals(tx.getContractAddr()));
     });
 });

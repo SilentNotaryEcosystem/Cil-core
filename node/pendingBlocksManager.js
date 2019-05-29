@@ -10,7 +10,7 @@ const {mergeSets} = require('../utils');
 
 const debug = debugLib('pendingBlocksManager:');
 
-// IMPORTANT
+// IMPORTANT: how many witnesses should include it in graph to make it stable
 const majority = (nGroup) => parseInt(nGroup / 2) + 1;
 
 module.exports = (factory) => {
@@ -19,10 +19,13 @@ module.exports = (factory) => {
     assert(PatchDB);
 
     return class PendingBlocksManager {
-        constructor() {
+        constructor(arrTopStable) {
             this._dag = new Dag();
+            this._dag.testForCyclic = false;
 
-            // TODO: maintain graph of pending blocks (store it + load it)!
+            this._topStable = arrTopStable;
+
+            // see node.rebuildPending
         }
 
         getDag() {
@@ -44,7 +47,6 @@ module.exports = (factory) => {
             }
             this._dag.saveObj(block.getHash(), {patch: patchState, blockHeader: block.header});
         }
-
 
         /**
          *
@@ -77,16 +79,33 @@ module.exports = (factory) => {
         }
 
         /**
+         * @param {String} blockHash
+         * @returns {Array}  of blocks that are children of a block with hash
+         */
+        getChildren(hash) {
+            typeforce(types.Str64, hash);
+            return this._dag.edgesTo(hash).tips;
+        }
+
+        /**
+         * @param {String} blockHash
+         */
+        getBlock(hash) {
+            typeforce(types.Str64, hash);
+            return this._dag.readObj(hash);
+        }
+
+        /**
          * It will check "compatibility" of tips (ability to merge patches)
          *
          * @returns {arrParents}
          * @private
          */
         async getBestParents() {
-            const arrTips = this.getTips();
+            let arrTips = this.getTips();
 
-            // TODO: review it. it's good only at very beginning. No tips == Error!
-            if (!arrTips.length) arrTips.push(Constants.GENEZIS_BLOCK);
+            if (!arrTips.length) arrTips = this._topStable;
+            if (!arrTips.length) arrTips = [Constants.GENESIS_BLOCK];
 
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
@@ -94,37 +113,13 @@ module.exports = (factory) => {
 
             const sortedDownTipIndexes = this._sortTips(arrTips);
 
-            let patchMerged = null;
-            for (let i of sortedDownTipIndexes) {
-                const vertex = arrTips[i];
+            // TODO: review it. this implementation (merging most witnessed vertex with other) could be non optimal
+            const patchMerged = this.mergePatches(sortedDownTipIndexes.map(i => arrTips[i]), arrParents, true);
 
-                // merge tips with max witnessed paths first
-                const {patch} = this._dag.readObj(vertex) || {};
-
-                // this patch (block) already finial applied to storage, and removed from DAG
-                if (!patch) continue;
-
-                try {
-                    if (!patchMerged) {
-
-                        // no need to merge first patch with empty. just store it
-                        patchMerged = patch;
-                    } else {
-                        patchMerged = patchMerged.merge(patch);
-                    }
-
-                    arrParents.push(vertex);
-                } catch (e) {
-                    console.error(e);
-                    // TODO: rework it. this implementation (merging most witnessed vertex with other) could be non optimal
-                }
-            }
-
+            // TODO: review it
+            if (!arrParents.length) logger.debug('No pending parents found, using stable tips!');
             return {
-
-                // TODO: review this condition
-                arrParents: arrParents.length ? arrParents : [Constants.GENEZIS_BLOCK],
-//                arrParents: arrParents,
+                arrParents: arrParents.length ? arrParents : arrTips,
                 patchMerged
             };
         }
@@ -152,8 +147,8 @@ module.exports = (factory) => {
 
                     // equal WitnessNum
                     if (!diff) {
-                        return this._dag.findPathsDown(arrWitnessNums[i2]).getLongestPathLength() -
-                               this._dag.findPathsDown(arrWitnessNums[i1]).getLongestPathLength();
+                        return this._dag.findPathsDown(arrTips[i2]).getLongestPathLength() -
+                               this._dag.findPathsDown(arrTips[i1]).getLongestPathLength();
                     } else {
                         return diff;
                     }
@@ -164,33 +159,37 @@ module.exports = (factory) => {
          * Throws error if unable to merge
          *
          * @param {Array} arrHashes - @see block.parentHashes
+         * @param {Array} arrSuccessfullyMergedBlocksHashes - we'll fill it with hashes of successfully merged blocks
+         * @param {Boolean} bMergeAsMuchAsPossible - whether to fail on first failed merge or try as much as possible
          * @returns {PatchDB} merged patches for pending parent blocks. If there is no patch for parent
          *                      - this means it's final and applyed to storage
          */
-        mergePatches(arrHashes) {
-            let patchMerged = null;
+        mergePatches(arrHashes, arrSuccessfullyMergedBlocksHashes, bMergeAsMuchAsPossible = false) {
+            let patchMerged = new PatchDB();
             for (let vertex of arrHashes) {
                 const {patch} = this._dag.readObj(vertex) || {};
 
                 // this patch (block) already finial applied to storage, and removed from DAG
                 if (!patch) continue;
-                if (!patchMerged) {
-
-                    // no need to merge first patch with empty. just store it
-                    patchMerged = patch;
-                } else {
-                    patchMerged = patchMerged.merge(patch);
+                try {
+                    patchMerged = patch.merge(patchMerged);
+                    if (Array.isArray(arrSuccessfullyMergedBlocksHashes)) {
+                        arrSuccessfullyMergedBlocksHashes.push(vertex);
+                    }
+                } catch (e) {
+                    if (!bMergeAsMuchAsPossible) throw e;
                 }
             }
 
-            return patchMerged ? patchMerged : new PatchDB();
+            return patchMerged;
         }
 
         /**
+         * Undefined means that no new stable vertices found
          *
          * @param {String} newVertex - blockHash of processed block
          * @param {Number} nGroupCount - how many groups definition existed now
-         * @return {{patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
+         * @return {undefined | {patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
          */
         checkFinality(newVertex, nGroupCount) {
             typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
@@ -226,6 +225,9 @@ module.exports = (factory) => {
             }
 
             // apply patchToApply to storage, undo all setBlocksToRollback
+
+            this._topStable = arrTopStable;
+
             return {
                 patchToApply,
                 setStableBlocks: setAlsoStableVertices,
@@ -238,7 +240,7 @@ module.exports = (factory) => {
          *
          * @param {String} newVertex
          * @param {Number} nMajority  nMajority how many witness required to mark as final (how many of them "saw" block)
-         * @returns {Array} of "top stable vertices"
+         * @returns {Array} of "top stable vertices" (hashes)
          * @private
          */
         _findTopStable(newVertex, nMajority) {
@@ -344,6 +346,43 @@ module.exports = (factory) => {
          */
         getAllHashes() {
             return this._dag.V;
+        }
+
+        /**
+         *
+         * @param {String} strContractAddr
+         * @param {Number} nGroupId
+         * @returns {Contract | undefined}
+         */
+        getContract(strContractAddr, nGroupId) {
+            typeforce(typeforce.tuple(types.StrAddress, typeforce.Number), arguments);
+
+            const arrTips = this.getTips();
+
+            // find longest path containing patches with ${nGroupId}
+            let strHashBestTip = undefined;
+            let nMaxLevel = 0;
+            for (let hash of arrTips) {
+                const {patch} = this._dag.readObj(hash);
+                if (patch.getLevel(nGroupId) > nMaxLevel) {
+                    strHashBestTip = hash;
+                    nMaxLevel = patch.getLevel(nGroupId);
+                }
+            }
+            if (!strHashBestTip) return undefined;
+
+            for (let path of this._dag.findPathsDown(strHashBestTip)) {
+                for (let vertex of path) {
+                    const {patch} = this._dag.readObj(vertex);
+
+                    // we find most recent one
+                    if (patch.getLevel(nGroupId) === nMaxLevel && patch.getGroupId() === nGroupId) {
+                        return patch.getContract(strContractAddr);
+                    }
+                }
+            }
+
+            return undefined;
         }
     };
 };

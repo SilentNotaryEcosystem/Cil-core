@@ -34,6 +34,16 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             if (this._data.payload.witnessGroupId === undefined) {
                 throw new Error('Specify witness group, who will notarize this TX');
             }
+
+            // fix fixed64 conversion to Long. see https://github.com/dcodeIO/ProtoBuf.js/
+            // If a proper way to work with 64 bit values (uint64, int64 etc.) is required,
+            // just install long.js alongside this library.
+            // All 64 bit numbers will then be returned as a Long instance instead of a possibly
+            // unsafe JavaScript number (see).
+
+            for (let output of this._data.payload.outs) {
+                if (typeof output.amount.toNumber === 'function') output.amount = output.amount.toNumber();
+            }
         }
 
         get witnessGroupId() {
@@ -88,12 +98,43 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return coinbase;
         }
 
-        static createContract(strCode, maxCoins) {
+        /**
+         *
+         * @param {String} strCode
+         * @param {Buffer | undefined} addrChangeReceiver
+         * @returns {Transaction}
+         */
+        static createContract(strCode, addrChangeReceiver) {
+            typeforce(typeforce.String, strCode);
+
             const tx = new this();
             tx._data.payload.outs.push({
-                amount: maxCoins,
                 receiverAddr: Crypto.getAddrContractCreation(),
-                contractCode: strCode
+                contractCode: strCode,
+                addrChangeReceiver,
+                amount: 0
+            });
+            return tx;
+        }
+
+        /**
+         *
+         * @param {String} strContractAddr
+         * @param {Object} objInvokeCode {method, arrArguments}
+         * @param {Number} amount - coins to send to contract address
+         * @param {Address} addrChangeReceiver - to use as exec fee
+         * @returns {Transaction}
+         */
+        static invokeContract(strContractAddr, objInvokeCode, amount, addrChangeReceiver) {
+            typeforce(typeforce.tuple(types.StrAddress, typeforce.Object, typeforce.Number), arguments);
+            typeforce(typeforce.oneOf(types.Address, types.Empty), addrChangeReceiver);
+
+            const tx = new this();
+            tx._data.payload.outs.push({
+                amount,
+                receiverAddr: Buffer.from(strContractAddr, 'hex'),
+                contractCode: JSON.stringify(objInvokeCode),
+                addrChangeReceiver
             });
             return tx;
         }
@@ -135,23 +176,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         /**
-         *
-         * @param {String} strCodeInvocation  - method name & parameters
-         * @param {Number} fee
-         * @param {Buffer} addr - receiver
-         */
-        invokeContract(strCodeInvocation, fee, addr) {
-            typeforce(typeforce.tuple('String', 'Number', types.Address), arguments);
-
-            this._checkDone();
-            this._data.payload.outs.push({
-                contractCode: strCodeInvocation,
-                amount: fee,
-                receiverAddr: Buffer.from(addr, 'hex')
-            });
-        }
-
-        /**
          * Now we implement only SIGHASH_ALL
          * The rest is TODO: SIGHASH_SINGLE & SIGHASH_NONE
          *
@@ -159,6 +183,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @return {String} !!
          */
         hash(idx) {
+            return this.getHash();
+        }
+
+        /**
+         * SIGHASH_ALL
+         *
+         * @return {String} !!
+         */
+        getHash() {
             return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());
         }
 
@@ -170,22 +203,57 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         _checkDone() {
 
             // it's only for SIGHASH_ALL, if implement other - change it!
-            if (this._data.claimProofs.length) throw new Error('Tx is already signed, you can\'t modify it');
+            if (this.getTxSignature() || this._data.claimProofs.length) {
+                throw new Error(
+                    'Tx is already signed, you can\'t modify it');
+            }
         }
 
         /**
+         * Add clamProofs (signature of hash(idx)) for input with idx
+         *
          *
          * @param {Number} idx - index of input to sign
          * @param {Buffer | String} key - private key
          * @param {String} enc -encoding of key
          */
-        sign(idx, key, enc = 'hex') {
+        claim(idx, key, enc = 'hex') {
             typeforce(typeforce.tuple('Number', types.PrivateKey), [idx, key]);
 
             if (idx > this._data.payload.ins.length) throw new Error('Bad index: greater than inputs length');
 
             const hash = this.hash(idx);
             this._data.claimProofs[idx] = Crypto.sign(hash, key, enc);
+        }
+
+        /**
+         * Used to prove ownership of contract
+         *
+         * @param {Buffer | String} key - private key
+         * @param {String} enc -encoding of key
+         */
+        signForContract(key, enc = 'hex') {
+            typeforce(types.PrivateKey, key);
+
+            const hash = this.getHash();
+            this._data.txSignature = Crypto.sign(hash, key, enc);
+        }
+
+        getTxSignature() {
+            return Buffer.isBuffer(this._data.txSignature) ||
+                   (Array.isArray(this._data.txSignature) && this._data.txSignature.length) ?
+                this._data.txSignature : undefined;
+        }
+
+        getTxSignerAddress(needBuffer = false) {
+            if (!this.getTxSignature()) return undefined;
+            try {
+                const pubKey = Crypto.recoverPubKey(this.getHash(), this.getTxSignature());
+                return Crypto.getAddress(pubKey, needBuffer);
+            } catch (e) {
+                logger.error(e);
+            }
+            return undefined;
         }
 
         /**
@@ -221,7 +289,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             // check outputs
             const outputs = this.outputs;
             const outsValid = outputs && outputs.every(output => {
-                return output.amount > 0;
+                return output.contractCode || output.amount > 0;
             });
 
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
@@ -244,17 +312,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         isContractCreation() {
             const outCoins = this.getOutCoins();
-            return outCoins.length === 1 && outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
-        }
-
-        hasOneReceiver() {
-            return this.getOutCoins().length === 1;
-        }
-
-        getCode() {
-            const outputs = this.outputs;
-            assert(outputs.length === 1 && outputs[0].contractCode !== undefined);
-            return outputs[0].contractCode;
+            return outCoins[0].getReceiverAddr().equals(Crypto.getAddrContractCreation());
         }
 
         /**
@@ -264,5 +322,30 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          */
         amountOut() {
             return this.outputs.reduce((accum, out) => accum + out.amount, 0);
+        }
+
+        getContractCode() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.contractCode;
+        }
+
+        getContractAddr() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.receiverAddr;
+        }
+
+        getContractChangeReceiver() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.addrChangeReceiver;
+        }
+
+        getContractSentAmount() {
+            const contractOutput = this._getContractOutput();
+            return contractOutput.amount;
+        }
+
+        _getContractOutput() {
+            const outputs = this.outputs;
+            return outputs[0];
         }
     };

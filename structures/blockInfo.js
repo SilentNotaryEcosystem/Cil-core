@@ -12,7 +12,6 @@ const FINAL_BLOCK = 1 << 3;
 
 // block cannot be executed (validation failed)
 const BAD_BLOCK = 1 << 8;
-
 // Class to store block header + additional info in DB
 module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
 
@@ -45,6 +44,10 @@ module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
             return this._data.header.parentHashes.map(hash => hash.toString('hex'));
         }
 
+        /**
+         *
+         * @returns {String}
+         */
         getHash() {
             return Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
         }
@@ -84,6 +87,10 @@ module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
 
         encode() {
             return blockInfoProto.encode(this._data).finish();
+        }
+
+        getState() {
+            return this._data.flags;
         }
 
     };

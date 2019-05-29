@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const assert = require('assert');
 const debug = require('debug')('peer:');
 const {sleep} = require('../utils');
 const Tick = require('tick-tock');
@@ -14,31 +15,29 @@ module.exports = (factory) => {
     const {Messages, Transport, Constants} = factory;
     const {
         MsgCommon,
-        PeerInfo,
+        PeerInfo
     } = Messages;
     //const {PeerInfo} = Messages;
-    const PEER_TIMER_NAME = 'peerTimer';
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {connection, peerInfo, lastActionTimestamp, transport} = options;
-
-            this._nonce = parseInt(Math.random() * 100000);
-
-            this._transport = transport ? transport : new Transport(options);
-            this._handshakeDone = false;
-            this._version = undefined;
-            this._missbehaveScore = 0;
-            this._missbehaveTime = Date.now();
-            this._lastActionTimestamp = lastActionTimestamp ? lastActionTimestamp : Date.now();
-
-            this._tags = [];
-            this._bytesCount = 0;
-            this._msecOffsetDelta = 0;
-            this._lastDisconnectedAddress = undefined;
-            this._lastDisconnectionTime = undefined;
+            const {connection, peerInfo, transport} = options;
 
             this._persistent = false;
+            this._nonce = parseInt(Math.random() * 100000);
+            this._transport = transport ? transport : new Transport(options);
+
+            this._bannedTill = Date.now();
+            this._restrictedTill = Date.now();
+            this._misbehavedAt = Date.now();
+            this._misbehaveScore = 0;
+
+            this._cleanup();
+
+            this._heartBeatTimer = new Tick(this);
+            this._timerName = Constants.PEER_HEARTBEAT_TIMER_NAME + this._nonce;
+
+            this._randomMsecDelta = parseInt(Math.random() * 100000);
 
             // this means that we have incoming connection
             if (connection) {
@@ -46,41 +45,34 @@ module.exports = (factory) => {
                 this._bInbound = true;
                 this._setConnectionHandlers();
                 this._peerInfo = new PeerInfo({
-                    address: connection.remoteAddress
+                    address: Transport.strToAddress(connection.remoteAddress),
+                    port: connection.remotePort
                 });
-                this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
+                this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME + this._randomMsecDelta);
+
+                // run heartbeat timer
+                this._heartBeatTimer.setInterval(this._timerName, this._tick, Constants.PEER_HEARTBEAT_TIMEOUT);
             } else if (peerInfo) {
                 this.peerInfo = peerInfo;
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
-
-            this._tock = new Tick(this);
-            this._tock.setInterval(PEER_TIMER_NAME, this._tick.bind(this), Constants.PEER_TICK_TIMEOUT);
-
-            this._deadTimer = new Tick(this);
-            this._deadTimer.setInterval(Constants.PEER_DEAD_TIMER_NAME, this._deadTick.bind(this),
-                Constants.PEER_DEAD_TIMEOUT
-            );
-
-            this._pingTimer = new Tick(this);
-            this._pingTimer.setInterval(Constants.PEER_PING_TIMER_NAME, this._pingTick.bind(this),
-                Constants.PEER_PING_TIMEOUT
-            );
-
         }
 
-        /**
-         * witness peers shouldn't be disconnected
-         */
-        markAsPersistent() {
-            this._persistent = true;
+        get amountBytes() {
+            return this._transmittedBytes + this._receivedBytes;
         }
 
-        get tempBannedAddress() {
-            return !!this._lastDisconnectedAddress
-                   && Buffer.compare(this._lastDisconnectedAddress, this.address) === 0
-                   && Date.now() - this._lastDisconnectionTime < Constants.PEER_BANADDRESS_TIME;
+        get misbehaveScore() {
+            return this._misbehaveScore;
+        }
+
+        get transmittedBytes() {
+            return this._transmittedBytes;
+        }
+
+        get receivedBytes() {
+            return this._receivedBytes;
         }
 
         get peerInfo() {
@@ -95,8 +87,12 @@ module.exports = (factory) => {
             }
         }
 
+        /**
+         *
+         * @returns {String} !!!
+         */
         get address() {
-            return this._peerInfo.address;
+            return Transport.addressToString(this._peerInfo.address);
         }
 
         get port() {
@@ -120,10 +116,6 @@ module.exports = (factory) => {
             return !this._connection;
         }
 
-        get banned() {
-            return this._bBanned;
-        }
-
         get inbound() {
             return this._bInbound;
         }
@@ -141,11 +133,12 @@ module.exports = (factory) => {
         }
 
         set fullyConnected(trueVal) {
+            this.addTag('fullyConnected');
             this._handshakeDone = true;
         }
 
         get loadDone() {
-            return this._loadDone;
+            return this._loadDone || this.disconnected;
         }
 
         set loadDone(trueVal) {
@@ -159,7 +152,7 @@ module.exports = (factory) => {
         }
 
         get witnessLoadDone() {
-            return this._witnessLoadDone;
+            return this._witnessLoadDone || this.disconnected;
         }
 
         set witnessLoadDone(trueVal) {
@@ -187,6 +180,36 @@ module.exports = (factory) => {
             this._msecOffsetDelta = delta;
         }
 
+        get quality() {
+            return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
+                   / (this._peerInfo.lifetimeMisbehaveScore + this.misbehaveScore + 1);
+        }
+
+        get bannedTill() {
+            return this._bannedTill;
+        }
+
+        /**
+         * this means peer was disconnected because we wish to connect to various nodes
+         * but if there are no other peer (small net) - we'll reconnect after PEER_RESTRICT_TIME interval
+         *
+         * @returns {boolean}
+         */
+        isRestricted() {
+            return this._restrictedTill > Date.now();
+        }
+
+        isBanned() {
+            return this._bannedTill > Date.now();
+        }
+
+        /**
+         * witness peers shouldn't be disconnected
+         */
+        markAsPersistent() {
+            this._persistent = true;
+        }
+
         addTag(tag) {
             this._tags.push(tag);
         }
@@ -194,7 +217,12 @@ module.exports = (factory) => {
         hasTag(tag) {
 
             // if tag === undefined - return true!
-            return !tag || this._tags.includes(tag);
+            return tag === undefined || this._tags.includes(tag);
+        }
+
+        isAlive() {
+            const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
+            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive;
         }
 
         async loaded() {
@@ -212,62 +240,67 @@ module.exports = (factory) => {
         }
 
         async connect() {
-            if (this.banned) {
+            if (this.isBanned()) {
                 logger.error('Trying to connect to banned peer!');
                 return;
             }
-            if (this.tempBannedAddress) {
-                debug('Trying to connect to banned address!');
+            if (this.isRestricted()) {
+                logger.error('Trying to connect to temporary restricted peer!');
                 return;
             }
             if (!this.disconnected) {
-                debug(`Peer ${this.address} already connected`);
+                logger.error(`Peer ${this.address} already connected`);
                 return;
             }
-            this._bytesCount = 0;
+            this._transmittedBytes = 0;
+            this._receivedBytes = 0;
             this._connection = await this._transport.connect(this.address, this.port);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
+
+            // run heartbeat timer
+            this._heartBeatTimer.setInterval(this._timerName, this._tick, Constants.PEER_HEARTBEAT_TIMEOUT);
         }
 
         _setConnectionHandlers() {
-            if (!this._connection.listenerCount('message')) {
-                this._connection.on('message', async (msg) => {
+            if (this._connection.listenerCount('message')) return;
 
-                    // count incoming bytes
-                    if (msg.payload && Buffer.isBuffer(msg.payload)) {
-                        this._bytesCount += msg.payload.length;
-                        if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
-                            this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
-                        }
-                    }
-                    this._lastActionTimestamp = Date.now();
+            this._connection.on('message', this._onMessageHandler.bind(this));
 
-                    if (msg.signature) {
+            this._connection.on('close', () => {
+                debug(`Peer "${this.address}" connection closed by remote`);
+                this._cleanup();
+                this.emit('disconnect', this);
+            });
+        }
 
-                        // if message signed: check signature
-                        if (this.isWitness && msg.verifySignature(this.publicKey)) {
-                            this.emit('witnessMessage', this, msg);
-                        } else {
-                            this.emit('witnessMessage', this, undefined);
-                        }
-                    } else if (new MsgCommon(msg).isPing()) {
-                        const msgPong = new MsgCommon();
-                        msgPong.pongMessage = true;
-                        await this.pushMessage(msgPong);
-                    } else {
-                        this.emit('message', this, msg);
-                    }
-                });
+        async _onMessageHandler(msg) {
 
-                this._connection.on('close', () => {
-                    debug(`Connection to "${this.address}" closed`);
-                    this._cleanup();
-                    this._lastDisconnectedAddress = this.address;
-                    this._lastDisconnectionTime = Date.now();
-                    this._connection = undefined;
-                    this.emit('disconnect', this);
-                });
+            // count incoming bytes
+            if (msg.payload && Buffer.isBuffer(msg.payload)) {
+                this._updateReceived(msg.payload.length);
+
+                // TODO: remove it? we'll rely on timer. we don't need to be very precise
+                if (!this._persistent && this.amountBytes > Constants.PEER_MAX_BYTES_COUNT) {
+                    this.disconnect(`Limit "${Constants.PEER_MAX_BYTES_COUNT}" bytes reached for peer`);
+                }
+            }
+            this._lastActionTimestamp = Date.now();
+
+            if (msg.signature) {
+
+                // if message signed: check signature
+                if (this.isWitness && msg.verifySignature(this.publicKey)) {
+                    this.emit('witnessMessage', this, msg);
+                } else {
+                    this.emit('witnessMessage', this, undefined);
+                }
+            } else if (new MsgCommon(msg).isPing()) {
+                const msgPong = new MsgCommon();
+                msgPong.pongMessage = true;
+                await this.pushMessage(msgPong);
+            } else {
+                this.emit('message', this, msg);
             }
         }
 
@@ -276,87 +309,147 @@ module.exports = (factory) => {
 
             // we have pending messages
             if (Array.isArray(this._queue)) {
-                debug(`Queue message "${msg.message}" to "${Transport.addressToString(this.address)}"`);
+                debug(`Queue message "${msg.message}" to "${this.address}"`);
                 this._queue.push(msg);
             } else {
                 this._queue = [msg];
                 let nextMsg;
                 while ((nextMsg = this._queue.shift())) {
-                    debug(`Sending message "${nextMsg.message}" to "${Transport.addressToString(this.address)}"`);
-                    await this._connection.sendMessage(nextMsg);
+                    debug(`Sending message "${nextMsg.message}" to "${this.address}"`);
+
+                    // possibly, peer was disconnected between messages
+                    if (this._connection && typeof this._connection.sendMessage === 'function') {
+                        await this._connection.sendMessage(nextMsg);
+                    }
                     if (nextMsg.payload && Buffer.isBuffer(nextMsg.payload)) {
-                        this._bytesCount += nextMsg.payload.length;
+                        this._updateTransmitted(nextMsg.payload.length);
                     }
                 }
                 this._queue = undefined;
 
-                // count outgoing bytes
-                if (!this._persistent && this._bytesCount > Constants.PEER_MAX_BYTESCOUNT) {
-                    this.disconnect(`Limit "${Constants.PEER_MAX_BYTESCOUNT}" bytes reached for peer`);
+                // TODO: remove it? we'll rely on timer. we don't need to be very precise
+                if (!this._persistent && this.amountBytes > Constants.PEER_MAX_BYTES_COUNT) {
+                    this.disconnect(`Limit "${Constants.PEER_MAX_BYTES_COUNT}" bytes reached for peer`);
                 }
             }
         }
 
         ban() {
-            this._bannedTill = new Date(Date.now() + Constants.BAN_PEER_TIME);
-            this._bBanned = true;
-
+            this._updateMisbehave(Constants.BAN_PEER_SCORE);
+            this._bannedTill = Date.now() + Constants.BAN_PEER_TIME;
             debug(`Peer banned till ${new Date(this._bannedTill)}`);
-
             if (!this.disconnected) this.disconnect('Peer banned');
+            this.emit('peerBanned', this);
         }
 
         misbehave(score) {
+            debug(`Peer ${this.address} misbehaving. Current score: ${this._misbehaveScore}. Will add: ${score}. `);
 
-            // reset _missbehaveScore if it was Constants.BAN_PEER_TIME ago
-            if (Date.now() - this._missbehaveTime > Constants.BAN_PEER_TIME) this._missbehaveScore = 0;
+            // reset _misbehaveScore if it was Constants.BAN_PEER_TIME ago
+            if (Date.now() - this._misbehavedAt > Constants.BAN_PEER_TIME) this._misbehaveScore = 0;
 
-            this._missbehaveScore += score;
-            this._missbehaveTime = Date.now();
-            if (this._missbehaveScore >= Constants.BAN_PEER_SCORE) this.ban();
+            this._updateMisbehave(score);
+            this._misbehavedAt = Date.now();
+
+            if (this._misbehaveScore >= Constants.BAN_PEER_SCORE) this.ban();
         }
 
         disconnect(reason) {
-            debug(`${reason}. Closing connection to "${this._connection.remoteAddress}"`);
-            this._cleanup();
-            this._lastDisconnectedAddress = this._connection.remoteAddress;
-            this._lastDisconnectionTime = Date.now();
+            this._heartBeatTimer.clear(this._timerName);
+            assert(this._connection, 'Trying to disconnect already disconnected peer');
 
-            this._connection.close();
-            this._connection = undefined;
+            debug(`${reason}. Closing connection to "${this._connection.remoteAddress}"`);
+            try {
+                this._connection.close();
+            } catch (err) {
+                logger.error(err);
+            }
+
+            this._cleanup();
+
+            // once we got disconnected - restrict it
+            this._restrictedTill = Date.now() + Constants.PEER_RESTRICT_TIME + this._randomMsecDelta;
             this.emit('disconnect', this);
         }
 
         _cleanup() {
-            this._bInbound = false;
-            this.loadDone = true;
-            this._bytesCount = 0;
+            this._tags = [];
+            this._connection = undefined;
+
+            this._handshakeDone = false;
+            this._version = undefined;
+
+//            this._bannedTill = Date.now();
+//            this._restrictedTill = Date.now();
+//            this._misbehavedAt = Date.now();
+//            this._misbehaveScore = 0;
+//            this._lastActionTimestamp = Date.now();
+
+            this._transmittedBytes = 0;
+            this._receivedBytes = 0;
+
             this._msecOffsetDelta = 0;
+
+            this._bInbound = false;
+            this._msecOffsetDelta = 0;
+
+            this._loadDone = false;
+            this._witnessLoadDone = false;
         }
 
-        _tick() {
-            if (this._bBanned && this._bannedTill.getTime() < Date.now()) {
-                this._bBanned = false;
+        async _tick() {
+
+            // stop timer if peer disconnected. disconnect == dead. dead == no heartbeat
+            if (this.disconnected) {
+                this._heartBeatTimer.clear(this._timerName);
+                return;
             }
 
             // disconnect non persistent peers when time has come
-            if (!this._persistent && !this.disconnected && this._connectedTill.getTime() < Date.now()) {
+            if (!this._persistent && !this.disconnected && this._connectedTill < Date.now()) {
                 this.disconnect('Scheduled disconnect');
+                this._restrictedTill = Date.now() + Constants.PEER_RESTRICT_TIME;
+                return;
             }
-        }
 
-        _deadTick() {
-            if (!this.disconnected && Date.now() - this._lastActionTimestamp > Constants.PEER_DEAD_TIME) {
+            if (this._lastActionTimestamp + Constants.PEER_DEAD_TIME < Date.now()) {
                 this.disconnect('Peer is dead!');
+                return;
             }
+
+            const msgPing = new MsgCommon();
+            msgPing.pingMessage = true;
+            await this.pushMessage(msgPing);
         }
 
-        async _pingTick() {
-            if (!this.disconnected) {
-                const msgPing = new MsgCommon();
-                msgPing.pingMessage = true;
-                await this.pushMessage(msgPing);
-            }
+        /**
+         *
+         * @returns {peerInfo} with zero counters
+         */
+        toObject() {
+
+            // TODO: create separate definition for peerInfo & peerAddressBookEntry
+            return {
+                ...this.peerInfo.data,
+                lifetimeMisbehaveScore: 0,
+                lifetimeTransmittedBytes: 0,
+                lifetimeReceivedBytes: 0
+            };
+        }
+
+        _updateReceived(bytes) {
+            this._receivedBytes += bytes;
+            this.peerInfo.lifetimeReceivedBytes += bytes;
+        }
+
+        _updateTransmitted(bytes) {
+            this._transmittedBytes += bytes;
+            this.peerInfo.lifetimeTransmittedBytes += bytes;
+        }
+
+        _updateMisbehave(score) {
+            this.peerInfo.lifetimeMisbehaveScore += score;
+            this._misbehaveScore += score;
         }
     };
 };

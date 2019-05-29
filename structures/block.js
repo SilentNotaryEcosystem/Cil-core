@@ -57,6 +57,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this._data.signatures;
         }
 
+        get timestamp() {
+            return this._data.timestamp;
+        }
+
         get header() {
             return this._data.header;
         }
@@ -157,5 +161,13 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             typeforce(typeforce.arrayOf(types.Signature), arrSignatures);
 
             this._data.signatures = arrSignatures.slice();
+        }
+
+        toObject() {
+            return {
+                header: this._data.header,
+                signatures: this._data.signatures,
+                tnxs: this._data.txns.map(objTx => (new Transaction(objTx)).getHash())
+            };
         }
     };

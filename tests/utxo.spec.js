@@ -6,19 +6,19 @@ const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
-const {pseudoRandomBuffer} = require('./testUtil');
+const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 const createDummyUtxo = (arrIndexes) => {
     const txHash = pseudoRandomBuffer().toString('hex');
     const utxo = new factory.UTXO({txHash});
-    const coins = new factory.Coins(10, Buffer.allocUnsafe(100));
+    const coins = new factory.Coins(10, generateAddress());
 
     arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
 
     return {utxo, coins};
 };
 
-describe('PatchDB', () => {
+describe('UTXO', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -136,4 +136,46 @@ describe('PatchDB', () => {
         assert.isOk(restoredUtxo.equals(utxo));
     });
 
+    it('should count coins in UTXO', async () => {
+        const {utxo, coins} = createDummyUtxo([12, 0, 431]);
+
+        assert.equal(utxo.amountOut(), coins.getAmount() * utxo.getIndexes().length);
+
+        // spend and check again!
+        utxo.spendCoins(0);
+        assert.equal(utxo.amountOut(), coins.getAmount() * utxo.getIndexes().length);
+    });
+
+    it('should convert to Object', async () => {
+        const {utxo} = createDummyUtxo([12, 0, 431]);
+
+        const objResult = utxo.toObject();
+        assert.isOk(arrayEquals(Object.keys(objResult).map(key => parseInt(key)), [12, 0, 431]));
+        assert.isOk(Object.keys(objResult).every(key => typeof objResult[key].amount === 'number' &&
+                                                        typeof objResult[key].receiverAddr === 'string'));
+    });
+
+    it('should getOutputsForAddress', async () => {
+        const addr1 = generateAddress();
+        const addr2 = generateAddress();
+
+        const utxo = new factory.UTXO({txHash: pseudoRandomBuffer()});
+        utxo.addCoins(0, new factory.Coins(10, addr1));
+        utxo.addCoins(2, new factory.Coins(10, addr2));
+        utxo.addCoins(3, new factory.Coins(10, addr1));
+
+        {
+            const arrResults = utxo.getOutputsForAddress(addr1);
+
+            assert.equal(arrResults.length, 2);
+            assert.equal(arrResults[0][0], 0);
+            assert.equal(arrResults[1][0], 3);
+        }
+        {
+            const arrResults = utxo.getOutputsForAddress(addr2.toString('hex'));
+
+            assert.equal(arrResults.length, 1);
+            assert.equal(arrResults[0][0], 2);
+        }
+    });
 });
