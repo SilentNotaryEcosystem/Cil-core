@@ -1754,6 +1754,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _rebuildBlockDb() {
+            await this._storage.ready();
+
             const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
             const arrLastStableHashes = await this._storage.getLastAppliedBlockHashes();
 

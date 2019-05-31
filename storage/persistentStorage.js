@@ -95,6 +95,14 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
+         * @return {Promise<void>|*}
+         */
+        ready() {
+            return Promise.resolve();
+        }
+
+        /**
+         *
          * @param {String} strPrefix
          * @param {Buffer | undefined} buffKey
          * @param {Buffer | String} suffix
