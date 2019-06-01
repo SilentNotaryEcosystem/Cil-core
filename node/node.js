@@ -385,23 +385,26 @@ module.exports = (factory, factoryOptions) => {
                 logger.error(`Block ${block.hash()} already known!`);
                 return;
             }
-            await this._handleArrivedBlock(block, peer);
-        }
-
-        async _handleArrivedBlock(block, peer) {
-            const lock = await this._mutex.acquire([`blockReceived`]);
             try {
-                this._requestCache.done(block.getHash());
-                this._mapUnknownBlocks.delete(block.getHash());
-                await this._verifyBlock(block);
-
-                // store it in DAG & disk
-                await this._blockInFlight(block);
+                await this._handleArrivedBlock(block, peer);
             } catch (e) {
                 await this._blockBad(block);
                 logger.error(e);
                 if (peer) peer.misbehave(10);
                 throw e;
+            }
+        }
+
+        async _handleArrivedBlock(block, peer) {
+            const lock = await this._mutex.acquire([`blockReceived`]);
+            try {
+                await this._verifyBlock(block);
+
+                // store it in DAG & disk
+                await this._blockInFlight(block);
+
+                this._requestCache.done(block.getHash());
+                this._mapUnknownBlocks.delete(block.getHash());
             } finally {
                 this._mutex.release(lock);
             }
