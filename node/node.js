@@ -99,10 +99,11 @@ module.exports = (factory, factoryOptions) => {
 
         _initNetwork(options) {
             return new Promise(async resolve => {
-                const nRebuildStarted = Date.now();
-                await this._rebuildPromise;
+
+                // we'll init network after all local tasks are done
+                await Promise.all([this._rebuildPromise]);
+
                 await this._transport.listen();
-                logger.log(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
 
                 this._myPeerInfo = new PeerInfo({
                     capabilities: [
@@ -841,9 +842,7 @@ module.exports = (factory, factoryOptions) => {
             try {
                 switch (event) {
                     case 'tx':
-                        await this._processReceivedTx(content, false);
-                        this._mempool.addLocalTx(content);
-                        break;
+                        return await this._acceptLocalTx(content);
                     case 'txReceipt':
                         return await this._storage.getTxReceipt(content);
                     case 'getBlock':
@@ -920,10 +919,39 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        async _acceptLocalTx(newTx) {
+            const patchNewTx = await this._processReceivedTx(newTx, false);
+
+            // let's check for patch conflicts with other local txns
+
+            try {
+                for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
+                    if (!patchTx) {
+
+                        // mempool just loaded, we need to exec all stored local txns
+                        const localTx = this._mempool.getTx(strTxHash);
+
+                        // exec it. no need to validate. local txns were already validated
+                        const {patchThisTx} = await this._processTx(undefined, false, localTx);
+
+                        // store it back with patch
+                        this._mempool.addLocalTx(localTx, patchThisTx);
+                        patchTx = patchThisTx;
+                    }
+                    patchTx.merge(patchNewTx);
+                }
+
+                // all merges passed - accept new tx
+                this._mempool.addLocalTx(newTx, patchNewTx);
+            } catch (e) {
+                throw new Error(`Tx is not accepted: ${e.message}`);
+            }
+        }
+
         /**
          *
          * @param {Transaction} tx
-         * @returns {Promise<void>}
+         * @returns {Promise<PatchDB>}
          * @private
          */
         async _processReceivedTx(tx, bStoreInMempool = true) {
@@ -936,10 +964,12 @@ module.exports = (factory, factoryOptions) => {
             if (this._mempool.hasTx(tx.hash())) return;
 
             await this._storage.checkTxCollision([tx.hash()]);
-            await this._processTx(undefined, false, tx);
+            const {patchThisTx} = await this._processTx(undefined, false, tx);
             if (bStoreInMempool) this._mempool.addTx(tx);
 
             await this._informNeighbors(tx);
+
+            return patchThisTx;
         }
 
         /**
@@ -1754,11 +1784,17 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _rebuildBlockDb() {
+            const nRebuildStarted = Date.now();
+
             const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
             const arrLastStableHashes = await this._storage.getLastAppliedBlockHashes();
 
             await this._buildMainDag(arrLastStableHashes, arrPendingBlocksHashes);
             await this._rebuildPending(arrLastStableHashes, arrPendingBlocksHashes);
+
+            debugNode(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
+
+            this._mempool.loadLocalTxnsFromDisk();
         }
 
         async _nodeWorker() {
