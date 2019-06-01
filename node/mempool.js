@@ -24,6 +24,8 @@ module.exports = ({Constants, Transaction}) =>
 
             this._fileName = path.resolve(dbPath || Constants.DB_PATH_PREFIX, Constants.LOCAL_TX_FILE_NAME);
             this._mapLocalTxns = new Map();
+
+            this._setBadTxnsHash = new Set();
         }
 
         /**
@@ -75,7 +77,9 @@ module.exports = ({Constants, Transaction}) =>
             typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-            return this._mapTxns.has(strTxHash) || this._mapLocalTxns.has(strTxHash);
+            return this._mapTxns.has(strTxHash) ||
+                   this._mapLocalTxns.has(strTxHash) ||
+                   this._setBadTxnsHash.has(txHash);
         }
 
         /**
@@ -189,5 +193,11 @@ module.exports = ({Constants, Transaction}) =>
             } catch (e) {
                 if (!e.message.match(/ENOENT/)) logger.error(e);
             }
+        }
+
+        storeBadTxHash(strTxHash) {
+            typeforce(types.Str64, strTxHash);
+
+            this._setBadTxnsHash.add(strTxHash);
         }
     };

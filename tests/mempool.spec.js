@@ -3,7 +3,7 @@
 const fs = require('fs');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {sleep, createDummyTx} = require('./testUtil');
+const {sleep, createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 const sinon = require('sinon').createSandbox();
 
@@ -196,7 +196,6 @@ describe('Mempool tests', () => {
         assert.isOk(mempool.hasTx(tx4.hash()));
         assert.isOk(mempool.hasTx(tx5.hash()));
         assert.isOk(mempool.hasTx(tx6.hash()));
-
     });
 
     it('should getAllTxnHashes', async () => {
@@ -244,5 +243,13 @@ describe('Mempool tests', () => {
         mempool.addLocalTx(tx2);
 
         assert.deepEqual(mempool.getLocalTxnHashes(), [tx.getHash(), tx2.getHash()]);
+    });
+
+    it('should storeBadTxHash', async () => {
+        const mempool = new factory.Mempool({testStorage: true});
+        const strHash = pseudoRandomBuffer().toString('hex');
+
+        mempool.storeBadTxHash(strHash);
+        assert.isOk(mempool.hasTx(strHash));
     });
 });

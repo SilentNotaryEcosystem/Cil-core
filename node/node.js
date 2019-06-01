@@ -959,15 +959,23 @@ module.exports = (factory, factoryOptions) => {
         async _processReceivedTx(tx, bStoreInMempool = true) {
             typeforce(types.Transaction, tx);
 
+            const strTxHash = tx.getHash();
+
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
             // this will check for double spend in pending txns
             // if something wrong - it will throw error
 
             if (this._mempool.hasTx(tx.hash())) return;
 
-            await this._storage.checkTxCollision([tx.hash()]);
-            const {patchThisTx} = await this._processTx(undefined, false, tx);
-            if (bStoreInMempool) this._mempool.addTx(tx);
+            let patchThisTx;
+            try {
+                await this._storage.checkTxCollision([strTxHash]);
+                ({patchThisTx} = await this._processTx(undefined, false, tx));
+                if (bStoreInMempool) this._mempool.addTx(tx);
+            } catch (e) {
+                this._mempool.storeBadTxHash(strTxHash);
+                throw e;
+            }
 
             await this._informNeighbors(tx);
 

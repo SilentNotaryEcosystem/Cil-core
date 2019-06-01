@@ -465,23 +465,6 @@ describe('Node tests', () => {
         assert.isOk(false, 'Unexpected success');
     });
 
-    it('should process received TX', async function() {
-        const node = new factory.Node();
-        node._mempool.addTx = sinon.fake();
-        node._informNeighbors = sinon.fake();
-
-        const {tx} = createTxAddCoinsToNode(node);
-
-        await node._processReceivedTx(tx);
-
-        assert.isOk(node._mempool.addTx.calledOnce);
-        assert.isOk(node._informNeighbors.calledOnce);
-
-        const [txToSend] = node._informNeighbors.args[0];
-        assert.isOk(txToSend);
-        assert.isOk(txToSend.equals(tx));
-    });
-
     it('should process NEW block from MsgBlock', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
@@ -532,57 +515,6 @@ describe('Node tests', () => {
             return;
         }
         assert.isOk(false, 'Unexpected success');
-    });
-
-    it('should throw while _processReceivedTx (no UTXO for tx)', async () => {
-        const node = new factory.Node();
-
-        const txHash = pseudoRandomBuffer().toString('hex');
-        const keyPair = factory.Crypto.createKeyPair();
-        const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
-
-        // create tx
-        const tx = new factory.Transaction();
-        tx.addInput(txHash, 12);
-        tx.addReceiver(100000, buffAddress);
-        tx.claim(0, keyPair.privateKey);
-
-        try {
-            await node._processReceivedTx(tx);
-        } catch (e) {
-            return;
-        }
-        throw new Error('Unexpected success');
-    });
-
-    it('should throw while _processReceivedTx (fee is too small)', async () => {
-        const node = new factory.Node();
-        const amount = 1e5;
-
-        const patch = new factory.PatchDB(0);
-        const keyPair = factory.Crypto.createKeyPair();
-        const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
-        const txHash = pseudoRandomBuffer().toString('hex');
-
-        // create "genesis"
-        const coins = new factory.Coins(amount, buffAddress);
-        patch.createCoins(txHash, 12, coins);
-
-        node._storage.applyPatch(patch);
-
-        const tx = new factory.Transaction();
-        tx.addInput(txHash, 12);
-        tx.addReceiver(amount, buffAddress);
-        tx.claim(0, keyPair.privateKey);
-
-        return assert.isRejected(node._processReceivedTx(tx), /fee .+ too small!/);
-    });
-
-    it('should accept TX', async () => {
-        const node = new factory.Node();
-        const {tx} = createTxAddCoinsToNode(node);
-
-        await node._processReceivedTx(tx);
     });
 
     it('should process GENESIS block', async () => {
@@ -2289,6 +2221,88 @@ describe('Node tests', () => {
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 1);
             });
+        });
+    });
+
+    describe('_processReceivedTx', async () => {
+        it('should accept TX', async () => {
+            const node = new factory.Node();
+            const {tx} = createTxAddCoinsToNode(node);
+
+            await node._processReceivedTx(tx);
+        });
+
+        it('should process received TX', async function() {
+            const node = new factory.Node();
+            node._mempool.addTx = sinon.fake();
+            node._informNeighbors = sinon.fake();
+
+            const {tx} = createTxAddCoinsToNode(node);
+
+            await node._processReceivedTx(tx);
+
+            assert.isOk(node._mempool.addTx.calledOnce);
+            assert.isOk(node._informNeighbors.calledOnce);
+
+            const [txToSend] = node._informNeighbors.args[0];
+            assert.isOk(txToSend);
+            assert.isOk(txToSend.equals(tx));
+        });
+
+        it('should throw while _processReceivedTx (no UTXO for tx)', async () => {
+            const node = new factory.Node();
+
+            const txHash = pseudoRandomBuffer().toString('hex');
+            const keyPair = factory.Crypto.createKeyPair();
+            const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
+
+            // create tx
+            const tx = new factory.Transaction();
+            tx.addInput(txHash, 12);
+            tx.addReceiver(100000, buffAddress);
+            tx.claim(0, keyPair.privateKey);
+
+            return assert.isRejected(node._processReceivedTx(tx));
+        });
+
+        it('should throw while _processReceivedTx (fee is too small)', async () => {
+            const node = new factory.Node();
+            const amount = 1e5;
+
+            const patch = new factory.PatchDB(0);
+            const keyPair = factory.Crypto.createKeyPair();
+            const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
+            const txHash = pseudoRandomBuffer().toString('hex');
+
+            // create "genesis"
+            const coins = new factory.Coins(amount, buffAddress);
+            patch.createCoins(txHash, 12, coins);
+
+            node._storage.applyPatch(patch);
+
+            const tx = new factory.Transaction();
+            tx.addInput(txHash, 12);
+            tx.addReceiver(amount, buffAddress);
+            tx.claim(0, keyPair.privateKey);
+
+            return assert.isRejected(node._processReceivedTx(tx), /fee .+ too small!/);
+        });
+
+        it('should storeBadTxHash', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            node._processTx = sinon.fake.rejects('failed');
+            node._mempool.storeBadTxHash = sinon.fake();
+
+            try {
+                await node._processReceivedTx(new factory.Transaction(createDummyTx()));
+            } catch (e) {
+                assert.isOk(node._mempool.storeBadTxHash.calledOnce);
+                return;
+            }
+
+            throw new Error('Unexpected success');
         });
     });
 });
