@@ -56,33 +56,6 @@ describe('Mempool tests', () => {
             assert.doesNotThrow(() => mempool.addTx(tx));
             assert.throws(() => mempool.addTx(tx));
         }
-
-        // addLocalTx
-        {
-            const mempool = new factory.Mempool();
-            const tx = new factory.Transaction(createDummyTx());
-
-            assert.doesNotThrow(() => mempool.addLocalTx(tx));
-            assert.throws(() => mempool.addLocalTx(tx));
-        }
-
-        // mix
-        {
-            const mempool = new factory.Mempool();
-            const tx = new factory.Transaction(createDummyTx());
-
-            assert.doesNotThrow(() => mempool.addTx(tx));
-            assert.throws(() => mempool.addLocalTx(tx));
-        }
-
-        // mix
-        {
-            const mempool = new factory.Mempool();
-            const tx = new factory.Transaction(createDummyTx());
-
-            assert.doesNotThrow(() => mempool.addLocalTx(tx));
-            assert.throws(() => mempool.addTx(tx));
-        }
     });
 
     it('should add 2 different tx', async () => {
@@ -152,7 +125,7 @@ describe('Mempool tests', () => {
         }
     });
 
-    it('should get TXns with specific conciliumId', async () => {
+    it('should getFinalTxns with specific conciliumId', async () => {
         const mempool = new factory.Mempool({testStorage: true});
         const tx1 = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
@@ -257,7 +230,7 @@ describe('Mempool tests', () => {
             .returns(
                 '{"0a48cb13f67da62195d60dc2ace499a97ec29537b86bbf161ca6cd1998b006c3": "0a4c0a250a20ed000000000000000000000000000000000000000000000070706e0300000000109307121f095b010000000000001214dc6b50030000000040706e030000000007f5152e180120001220ec6c50030000000088706e03000000007f24aa3e04000000c8726e0300000000"}');
 
-        mempool._loadFromDisk();
+        mempool.loadLocalTxnsFromDisk();
 
         assert.isOk(Array.isArray(mempool.getAllTxnHashes()) && mempool.getAllTxnHashes().length === 1);
     });

@@ -1089,20 +1089,70 @@ describe('Node tests', () => {
         assert.equal(node._calcHeight([blockHash3, blockHash2, blockHash1]), 11);
     });
 
-    describe('RPC tests', () => {
+    describe('_acceptLocalTx', async () => {
+        let node;
+        beforeEach(async () => {
+            node = new factory.Node();
+            await node.ensureLoaded();
+        });
+
+        it('should exec all localTxns from mempool (just loaded from disk) and accept new', async () => {
+            const fakeLocalTxns = [new factory.Transaction(createDummyTx()), new factory.Transaction(createDummyTx())];
+            node._mempool.getLocalTxnsPatches =
+                sinon.fake.returns(fakeLocalTxns.map(tx => ({strTxHash: tx.getHash(), patchTx: undefined})));
+            node._mempool.getTx = sinon.fake();
+            node._processTx = sinon.fake.resolves({patchThisTx: new factory.PatchDB()});
+            node._processReceivedTx = sinon.fake.resolves(new factory.PatchDB());
+            node._mempool.addLocalTx = sinon.fake();
+
+            await node._acceptLocalTx(new factory.Transaction(createDummyTx()));
+
+            assert.equal(node._processTx.callCount, 2);
+            assert.isOk(node._processReceivedTx.calledOnce);
+
+            // existed + new
+            assert.equal(node._mempool.addLocalTx.callCount, 3);
+        });
+
+        it('should fail to accept tx (conflicting txns)', async () => {
+            const fakeLocalTxns = [new factory.Transaction(createDummyTx()), new factory.Transaction(createDummyTx())];
+            node._mempool.getLocalTxnsPatches =
+                sinon.fake.returns(
+                    fakeLocalTxns.map(tx => ({strTxHash: tx.getHash(), patchTx: {merge: () => {throw ('failed');}}})
+                    )
+                );
+            node._processReceivedTx = sinon.fake.resolves(new factory.PatchDB());
+
+            return assert.isRejected(node._acceptLocalTx(new factory.Transaction(createDummyTx())));
+        });
+    });
+
+    describe('RPC tests', async () => {
         it('send TX', async function() {
             const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+            node._mempool.loadLocalTxnsFromDisk = sinon.fake();
             await node.ensureLoaded();
-            node._processReceivedTx = sinon.fake();
+            node._processReceivedTx = sinon.fake.resolves(new factory.PatchDB());
             node._mempool.addLocalTx = sinon.fake();
 
             await node.rpcHandler({
                 event: 'tx',
-                content: new factory.Transaction(createDummyTx()).encode().toString('hex')
+                content: new factory.Transaction(createDummyTx())
             });
 
             assert.isOk(node._processReceivedTx.calledOnce);
             assert.isOk(node._mempool.addLocalTx.calledOnce);
+        });
+
+        it('fails to send TX (confilct with existing)', async function() {
+            const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
+            await node.ensureLoaded();
+            node._acceptLocalTx = sinon.fake.rejects('Failed');
+
+            return assert.isRejected(node.rpcHandler({
+                event: 'tx',
+                content: new factory.Transaction(createDummyTx()).encode().toString('hex')
+            }));
         });
 
         it('should get TX receipt', async () => {
@@ -1532,7 +1582,7 @@ describe('Node tests', () => {
         });
     });
 
-    describe('BlockProcessor', () => {
+    describe('BlockProcessor', async () => {
         let node;
         beforeEach(async () => {
             node = new factory.Node();
@@ -1765,7 +1815,7 @@ describe('Node tests', () => {
 
     });
 
-    describe('_createCallbacksForApp', () => {
+    describe('_createCallbacksForApp', async () => {
         let node;
         beforeEach(async () => {
             node = new factory.Node();
@@ -2067,7 +2117,7 @@ describe('Node tests', () => {
         });
     });
 
-    describe('Node bootstrap', () => {
+    describe('Node bootstrap', async () => {
         let node;
         before(() => {
             factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
