@@ -1574,15 +1574,15 @@ module.exports = (factory, factoryOptions) => {
                 : blockOrBlockInfo;
 
             blockInfo.markAsBad();
-            await this._storeBlockAndInfo(undefined, blockInfo);
+            await this._storeBlockAndInfo(undefined, blockInfo, false);
         }
 
-        async _blockInFlight(block) {
+        async _blockInFlight(block, bOnlyDag = false) {
             debugNode(`Block "${block.getHash()}" stored`);
 
             const blockInfo = new BlockInfo(block.header);
             blockInfo.markAsInFlight();
-            await this._storeBlockAndInfo(block, blockInfo);
+            await this._storeBlockAndInfo(block, blockInfo, bOnlyDag);
         }
 
         _isBlockExecuted(hash) {
@@ -1600,10 +1600,14 @@ module.exports = (factory, factoryOptions) => {
          *
          * @param {Block | undefined} block
          * @param {BlockInfo} blockInfo
+         * @param {Boolean} bOnlyDag - store only in DAG
          * @private
          */
-        async _storeBlockAndInfo(block, blockInfo) {
+        async _storeBlockAndInfo(block, blockInfo, bOnlyDag) {
             typeforce(typeforce.tuple(typeforce.oneOf(types.Block, undefined), types.BlockInfo), arguments);
+
+            this._mainDag.addBlock(blockInfo);
+            if (bOnlyDag) return;
 
             if (blockInfo.isBad()) {
 
@@ -1625,7 +1629,6 @@ module.exports = (factory, factoryOptions) => {
                 // save block, and it's info
                 await this._storage.saveBlock(block, blockInfo).catch(err => debugNode(err));
             }
-            this._mainDag.addBlock(blockInfo);
         }
 
         /**
@@ -1643,8 +1646,6 @@ module.exports = (factory, factoryOptions) => {
 
                 // parent is bad
                 if (blockInfo && blockInfo.isBad()) {
-
-                    // it will be marked as bad in _handleBlockMessage
                     throw new Error(
                         `Block ${block.getHash()} refer to bad parent ${hash}`);
                 }
@@ -1781,7 +1782,13 @@ module.exports = (factory, factoryOptions) => {
 
                 for (let [hash, peer] of this._mapBlocksToExec) {
                     let blockOrInfo = this._mainDag.getBlockInfo(hash);
-                    if (!blockOrInfo) blockOrInfo = await this._storage.getBlock(hash).catch(err => debugBlock(err));
+                    if (!blockOrInfo) {
+
+                        // we have no block in DAG, but possibly have it in storage
+                        const block = await this._storage.getBlock(hash).catch(err => debugBlock(err));
+                        if (block) await this._blockInFlight(block, true);
+                        blockOrInfo = block;
+                    }
 
                     try {
                         if (!blockOrInfo || (blockOrInfo.isBad && blockOrInfo.isBad())) {
