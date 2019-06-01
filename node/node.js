@@ -423,7 +423,7 @@ module.exports = (factory, factoryOptions) => {
 
             const lock = await this._mutex.acquire(['inventory']);
             try {
-                let nBlocksInMsg = 0;
+                let nBlockToRequest = 0;
                 for (let objVector of invMsg.inventory.vector) {
 
                     // we already requested it (from another peer), so let's skip it
@@ -435,9 +435,9 @@ module.exports = (factory, factoryOptions) => {
                         // TODO: more checks? for example search this hash in UTXOs?
                         bShouldRequest = !this._mempool.hasTx(objVector.hash);
                     } else if (objVector.type === Constants.INV_BLOCK) {
-                        nBlocksInMsg++;
                         bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
                                          !await this._storage.hasBlock(objVector.hash);
+                        if (bShouldRequest) nBlockToRequest++;
                     }
 
                     if (bShouldRequest) {
@@ -458,8 +458,7 @@ module.exports = (factory, factoryOptions) => {
                 // if peer expose us more than MAX_BLOCKS_INV - it seems it is ahead
                 // so we should resend MSG_GET_BLOCKS later
                 if (peer.isGetBlocksSent()) {
-                    if (invToRequest.vector.length >= Constants.MAX_BLOCKS_INV &&
-                        nBlocksInMsg >= Constants.MAX_BLOCKS_INV) {
+                    if (nBlockToRequest > 1) {
                         peer.markAsPossiblyAhead();
                         peer.doneGetBlocks();
                     } else {
