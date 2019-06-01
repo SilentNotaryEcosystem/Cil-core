@@ -1806,7 +1806,7 @@ module.exports = (factory, factoryOptions) => {
                         this._mapBlocksToExec.delete(hash);
                     }
                 }
-            } else {
+            } else if (this._requestCache.isEmpty()) {
                 const arrConnectedPeers = this._peerManager.getConnectedPeers();
 
                 // request rest of blocks
@@ -1922,7 +1922,7 @@ module.exports = (factory, factoryOptions) => {
             // request all unknown blocks
             const {mapPeerBlocks, mapPeerAhead} = this._createMapBlockPeer();
             for (let peer of mapPeerAhead.values()) {
-                this._queryPeerForRestOfBlocks(peer);
+                await this._queryPeerForRestOfBlocks(peer);
             }
             await this._sendMsgGetDataToPeers(mapPeerBlocks);
 
