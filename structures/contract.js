@@ -42,8 +42,7 @@ module.exports = (factory, {contractProto}) =>
 
             // we'll keep only deserialized data. serialize only for cloning & encode
             if (this._data.contractData && Buffer.isBuffer(this._data.contractData)) {
-                this._dataSize = this._data.contractData.length;
-                this._contractData = deSerializeContractData(this._data.contractData);
+                this.updateData(this._data.contractData);
             } else {
                 this._dataSize = nSizeOfEmptyData;
                 this._contractData = data.contractData || {};
