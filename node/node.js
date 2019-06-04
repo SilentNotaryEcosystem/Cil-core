@@ -922,6 +922,10 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _acceptLocalTx(newTx) {
+            const strNewTxHash = newTx.getHash();
+            assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
+            assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
+
             const patchNewTx = await this._processReceivedTx(newTx, false);
 
             // let's check for patch conflicts with other local txns

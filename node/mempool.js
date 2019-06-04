@@ -200,4 +200,10 @@ module.exports = ({Constants, Transaction}) =>
 
             this._setBadTxnsHash.add(strTxHash);
         }
+
+        isBadTx(strTxHash) {
+            typeforce(types.Str64, strTxHash);
+
+            return this._setBadTxnsHash.has(strTxHash);
+        }
     };
