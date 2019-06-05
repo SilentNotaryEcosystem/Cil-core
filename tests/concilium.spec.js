@@ -6,137 +6,112 @@ const {assert} = require('chai');
 const factory = require('./testFactory');
 const {pseudoRandomBuffer} = require('./testUtil');
 
-describe('Concilium Definition', () => {
+describe('Conciliums', async () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
-        this.timeout(15000);
+    describe('BaseConciliumDefinition', () => {
+        it('should get constant CONCILIUM_TYPE_POS', async () => {
+            assert.equal(factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS, 1);
+        });
+        it('should get constant CONCILIUM_TYPE_RR', async () => {
+            assert.equal(factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR, 0);
+        });
     });
-
-    it('should FAIL to create', async () => {
-        assert.throws(() => new factory.ConciliumDefinition());
-    });
-
-    it('should create', async () => {
-        new factory.ConciliumDefinition({
-            publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-            conciliumId: 10,
-            quorum: 1,
-            delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-            parameters: {
-                feeTxSize: 15000,
-                feeContractCreation: 1e12,
-                feeContractInvocation: 15000
-            }
+    describe('ConciliumRr', () => {
+        after(async function() {
+            this.timeout(15000);
         });
 
-        factory.ConciliumDefinition.create(
-            10,
-            [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-            [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]
-        );
-    });
+        it('should FAIL to create', async () => {
+            assert.throws(() => new factory.ConciliumRr());
+        });
 
-    it('should fill delegates if we omit them', async () => {
-        {
-            const def = new factory.ConciliumDefinition({
+        it('should create', async () => {
+            new factory.ConciliumRr({
                 publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-                conciliumId: 10
+                conciliumId: 10,
+                quorum: 1,
+                delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
+                parameters: {
+                    feeTxSize: 15000,
+                    feeContractCreation: 1e12,
+                    feeContractInvocation: 15000
+                }
             });
 
-            assert.isOk(Array.isArray(def.getDelegatesPublicKeys()));
-        }
-        {
-            const def = factory.ConciliumDefinition.create(10, [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]);
+            factory.ConciliumRr.create(
+                10,
+                [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
+                [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]
+            );
+        });
 
-            assert.isOk(Array.isArray(def.getDelegatesPublicKeys()));
-        }
-    });
+        it('should return quorum', async () => {
+            {
+                const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
+                const def = factory.ConciliumRr.create(10, arrPubKeys);
 
-    it('should assign all participants as delegates', async () => {
-        const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-        const def = factory.ConciliumDefinition.create(
-            10,
-            arrPubKeys
-        );
-        assert.isOk(Array.isArray(def.getDelegatesPublicKeys()));
+                // one delegate
+                assert.equal(def.getQuorum(), 2);
+            }
+            {
+                const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
+                const def = factory.ConciliumRr.create(10, arrPubKeys);
 
-        // it's a same array (not one by one comparision)
-        assert.equal(def.getPublicKeys(), arrPubKeys);
-        assert.equal(def.getDelegatesPublicKeys(), arrPubKeys);
-    });
+                // two delegates from pubKeys
+                assert.equal(def.getQuorum(), 2);
+            }
+            {
+                const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
+                const def = factory.ConciliumRr.create(10, arrPubKeys, 10);
 
-    it('should assign separate delegates', async () => {
-        const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-        const arrDelegatesKeys = [arrPubKeys[0]];
-        const def = factory.ConciliumDefinition.create(
-            10,
-            arrPubKeys,
-            arrDelegatesKeys
-        );
-        assert.isOk(Array.isArray(def.getDelegatesPublicKeys()));
+                // manually specified
+                assert.equal(def.getQuorum(), 10);
+            }
 
-        // it's a same array (not one by one comparision)
-        assert.equal(def.getPublicKeys(), arrPubKeys);
-        assert.equal(def.getDelegatesPublicKeys(), arrDelegatesKeys);
-    });
+            {
+                const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
+                const def = factory.ConciliumRr.create(10, arrPubKeys);
+                def.setQuorum(10);
 
-    it('should return quorum', async () => {
-        {
-            const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-            const arrDelegatesKeys = [arrPubKeys[0]];
-            const def = factory.ConciliumDefinition.create(10, arrPubKeys, arrDelegatesKeys);
-
-            // one delegate
-            assert.equal(def.getQuorum(), 1);
-        }
-        {
-            const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-            const def = factory.ConciliumDefinition.create(10, arrPubKeys);
-
-            // two delegates from pubKeys
-            assert.equal(def.getQuorum(), 2);
-        }
-        {
-            const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-            const def = factory.ConciliumDefinition.create(10, arrPubKeys, undefined, 10);
-
-            // manually specified
-            assert.equal(def.getQuorum(), 10);
-        }
-
-        {
-            const arrPubKeys = [pseudoRandomBuffer(33), pseudoRandomBuffer(33)];
-            const def = factory.ConciliumDefinition.create(10, arrPubKeys);
-            def.setQuorum(10);
-
-            // manually specified
-            assert.equal(def.getQuorum(), 10);
-        }
-    });
-
-    it('should get fees parameters', async () => {
-        const feeTxSize = 15000;
-        const feeContractCreation = 1e12;
-        const feeContractInvocation = 15000;
-
-        const concilium = new factory.ConciliumDefinition({
-            publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-            conciliumId: 10,
-            quorum: 1,
-            delegatesPublicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
-            parameters: {
-                feeTxSize,
-                feeContractCreation,
-                feeContractInvocation
+                // manually specified
+                assert.equal(def.getQuorum(), 10);
             }
         });
 
-        assert.equal(concilium.getFeeTxSize(), feeTxSize);
-        assert.equal(concilium.getContractCreationFee(), feeContractCreation);
-        assert.equal(concilium.getContractInvocationFee(), feeContractInvocation);
+        it('should get fees parameters', async () => {
+            const feeTxSize = 15000;
+            const feeContractCreation = 1e12;
+            const feeContractInvocation = 15000;
+
+            const concilium = new factory.ConciliumRr({
+                publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
+                conciliumId: 10,
+                quorum: 1,
+                parameters: {
+                    fees: {
+                        feeTxSize,
+                        feeContractCreation,
+                        feeContractInvocation
+                    }
+                }
+            });
+
+            assert.equal(concilium.getFeeTxSize(), feeTxSize);
+            assert.equal(concilium.getContractCreationFee(), feeContractCreation);
+            assert.equal(concilium.getContractInvocationFee(), feeContractInvocation);
+        });
+
+        it('should be isRoundRobin', async () => {
+            const def = factory.ConciliumRr.create(10, [pseudoRandomBuffer(33), pseudoRandomBuffer(33)]);
+            assert.isOk(def.isRoundRobin());
+        });
+    });
+
+    describe('ConciliumPoS', () => {
+
     });
 });

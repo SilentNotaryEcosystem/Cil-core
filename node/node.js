@@ -607,8 +607,8 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(msg);
                 } catch (e) {
                     //                    logger.error(e.message);
-                    logger.error(e, `GetDataMessage. Peer ${peer.address}`);
-                    peer.misbehave(5);
+                    logger.error(`GetDataMessage. Peer ${peer.address}`, e);
+                    peer.misbehave(1);
 
                     // break loop
                     if (peer.isBanned()) return;
@@ -792,7 +792,7 @@ module.exports = (factory, factoryOptions) => {
 
             // next stage: request unknown blocks or just GENESIS, if we are at very beginning
             let msg;
-            if (!this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
+            if (Constants.GENESIS_BLOCK && !this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
                 msg = this._createGetDataMsg([Constants.GENESIS_BLOCK]);
                 peer.markAsPossiblyAhead();
             } else {
@@ -1508,7 +1508,7 @@ module.exports = (factory, factoryOptions) => {
 
             const witnessConciliumDefinition = await this._storage.getConciliumById(block.conciliumId);
             assert(witnessConciliumDefinition, `Unknown conciliumId: ${block.conciliumId}`);
-            const arrPubKeys = witnessConciliumDefinition.getDelegatesPublicKeys();
+            const arrPubKeys = witnessConciliumDefinition.getPublicKeys();
             assert(
                 block.signatures.length === witnessConciliumDefinition.getQuorum(),
                 `Expected ${witnessConciliumDefinition.getQuorum()} signatures, got ${block.signatures.length}`
@@ -2133,9 +2133,9 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         _checkHeight(block) {
-            const calculatedHash = this._calcHeight(block.parentHashes);
-            assert(calculatedHash === block.getHeight(),
-                `Block ${block.getHash()} has incorrect height ${calculatedHash} (expected ${block.getHash()}`
+            const calculatedHeight = this._calcHeight(block.parentHashes);
+            assert(calculatedHeight === block.getHeight(),
+                `Block ${block.getHash()} has incorrect height ${calculatedHeight} (expected ${block.getHash()}`
             );
         }
     };

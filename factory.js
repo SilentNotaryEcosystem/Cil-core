@@ -58,7 +58,11 @@ const BlockWrapper = require('./structures/block');
 const InventoryWrapper = require('./structures/inventory');
 const UtxoWrapper = require('./structures/utxo');
 const CoinsWrapper = require('./structures/coins');
-const ConciliumDefinition = require('./structures/conciliumDefinition');
+
+const BaseConciliumDefinition = require('./conciliums/baseConciliumDefinition');
+const ConciliumClosedRR = require('./conciliums/conciliumClosedRR');
+const ConciliumPoS = require('./conciliums/conciliumPoS');
+
 const BlockInfoWrapper = require('./structures/blockInfo');
 const ArrayOfWrapper = require('./structures/arrayOf');
 const ContractWrapper = require('./structures/contract');
@@ -89,7 +93,11 @@ class Factory {
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
-                this._conciliumDefinition = ConciliumDefinition(this, prototypes);
+
+                this._baseConciliumDefinition = BaseConciliumDefinition;
+                this._conciliumRr = ConciliumClosedRR(this);
+                this._conciliumPoS = ConciliumPoS(this);
+
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
                 this._arrayOfHashes = ArrayOfWrapper(32);
                 this._arrayOfAddresses = ArrayOfWrapper(20);
@@ -140,8 +148,16 @@ class Factory {
                parseInt(arrSubversions[2]);
     }
 
-    get ConciliumDefinition() {
-        return this._conciliumDefinition;
+    get ConciliumRr() {
+        return this._conciliumRr;
+    }
+
+    get ConciliumPos() {
+        return this._conciliumPoS;
+    }
+
+    get BaseConciliumDefinition() {
+        return this._baseConciliumDefinition;
     }
 
     get ArrayOfHashes() {
@@ -319,9 +335,6 @@ class Factory {
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 
             utxoProto: protoStructures.lookupType("structures.UTXO"),
-
-            conciliumDefinitionProto: protoStructures.lookupType("structures.ConciliumDefinition"),
-            conciliumParametersProto: protoStructures.lookupType("structures.ConciliumParameters"),
 
             contractProto: protoStructures.lookupType("structures.Contract"),
             txReceiptProto: protoStructures.lookupType("structures.TxReceipt")

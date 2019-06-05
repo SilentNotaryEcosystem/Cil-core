@@ -3,6 +3,11 @@ const Long = require('long');
 const readline = require('readline');
 const fs = require('fs');
 const commandLineArgs = require('command-line-args');
+const v8 = require('v8');
+
+const deepCloneObject = (objToClone) => {
+    return v8.deserialize(v8.serialize(objToClone));
+};
 
 const arrayIntersection = (array1, array2) => {
     const cache = new Set(array1);
@@ -129,6 +134,12 @@ module.exports = {
     prepareForStringifyObject,
 
     questionAsync,
+    deepCloneObject,
+
+    pick(obj, keys) {
+        return keys.map(k => k in obj ? {[k]: obj[k]} : {})
+            .reduce((res, o) => Object.assign(res, o), {});
+    },
 
     stripAddressPrefix(Constants, strAddr) {
         return strAddr.substring(0, 2) === Constants.ADDRESS_PREFIX ?

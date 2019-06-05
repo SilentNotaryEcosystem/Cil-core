@@ -46,7 +46,7 @@ const eraseDbContent = async (db) => {
 module.exports = (factory, factoryOptions) => {
     const {
         Constants, Block, BlockInfo, UTXO, ArrayOfHashes, ArrayOfAddresses, Contract,
-        TxReceipt, ConciliumDefinition, Peer, PatchDB
+        TxReceipt, BaseConciliumDefinition, ConciliumRr, ConciliumPos, Peer, PatchDB
     } = factory;
 
     return class Storage {
@@ -128,14 +128,28 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _ensureArrConciliumDefinition() {
+
+            // cache is valid
+            if (this._arrConciliumDefinition && this._arrConciliumDefinition.length) return;
+
             const cont = await this.getContract(Buffer.from(Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS, 'hex'));
-            this._arrConciliumDefinition = cont ? ConciliumDefinition.getFromContractData(cont.getData()) : [];
+
+            if (cont) {
+                const {_arrConciliums} = cont.getData();
+                this._arrConciliumDefinition = _arrConciliums.map(objDefData => {
+                    const baseDef = new BaseConciliumDefinition(objDefData);
+                    if (baseDef.isRoundRobin()) return new ConciliumRr(objDefData);
+                    if (baseDef.isPoS()) return new ConciliumPos(objDefData);
+                });
+            } else {
+                this._arrConciliumDefinition = [];
+            }
         }
 
         /**
          *
          * @param {Buffer | String} publicKey
-         * @returns {Promise<Array>} of ConciliumDefinition this publicKey belongs to
+         * @returns {Promise<Array>} of BaseConciliumDefinition this publicKey belongs to
          */
         async getConciliumsByKey(publicKey) {
             const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
@@ -145,7 +159,8 @@ module.exports = (factory, factoryOptions) => {
 
             const arrResult = [];
             for (let def of this._arrConciliumDefinition) {
-                if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) {
+                if ((def.isRoundRobin() || def.isPoS()) &&
+                    ~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) {
                     arrResult.push(def);
                 }
             }
@@ -155,7 +170,7 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {Number} id
-         * @returns {Promise<ConciliumDefinition>} publicKey belongs to
+         * @returns {Promise<BaseConciliumDefinition>} publicKey belongs to
          */
         async getConciliumById(id) {
 
@@ -171,7 +186,7 @@ module.exports = (factory, factoryOptions) => {
             if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return 0;
             await this._ensureArrConciliumDefinition();
 
-            return this._arrConciliumDefinition.length;
+            return this._arrConciliumDefinition.filter(def => def.isEnabled()).length;
         }
 
         async saveBlock(block, blockInfo) {
@@ -377,9 +392,9 @@ module.exports = (factory, factoryOptions) => {
                 // save contracts
                 for (let [strContractAddr, contract] of statePatch.getContracts()) {
 
-                    // if we change concilium contract - update cache
+                    // if we change concilium contract - invalidate cache
                     if (Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {
-                        this._arrConciliumDefinition = contract.getData();
+                        this._arrConciliumDefinition = undefined;
                     }
                     const key = this.constructor.createKey(CONTRACT_PREFIX, Buffer.from(strContractAddr, 'hex'));
                     arrOps.push({type: 'put', key, value: contract.encode()});

@@ -30,7 +30,7 @@ const createDummyDefinitionWallet = (conciliumId = 0) => {
     const keyPair2 = factory.Crypto.createKeyPair();
     const newWallet = new factory.Wallet(keyPair1.privateKey);
 
-    const concilium = factory.ConciliumDefinition.create(conciliumId,
+    const concilium = factory.ConciliumRr.create(conciliumId,
         [keyPair1.publicKey, keyPair2.publicKey]
     );
 
@@ -90,7 +90,7 @@ describe('Witness tests', () => {
         // mock peer with public key from concilium
         const peer = createDummyPeer();
 
-        const def = factory.ConciliumDefinition.create(
+        const def = factory.ConciliumRr.create(
             conciliumId,
             [wallet.publicKey, Buffer.from('pubkey1'), Buffer.from('pubkey2')]
         );

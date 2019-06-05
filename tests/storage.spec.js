@@ -392,11 +392,11 @@ describe('Storage tests', () => {
         const contractAddress = generateAddress();
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = contractAddress;
 
-        const def1 = factory.ConciliumDefinition.create(
+        const def1 = factory.ConciliumRr.create(
             0,
             [Buffer.from('public1'), Buffer.from('public2')]
         );
-        const def2 = factory.ConciliumDefinition.create(
+        const def2 = factory.ConciliumRr.create(
             1,
             [Buffer.from('public2'), Buffer.from('public3')]
         );

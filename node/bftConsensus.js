@@ -27,7 +27,9 @@ module.exports = (factory) => {
          */
         constructor(options) {
             super();
-            const {concilium, wallet} = options;
+            const {concilium, wallet, aggressiveWitnessing} = options;
+
+            this._aggressiveWitnessing = aggressiveWitnessing;
 
             this._networkOffset = 0;
 
@@ -40,7 +42,7 @@ module.exports = (factory) => {
             this._wallet = wallet;
 
             // delegates public keys are buffers, transform it to strings, to use with maps
-            this._arrPublicKeys = concilium.getDelegatesPublicKeys().sort().map(key => key.toString('hex'));
+            this._arrPublicKeys = concilium.getPublicKeys().sort().map(key => key.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
@@ -101,11 +103,12 @@ module.exports = (factory) => {
             const pubKeyI = witnessMsg.publicKey;
 
             // make sure that those guys from our concilium
+            // if ok - this means message wasn't changed
             if (!this.checkPublicKey(senderPubKey) || !this.checkPublicKey(pubKeyI)) {
                 throw new Error(`wrong public key for message ${witnessMsg.message}`);
             }
 
-//            debug(`BFT "${this._nonce}" added "${senderPubKey}--${pubKeyI}" data ${witnessMsg.content}`);
+            debug(`BFT "${this._nonce}" added "${senderPubKey}--${pubKeyI}" data ${witnessMsg.content}`);
             this._addViewOfNodeWithPubKey(senderPubKey, pubKeyI, {state, ...witnessMsg.content});
             const value = this.runConsensus();
             if (!value) return false;
@@ -133,11 +136,13 @@ module.exports = (factory) => {
         }
 
         /**
-         * VERIFY SIGNATURE of dataI !!!
+         * We could be sure that dataI was unchanged, because we recover pubKey from that message
+         * And it match one of our witnesses.
+         * In case of dataI modification we'll recover some key that wouldn't match key of any our witnesses
          *
-         * @param {String} publicKey - who send us partial response of i neighbor
-         * @param {String} pubKeyI - pubKey of i neighbor
-         * @param {Object} dataI - object that send i neighbor to address node
+         * @param {String} publicKey - who send us response of i-neighbor
+         * @param {String} pubKeyI - pubKey of i-neighbor
+         * @param {Object} dataI - object that send i-neighbor to witness with publicKey
          * @private
          */
         _addViewOfNodeWithPubKey(publicKey, pubKeyI, dataI) {
@@ -158,6 +163,7 @@ module.exports = (factory) => {
                 return this._views[this._wallet.publicKey][this._wallet.publicKey];
             }
 
+            //
             const arrWitnessValues = this._arrPublicKeys.map(pubKeyI => {
                 const arrDataWitnessI = this._witnessData(pubKeyI);
                 return this._majority(arrDataWitnessI);
@@ -168,9 +174,11 @@ module.exports = (factory) => {
 
         /**
          * Get all data we received from witness with pubKeyI @see _addViewOfNodeWithPubKey
+         * I.e. what data it saw from neighbours
          *
          * @param {String} pubKeyI
          * @param {Boolean} usingCurrentView - do we using current view, or previous (used for signatures gathering) on VOTE stage
+         * @returns {Array} of data we received from witness with pubKeyI
          * @private
          */
         _witnessData(pubKeyI, usingCurrentView = true) {
@@ -182,8 +190,10 @@ module.exports = (factory) => {
         }
 
         /**
+         * Data from Array, that meets more than quorum times, or undefined (if data different)
          *
          * @param {Array} arrDataWitnessI - array of values to find majority
+         * @returns {Object | undefined}
          * @private
          */
         _majority(arrDataWitnessI) {
@@ -210,7 +220,6 @@ module.exports = (factory) => {
                 }
                 return maxCount;
             }, 0);
-
             return count >= this._concilium.getQuorum() ? majorityValue : undefined;
         }
 
@@ -272,6 +281,7 @@ module.exports = (factory) => {
             if (data.hasOwnProperty('signature')) {
 
                 // make a copy, because we'll modify it
+                // we don't care about deep cloning becuase we'll modify only signature
                 copyData = Object.assign({}, data);
                 copyData.signature = undefined;
             } else {

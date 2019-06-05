@@ -16,7 +16,7 @@ const createDummyBFT = (conciliumId = 0, numOfKeys = 2) => {
     }
     const newWallet = new factory.Wallet(arrKeyPairs[0].privateKey);
 
-    const concilium = factory.ConciliumDefinition.create(conciliumId, arrPublicKeys);
+    const concilium = factory.ConciliumRr.create(conciliumId, arrPublicKeys);
 
     const newBft = new factory.BFT({
         concilium,

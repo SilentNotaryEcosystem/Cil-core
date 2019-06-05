@@ -5,7 +5,7 @@ const sinon = require('sinon').createSandbox();
 
 const factory = require('../testFactory');
 const {pseudoRandomBuffer, processBlock} = require('../testUtil');
-const {arrayEquals} = require('../../utils');
+const {arrayEquals, prepareForStringifyObject} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -379,21 +379,16 @@ function createGenesisBlock() {
     const witnessOne = factory.Crypto.createKeyPair();
     const witnessTwo = factory.Crypto.createKeyPair();
 
-    const strCommaSeparatedKeys = [witnessOne]
-        .map(w => `'${w.publicKey}'`)
-        .join(',');
+    const initialConcilium = factory.ConciliumRr.create(0, [witnessOne.publicKey], 1);
 
     const contractCode = `
 class Concilium extends Base{
-    constructor(...arrKeys) {
+    constructor(objInitialDefinition) {
         super();
         this._arrConciliums=[];
         this._arrConciliums.push({
-            publicKeys: arrKeys,
+            ...objInitialDefinition,
             conciliumCreationTx: contractTx,
-            conciliumId: 0,
-            quorum: 1,
-            delegatesPublicKeys: arrKeys
         });
     }
 
@@ -405,23 +400,20 @@ class Concilium extends Base{
         // check fee!
         this._validateDefinition(objConcilium);
         this._arrConciliums.push({
+            ...objConcilium,
             conciliumId: this._arrConciliums.length, 
             conciliumCreationTx: contractTx,
-
-            quorum: objConcilium.quorum,
-            publicKeys: objConcilium.publicKeys,
-            delegatesPublicKeys: objConcilium.delegatesPublicKeys
         });
     }
     
     _validateDefinition(objConcilium){
         if(!objConcilium.publicKeys 
             || !objConcilium.quorum 
-            || !objConcilium.delegatesPublicKeys) throw ('Bad definition');
+            || !objConcilium.publicKeys) throw ('Bad definition');
     }
 }
 
-exports=new Concilium(${strCommaSeparatedKeys});
+exports=new Concilium(${JSON.stringify(prepareForStringifyObject(initialConcilium.toObject()))});
 `;
 
     const genesis = new factory.Block(0);
@@ -456,14 +448,13 @@ exports=new Concilium(${strCommaSeparatedKeys});
 
 function createAnotherConcilium(strClaimPrivateKey, witnessPubKey, utxo, idx) {
 
+    const concilium = factory.ConciliumRr.create(1, [witnessPubKey], 1);
+
     const contractCode = {
         method: 'addDefinition',
         arrArguments: [
-            {
-                quorum: 1,
-                publicKeys: [witnessPubKey],
-                delegatesPublicKeys: [witnessPubKey]
-            }]
+            concilium.toObject()
+        ]
     };
 
     // WARNING! it's just test/demo. All coins at this UTXO become fee

@@ -34,7 +34,7 @@ const createDummyDefinition = (conciliumId = 0, numOfKeys = 2) => {
         arrKeyPairs.push(keyPair);
         arrPublicKeys.push(keyPair.publicKey);
     }
-    const concilium = factory.ConciliumDefinition.create(conciliumId, arrPublicKeys);
+    const concilium = factory.ConciliumRr.create(conciliumId, arrPublicKeys);
 
     return {arrKeyPairs, concilium};
 };

@@ -81,23 +81,6 @@ message UTXO{
     repeated output arrOutputs =2;
 }
 
-//--------------- Witness concilium definition ---------
-
-message ConciliumParameters{
-    uint32 feeTxSize=1;
-    uint32 feeContractCreation=2;
-    uint32 feeContractInvocation=3;
-}
-
-message ConciliumDefinition{
-    repeated bytes publicKeys=1;
-    uint32 conciliumId=3;
-    uint32 quorum=4;
-    uint32 minFee=5;
-    repeated bytes delegatesPublicKeys=7;
-    ConciliumParameters parameters=8;
-}
-
 //--------------- Block summary info (for storage) -----
 
 message BlockInfo{

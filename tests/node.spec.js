@@ -77,7 +77,7 @@ const createConciliumDefAndSignBlock = (block, numOfSignatures = 2) => {
         arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
     }
     block.addWitnessSignatures(arrSignatures);
-    return factory.ConciliumDefinition.create(block.conciliumId, arrPubKeys);
+    return factory.ConciliumRr.create(block.conciliumId, arrPubKeys);
 };
 
 const createSimpleChain = async (callback) => {

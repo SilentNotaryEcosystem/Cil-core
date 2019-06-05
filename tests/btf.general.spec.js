@@ -21,7 +21,7 @@ const createDummyBFT = (conciliumId = 0, numOfKeys = 2) => {
     }
     const newWallet = new factory.Wallet(arrKeyPairs[0].privateKey);
 
-    const concilium = factory.ConciliumDefinition.create(conciliumId, arrPublicKeys);
+    const concilium = factory.ConciliumRr.create(conciliumId, arrPublicKeys);
 
     const newBft = new factory.BFT({
         concilium,
@@ -51,10 +51,9 @@ describe('BFT general tests', () => {
         const kp2 = factory.Crypto.createKeyPair();
         const newWallet = new factory.Wallet(kp1.privateKey);
 
-        const concilium = factory.ConciliumDefinition.create(
+        const concilium = factory.ConciliumRr.create(
             conciliumId,
             [kp1.publicKey, kp2.publicKey],
-            undefined,
             1
         );
 
@@ -73,7 +72,7 @@ describe('BFT general tests', () => {
         const kp2 = factory.Crypto.createKeyPair();
         const newWallet = new factory.Wallet(kp1.privateKey);
 
-        const concilium = factory.ConciliumDefinition.create(
+        const concilium = factory.ConciliumRr.create(
             conciliumId,
             [kp1.publicKey, kp2.publicKey],
             undefined

@@ -13,7 +13,7 @@ const createPeerTag = (nConciliumId) => {
 };
 
 module.exports = (factory, factoryOptions) => {
-    const {Node, Messages, Constants, BFT, Block, Transaction, ConciliumDefinition, PatchDB, BlockInfo} = factory;
+    const {Node, Messages, Constants, BFT, Block, Transaction, BaseConciliumDefinition, PatchDB, BlockInfo} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {
@@ -75,7 +75,7 @@ module.exports = (factory, factoryOptions) => {
         /**
          * Establish connection with other witnesses in specified concilium
          *
-         * @param {ConciliumDefinition} concilium
+         * @param {BaseConciliumDefinition} concilium
          * @return {Promise<void>}
          */
         async startConcilium(concilium) {
@@ -126,7 +126,7 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
-         * @param {ConciliumDefinition} concilium
+         * @param {BaseConciliumDefinition} concilium
          * @returns {Promise<void>}
          * @private
          */
@@ -141,7 +141,7 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
-         * @param {ConciliumDefinition} concilium
+         * @param {BaseConciliumDefinition} concilium
          * @return {Array} of Peers with capability WITNESS which belongs to concilium
          * @private
          */
