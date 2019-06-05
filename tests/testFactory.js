@@ -58,7 +58,7 @@ const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
 
 const BaseConciliumDefinition = require('../conciliums/baseConciliumDefinition');
-const ConciliumClosedRR = require('../conciliums/conciliumClosedRR');
+const ConciliumClosedRR = require('../conciliums/conciliumClosedRr');
 const ConciliumPoS = require('../conciliums/conciliumPoS');
 
 const BlockInfoWrapper = require('../structures/blockInfo');
@@ -113,7 +113,7 @@ class Factory {
                 this._patchImplementation = PatchWrapper(this);
                 this._storageImplementation = StorageWrapper(this, options);
                 this._bftImplementation = BftWrapper(this);
-                this._mempoolImplementation = MempoolWrapper(this);
+                this._mempoolImplementation = MempoolWrapper(this, {...options});
                 this._rpcImplementation = RpcWrapper(this);
                 this._appImplementation = AppWrapper(this);
                 this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);

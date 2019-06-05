@@ -210,7 +210,7 @@ describe('Mempool tests', () => {
     });
 
     it('should dump local TXns to disk', async () => {
-        const mempool = new factory.Mempool();
+        const mempool = new factory.Mempool({testStorage: false});
 
         const tx = new factory.Transaction(createDummyTx());
         mempool.addLocalTx(tx);
@@ -222,7 +222,7 @@ describe('Mempool tests', () => {
     });
 
     it('should load local TXns from disk', async () => {
-        const mempool = new factory.Mempool();
+        const mempool = new factory.Mempool({testStorage: false});
 
         sinon.restore();
         sinon.stub(fs, 'readFileSync')

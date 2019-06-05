@@ -60,7 +60,7 @@ const UtxoWrapper = require('./structures/utxo');
 const CoinsWrapper = require('./structures/coins');
 
 const BaseConciliumDefinition = require('./conciliums/baseConciliumDefinition');
-const ConciliumClosedRR = require('./conciliums/conciliumClosedRR');
+const ConciliumClosedRR = require('./conciliums/conciliumClosedRr');
 const ConciliumPoS = require('./conciliums/conciliumPoS');
 
 const BlockInfoWrapper = require('./structures/blockInfo');

@@ -13,16 +13,18 @@ const debug = debugLib('mempool:');
 
 // TODO: add tx expiration (14 days?)
 
-module.exports = ({Constants, Transaction}) =>
+module.exports = ({Constants, Transaction}, factoryOptions) =>
     class Mempool {
         constructor(options = {}) {
             this._mapTxns = new Map();
             this._tock = new Tick(this);
             this._tock.setInterval('outdatedTimer', this.purgeOutdated.bind(this), Constants.MEMPOOL_OUTDATED_INTERVAL);
 
-            const {dbPath, testStorage} = options;
+            const {dbPath, testStorage} = {...factoryOptions, ...options};
 
-            this._fileName = path.resolve(dbPath || Constants.DB_PATH_PREFIX, Constants.LOCAL_TX_FILE_NAME);
+            this._fileName = testStorage ? undefined : path.resolve(dbPath || Constants.DB_PATH_PREFIX,
+                Constants.LOCAL_TX_FILE_NAME
+            );
             this._mapLocalTxns = new Map();
 
             this._setBadTxnsHash = new Set();
@@ -103,8 +105,9 @@ module.exports = ({Constants, Transaction}) =>
          *
          * @param {Transaction} tx - transaction to add
          * @param {PatchDB} patchTx - patch for this tx (result of tx exec)
+         * @param {Boolean} suppressDump - @see loadLocalTxnsFromDisk
          */
-        addLocalTx(tx, patchTx) {
+        addLocalTx(tx, patchTx, suppressDump = false) {
             typeforce(types.Transaction, tx);
 
             const strHash = tx.getHash();
@@ -113,7 +116,7 @@ module.exports = ({Constants, Transaction}) =>
             this._mapLocalTxns.set(strHash, {tx, patchTx});
             debug(`Local TX ${strHash} added`);
 
-            if (prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
+            if (!suppressDump && prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
         }
 
         /**
@@ -175,6 +178,8 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         _dumpToDisk() {
+            if (!this._fileName) return;
+
             debug('Dumping to disk');
             const objToSave = {};
             for (let [txHash, {tx}] of this._mapLocalTxns) {
@@ -185,10 +190,12 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         loadLocalTxnsFromDisk() {
+            if (!this._fileName) return;
+
             try {
                 const objTxns = JSON.parse(fs.readFileSync(this._fileName, 'utf8'));
                 for (let strHash of Object.keys(objTxns)) {
-                    this.addLocalTx(new Transaction(Buffer.from(objTxns[strHash], 'hex')), undefined);
+                    this.addLocalTx(new Transaction(Buffer.from(objTxns[strHash], 'hex')), undefined, true);
                 }
             } catch (e) {
                 if (!e.message.match(/ENOENT/)) logger.error(e);
