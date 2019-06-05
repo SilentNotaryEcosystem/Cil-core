@@ -1041,7 +1041,7 @@ module.exports = (factory, factoryOptions) => {
                     // regular payment
                     totalSent = this._app.processPayments(tx, patchThisTx);
                     if (!isGenesis) {
-                        fee = nRemainingCoins - totalSent;
+                        fee = totalHas - totalSent;
                         if (fee < 0 || fee < nFeeTx) {
                             throw new Error(`Tx ${tx.hash()} fee ${fee} too small! Expected ${nFeeTx}`);
                         }
