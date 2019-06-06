@@ -61,4 +61,19 @@ module.exports = ({Constants}) =>
         toObject() {
             return this._data;
         }
+
+        /**
+         * Redefine this to change proposing behavior
+         *
+         * @returns {String}
+         */
+        getProposerKey(roundNo) {
+            const arrPublicKeys = this.getPublicKeys();
+            const idx = roundNo % arrPublicKeys.length;
+            return arrPublicKeys[idx].toString('hex');
+        }
+
+        getWitnessWeight() {
+            return 1;
+        }
     };

@@ -1497,7 +1497,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
-         * Ok, if all block signatures (number og it equals to concilium quorum) matches delegates pubKeys
+         * Ok, if all block signatures (it's number equals to concilium quorum) matches pubKeys
          *
          * @param {Blob} block
          * @returns {Promise<void>}

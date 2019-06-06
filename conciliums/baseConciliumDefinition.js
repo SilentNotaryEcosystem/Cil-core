@@ -89,4 +89,13 @@ module.exports = class BaseConciliumDefinition {
     static get CONCILIUM_TYPE_RR() {
         return CONCILIUM_TYPE_RR;
     }
+
+    /**
+     * Redefine this to change proposing behavior
+     *
+     * @returns {String}
+     */
+    getProposerKey(roundNo) {
+        throw new Error('Implement!');
+    }
 };

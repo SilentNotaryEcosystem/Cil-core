@@ -407,9 +407,7 @@ class Concilium extends Base{
     }
     
     _validateDefinition(objConcilium){
-        if(!objConcilium.publicKeys 
-            || !objConcilium.quorum 
-            || !objConcilium.publicKeys) throw ('Bad definition');
+        if(!objConcilium.publicKeys) throw ('Bad definition');
     }
 }
 
@@ -447,8 +445,9 @@ exports=new Concilium(${JSON.stringify(prepareForStringifyObject(initialConciliu
 }
 
 function createAnotherConcilium(strClaimPrivateKey, witnessPubKey, utxo, idx) {
+    console.log(`Using UTXo ${utxo} idx ${idx}`);
 
-    const concilium = factory.ConciliumRr.create(1, [witnessPubKey], 1);
+    const concilium = factory.ConciliumRr.create(1, [witnessPubKey]);
 
     const contractCode = {
         method: 'addDefinition',

@@ -58,7 +58,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 // input.txHash - UTXO
                 const strInputTxHash = input.txHash.toString('hex');
                 const utxo = patchForBlock.getUtxo(strInputTxHash);
-                if (!utxo) throw new Error(`UTXO for ${strInputTxHash} not found in patch`);
+                if (!utxo) throw new Error(`UTXO ${strInputTxHash} of ${txHash} not found in patch`);
 
                 const coins = utxo.coinsAtIndex(input.nTxOutput);
 

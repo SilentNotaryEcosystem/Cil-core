@@ -141,6 +141,10 @@ module.exports = {
         DB_PEERSTATE_DIR: 'peerstate',
 
         DB_TXINDEX_DIR: 'txindex',
-        DB_WALLET_DIR: 'wallet'
+        DB_WALLET_DIR: 'wallet',
+
+        concilium: {
+            HEIGHT_TO_RELEASE_ADD_ON: 5e4
+        }
     }
 };

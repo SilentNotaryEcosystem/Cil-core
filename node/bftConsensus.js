@@ -41,7 +41,6 @@ module.exports = (factory) => {
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
-            // delegates public keys are buffers, transform it to strings, to use with maps
             this._arrPublicKeys = concilium.getPublicKeys().sort().map(key => key.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
@@ -108,7 +107,8 @@ module.exports = (factory) => {
                 throw new Error(`wrong public key for message ${witnessMsg.message}`);
             }
 
-            debug(`BFT "${this._nonce}" added "${senderPubKey}--${pubKeyI}" data ${witnessMsg.content}`);
+            debug(
+                `BFT "${this._nonce}" added "${senderPubKey}--${pubKeyI}" data ${JSON.stringify(witnessMsg.content)}`);
             this._addViewOfNodeWithPubKey(senderPubKey, pubKeyI, {state, ...witnessMsg.content});
             const value = this.runConsensus();
             if (!value) return false;
@@ -198,18 +198,21 @@ module.exports = (factory) => {
          */
         _majority(arrDataWitnessI) {
             const objHashes = {};
-            for (let data of arrDataWitnessI) {
+            for (let j = 0; j < arrDataWitnessI.length; j++) {
+                const data = arrDataWitnessI[j];
                 if (data === undefined) continue;
                 const hash = this._calcDataHash(data);
+
+                const weight = this._concilium.getWitnessWeight(this._arrPublicKeys[j]);
                 if (typeof objHashes[hash] !== 'object') {
 
                     // new value found
                     objHashes[hash] = {
-                        count: 1,
+                        count: weight,
                         value: data
                     };
                 } else {
-                    objHashes[hash].count++;
+                    objHashes[hash].count += weight;
                 }
             }
             let majorityValue = undefined;
@@ -419,7 +422,8 @@ module.exports = (factory) => {
                     } else {
 
                         // Proposer misbehave!! sent us different block than other!
-                        logger.error(`Proposer (pubkey "${this._getProposerKey()}") misbehave. Sent different blocks!`);
+                        logger.error(`Proposer (pubkey "${
+                            this._concilium.getProposerKey(this._roundNo)}") misbehave. Sent different blocks!`);
                     }
                 }
 
@@ -470,18 +474,7 @@ module.exports = (factory) => {
          * @return {boolean}
          */
         shouldPublish(proposer = this._wallet.publicKey) {
-            return this._getProposerKey() === proposer;
-        }
-
-        /**
-         * Redefine this to change proposing behavior
-         *
-         * @returns {*}
-         * @private
-         */
-        _getProposerKey() {
-            const idx = this._roundNo % this._arrPublicKeys.length;
-            return this._arrPublicKeys[idx];
+            return this._concilium.getProposerKey(this._roundNo) === proposer;
         }
 
         timeForWitnessBlock() {
