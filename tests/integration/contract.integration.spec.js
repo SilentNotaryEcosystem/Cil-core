@@ -303,7 +303,9 @@ describe('Contract integration tests', () => {
                 }
                 
                 testVariables() {
-                    this._testResult= this._ownerAddress === callerAddress && this._contractAddr === contractAddr;
+                    this._testResult= this._ownerAddress === callerAddress && 
+                    this._contractAddr === contractAddr &&
+                    value === ${nCoinsSentToContract};
                 }
             };
 

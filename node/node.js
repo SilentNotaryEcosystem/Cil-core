@@ -1117,6 +1117,7 @@ module.exports = (factory, factoryOptions) => {
             const environment = {
                 contractTx: tx.hash(),
                 callerAddress: tx.getTxSignerAddress(),
+                value: tx.getContractSentAmount(),
 
                 // we fill it before invocation (from contract)
                 contractAddr: undefined,
