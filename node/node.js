@@ -922,6 +922,10 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _acceptLocalTx(newTx) {
+            const strNewTxHash = newTx.getHash();
+            assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
+            assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
+
             const patchNewTx = await this._processReceivedTx(newTx, false);
 
             // let's check for patch conflicts with other local txns
@@ -1037,7 +1041,7 @@ module.exports = (factory, factoryOptions) => {
                     // regular payment
                     totalSent = this._app.processPayments(tx, patchThisTx);
                     if (!isGenesis) {
-                        fee = nRemainingCoins - totalSent;
+                        fee = totalHas - totalSent;
                         if (fee < 0 || fee < nFeeTx) {
                             throw new Error(`Tx ${tx.hash()} fee ${fee} too small! Expected ${nFeeTx}`);
                         }
