@@ -198,6 +198,7 @@ describe('Contract integration tests', () => {
         }, strContractAddr);
 
         const patchState = await node._execBlock(block);
+
         assert.isOk(patchState);
         const patchContract = patchState.getContract(strContractAddr);
         assert.isOk(patchContract);
@@ -279,6 +280,7 @@ describe('Contract integration tests', () => {
         }, strContractAddr);
 
         const patchState = await node._execBlock(block);
+
         assert.isOk(patchState);
         const contractPatch = patchState.getContract(strContractAddr);
         assert.isOk(contractPatch);
@@ -302,10 +304,13 @@ describe('Contract integration tests', () => {
                     this._someData=answer;
                 }
                 
-                testVariables() {
+                testVariables(blockHash, blockHeight, blockTimestamp) {
                     this._testResult= this._ownerAddress === callerAddress && 
                     this._contractAddr === contractAddr &&
-                    value === ${nCoinsSentToContract};
+                    value === ${nCoinsSentToContract} &&
+                    block.hash &&
+                    block.height === blockHeight,
+                    block.timestamp===blockTimestamp;
                 }
             };
 
@@ -313,6 +318,13 @@ describe('Contract integration tests', () => {
             `;
         const tx = factory.Transaction.createContract(contractCode, generateAddress());
         tx.signForContract(kp.privateKey);
+
+        const fakeBlock = {
+            getHeight: () => 11,
+            timestamp: Date.now(),
+            getHash: () => pseudoRandomBuffer().toString('hex')
+        };
+        node._processedBlock = fakeBlock;
 
         // deploy contract and check success
         await node._processContract(false, undefined, tx, patchTx, new factory.PatchDB(), nCoinsIn);
@@ -346,7 +358,10 @@ describe('Contract integration tests', () => {
         const contractDataSize = contract.getDataSize();
 
         // call for it
-        const objCodeToRun = createObjInvocationCode('testVariables', []);
+        const objCodeToRun = createObjInvocationCode(
+            'testVariables',
+            [fakeBlock.getHash(), fakeBlock.getHeight(), fakeBlock.timestamp]
+        );
         const txRun = factory.Transaction.invokeContract(
             contract.getStoredAddress(),
             objCodeToRun,
@@ -356,6 +371,7 @@ describe('Contract integration tests', () => {
         txRun.signForContract(kp.privateKey);
 
         const patchRun = new factory.PatchDB();
+        node._processedBlock = fakeBlock;
 
         await node._processContract(false, contract, txRun, patchRun, new factory.PatchDB(), nCoinsIn);
         {

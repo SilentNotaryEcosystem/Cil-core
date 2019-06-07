@@ -1122,15 +1122,11 @@ module.exports = (factory, factoryOptions) => {
                 // we fill it before invocation (from contract)
                 contractAddr: undefined,
                 balance: 0,
-                // TODO Fix it (when witness creates block this is unknown!)
-//                block: this._processedBlock ? {
-//                    hash: this._processedBlock.getHash(),
-//                    timestamp: this._processedBlock.timestamp
-//                } : {}
-                block: {
-                    hash: 'stub',
-                    timestamp: 'stub'
-                }
+                block: this._processedBlock ? {
+                    hash: this._processedBlock.getHash(),
+                    timestamp: this._processedBlock.timestamp,
+                    height: this._processedBlock.getHeight()
+                } : {}
             };
 
             // get max contract fee
@@ -1935,6 +1931,7 @@ module.exports = (factory, factoryOptions) => {
             debugBlock(`Executing block "${block.getHash()}"`);
 
             const lock = await this._mutex.acquire(['blockExec']);
+            this._processedBlock = block;
             try {
                 const patchState = await this._execBlock(block);
                 if (patchState) {
@@ -1948,6 +1945,7 @@ module.exports = (factory, factoryOptions) => {
                 peer.misbehave(10);
             } finally {
                 this._mutex.release(lock);
+                this._processedBlock = undefined;
             }
         }
 
