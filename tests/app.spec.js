@@ -233,15 +233,12 @@ describe('Application layer', () => {
     it('should parse contract code', async () => {
         const strCode = `
             class A extends Base {
-                constructor(...arrValues)
-            
-            
-                {
+                constructor(...arrValues){
                     super();
                     this._data=arrValues[0];
                 }
             
-                changeDefinition(objNewDefinition)                            {
+                changeDefinition(objNewDefinition){
                 }
             
                 addDefinition
@@ -269,10 +266,11 @@ describe('Application layer', () => {
             exports=new A(10);
             `;
         const app = new factory.Application();
+        const callerAddress = generateAddress().toString('hex');
         const {receipt, contract} = app.createContract(
             1e10,
             strCode,
-            {contractAddr: 'hash'}
+            {contractAddr: 'hash', callerAddress}
         );
 
         assert.isOk(receipt.isSuccessful());
@@ -281,7 +279,7 @@ describe('Application layer', () => {
             factory.Constants.fees.CONTRACT_CREATION_FEE + contract.getDataSize() *
             factory.Constants.fees.STORAGE_PER_BYTE_FEE
         );
-        assert.deepEqual(contract.getData(), {_data: 10});
+        assert.deepEqual(contract.getData(), {_data: 10, _ownerAddress: callerAddress});
 
         const strContractCode = contract.getCode();
         assert.isOk(strContractCode);

@@ -299,7 +299,6 @@ describe('Contract integration tests', () => {
             class TestContract extends Base{
                 constructor(answer) {
                     super();
-                    this._ownerAddress = callerAddress;
                     this._contractAddr = contractAddr;
                     this._someData=answer;
                 }

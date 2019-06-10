@@ -1156,7 +1156,7 @@ module.exports = (factory, factoryOptions) => {
 
                 // prevent contract collision
                 if (await this._storage.getContract(Buffer.from(addr, 'hex'))) {
-                    throw new Errror('Contract already exists');
+                    throw new Error('Contract already exists');
                 }
 
                 ({receipt, contract} =
