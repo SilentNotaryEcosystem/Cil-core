@@ -68,16 +68,16 @@ const createTxAddCoinsToNode = (node) => {
 };
 
 const createConciliumDefAndSignBlock = (block, numOfSignatures = 2) => {
-    const arrPubKeys = [];
+    const arrAddresses = [];
     const arrSignatures = [];
     const buffHash = block.hash();
     for (let i = 0; i < numOfSignatures; i++) {
         const keyPair = factory.Crypto.createKeyPair();
-        arrPubKeys.push(Buffer.from(keyPair.publicKey, 'hex'));
+        arrAddresses.push(Buffer.from(keyPair.address, 'hex'));
         arrSignatures.push(factory.Crypto.sign(buffHash, keyPair.privateKey));
     }
     block.addWitnessSignatures(arrSignatures);
-    return factory.ConciliumRr.create(block.conciliumId, arrPubKeys);
+    return factory.ConciliumRr.create(block.conciliumId, arrAddresses);
 };
 
 const createSimpleChain = async (callback) => {

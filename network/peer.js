@@ -145,7 +145,11 @@ module.exports = (factory) => {
             this._loadDone = true;
         }
 
-        get publicKey() {
+        /**
+         * @see witness.js/constructor
+         * @return {*}
+         */
+        get witnessAddress() {
             if (!this.isWitness) throw new Error('This peer has no witness capability');
             const witnessCap = this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
             return witnessCap.data;
@@ -277,7 +281,7 @@ module.exports = (factory) => {
             if (msg.signature) {
 
                 // if message signed: check signature
-                if (this.isWitness && msg.verifySignature(this.publicKey)) {
+                if (this.isWitness && msg.address === this.witnessAddress) {
                     this.emit('witnessMessage', this, msg);
                 } else {
                     this.emit('witnessMessage', this, undefined);

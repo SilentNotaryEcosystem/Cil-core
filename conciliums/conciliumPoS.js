@@ -22,7 +22,7 @@ const BaseConciliumDefinition = require('./baseConciliumDefinition');
 //    // members information
 //    arrMembers: [
 //        {
-//            pubKey: '324234234',
+//            address: '324234234',
 //            amount: 1e8,
 //            nHeightToRelease: 1e4
 //        }
@@ -42,7 +42,7 @@ module.exports = ({Constants}) =>
                 arguments
             );
 
-            assert(arrMembers.every(objMember => objMember.pubKey && objMember.amount >= nMinAmountToJoin),
+            assert(arrMembers.every(objMember => objMember.address && objMember.amount >= nMinAmountToJoin),
                 'Bad arrMembers'
             );
 
@@ -58,8 +58,8 @@ module.exports = ({Constants}) =>
 
         }
 
-        getPublicKeys() {
-            return this._data.publicKeys.map(pubKey => Buffer.from(pubKey, 'hex'));
+        getAddresses() {
+            return this._data.arrMembers.map(objRecord => Buffer.from(objRecord.address, 'hex'));
         }
 
         getQuorum() {
@@ -71,10 +71,8 @@ module.exports = ({Constants}) =>
          *
          * @returns {Strings}
          */
-        getProposerKey(roundNo) {
-            const arrPublicKeys = this.getPublicKeys();
-            const idx = roundNo % arrPublicKeys.length;
-            return arrPublicKeys[idx];
+        getProposerAddress(roundNo) {
+            throw new Error('Implement');
         }
 
         getWitnessWeight() {

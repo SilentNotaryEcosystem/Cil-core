@@ -40,8 +40,8 @@ describe('MessageWitnessBlock', () => {
 
         const restoredMsg = new factory.Messages.MsgWitnessBlock(buffMsg);
         assert.isOk(restoredMsg.signature);
-        assert.isOk(restoredMsg.publicKey);
-        assert.equal(restoredMsg.publicKey, keyPair.publicKey);
+        assert.isOk(restoredMsg.address);
+        assert.equal(restoredMsg.address, keyPair.address);
 
         const restoredBlock = restoredMsg.block;
         assert.equal(block.hash(), restoredBlock.hash());

@@ -148,11 +148,11 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
-         * @param {Buffer | String} publicKey
-         * @returns {Promise<Array>} of BaseConciliumDefinition this publicKey belongs to
+         * @param {Buffer | String} address
+         * @returns {Promise<Array>} of BaseConciliumDefinition this address belongs to
          */
-        async getConciliumsByKey(publicKey) {
-            const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
+        async getConciliumsByAddress(address) {
+            const buffAddress = Buffer.isBuffer(address) ? address : Buffer.from(address, 'hex');
 
             if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return [];
             await this._ensureArrConciliumDefinition();
@@ -160,7 +160,7 @@ module.exports = (factory, factoryOptions) => {
             const arrResult = [];
             for (let def of this._arrConciliumDefinition) {
                 if ((def.isRoundRobin() || def.isPoS()) &&
-                    ~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) {
+                    ~def.getAddresses().findIndex(key => key.equals(buffAddress))) {
                     arrResult.push(def);
                 }
             }

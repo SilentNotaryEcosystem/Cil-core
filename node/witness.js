@@ -34,7 +34,7 @@ module.exports = (factory, factoryOptions) => {
             // upgrade capabilities from regular Node to Witness
             this._listenPromise.then(() => {
                 this._myPeerInfo.addCapability(
-                    {service: Constants.WITNESS, data: Buffer.from(wallet.publicKey, 'hex')});
+                    {service: Constants.WITNESS, data: Buffer.from(wallet.address, 'hex')});
                 this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
             });
 
@@ -44,7 +44,7 @@ module.exports = (factory, factoryOptions) => {
         async bootstrap() {
 
             // try early initialization of consensus engines
-            const arrConciliums = await this._storage.getConciliumsByKey(this._wallet.publicKey);
+            const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
             for (let def of arrConciliums) {
                 await this._createConsensusForConcilium(def);
@@ -53,12 +53,12 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
-         * Establish connection for all conciliums which this witness listed (publicKey in concilium definition)
+         * Establish connection for all conciliums which this witness listed (address in concilium definition)
          *
          * @return {Promise<void>}
          */
         async start() {
-            const arrConciliums = await this._storage.getConciliumsByKey(this._wallet.publicKey);
+            const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
             // this need only at very beginning when witness start without genesis. In this case
             const wasInitialized = this._consensuses.size;
@@ -146,13 +146,13 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _getConciliumPeers(concilium) {
-            const arrConciliumKeys = concilium.getPublicKeys();
+            const arrConciliumAddresses = concilium.getAddresses();
             const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS}, true);
             const arrPeers = [];
             for (let peer of arrAllWitnessesPeers) {
-                if (~arrConciliumKeys.findIndex(key => {
-                    const buffKey = Buffer.isBuffer(key) ? key : Buffer.from(key, 'hex');
-                    return buffKey.equals(peer.publicKey);
+                if (~arrConciliumAddresses.findIndex(addr => {
+                    const buffAddr = Buffer.isBuffer(addr) ? addr : Buffer.from(addr, 'hex');
+                    return buffAddr.equals(peer.witnessAddress);
                 })) {
                     arrPeers.push(peer);
                 }
@@ -196,7 +196,7 @@ module.exports = (factory, factoryOptions) => {
         async _processHandshakeMessage(peer, messageWitness, consensus) {
 
             // check whether this witness belong to our concilium
-            if (!consensus.checkPublicKey(peer.publicKey)) {
+            if (!consensus.checkAddresses(peer.witnessAddress)) {
                 peer.ban();
                 throw(`Witness: "${this._debugAddress}" this guy UNKNOWN!`);
             }
@@ -227,7 +227,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _processBlockMessage(peer, messageWitness, consensus) {
-            if (consensus.shouldPublish(messageWitness.publicKey)) {
+            if (consensus.shouldPublish(messageWitness.address)) {
 
                 // this will advance us to VOTE_BLOCK state whether block valid or not!
                 const msgBlock = new MsgWitnessBlock(messageWitness);

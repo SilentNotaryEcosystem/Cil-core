@@ -131,7 +131,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         }));
         sinon.restore();
 
-        const txCode = createAnotherConcilium(wallet.privateKey, wallet.publicKey, moneyIssueTx.hash(), 4);
+        const txCode = createAnotherConcilium(wallet.privateKey, wallet.address, moneyIssueTx.hash(), 4);
         await witnessConciliumTwo.rpcHandler({event: 'tx', content: txCode});
 
         // wait for witnessOne receive tx & produce block with new concilium def & send us (witnessConciliumTwo) second block
@@ -379,7 +379,7 @@ function createGenesisBlock() {
     const witnessOne = factory.Crypto.createKeyPair();
     const witnessTwo = factory.Crypto.createKeyPair();
 
-    const initialConcilium = factory.ConciliumRr.create(0, [witnessOne.publicKey], 1);
+    const initialConcilium = factory.ConciliumRr.create(0, [witnessOne.address], 1);
 
     const contractCode = `
 class Concilium extends Base{
@@ -407,7 +407,7 @@ class Concilium extends Base{
     }
     
     _validateDefinition(objConcilium){
-        if(!objConcilium.publicKeys) throw ('Bad definition');
+        if(!objConcilium.addresses) throw ('Bad definition');
     }
 }
 
@@ -444,10 +444,10 @@ exports=new Concilium(${JSON.stringify(prepareForStringifyObject(initialConciliu
     };
 }
 
-function createAnotherConcilium(strClaimPrivateKey, witnessPubKey, utxo, idx) {
+function createAnotherConcilium(strClaimPrivateKey, witnessAddress, utxo, idx) {
     console.log(`Using UTXo ${utxo} idx ${idx}`);
 
-    const concilium = factory.ConciliumRr.create(1, [witnessPubKey]);
+    const concilium = factory.ConciliumRr.create(1, [witnessAddress]);
 
     const contractCode = {
         method: 'addDefinition',

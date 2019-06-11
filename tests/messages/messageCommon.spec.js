@@ -49,7 +49,7 @@ describe('MessageCommon', () => {
         msg.payload = Buffer.from('1235');
         msg.sign(keyPair.getPrivate());
 
-        assert.isOk(msg.publicKey);
-        assert.equal(msg.publicKey, keyPair.publicKey);
+        assert.isOk(msg.address);
+        assert.equal(msg.address, keyPair.address);
     });
 });

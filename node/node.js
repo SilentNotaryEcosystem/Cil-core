@@ -1509,15 +1509,15 @@ module.exports = (factory, factoryOptions) => {
 
             const witnessConciliumDefinition = await this._storage.getConciliumById(block.conciliumId);
             assert(witnessConciliumDefinition, `Unknown conciliumId: ${block.conciliumId}`);
-            const arrPubKeys = witnessConciliumDefinition.getPublicKeys();
+            const arrAddresses = witnessConciliumDefinition.getAddresses();
             assert(
                 block.signatures.length === witnessConciliumDefinition.getQuorum(),
                 `Expected ${witnessConciliumDefinition.getQuorum()} signatures, got ${block.signatures.length}`
             );
             for (let sig of block.signatures) {
-                const buffPubKey = Buffer.from(Crypto.recoverPubKey(buffBlockHash, sig), 'hex');
+                const buffAddress = Crypto.getAddress(Crypto.recoverPubKey(buffBlockHash, sig), true);
                 assert(
-                    ~arrPubKeys.findIndex(key => buffPubKey.equals(key)),
+                    ~arrAddresses.findIndex(addr => buffAddress.equals(addr)),
                     `Bad signature for block ${block.hash()}!`
                 );
             }

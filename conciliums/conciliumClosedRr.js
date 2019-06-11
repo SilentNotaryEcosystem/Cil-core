@@ -17,9 +17,9 @@ const BaseConciliumDefinition = require('./baseConciliumDefinition');
 //    isOpen: false,
 //
 //    // members information
-//    publicKeys: [
+//    addresses: [
 //    ],
-//    quorum: 1 | publicKeys.length*2/3
+//    quorum: 1 | addresses.length*2/3
 //};
 
 module.exports = ({Constants}) =>
@@ -30,11 +30,11 @@ module.exports = ({Constants}) =>
             this._setType(BaseConciliumDefinition.CONCILIUM_TYPE_RR);
         }
 
-        static create(conciliumId, arrPublicKeys, quorum) {
+        static create(conciliumId, arrAddresses, quorum) {
             typeforce(typeforce.tuple('Number', 'Array'), arguments);
 
             return new this({
-                publicKeys: arrPublicKeys,
+                addresses: arrAddresses,
                 conciliumId,
                 quorum
             });
@@ -44,8 +44,8 @@ module.exports = ({Constants}) =>
          *
          * @return {Array<Buffer>}
          */
-        getPublicKeys() {
-            return this._data.publicKeys.map(pubKey => Buffer.from(pubKey, 'hex'));
+        getAddresses() {
+            return this._data.addresses.map(addr => Buffer.from(addr, 'hex'));
         }
 
         setQuorum(quorum) {
@@ -54,7 +54,7 @@ module.exports = ({Constants}) =>
 
         getQuorum() {
             if (this._data.quorum) return this._data.quorum;
-            const arr = this._data.delegatesPublicKeys || this._data.publicKeys;
+            const arr = this._data.addresses;
             return parseInt(arr.length / 2) + 1;
         }
 
@@ -67,10 +67,10 @@ module.exports = ({Constants}) =>
          *
          * @returns {String}
          */
-        getProposerKey(roundNo) {
-            const arrPublicKeys = this.getPublicKeys();
-            const idx = roundNo % arrPublicKeys.length;
-            return arrPublicKeys[idx].toString('hex');
+        getProposerAddress(roundNo) {
+            const arrAddresses = this.getAddresses();
+            const idx = roundNo % arrAddresses.length;
+            return arrAddresses[idx].toString('hex');
         }
 
         getWitnessWeight() {

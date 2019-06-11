@@ -22,7 +22,6 @@ module.exports = (factory) => {
         /**
          *
          * @param {String} options.concilium
-         * @param {Array} options.arrPublicKeys
          * @param {Wallet} options.wallet
          */
         constructor(options) {
@@ -41,7 +40,7 @@ module.exports = (factory) => {
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
-            this._arrPublicKeys = concilium.getPublicKeys().sort().map(key => key.toString('hex'));
+            this._arrAddresses = concilium.getAddresses().sort().map(addr => addr.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
@@ -67,18 +66,18 @@ module.exports = (factory) => {
 //        }
 
         /**
-         * Check whether this public key belongs to our concilium
+         * Check whether this address belongs to our concilium
          *
-         * @param {Buffer | String} pubKey
+         * @param {Buffer | String} address
          * @return {boolean}
          */
-        checkPublicKey(pubKey) {
-            if (Buffer.isBuffer(pubKey)) pubKey = pubKey.toString('hex');
-            return this._arrPublicKeys.includes(pubKey);
+        checkAddresses(address) {
+            if (Buffer.isBuffer(address)) address = address.toString('hex');
+            return this._arrAddresses.includes(address);
         }
 
         processMessage(witnessMsg) {
-            const senderPubKey = witnessMsg.publicKey;
+            const senderAddr = witnessMsg.address;
 
             debug(`BFT "${this._nonce}" processing "${witnessMsg.message}". State: "${this._state}"`);
 
@@ -99,17 +98,17 @@ module.exports = (factory) => {
             const state = this._stateFromMessage(witnessMsg);
 
             // it make a sense after extracting message from MsgWitnessWitnessExpose
-            const pubKeyI = witnessMsg.publicKey;
+            const addrI = witnessMsg.address;
 
             // make sure that those guys from our concilium
             // if ok - this means message wasn't changed
-            if (!this.checkPublicKey(senderPubKey) || !this.checkPublicKey(pubKeyI)) {
-                throw new Error(`wrong public key for message ${witnessMsg.message}`);
+            if (!this.checkAddresses(senderAddr) || !this.checkAddresses(addrI)) {
+                throw new Error(`Message ${witnessMsg.message} from wrong address`);
             }
 
             debug(
-                `BFT "${this._nonce}" added "${senderPubKey}--${pubKeyI}" data ${JSON.stringify(witnessMsg.content)}`);
-            this._addViewOfNodeWithPubKey(senderPubKey, pubKeyI, {state, ...witnessMsg.content});
+                `BFT "${this._nonce}" added "${senderAddr}--${addrI}" data ${JSON.stringify(witnessMsg.content)}`);
+            this._addViewOfNodeWithAddr(senderAddr, addrI, {state, ...witnessMsg.content});
             const value = this.runConsensus();
             if (!value) return false;
 
@@ -128,28 +127,28 @@ module.exports = (factory) => {
         _resetState() {
             this._prevViews = this._views;
             this._views = {};
-            this._arrPublicKeys.forEach(publicKey => {
+            this._arrAddresses.forEach(addr => {
 
-                // prepare empty array for data transmitted of publicKey
-                this._views[publicKey] = {};
+                // prepare empty array for data transmitted from addr
+                this._views[addr] = {};
             });
         }
 
         /**
-         * We could be sure that dataI was unchanged, because we recover pubKey from that message
+         * We could be sure that dataI was unchanged, because we recover address (pubKey) from that message
          * And it match one of our witnesses.
          * In case of dataI modification we'll recover some key that wouldn't match key of any our witnesses
          *
-         * @param {String} publicKey - who send us response of i-neighbor
-         * @param {String} pubKeyI - pubKey of i-neighbor
-         * @param {Object} dataI - object that send i-neighbor to witness with publicKey
+         * @param {String} addr - who send us response of i-neighbor
+         * @param {String} addrI - address of i-neighbor
+         * @param {Object} dataI - object that send i-neighbor to witness with @addr
          * @private
          */
-        _addViewOfNodeWithPubKey(publicKey, pubKeyI, dataI) {
-            publicKey = Buffer.isBuffer(publicKey) ? publicKey.toString('hex') : publicKey;
-            pubKeyI = Buffer.isBuffer(pubKeyI) ? pubKeyI.toString('hex') : pubKeyI;
+        _addViewOfNodeWithAddr(addr, addrI, dataI) {
+            addr = Buffer.isBuffer(addr) ? addr.toString('hex') : addr;
+            addrI = Buffer.isBuffer(addrI) ? addrI.toString('hex') : addrI;
 
-            this._views[publicKey][pubKeyI] = dataI;
+            this._views[addr][addrI] = dataI;
         }
 
         /**
@@ -159,13 +158,13 @@ module.exports = (factory) => {
 
             // i'm a single node (for example Initial witness)
             if (this._concilium.getQuorum() === 1 &&
-                this._arrPublicKeys.includes(this._wallet.publicKey)) {
-                return this._views[this._wallet.publicKey][this._wallet.publicKey];
+                this._arrAddresses.includes(this._wallet.address)) {
+                return this._views[this._wallet.address][this._wallet.address];
             }
 
             //
-            const arrWitnessValues = this._arrPublicKeys.map(pubKeyI => {
-                const arrDataWitnessI = this._witnessData(pubKeyI);
+            const arrWitnessValues = this._arrAddresses.map(addrI => {
+                const arrDataWitnessI = this._witnessData(addrI);
                 return this._majority(arrDataWitnessI);
             });
 
@@ -173,19 +172,19 @@ module.exports = (factory) => {
         }
 
         /**
-         * Get all data we received from witness with pubKeyI @see _addViewOfNodeWithPubKey
+         * Get all data we received from witness with addrI @see _addViewOfNodeWithAddr
          * I.e. what data it saw from neighbours
          *
-         * @param {String} pubKeyI
+         * @param {String} addrI
          * @param {Boolean} usingCurrentView - do we using current view, or previous (used for signatures gathering) on VOTE stage
-         * @returns {Array} of data we received from witness with pubKeyI
+         * @returns {Array} of data we received from witness with addrI
          * @private
          */
-        _witnessData(pubKeyI, usingCurrentView = true) {
+        _witnessData(addrI, usingCurrentView = true) {
             const views = usingCurrentView ? this._views : this._prevViews;
             assert(views, 'Unexpected views error');
-            return this._arrPublicKeys.map(pubKeyJ => {
-                return views[pubKeyJ][pubKeyI];
+            return this._arrAddresses.map(addrJ => {
+                return views[addrJ][addrI];
             });
         }
 
@@ -203,7 +202,7 @@ module.exports = (factory) => {
                 if (data === undefined) continue;
                 const hash = this._calcDataHash(data);
 
-                const weight = this._concilium.getWitnessWeight(this._arrPublicKeys[j]);
+                const weight = this._concilium.getWitnessWeight(this._arrAddresses[j]);
                 if (typeof objHashes[hash] !== 'object') {
 
                     // new value found
@@ -422,8 +421,8 @@ module.exports = (factory) => {
                     } else {
 
                         // Proposer misbehave!! sent us different block than other!
-                        logger.error(`Proposer (pubkey "${
-                            this._concilium.getProposerKey(this._roundNo)}") misbehave. Sent different blocks!`);
+                        logger.error(`Proposer (address "${
+                            this._concilium.getProposerAddress(this._roundNo)}") misbehave. Sent different blocks!`);
                     }
                 }
 
@@ -470,11 +469,11 @@ module.exports = (factory) => {
          * Whether it's turn of 'proposer' to propose block?
          * Now implemented round-robin, replace if needed
          *
-         * @param {String} proposer - publicKey of proposer
+         * @param {String} proposer - address of proposer
          * @return {boolean}
          */
-        shouldPublish(proposer = this._wallet.publicKey) {
-            return this._concilium.getProposerKey(this._roundNo) === proposer;
+        shouldPublish(proposer = this._wallet.address) {
+            return this._concilium.getProposerAddress(this._roundNo) === proposer;
         }
 
         timeForWitnessBlock() {
@@ -531,14 +530,15 @@ module.exports = (factory) => {
             const buffBlockHash = Buffer.from(this._block.hash(), 'hex');
 
             const arrSignatures = [];
-            this._arrPublicKeys.forEach(pubKeyI => {
-                const arrDataWitnessI = this._witnessData(pubKeyI, false);
+            this._arrAddresses.forEach(addrI => {
+                const arrDataWitnessI = this._witnessData(addrI, false);
                 const votedValue = this._majority(arrDataWitnessI);
+
                 if (votedValue
                     && Buffer.isBuffer(votedValue.blockHash)
                     && votedValue.blockHash.equals(buffBlockHash)
                     && votedValue.signature
-                    && Crypto.verify(buffBlockHash, votedValue.signature, pubKeyI)
+                    && addrI === Crypto.getAddress(Crypto.recoverPubKey(buffBlockHash, votedValue.signature))
                 ) {
 
                     // this will suppress empty elements in result array
