@@ -428,7 +428,7 @@ module.exports = (factory, factoryOptions) => {
             // remove failed txns
             if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
-            block.finish(totalFee, this._wallet.publicKey, await this._getFeeSizePerInput(conciliumId));
+            block.finish(totalFee, this._wallet.address, await this._getFeeSizePerInput(conciliumId));
 
             debugWitness(
                 `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);

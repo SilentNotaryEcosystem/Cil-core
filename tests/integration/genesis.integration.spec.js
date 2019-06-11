@@ -4,7 +4,7 @@ const debugLib = require('debug');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('../testFactory');
-const {pseudoRandomBuffer, processBlock} = require('../testUtil');
+const {generateAddress, processBlock} = require('../testUtil');
 const {arrayEquals, prepareForStringifyObject} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
@@ -433,7 +433,7 @@ exports=new Concilium(${JSON.stringify(prepareForStringifyObject(initialConciliu
     genesis.addTx(moneyIssueTx);
     genesis.addTx(contractDeployTx);
     genesis.setHeight(1);
-    genesis.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+    genesis.finish(factory.Constants.fees.TX_FEE, generateAddress());
 
     console.log(`Genesis hash: ${genesis.getHash()}`);
     return {

@@ -298,7 +298,7 @@ describe('Node tests', () => {
         const block = new factory.Block(0);
 
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, generateAddress());
 
         inv.addBlock(block);
         inv.addTx(tx);
@@ -327,7 +327,7 @@ describe('Node tests', () => {
         const block = new factory.Block(0);
 
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, generateAddress());
 
         inv.addBlock(block);
         inv.addTx(tx);
@@ -531,7 +531,7 @@ describe('Node tests', () => {
         const tx = new factory.Transaction(createDummyTx());
         const block = new factory.Block(0);
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, generateAddress());
 
         factory.Constants.GENESIS_BLOCK = block.hash();
         await node._execBlock(block);

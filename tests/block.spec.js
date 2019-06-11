@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const debug = require('debug')('block:test');
 
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 describe('Block tests', () => {
     before(async function() {
@@ -41,7 +41,7 @@ describe('Block tests', () => {
         block.parentHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
 
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, keyPair.publicKey);
+        block.finish(factory.Constants.fees.TX_FEE, keyPair.address);
 
         assert.isOk(block.header.timestamp);
         assert.isOk(block.timestamp);
@@ -73,7 +73,7 @@ describe('Block tests', () => {
         tx.claim(0, keyPair.privateKey);
 
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, keyPair.publicKey);
+        block.finish(factory.Constants.fees.TX_FEE, keyPair.address);
 
         const hash = block.hash();
         debug(block.hash());
@@ -88,7 +88,7 @@ describe('Block tests', () => {
         const anotherTx = new factory.Transaction(createDummyTx());
         anotherTx.claim(0, keyPair.privateKey);
         anotherBlock.addTx(anotherTx);
-        anotherBlock.finish(factory.Constants.fees.TX_FEE, keyPair.publicKey);
+        anotherBlock.finish(factory.Constants.fees.TX_FEE, keyPair.address);
 
         debug(anotherBlock.hash());
         assert.notEqual(block.hash(), anotherBlock.hash());
@@ -101,7 +101,7 @@ describe('Block tests', () => {
         tx.claim(0, keyPair.privateKey);
 
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, keyPair.publicKey);
+        block.finish(factory.Constants.fees.TX_FEE, keyPair.address);
 
         const buffBlock = block.encode();
         assert.isOk(Buffer.isBuffer(buffBlock));
@@ -125,26 +125,26 @@ describe('Block tests', () => {
         });
 
         it('should create coinbase', async () => {
-            block.finish(1e6, pseudoRandomBuffer(33));
+            block.finish(1e6, generateAddress());
             assert.isOk(block.txns.length, 1);
         });
 
         it('should create 3 outputs', async () => {
-            block.finish(1e6, pseudoRandomBuffer(33));
+            block.finish(1e6, generateAddress());
 
             const tx = new factory.Transaction(block.txns[0]);
             assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 3);
         });
 
         it('should create 2 outputs (without foundation share, because its 2 small)', async () => {
-            block.finish(1e4, pseudoRandomBuffer(33), 1e4);
+            block.finish(1e4, generateAddress(), 1e4);
 
             const tx = new factory.Transaction(block.txns[0]);
             assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 2);
         });
 
         it('should create 1 output (to make random hash for coinbase tx)', async () => {
-            block.finish(1e4, pseudoRandomBuffer(33), 1e4);
+            block.finish(1e4, generateAddress(), 1e4);
 
             const tx = new factory.Transaction(block.txns[0]);
             assert.isOk(Array.isArray(tx.outputs) && tx.outputs.length === 2);
@@ -177,7 +177,7 @@ describe('Block tests', () => {
             const block = new factory.Block(0);
             block.parentHashes = [pseudoRandomBuffer()];
             block.addWitnessSignatures([pseudoRandomBuffer(65)]);
-            block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+            block.finish(factory.Constants.fees.TX_FEE, generateAddress());
             assert.throws(() => block.verify(), 'Bad height');
         });
 
@@ -185,7 +185,7 @@ describe('Block tests', () => {
             const block = new factory.Block(0);
             block.parentHashes = [pseudoRandomBuffer()];
             block.addWitnessSignatures([pseudoRandomBuffer(65)]);
-            block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+            block.finish(factory.Constants.fees.TX_FEE, generateAddress());
             block.setHeight(20);
             block.verify();
         });

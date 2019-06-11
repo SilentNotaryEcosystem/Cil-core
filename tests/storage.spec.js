@@ -347,7 +347,7 @@ describe('Storage tests', () => {
         assert.isOk(Buffer.isBuffer(await storage.getTxReceipt(buffUtxoHash, true)));
 
         const block = new factory.Block(0);
-        block.finish(1e5, pseudoRandomBuffer(33));
+        block.finish(1e5, generateAddress());
         const blockInfo = new factory.BlockInfo(block.header);
 
         await storage.saveBlock(block, blockInfo);

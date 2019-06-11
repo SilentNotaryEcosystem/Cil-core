@@ -187,7 +187,7 @@ describe('Contract integration tests', () => {
         const block = new factory.Block(0);
         block.addTx(tx1);
         block.addTx(tx2);
-        block.finish(0, pseudoRandomBuffer(33));
+        block.finish(0, generateAddress());
 
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();
@@ -270,7 +270,7 @@ describe('Contract integration tests', () => {
         const block = new factory.Block(0);
         block.addTx(tx1);
         block.addTx(tx2);
-        block.finish(0, pseudoRandomBuffer(33));
+        block.finish(0, generateAddress());
 
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();

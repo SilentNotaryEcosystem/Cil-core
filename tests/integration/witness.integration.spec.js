@@ -5,7 +5,7 @@ const debugLib = require('debug');
 const sinon = require('sinon');
 
 const factory = require('../testFactory');
-const {pseudoRandomBuffer, createDummyTx, processBlock} = require('../testUtil');
+const {generateAddress, createDummyTx, processBlock} = require('../testUtil');
 const {sleep} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
@@ -63,7 +63,7 @@ const createGenesisBlock = () => {
     const tx = new factory.Transaction(createDummyTx());
     const block = new factory.Block(0);
     block.addTx(tx);
-    block.finish(0, pseudoRandomBuffer(33));
+    block.finish(0, generateAddress());
     factory.Constants.GENESIS_BLOCK = block.hash();
 
     return block;
@@ -83,7 +83,7 @@ const createGenesisBlockAndSpendingTx = (conciliumId = 0) => {
     const genesis = new factory.Block(0);
     genesis.addTx(txGen);
     genesis.setHeight(1);
-    genesis.finish(0, pseudoRandomBuffer(33));
+    genesis.finish(0, generateAddress());
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     // create spending tx

@@ -138,12 +138,12 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this.txns.length === 1 && (new Transaction(this.txns[0])).isCoinbase();
         }
 
-        finish(totalTxnsFees, pubkeyReceiver, minUsefulAmount = 0) {
+        finish(totalTxnsFees, addrReceiver, minUsefulAmount = 0) {
             typeforce.Number(totalTxnsFees);
-            typeforce(types.PublicKey, pubkeyReceiver);
+            typeforce(types.Address, addrReceiver);
 
             this._hashCache = undefined;
-            const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
+            const buffReceiverAddr = Buffer.from(addrReceiver, 'hex');
 
             const coinbase = Transaction.createCoinbase();
             coinbase.conciliumId = this.conciliumId;
