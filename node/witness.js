@@ -151,8 +151,8 @@ module.exports = (factory, factoryOptions) => {
             const arrPeers = [];
             for (let peer of arrAllWitnessesPeers) {
                 if (~arrConciliumAddresses.findIndex(addr => {
-                    const buffAddr = Buffer.isBuffer(addr) ? addr : Buffer.from(addr, 'hex');
-                    return buffAddr.equals(peer.witnessAddress);
+                    const strAddr = addr.toString('hex');
+                    return strAddr === peer.witnessAddress;
                 })) {
                     arrPeers.push(peer);
                 }

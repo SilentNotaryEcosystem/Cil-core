@@ -203,7 +203,7 @@ describe('Peer manager', () => {
         const peerToReplace = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE},
-                {service: factory.Constants.WITNESS, data: Buffer.from('1234')}
+                {service: factory.Constants.WITNESS, data: Buffer.from('1234', 'hex')}
             ],
             address
         });

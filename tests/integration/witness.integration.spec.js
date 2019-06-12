@@ -22,19 +22,19 @@ let arrKeyPairs;
 let concilium;
 
 const patchNodeForWitnesses = (node, concilium) => {
-    node._storage.getConciliumsByKey = sinon.fake.returns([concilium]);
+    node._storage.getConciliumsByAddress = sinon.fake.returns([concilium]);
     node._storage.getConciliumById = sinon.fake.returns(concilium);
 };
 
 const createDummyDefinition = (conciliumId = 0, numOfKeys = 2) => {
     const arrKeyPairs = [];
-    const arrPublicKeys = [];
+    const arrAddresses = [];
     for (let i = 0; i < numOfKeys; i++) {
         const keyPair = factory.Crypto.createKeyPair();
         arrKeyPairs.push(keyPair);
-        arrPublicKeys.push(keyPair.publicKey);
+        arrAddresses.push(keyPair.address);
     }
-    const concilium = factory.ConciliumRr.create(conciliumId, arrPublicKeys);
+    const concilium = factory.ConciliumRr.create(conciliumId, arrAddresses);
 
     return {arrKeyPairs, concilium};
 };
@@ -44,6 +44,8 @@ const createWitnesses = (num, seedAddress) => {
     const arrWitnesses = [];
 
     for (let i = 0; i < num; i++) {
+
+        // we use arrKeyPairs that filled in beforeEach -> createDummyDefinition
         const witnessWallet = new factory.Wallet(arrKeyPairs[i].getPrivate());
         const witness = new factory.Witness({
             wallet: witnessWallet,
@@ -71,7 +73,7 @@ const createGenesisBlock = () => {
 
 const createGenesisBlockAndSpendingTx = (conciliumId = 0) => {
     const receiverKeyPair = factory.Crypto.createKeyPair();
-    const buffReceiverAddress = factory.Crypto.getAddress(receiverKeyPair.publicKey, true);
+    const buffReceiverAddress = Buffer.from(receiverKeyPair.address, 'hex');
 
     // create "genesis" tx
     const txGen = new factory.Transaction();

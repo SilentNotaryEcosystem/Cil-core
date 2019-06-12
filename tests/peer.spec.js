@@ -140,7 +140,7 @@ describe('Peer tests', () => {
         const newPeer = new factory.Peer({
             peerInfo: {
                 capabilities: [
-                    {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
+                    {service: factory.Constants.WITNESS, data: Buffer.from('1111', 'hex')}
                 ],
                 address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
             }

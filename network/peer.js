@@ -147,12 +147,12 @@ module.exports = (factory) => {
 
         /**
          * @see witness.js/constructor
-         * @return {*}
+         * @return {String}
          */
         get witnessAddress() {
             if (!this.isWitness) throw new Error('This peer has no witness capability');
             const witnessCap = this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
-            return witnessCap.data;
+            return witnessCap.data.toString('hex');
         }
 
         get witnessLoadDone() {
