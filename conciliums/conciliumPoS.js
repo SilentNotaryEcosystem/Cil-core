@@ -33,6 +33,9 @@ module.exports = ({Constants}) =>
     class ConciliumPoS extends BaseConciliumDefinition {
         constructor(data) {
             super(data);
+
+            assert(data.nMinAmountToJoin, 'Specify nMinAmountToJoin');
+
             this._setType(BaseConciliumDefinition.CONCILIUM_TYPE_POS);
         }
 
@@ -53,13 +56,14 @@ module.exports = ({Constants}) =>
                 conciliumId,
                 nMinAmountToJoin,
                 arrMembers,
-                isOpen: false
+                isOpen: !arrMembers.length
             });
 
         }
 
-        getAddresses() {
-            return this._data.arrMembers.map(objRecord => Buffer.from(objRecord.address, 'hex'));
+        getAddresses(bConvertToBuffer = true) {
+            return this._data.arrMembers.map(objRecord => bConvertToBuffer ?
+                Buffer.from(objRecord.address, 'hex') : objRecord.address);
         }
 
         getQuorum() {

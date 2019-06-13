@@ -8,7 +8,7 @@ const {deepCloneObject} = require('../utils');
 // common parameters
 //const def = {
 //    conciliumId: 0,
-//    type: Constants.POS | Constants.CLOSED_RR,
+//    type: Constants.CONCILIUM_TYPE_POS | Constants.CONCILIUM_TYPE_RR,
 //    parameters: {
 //        fees: {
 //            feeTxSize: 111,

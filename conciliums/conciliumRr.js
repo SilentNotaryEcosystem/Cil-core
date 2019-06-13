@@ -44,8 +44,8 @@ module.exports = ({Constants}) =>
          *
          * @return {Array<Buffer>}
          */
-        getAddresses() {
-            return this._data.addresses.map(addr => Buffer.from(addr, 'hex'));
+        getAddresses(bConvertToBuffer = true) {
+            return this._data.addresses.map(addr => bConvertToBuffer ? Buffer.from(addr, 'hex') : addr);
         }
 
         setQuorum(quorum) {
