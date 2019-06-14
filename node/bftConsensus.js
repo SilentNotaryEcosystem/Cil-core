@@ -530,6 +530,7 @@ module.exports = (factory) => {
             const buffBlockHash = Buffer.from(this._block.hash(), 'hex');
 
             const arrSignatures = [];
+            let gatheredWeight = 0;
             this._arrAddresses.forEach(addrI => {
                 const arrDataWitnessI = this._witnessData(addrI, false);
                 const votedValue = this._majority(arrDataWitnessI);
@@ -543,13 +544,14 @@ module.exports = (factory) => {
 
                     // this will suppress empty elements in result array
                     arrSignatures.push(votedValue.signature);
+                    gatheredWeight += this._concilium.getWitnessWeight(addrI);
                 }
             });
             const quorum = this._concilium.getQuorum();
 
             assert(quorum, `Quorum couldn't be zero!`);
 
-            return arrSignatures.length >= quorum ? arrSignatures.slice(0, quorum) : undefined;
+            return gatheredWeight >= quorum ? arrSignatures : undefined;
         }
     };
 };

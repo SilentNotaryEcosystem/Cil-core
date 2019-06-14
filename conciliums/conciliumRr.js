@@ -45,7 +45,7 @@ module.exports = ({Constants}) =>
          * @return {Array<Buffer>}
          */
         getAddresses(bConvertToBuffer = true) {
-            return this._data.addresses.map(addr => bConvertToBuffer ? Buffer.from(addr, 'hex') : addr);
+            return this._data.addresses.map(addr => bConvertToBuffer ? Buffer.from(addr, 'hex') : addr.toString('hex'));
         }
 
         setQuorum(quorum) {
@@ -73,7 +73,11 @@ module.exports = ({Constants}) =>
             return arrAddresses[idx].toString('hex');
         }
 
-        getWitnessWeight() {
+        getWitnessWeight(strAddress) {
             return 1;
+        }
+
+        isEnabled() {
+            return super.isEnabled() && !!this._data.addresses.length;
         }
     };

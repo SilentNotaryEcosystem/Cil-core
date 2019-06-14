@@ -20,4 +20,8 @@ class Base {
         });
         return objCode;
     }
+
+    _checkOwner() {
+        if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
+    }
 }

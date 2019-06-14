@@ -37,6 +37,10 @@ module.exports = ({Constants}) =>
             assert(data.nMinAmountToJoin, 'Specify nMinAmountToJoin');
 
             this._setType(BaseConciliumDefinition.CONCILIUM_TYPE_POS);
+
+            if (!Array.isArray(this._data.arrMembers)) this._data.arrMembers = [];
+            this._totalAmount = this._data.arrMembers.reduce((accum, objMember) => accum + objMember.amount, 0);
+            this._quorum = (0.5 * this._totalAmount + 1) / this._totalAmount;
         }
 
         static create(conciliumId, nMinAmountToJoin, currentHeight, arrMembers) {
@@ -63,11 +67,16 @@ module.exports = ({Constants}) =>
 
         getAddresses(bConvertToBuffer = true) {
             return this._data.arrMembers.map(objRecord => bConvertToBuffer ?
-                Buffer.from(objRecord.address, 'hex') : objRecord.address);
+                Buffer.from(objRecord.address, 'hex') : objRecord.address.toString('hex'));
         }
 
+        /**
+         * @see constructor
+         *
+         * @return {number} It coulnd't be greater than 1!
+         */
         getQuorum() {
-            throw new Error('Implement');
+            return this._quorum;
         }
 
         /**
@@ -76,10 +85,27 @@ module.exports = ({Constants}) =>
          * @returns {Strings}
          */
         getProposerAddress(roundNo) {
-            throw new Error('Implement');
+
+            // TODO: REPLACE THIS STUB!!
+            const arrAddresses = this.getAddresses();
+            const idx = roundNo % arrAddresses.length;
+            return arrAddresses[idx].toString('hex');
         }
 
-        getWitnessWeight() {
-            throw new Error('Implement');
+        /**
+         * @see constructor
+         *
+         * @param strAddress
+         * @return {number} It coulnd't be greater than 1!
+         */
+        getWitnessWeight(strAddress) {
+            const objMember = this._data.arrMembers.find(objMember => objMember.address === strAddress);
+            if (!objMember) throw new Error(`address: "${strAddress}" not found in concilium`);
+
+            return objMember.amount / this._totalAmount;
+        }
+
+        isEnabled() {
+            return super.isEnabled() && !!this._data.arrMembers.length;
         }
     };

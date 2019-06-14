@@ -559,27 +559,6 @@ describe('Node tests', () => {
         throw ('Unexpected success');
     });
 
-    it('should fail check BLOCK SIGNATURES (not enough signatures)', async () => {
-        const block = createDummyBlock(factory);
-        createConciliumDefAndSignBlock(block);
-
-        const block2 = createDummyBlock(factory);
-        const conciliumDef2 = createConciliumDefAndSignBlock(block2, 7);
-
-        // conciliumId: 0 will have different keys used for block2
-        const node = new factory.Node();
-        node._storage.getConciliumById = sinon.fake.resolves(conciliumDef2);
-
-        try {
-            await node._verifyBlockSignatures(block);
-        } catch (e) {
-            console.error(e);
-            assert.equal(e.message, 'Expected 4 signatures, got 2');
-            return;
-        }
-        throw ('Unexpected success');
-    });
-
     it('should fail check BLOCK SIGNATURES (bad signatures)', async () => {
         const block = createDummyBlock(factory);
         createConciliumDefAndSignBlock(block);

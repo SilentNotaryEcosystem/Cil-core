@@ -138,8 +138,8 @@ module.exports = (factory, factoryOptions) => {
                 const {_arrConciliums} = cont.getData();
                 this._arrConciliumDefinition = _arrConciliums.map(objDefData => {
                     const baseDef = new BaseConciliumDefinition(objDefData);
-                    if (baseDef.isRoundRobin()) return new ConciliumRr(objDefData);
                     if (baseDef.isPoS()) return new ConciliumPos(objDefData);
+                    if (baseDef.isRoundRobin()) return new ConciliumRr(objDefData);
                 });
             } else {
                 this._arrConciliumDefinition = [];

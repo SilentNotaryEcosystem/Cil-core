@@ -658,10 +658,10 @@ describe('Contract integration tests', () => {
                 contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
                 contractCode: JSON.stringify((objCode))
             }, strContractCallerAddr);
+
             const objCode2 = {
                 "testAnother": `<(strAddress){this._receivers['test']=1;}`
             };
-
             const strContractSenderAddr = generateAddress().toString('hex');
             const contract2 = new factory.Contract({
                 contractData: {_callCount: 100},

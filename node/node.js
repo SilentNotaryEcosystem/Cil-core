@@ -1509,17 +1509,20 @@ module.exports = (factory, factoryOptions) => {
 
             const witnessConciliumDefinition = await this._storage.getConciliumById(block.conciliumId);
             assert(witnessConciliumDefinition, `Unknown conciliumId: ${block.conciliumId}`);
-            const arrAddresses = witnessConciliumDefinition.getAddresses();
-            assert(
-                block.signatures.length === witnessConciliumDefinition.getQuorum(),
-                `Expected ${witnessConciliumDefinition.getQuorum()} signatures, got ${block.signatures.length}`
-            );
+            const arrStrAddresses = witnessConciliumDefinition.getAddresses(false);
+            let gatheredWeight = 0;
+
             for (let sig of block.signatures) {
-                const buffAddress = Crypto.getAddress(Crypto.recoverPubKey(buffBlockHash, sig), true);
+                const strAddress = Crypto.getAddress(Crypto.recoverPubKey(buffBlockHash, sig));
                 assert(
-                    ~arrAddresses.findIndex(addr => buffAddress.equals(addr)),
+                    ~arrStrAddresses.findIndex(addr => strAddress === addr),
                     `Bad signature for block ${block.hash()}!`
                 );
+                gatheredWeight += witnessConciliumDefinition.getWitnessWeight(strAddress);
+            }
+
+            if (gatheredWeight < witnessConciliumDefinition.getQuorum()) {
+                throw new Error('Not enough signatures for block!');
             }
         }
 
