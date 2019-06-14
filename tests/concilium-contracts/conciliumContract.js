@@ -1,14 +1,4 @@
-const factory = {
-    BaseConciliumDefinition: {
-        CONCILIUM_TYPE_POS: 1,
-        CONCILIUM_TYPE_RR: 0
-    },
-    Constants: {
-        concilium: {
-            HEIGHT_TO_RELEASE_ADD_ON: 1e4
-        }
-    }
-};
+const factory = require('../testFactory');
 
 class Base {
     constructor(props) {
@@ -38,11 +28,12 @@ class Base {
     }
 }
 
-module.exports = class Concilium extends Base {
+module.exports = class ContractConciliums extends Base {
     constructor(objInitialConcilium, nFeeCreate) {
         super();
         this._arrConciliums = [];
         if (!objInitialConcilium) throw('Specify initial objInitialConcilium');
+
         this._arrConciliums.push({
             ...objInitialConcilium,
             conciliumCreationTx: contractTx
@@ -53,7 +44,7 @@ module.exports = class Concilium extends Base {
     }
 
     async createConcilium(objConcilium) {
-        objConcilium.creator = callerAddress;
+        objConcilium._creator = callerAddress;
 
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {method: "createConcilium", arrArguments: [objConcilium]});
@@ -80,10 +71,10 @@ module.exports = class Concilium extends Base {
 
 //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
         if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
-            this._addPosConciliumMember(objConcilium);
+            this._addPosConciliumMember(objConcilium, callerAddress);
 //        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
         } else if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR) {
-            this._addRrConciliumMember(objConcilium);
+            this._addRrConciliumMember(objConcilium, callerAddress);
         }
     }
 
@@ -111,13 +102,13 @@ module.exports = class Concilium extends Base {
             );
         }
 
-        this._checkCreator();
-
         const objConcilium = this._checkConciliumId(conciliumId);
+        this._checkCreator(objConcilium, callerAddress);
+
         if (objConcilium.isOpen) throw ('This concilium is open, just join it');
 
         //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
-        if (!objConcilium.type !== factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR) {
+        if (objConcilium.type !== factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR) {
             throw ('this method only for CONCILIUM_TYPE_RR');
         }
 
@@ -130,10 +121,44 @@ module.exports = class Concilium extends Base {
     }
 
     setProxy(strNewAddress) {
-        if (strNewAddress.length !== 20) throw ('Bad address');
+        if (strNewAddress.length !== 40) throw ('Bad address');
 
         this._checkOwner();
         this._proxyAddress = strNewAddress;
+    }
+
+    async getHeightToRelease(conciliumId) {
+        if (this._proxyAddress) {
+            return await delegatecall(this._proxyAddress, {method: "getHeightToRelease", arrArguments: [conciliumId]});
+        }
+
+        const objConcilium = this._checkConciliumId(conciliumId);
+
+        //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
+        if (objConcilium.type !== factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
+            throw ('this method only for CONCILIUM_TYPE_POS');
+        }
+
+        return this._getPosHieghtToRelease(objConcilium, callerAddress);
+    }
+
+    async changeConciliumParameters(conciliumId, objNewParameters) {
+        if (this._proxyAddress) {
+            return await delegatecall(this._proxyAddress,
+                {method: "changeConciliumParameters", arrArguments: [conciliumId, objNewParameters]}
+            );
+        }
+        const objConcilium = this._checkConciliumId(conciliumId);
+
+//        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
+        if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
+            if (!this._posConciliumMemberExists(objConcilium, callerAddress)) throw ('Unauthorized call');
+//        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
+        } else if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR) {
+            if (!this._rrConciliumMemberExists(objConcilium, callerAddress)) throw ('Unauthorized call');
+        }
+
+        objConcilium.parameters = Object.assign({}, objNewParameters, objConcilium.parameters);
     }
 
     // PoS concilium
@@ -172,14 +197,22 @@ module.exports = class Concilium extends Base {
         }
     }
 
+    _getPosHieghtToRelease(objConcilium, callerAddress) {
+        const idx = objConcilium.arrMembers.findIndex(member => member.address === callerAddress);
+        if (!~idx) throw ('You aren\'t member');
+
+        const objMember = objConcilium.arrMembers[idx];
+        return objMember.nHeightToRelease;
+    }
+
     // Round robin concilium
-    _rRConciliumMemberExists(objConcilium, callerAddress) {
+    _rrConciliumMemberExists(objConcilium, callerAddress) {
         if (!Array.isArray(objConcilium.addresses)) objConcilium.addresses = [];
         return !objConcilium.addresses.every(strMemberAddr => strMemberAddr !== callerAddress);
     }
 
     _addRrConciliumMember(objConcilium, callerAddress) {
-        if (this._rRConciliumMemberExists(objConcilium, callerAddress)) throw ('already joined');
+        if (this._rrConciliumMemberExists(objConcilium, callerAddress)) throw ('already joined');
         objConcilium.addresses.push(callerAddress);
     }
 
@@ -200,14 +233,19 @@ module.exports = class Concilium extends Base {
         if (this._feeCreate > nFee) throw ('Not enough funds');
     }
 
-    _checkCreator(objConcilium) {
-        if (objConcilium.creator !== callerAddress) throw ('Unauthorized call');
+    _checkCreator(objConcilium, callerAddress) {
+        if (objConcilium._creator !== callerAddress) throw ('Unauthorized call');
     }
 
     _validateConcilium(objConcilium) {
 //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
         if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
+            if (!Array.isArray(objConcilium.arrMembers)) objConcilium.arrMembers = [];
+
             if (!objConcilium.nMinAmountToJoin || objConcilium.nMinAmountToJoin < 0) throw ('Specify nMinAmountToJoin');
+
+            const initialAmount = objConcilium.arrMembers.reduce((accum, objMember) => accum + objMember.amount, 0);
+            if (this._feeCreate + initialAmount > value) throw ('Not enough coins were sent co create such concilium');
         }
     }
 };

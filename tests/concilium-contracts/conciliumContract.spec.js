@@ -26,7 +26,6 @@ describe('Concilium contract', () => {
         await factory.asyncLoad();
         global.callerAddress = generateAddress().toString('hex');
         global.contractTx = pseudoRandomBuffer().toString('hex');
-        global.value = 1e8;
         global.block = {
             height: 100
         };
@@ -37,6 +36,8 @@ describe('Concilium contract', () => {
     });
 
     beforeEach(async () => {
+        global.value = 1e8;
+
         const initialConcilium = factory.ConciliumRr.create(0, [global.callerAddress]);
         contract = new Contract(initialConcilium.toObject());
     });
@@ -80,6 +81,49 @@ describe('Concilium contract', () => {
     });
 
     describe('_validateConcilium', async () => {
+        it('should fail: not enough coins', async () => {
+            contract.setFeeCreate(0);
+            const concilium = factory.ConciliumPos.create(11, 1e3, 100,
+                [
+                    {amount: 1e3, address: generateAddress().toString('hex')},
+                    {amount: 1e5, address: generateAddress().toString('hex')}
+                ]
+            );
+            global.value = 0;
+
+            assert.throws(() => contract._validateConcilium(concilium.toObject()),
+                'Not enough coins were sent co create such concilium'
+            );
+        });
+
+        it('should fail: not enough coins', async () => {
+            contract.setFeeCreate(1e5);
+            const concilium = factory.ConciliumPos.create(11, 1e3, 100,
+                [
+                    {amount: 1e3, address: generateAddress().toString('hex')},
+                    {amount: 1e5, address: generateAddress().toString('hex')}
+                ]
+            );
+            global.value = 1e3 + 1e5;
+
+            assert.throws(() => contract._validateConcilium(concilium.toObject()),
+                'Not enough coins were sent co create such concilium'
+            );
+        });
+        it('should pass', async () => {
+            const feeCreate = 1e5;
+            contract.setFeeCreate(feeCreate);
+            const concilium = factory.ConciliumPos.create(11, 1e3, 100,
+                [
+                    {amount: 1e3, address: generateAddress().toString('hex')},
+                    {amount: 1e5, address: generateAddress().toString('hex')}
+                ]
+            );
+            global.value = 1e3 + 1e5 + feeCreate;
+
+            contract._validateConcilium(concilium.toObject());
+        });
+
         it('should pass ConciliumPos', async () => {
             const concilium = factory.ConciliumPos.create(11, 1e8, 100, []);
 
@@ -113,7 +157,7 @@ describe('Concilium contract', () => {
         it('should create POS', async () => {
             const concilium = factory.ConciliumPos.create(11, 1e8, 100, []);
 
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
             assert.equal(contract._arrConciliums.length, 2);
         });
@@ -121,9 +165,28 @@ describe('Concilium contract', () => {
         it('should create RR', async () => {
             const concilium = factory.ConciliumRr.create(11, []);
 
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
             assert.equal(contract._arrConciliums.length, 2);
+        });
+
+        it('should fail to _checkCreator', async () => {
+            const concilium = factory.ConciliumPos.create(11, 1e8, 100, []);
+
+            await contract.createConcilium(concilium.toObject());
+
+            assert.throws(() => contract._checkCreator(
+                concilium.toObject(), generateAddress().toString('hex')),
+                'Unauthorized call'
+            );
+        });
+
+        it('should _checkCreator', async () => {
+            const concilium = factory.ConciliumPos.create(11, 1e8, 100, []);
+
+            await contract.createConcilium(concilium.toObject());
+
+            assert.doesNotThrow(() => contract._checkCreator(concilium.toObject(), global.callerAddress));
         });
     });
 
@@ -138,7 +201,7 @@ describe('Concilium contract', () => {
                 isOpen: false,
                 conciliumId: 14
             });
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
             return assert.isRejected(contract.joinConcilium(14), 'Bad conciliumId');
         });
@@ -148,7 +211,7 @@ describe('Concilium contract', () => {
                 isOpen: false,
                 conciliumId: 1
             });
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
             return assert.isRejected(contract.joinConcilium(1), 'You cant join this concilium. Ask about invitation');
         });
@@ -158,9 +221,12 @@ describe('Concilium contract', () => {
                 isOpen: true,
                 conciliumId: 1
             });
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
-            contract.joinConcilium(1);
+            await contract.joinConcilium(1);
+
+            const storedConcilium = contract._checkConciliumId(1);
+            assert.isOk(contract._rrConciliumMemberExists(storedConcilium, global.callerAddress));
         });
 
         it('should fail join ConciliumRr: already member', async () => {
@@ -168,9 +234,9 @@ describe('Concilium contract', () => {
                 isOpen: true,
                 conciliumId: 1
             });
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
-            contract.joinConcilium(1);
+            await contract.joinConcilium(1);
             return assert.isRejected(contract.joinConcilium(1), 'already joined');
         });
 
@@ -180,9 +246,12 @@ describe('Concilium contract', () => {
                 conciliumId: 1,
                 nMinAmountToJoin: 1e5
             });
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
-            contract.joinConcilium(1);
+            await contract.joinConcilium(1);
+
+            const storedConcilium = contract._checkConciliumId(1);
+            assert.isOk(contract._posConciliumMemberExists(storedConcilium, global.callerAddress));
         });
 
         it('should fail join ConciliumPoS: already member', async () => {
@@ -191,9 +260,9 @@ describe('Concilium contract', () => {
                 conciliumId: 1,
                 nMinAmountToJoin: 1e5
             });
-            contract.createConcilium(concilium.toObject());
+            await contract.createConcilium(concilium.toObject());
 
-            contract.joinConcilium(1);
+            await contract.joinConcilium(1);
             return assert.isRejected(contract.joinConcilium(1), 'already joined');
         });
     });
@@ -288,7 +357,7 @@ describe('Concilium contract', () => {
         });
 
         it('should set address', async () => {
-            const strNewAddress = generateAddress().toString();
+            const strNewAddress = generateAddress().toString('hex');
             contract.setProxy(strNewAddress);
 
             assert.equal(contract._proxyAddress, strNewAddress);
@@ -296,7 +365,7 @@ describe('Concilium contract', () => {
 
         describe('should use new address for calls', async () => {
             beforeEach(() => {
-                const strNewAddress = generateAddress().toString();
+                const strNewAddress = generateAddress().toString('hex');
                 contract.setProxy(strNewAddress);
                 global.delegatecall = sinon.fake();
             });
@@ -308,17 +377,107 @@ describe('Concilium contract', () => {
 
                 assert.isOk(global.delegatecall.calledOnce);
             });
+
+            it('should use it for "joinConcilium"', async () => {
+                await contract.joinConcilium(0);
+
+                assert.isOk(global.delegatecall.calledOnce);
+            });
+
+            it('should use it for "leaveConcilium"', async () => {
+                await contract.leaveConcilium({});
+
+                assert.isOk(global.delegatecall.calledOnce);
+            });
+
+            it('should use it for "inviteToConcilium"', async () => {
+                await contract.inviteToConcilium(0, generateAddress().toString('hex'));
+
+                assert.isOk(global.delegatecall.calledOnce);
+            });
         });
     });
 
     describe('Invite to concilium', async () => {
-        it('should ', async () => {
+        let arrMembers = [];
+        let concilium;
 
+        beforeEach(() => {
+            contract.setFeeCreate(1e5);
+            global.value = 1e5;
+
+            arrMembers = [
+                generateAddress().toString('hex'),
+                generateAddress().toString('hex'),
+                generateAddress().toString('hex')
+            ];
+            concilium = factory.ConciliumRr.create(11, arrMembers);
+        });
+
+        it('should fail: concilium is open', async () => {
+            const concilium = new factory.ConciliumRr({
+                isOpen: true,
+                conciliumId: 1,
+                nMinAmountToJoin: 1e5
+            });
+            await contract.createConcilium(concilium.toObject());
+
+            return assert.isRejected(
+                contract.inviteToConcilium(1, generateAddress().toString('hex')),
+                'This concilium is open, just join it'
+            );
         });
     });
     describe('Leave concilium', async () => {
-        it('should ', async () => {
+        it('should leave RR concilium', async () => {
+            const concilium = new factory.ConciliumRr({
+                isOpen: true,
+                conciliumId: 1
+            });
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            await contract.joinConcilium(1);
 
+            await contract.leaveConcilium(1);
+
+            const storedConcilium = contract._checkConciliumId(1);
+            assert.isNotOk(contract._rrConciliumMemberExists(storedConcilium, global.callerAddress));
+        });
+
+        it('should leave PoS concilium', async () => {
+            const concilium = new factory.ConciliumPos({
+                isOpen: true,
+                conciliumId: 1,
+                nMinAmountToJoin: 1e5
+            });
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            global.block.height = 100;
+            await contract.joinConcilium(1);
+            global.block.height = 100 + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON + 1;
+
+            await contract.leaveConcilium(1);
+
+            const storedConcilium = contract._checkConciliumId(1);
+            assert.isNotOk(contract._posConciliumMemberExists(storedConcilium, global.callerAddress));
+        });
+    });
+
+    describe('Constant method getHeightToRelease', async () => {
+        it('should get height', async () => {
+            const concilium = new factory.ConciliumPos({
+                isOpen: true,
+                conciliumId: 1,
+                nMinAmountToJoin: 1e5
+            });
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            global.block.height = 100;
+            await contract.joinConcilium(1);
+
+            const height = await contract.getHeightToRelease(1);
+
+            assert.equal(height, global.block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON);
         });
     });
 });
