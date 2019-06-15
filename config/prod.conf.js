@@ -6,11 +6,11 @@ module.exports = {
 
         ADDRESS_PREFIX: 'Ux',
 
-        DEV_FOUNDATION_ADDRESS: 'a5b73cd42e89a28705e0e94b0058397a7b882d20',
+        DEV_FOUNDATION_ADDRESS: '961d7815df8cc96d27aa2c483f55c6c163682775',
         DEV_FOUNDATION_SHARE: 0.1,
 
-        CONCILIUM_DEFINITION_CONTRACT_ADDRESS: '0738c32ee9832d6d3077e7baad04996b0311d400',
-        GENESIS_BLOCK: 'd19c348e04c85aca472f012b205d79ec0195d6000ec21a5fb7d638a2fa8ab14c',
+        CONCILIUM_DEFINITION_CONTRACT_ADDRESS: '6ab4ab8161f954be88af699435f3514485ab8f9a',
+        GENESIS_BLOCK: '8b6d259ee3ee1acd524654d9b27286188c982e3764f1ef3f6db98c6382e6d777',
 
         strIdent: 'Prod',
 
@@ -114,7 +114,7 @@ module.exports = {
             TX_FEE: 4000,
 
             // contract creation
-            CONTRACT_CREATION_FEE: 30000,
+            CONTRACT_CREATION_FEE: 1e11,
 
             // contract invocation
             CONTRACT_INVOCATION_FEE: 10000,
