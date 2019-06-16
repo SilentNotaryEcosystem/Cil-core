@@ -24,7 +24,7 @@ describe('Peer tests', () => {
         peerInfo = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
-                {service: factory.Constants.WITNESS, data: Buffer.from(keyPair.getPublic(false), 'hex')}
+                {service: factory.Constants.WITNESS, data: Buffer.from(keyPair.address, 'hex')}
             ],
             address: factory.Transport.strToAddress(address),
             port: 12345
@@ -75,8 +75,8 @@ describe('Peer tests', () => {
         assert.isOk(newPeer);
 
         newPeer.connect().then(() => {
-            newPeer.on('message', (peer, msg) => msg === 'test' ? done() : done('Message corrupted'));
-            newPeer._connection.emit('message', 'test');
+            newPeer.on('message', (peer, msg) => done());
+            newPeer._connection.emit('message', {isInv: () => false});
         });
     });
 
@@ -99,7 +99,7 @@ describe('Peer tests', () => {
             }
         });
         for (let i = 0; i < 5; i++) {
-            newPeer.pushMessage({message: `testMessage${i}`});
+            newPeer.pushMessage({message: `testMessage${i}`, isGetBlocks: () => false});
         }
         await sleep(delay * 6);
         assert.equal(nSendMessages, 5);
@@ -136,25 +136,25 @@ describe('Peer tests', () => {
         assert.isOk(newPeer.isBanned());
     });
 
-    it('should get peer public key', async () => {
+    it('should get peer witnessAddress', async () => {
         const newPeer = new factory.Peer({
             peerInfo: {
                 capabilities: [
-                    {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
+                    {service: factory.Constants.WITNESS, data: Buffer.from('1111', 'hex')}
                 ],
                 address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
             }
         });
         assert.isOk(newPeer);
-        assert.isOk(newPeer.publicKey);
-        assert.equal(newPeer.publicKey, '1111');
+        assert.isOk(newPeer.witnessAddress);
+        assert.equal(newPeer.witnessAddress, '1111');
     });
 
     it('should emit empty "witnessMessage" (wrong signature)', async () => {
         const keyPair = factory.Crypto.createKeyPair();
 
-        // create message and sign it with key that doesn't belong to our group
-        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
+        // create message and sign it with key that doesn't belong to our concilium
+        const msg = new factory.Messages.MsgWitnessCommon({conciliumId: 0});
         msg.handshakeMessage = true;
         msg.sign(keyPair.getPrivate());
 
@@ -215,7 +215,7 @@ describe('Peer tests', () => {
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
         newPeer = new factory.Peer({peerInfo});
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
         await newPeer.connect();
         newPeer._connection.emit('message', msg);
 
@@ -234,7 +234,7 @@ describe('Peer tests', () => {
     it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
         newPeer = new factory.Peer({peerInfo});
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
         await newPeer.connect();
         newPeer.markAsPersistent();
         newPeer._connection.emit('message', msg);
@@ -250,7 +250,7 @@ describe('Peer tests', () => {
 
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
 
         const newPeer = new factory.Peer({
             connection: {
@@ -277,7 +277,7 @@ describe('Peer tests', () => {
 
     it('should NOT disconnect PERSISTENT peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
         const msg = new factory.Messages.MsgCommon();
-        msg.payload = new Buffer(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
+        msg.payload = Buffer.alloc(factory.Constants.PEER_MAX_BYTES_COUNT - 1);
 
         const newPeer = new factory.Peer({
             connection: {
@@ -340,7 +340,7 @@ describe('Peer tests', () => {
         await newPeer.connect();
         newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
 
-        newPeer._connection.emit('message', 'test');
+        newPeer._connection.emit('message', {isInv: () => false});
         newPeer._tick();
 
         assert.isNotOk(newPeer.disconnected);

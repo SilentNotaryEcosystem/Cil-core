@@ -21,26 +21,26 @@ module.exports = (factory) => {
     return class BftConsensus extends EventEmitter {
         /**
          *
-         * @param {String} options.group
-         * @param {Array} options.arrPublicKeys
+         * @param {String} options.concilium
          * @param {Wallet} options.wallet
          */
         constructor(options) {
             super();
-            const {groupDefinition, wallet} = options;
+            const {concilium, wallet, aggressiveWitnessing} = options;
+
+            this._aggressiveWitnessing = aggressiveWitnessing;
 
             this._networkOffset = 0;
 
             this._nonce = parseInt(Math.random() * 100000);
 
-            if (!groupDefinition) throw new Error('Use group definition to construct');
-            this._groupDefinition = groupDefinition;
+            if (!concilium) throw new Error('Use concilium definition to construct');
+            this._concilium = concilium;
 
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
-            // delegates public keys are buffers, transform it to strings, to use with maps
-            this._arrPublicKeys = groupDefinition.getDelegatesPublicKeys().sort().map(key => key.toString('hex'));
+            this._arrAddresses = concilium.getAddresses().sort().map(addr => addr.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
             this._roundFromNetworkTime();
@@ -53,8 +53,8 @@ module.exports = (factory) => {
             this._lastBlockTime = Date.now();
         }
 
-        get groupId() {
-            return this._groupDefinition.getGroupId();
+        get conciliumId() {
+            return this._concilium.getConciliumId();
         }
 
         updateNetworkTime(nNewOffset) {
@@ -66,18 +66,18 @@ module.exports = (factory) => {
 //        }
 
         /**
-         * Check whether this public key belongs to our group
+         * Check whether this address belongs to our concilium
          *
-         * @param {Buffer | String} pubKey
+         * @param {Buffer | String} address
          * @return {boolean}
          */
-        checkPublicKey(pubKey) {
-            if (Buffer.isBuffer(pubKey)) pubKey = pubKey.toString('hex');
-            return this._arrPublicKeys.includes(pubKey);
+        checkAddresses(address) {
+            if (Buffer.isBuffer(address)) address = address.toString('hex');
+            return this._arrAddresses.includes(address);
         }
 
         processMessage(witnessMsg) {
-            const senderPubKey = witnessMsg.publicKey;
+            const senderAddr = witnessMsg.address;
 
             debug(`BFT "${this._nonce}" processing "${witnessMsg.message}". State: "${this._state}"`);
 
@@ -98,15 +98,17 @@ module.exports = (factory) => {
             const state = this._stateFromMessage(witnessMsg);
 
             // it make a sense after extracting message from MsgWitnessWitnessExpose
-            const pubKeyI = witnessMsg.publicKey;
+            const addrI = witnessMsg.address;
 
-            // make sure that those guys from our group
-            if (!this.checkPublicKey(senderPubKey) || !this.checkPublicKey(pubKeyI)) {
-                throw new Error(`wrong public key for message ${witnessMsg.message}`);
+            // make sure that those guys from our concilium
+            // if ok - this means message wasn't changed
+            if (!this.checkAddresses(senderAddr) || !this.checkAddresses(addrI)) {
+                throw new Error(`Message ${witnessMsg.message} from wrong address`);
             }
 
-//            debug(`BFT "${this._nonce}" added "${senderPubKey}--${pubKeyI}" data ${witnessMsg.content}`);
-            this._addViewOfNodeWithPubKey(senderPubKey, pubKeyI, {state, ...witnessMsg.content});
+            debug(
+                `BFT "${this._nonce}" added "${senderAddr}--${addrI}" data ${JSON.stringify(witnessMsg.content)}`);
+            this._addViewOfNodeWithAddr(senderAddr, addrI, {state, ...witnessMsg.content});
             const value = this.runConsensus();
             if (!value) return false;
 
@@ -125,26 +127,28 @@ module.exports = (factory) => {
         _resetState() {
             this._prevViews = this._views;
             this._views = {};
-            this._arrPublicKeys.forEach(publicKey => {
+            this._arrAddresses.forEach(addr => {
 
-                // prepare empty array for data transmitted of publicKey
-                this._views[publicKey] = {};
+                // prepare empty array for data transmitted from addr
+                this._views[addr] = {};
             });
         }
 
         /**
-         * VERIFY SIGNATURE of dataI !!!
+         * We could be sure that dataI was unchanged, because we recover address (pubKey) from that message
+         * And it match one of our witnesses.
+         * In case of dataI modification we'll recover some key that wouldn't match key of any our witnesses
          *
-         * @param {String} publicKey - who send us partial response of i neighbor
-         * @param {String} pubKeyI - pubKey of i neighbor
-         * @param {Object} dataI - object that send i neighbor to address node
+         * @param {String} addr - who send us response of i-neighbor
+         * @param {String} addrI - address of i-neighbor
+         * @param {Object} dataI - object that send i-neighbor to witness with @addr
          * @private
          */
-        _addViewOfNodeWithPubKey(publicKey, pubKeyI, dataI) {
-            publicKey = Buffer.isBuffer(publicKey) ? publicKey.toString('hex') : publicKey;
-            pubKeyI = Buffer.isBuffer(pubKeyI) ? pubKeyI.toString('hex') : pubKeyI;
+        _addViewOfNodeWithAddr(addr, addrI, dataI) {
+            addr = Buffer.isBuffer(addr) ? addr.toString('hex') : addr;
+            addrI = Buffer.isBuffer(addrI) ? addrI.toString('hex') : addrI;
 
-            this._views[publicKey][pubKeyI] = dataI;
+            this._views[addr][addrI] = dataI;
         }
 
         /**
@@ -153,13 +157,14 @@ module.exports = (factory) => {
         runConsensus() {
 
             // i'm a single node (for example Initial witness)
-            if (this._groupDefinition.getQuorum() === 1 &&
-                this._arrPublicKeys.includes(this._wallet.publicKey)) {
-                return this._views[this._wallet.publicKey][this._wallet.publicKey];
+            if (this._concilium.getQuorum() === 1 &&
+                this._arrAddresses.includes(this._wallet.address)) {
+                return this._views[this._wallet.address][this._wallet.address];
             }
 
-            const arrWitnessValues = this._arrPublicKeys.map(pubKeyI => {
-                const arrDataWitnessI = this._witnessData(pubKeyI);
+            //
+            const arrWitnessValues = this._arrAddresses.map(addrI => {
+                const arrDataWitnessI = this._witnessData(addrI);
                 return this._majority(arrDataWitnessI);
             });
 
@@ -167,39 +172,46 @@ module.exports = (factory) => {
         }
 
         /**
-         * Get all data we received from witness with pubKeyI @see _addViewOfNodeWithPubKey
+         * Get all data we received from witness with addrI @see _addViewOfNodeWithAddr
+         * I.e. what data it saw from neighbours
          *
-         * @param {String} pubKeyI
+         * @param {String} addrI
          * @param {Boolean} usingCurrentView - do we using current view, or previous (used for signatures gathering) on VOTE stage
+         * @returns {Array} of data we received from witness with addrI
          * @private
          */
-        _witnessData(pubKeyI, usingCurrentView = true) {
+        _witnessData(addrI, usingCurrentView = true) {
             const views = usingCurrentView ? this._views : this._prevViews;
             assert(views, 'Unexpected views error');
-            return this._arrPublicKeys.map(pubKeyJ => {
-                return views[pubKeyJ][pubKeyI];
+            return this._arrAddresses.map(addrJ => {
+                return views[addrJ][addrI];
             });
         }
 
         /**
+         * Data from Array, that meets more than quorum times, or undefined (if data different)
          *
          * @param {Array} arrDataWitnessI - array of values to find majority
+         * @returns {Object | undefined}
          * @private
          */
         _majority(arrDataWitnessI) {
             const objHashes = {};
-            for (let data of arrDataWitnessI) {
+            for (let j = 0; j < arrDataWitnessI.length; j++) {
+                const data = arrDataWitnessI[j];
                 if (data === undefined) continue;
                 const hash = this._calcDataHash(data);
+
+                const weight = this._concilium.getWitnessWeight(this._arrAddresses[j]);
                 if (typeof objHashes[hash] !== 'object') {
 
                     // new value found
                     objHashes[hash] = {
-                        count: 1,
+                        count: weight,
                         value: data
                     };
                 } else {
-                    objHashes[hash].count++;
+                    objHashes[hash].count += weight;
                 }
             }
             let majorityValue = undefined;
@@ -210,20 +222,18 @@ module.exports = (factory) => {
                 }
                 return maxCount;
             }, 0);
-
-            return count >= this._groupDefinition.getQuorum() ? majorityValue : undefined;
+            return count >= this._concilium.getQuorum() ? majorityValue : undefined;
         }
 
         /**
-         * - Store block & patch for further processing
+         * - Store block for further processing
          * - advance state to Vote
          * - send it to other witnesses
          *
          * @param {Block} block
-         * @param {PatchDB} patch
          */
-        processValidBlock(block, patch) {
-            typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
+        processValidBlock(block) {
+            typeforce(types.Block, block);
 
             debug(`BFT "${this._nonce}". Received block with hash: ${block.hash()}. State ${this._state}`);
             if (this._state !== States.BLOCK) {
@@ -231,12 +241,11 @@ module.exports = (factory) => {
                 return;
             }
             this._block = block;
-            this._patch = patch;
             this._lastBlockTime = Date.now();
             this._blockStateHandler(true);
 
             const message = this._createBlockAcceptMessage(
-                this._groupDefinition.getGroupId(),
+                this._concilium.getConciliumId(),
                 Buffer.from(block.hash(), 'hex')
             );
             this.emit('message', message);
@@ -251,7 +260,7 @@ module.exports = (factory) => {
             this._block = undefined;
             this._blockStateHandler(false);
 
-            const message = this._createBlockRejectMessage(this._groupDefinition.getGroupId());
+            const message = this._createBlockRejectMessage(this._concilium.getConciliumId());
             this.emit('message', message);
         }
 
@@ -274,6 +283,7 @@ module.exports = (factory) => {
             if (data.hasOwnProperty('signature')) {
 
                 // make a copy, because we'll modify it
+                // we don't care about deep cloning becuase we'll modify only signature
                 copyData = Object.assign({}, data);
                 copyData.signature = undefined;
             } else {
@@ -407,11 +417,12 @@ module.exports = (factory) => {
                         }
 
                         this._block.addWitnessSignatures(arrSignatures);
-                        this.emit('commitBlock', this._block, this._patch);
+                        this.emit('commitBlock', this._block);
                     } else {
 
                         // Proposer misbehave!! sent us different block than other!
-                        logger.error(`Proposer (pubkey "${this._getProposerKey()}") misbehave. Sent different blocks!`);
+                        logger.error(`Proposer (address "${
+                            this._concilium.getProposerAddress(this._roundNo)}") misbehave. Sent different blocks!`);
                     }
                 }
 
@@ -438,7 +449,7 @@ module.exports = (factory) => {
             debug(
                 `BFT "${this._nonce}" restarting "ROUND_CHANGE" new round: ${this._roundNo}`);
 
-            const msg = new MsgWitnessNextRound({groupId: this.groupId, roundNo: ++this._roundNo});
+            const msg = new MsgWitnessNextRound({conciliumId: this.conciliumId, roundNo: ++this._roundNo});
             msg.sign(this._wallet.privateKey);
             this.emit('message', msg);
         }
@@ -458,22 +469,11 @@ module.exports = (factory) => {
          * Whether it's turn of 'proposer' to propose block?
          * Now implemented round-robin, replace if needed
          *
-         * @param {String} proposer - publicKey of proposer
+         * @param {String} proposer - address of proposer
          * @return {boolean}
          */
-        shouldPublish(proposer = this._wallet.publicKey) {
-            return this._getProposerKey() === proposer;
-        }
-
-        /**
-         * Redefine this to change proposing behavior
-         *
-         * @returns {*}
-         * @private
-         */
-        _getProposerKey() {
-            const idx = this._roundNo % this._arrPublicKeys.length;
-            return this._arrPublicKeys[idx];
+        shouldPublish(proposer = this._wallet.address) {
+            return this._concilium.getProposerAddress(this._roundNo) === proposer;
         }
 
         timeForWitnessBlock() {
@@ -504,16 +504,16 @@ module.exports = (factory) => {
             this._tock.end();
         }
 
-        _createBlockAcceptMessage(groupId, blockHash) {
+        _createBlockAcceptMessage(conciliumId, blockHash) {
             typeforce(typeforce.tuple('Number', typeforce.BufferN(32)), arguments);
 
-            const msgBlockAccept = new MsgWitnessBlockVote({groupId, blockHash});
+            const msgBlockAccept = new MsgWitnessBlockVote({conciliumId, blockHash});
             msgBlockAccept.sign(this._wallet.privateKey);
             return msgBlockAccept;
         }
 
-        _createBlockRejectMessage(groupId) {
-            const msgBlockReject = MsgWitnessBlockVote.reject(groupId);
+        _createBlockRejectMessage(conciliumId) {
+            const msgBlockReject = MsgWitnessBlockVote.reject(conciliumId);
             msgBlockReject.sign(this._wallet.privateKey);
             return msgBlockReject;
         }
@@ -530,25 +530,28 @@ module.exports = (factory) => {
             const buffBlockHash = Buffer.from(this._block.hash(), 'hex');
 
             const arrSignatures = [];
-            this._arrPublicKeys.forEach(pubKeyI => {
-                const arrDataWitnessI = this._witnessData(pubKeyI, false);
+            let gatheredWeight = 0;
+            this._arrAddresses.forEach(addrI => {
+                const arrDataWitnessI = this._witnessData(addrI, false);
                 const votedValue = this._majority(arrDataWitnessI);
+
                 if (votedValue
                     && Buffer.isBuffer(votedValue.blockHash)
                     && votedValue.blockHash.equals(buffBlockHash)
                     && votedValue.signature
-                    && Crypto.verify(buffBlockHash, votedValue.signature, pubKeyI)
+                    && addrI === Crypto.getAddress(Crypto.recoverPubKey(buffBlockHash, votedValue.signature))
                 ) {
 
                     // this will suppress empty elements in result array
                     arrSignatures.push(votedValue.signature);
+                    gatheredWeight += this._concilium.getWitnessWeight(addrI);
                 }
             });
-            const quorum = this._groupDefinition.getQuorum();
+            const quorum = this._concilium.getQuorum();
 
             assert(quorum, `Quorum couldn't be zero!`);
 
-            return arrSignatures.length >= quorum ? arrSignatures.slice(0, quorum) : undefined;
+            return gatheredWeight >= quorum ? arrSignatures : undefined;
         }
     };
 };

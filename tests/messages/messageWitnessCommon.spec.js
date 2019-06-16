@@ -13,21 +13,21 @@ describe('MessageWitnessCommon', () => {
         this.timeout(15000);
     });
 
-    it('should NOT create message (missed group)', async () => {
+    it('should NOT create message (missed concilium)', async () => {
         assert.throws(() => new factory.Messages.MsgWitnessCommon());
     });
 
     it('should create message', async () => {
-        new factory.Messages.MsgWitnessCommon({groupId: 0});
+        new factory.Messages.MsgWitnessCommon({conciliumId: 0});
     });
 
     it('should FAIL set content (requires buffer)', async () => {
-        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
+        const msg = new factory.Messages.MsgWitnessCommon({conciliumId: 0});
         assert.throws(() => msg.content = '123');
     });
 
     it('should set/get content', async () => {
-        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
+        const msg = new factory.Messages.MsgWitnessCommon({conciliumId: 0});
         const value = Buffer.from([1, 2, 3, 4]);
         msg.content = value;
         assert.isOk(msg.content.equals(value));
@@ -36,7 +36,7 @@ describe('MessageWitnessCommon', () => {
     it('should sign/verify payload', async () => {
         const keyPair = factory.Crypto.createKeyPair();
 
-        const msg = new factory.Messages.MsgWitnessCommon({groupId: 0});
+        const msg = new factory.Messages.MsgWitnessCommon({conciliumId: 0});
         msg.content = Buffer.from([1, 2, 3, 4]);
         msg.sign(keyPair.getPrivate());
 

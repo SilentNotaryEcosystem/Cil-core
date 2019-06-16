@@ -1,7 +1,7 @@
 const typeforce = require('typeforce');
 const types = require('../types');
 
-module.exports = ({Constants}, {txReceiptProto}) =>
+module.exports = ({Constants, Coins}, {txReceiptProto}) =>
 
     /**
      * Used for serialization in storage & MsgGetBlocks
@@ -76,12 +76,13 @@ module.exports = ({Constants}, {txReceiptProto}) =>
 
         /**
          *
-         * @param {String} strTxHash
+         * @param {UTXO} utxo
          */
-        addInternalTx(strTxHash) {
-            typeforce(types.Str64, strTxHash);
+        addInternalUtxo(utxo) {
+            typeforce(types.UTXO, utxo);
 
-            this._data.internalTxns.push(Buffer.from(strTxHash, 'hex'));
+            this._data.internalTxns.push(Buffer.from(utxo.getTxHash(), 'hex'));
+            this._data.coins.push(utxo.coinsAtIndex(0).getRawData());
         }
 
         /**
@@ -90,6 +91,22 @@ module.exports = ({Constants}, {txReceiptProto}) =>
          */
         getInternalTxns() {
             return this._data.internalTxns;
+        }
+
+        /**
+         *
+         * @param {Buffer | String} hash - internal TX hash
+         * @return {Coins}
+         */
+        getCoinsForTx(hash) {
+            typeforce(types.Hash256bit, hash);
+
+            hash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
+
+            const idx = this._data.internalTxns.findIndex(buffHashI => buffHashI.equals(hash));
+            if (!~idx) throw new Error(`"${hash.toString('hex')}" not found in receipt`);
+
+            return Coins.createFromData(this._data.coins[idx]);
         }
 
         toObject() {

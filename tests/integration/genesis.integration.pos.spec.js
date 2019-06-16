@@ -64,8 +64,6 @@ describe('Genesis net tests (it runs one by one!)', () => {
         assert.isOk(Array.isArray(arrWitnesses) && arrWitnesses.length === 2);
 
         factory.Constants.GENESIS_BLOCK = genesis.getHash();
-        genesisNode._processedBlock = genesis;
-
         const patch = await processBlock(genesisNode, genesis);
 
         if (patch) {
@@ -627,7 +625,17 @@ exports=new ContractConciliums(${JSON.stringify(
 function createAnotherConcilium(strClaimPrivateKey, witnessAddress, utxo, idx) {
     console.log(`Using UTXo ${utxo} idx ${idx}`);
 
-    const concilium = factory.ConciliumRr.create(1, [witnessAddress]);
+    const concilium = new factory.ConciliumPos({
+        conciliumId: 1,
+        nMinAmountToJoin: 1e3,
+        isOpen: true,
+        arrMembers: [
+            {
+                address: witnessAddress,
+                amount: 1e3
+            }
+        ]
+    });
 
     const contractCode = {
         method: 'createConcilium',
@@ -640,7 +648,7 @@ function createAnotherConcilium(strClaimPrivateKey, witnessAddress, utxo, idx) {
     const tx = factory.Transaction.invokeContract(
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS,
         contractCode,
-        CONCILIUM_CREATE_FEE
+        CONCILIUM_CREATE_FEE + 1e3
     );
 
     // spend witness2 coins (WHOLE!)

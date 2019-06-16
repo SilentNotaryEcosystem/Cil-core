@@ -7,7 +7,7 @@ module.exports = {
 
         ...commonConfig.constants,
 
-        GROUP_DEFINITION_CONTRACT_ADDRESS: undefined,
+        CONCILIUM_DEFINITION_CONTRACT_ADDRESS: undefined,
         GENESIS_BLOCK: undefined,
 
         strIdent: 'Test',
@@ -24,6 +24,8 @@ module.exports = {
 
         MEMPOOL_TX_QTY: 5,
         MEMPOOL_TX_LIFETIME: 5000,
-        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000
+        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
+
+        DB_PATH_PREFIX: './testDb'
     }
 };

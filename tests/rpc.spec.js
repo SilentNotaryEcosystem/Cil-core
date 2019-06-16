@@ -1,10 +1,12 @@
 'use strict';
 
 const {describe, it} = require('mocha');
-const {assert} = require('chai');
+const chai = require('chai');
 const sinon = require('sinon').createSandbox();
-
+chai.use(require('chai-as-promised'));
 const factory = require('./testFactory');
+
+const {assert} = chai;
 const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 const {prepareForStringifyObject} = require('../utils');
 
@@ -61,6 +63,14 @@ describe('RPC', () => {
         assert.equal(event, 'tx');
         assert.isOk(tx.equals(content));
 
+    });
+
+    it('should FAIL to send TX', async () => {
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        const tx = new factory.Transaction(createDummyTx());
+        node.rpcHandler = sinon.fake.throws('error');
+
+        return assert.isRejected(rpc.sendRawTx({strTx: tx.encode().toString('hex')}));
     });
 
     it('should get TX receipt', async () => {

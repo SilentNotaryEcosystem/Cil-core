@@ -66,6 +66,7 @@ class KeyPair {
 // algorithm used to symmtrical encryption/decryption (for storing privateKeys)
 const ALGO = 'aes256';
 const LENGTH = 16;
+const SCRYPT_OPTIONS = {N: 16384, p: 1};
 
 class CryptoLib {
 
@@ -215,20 +216,33 @@ class CryptoLib {
         return createHash('rmd160').update(buffer).digest().toString('hex');
     }
 
-    static sha1(buffer) {
-        return createHash('sha1').update(buffer).digest().toString('hex');
-    }
-
-    static sha256(buffer) {
-        return createHash('sha256').update(buffer).digest().toString('hex');
-    }
-
     static hash160(buffer) {
-        return this.ripemd160(this.sha256(buffer));
+        return this.ripemd160(this.createHash(buffer));
     }
 
-    static hash256(buffer) {
-        return this.sha256(this.sha256(buffer));
+    /**
+     *
+     * @param {String} password
+     * @param {Buffer} salt - use randombytes! to generate it!
+     * @param {Number} hashLength - in BYTES!
+     * @returns {Buffer}
+     */
+    static argon2(password, salt, hashLength = 32) {
+        // raw: true - mandatory!
+//        const key = await argon2.hash(password, {salt, type: argon2id, raw: true, hashLength});
+        throw new Error('Not implemented yet');
+    }
+
+    /**
+     *
+     * @param {String} password
+     * @param {Buffer} salt - use randombytes! to generate it!
+     * @param {Number} hashLength - in BYTES!
+     * @param {Options} options - @see https://nodejs.org/api/crypto.html#crypto_crypto_scryptsync_password_salt_keylen_options
+     * @returns {Buffer}
+     */
+    static scrypt(password, salt, hashLength = 32, options) {
+        return crypto.scryptSync(password, salt, hashLength, options);
     }
 
     /**
@@ -252,22 +266,55 @@ class CryptoLib {
         }
     }
 
+    static createKey(passwordHashFunction, password, salt, hashOptions) {
+        let key;
+        let options;
+        switch (passwordHashFunction) {
+            case 'sha3':
+                key = this.sha3(password, 256);
+                break;
+            case 'argon2':
+                key = this.argon2(password, salt, 32);
+                break;
+            case 'scrypt':
+                options = hashOptions || SCRYPT_OPTIONS;
+                key = this.scrypt(password, salt, 32, options);
+                break;
+            default:
+                throw new Error(`Hash function ${passwordHashFunction} is unknown`);
+                break;
+        }
+        return {key: Buffer.from(key, 'hex'), options};
+    }
+
     /**
      * Used to stored privateKey
      *
      * @param {String} password - plain text (utf8) secret
-     * @param {Buffer|String} buffer - base64 string or buffer to decrypt
+     * @param {Buffer|String|Object} value - string or buffer to decrypt
      * @return {Buffer} - decrypted key
      */
-    static async decrypt(password, buffer) {
-        const key = Buffer.from(this.sha256(password), 'hex');
-        //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
-        const ivEnc = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer, 'base64');
-        const iv = ivEnc.slice(0, LENGTH);
-        const enc = ivEnc.slice(LENGTH);
+    static async decrypt(password, value) {
+        let {iv, encryped, salt, hashOptions, keyAlgo} = value;
+        let key;
+
+        if (Buffer.isBuffer(value) || typeof value === 'string') {
+            const ivEnc = Buffer.isBuffer(value) ? value : Buffer.from(value, 'hex');
+            iv = ivEnc.slice(0, LENGTH);
+            encryped = ivEnc.slice(LENGTH);
+
+            ({key} = this.createKey('sha3', password));
+        } else {
+            iv = Buffer.from(iv, 'hex');
+            encryped = Buffer.from(encryped, 'hex');
+            salt = !salt || Buffer.from(salt, 'hex');
+
+            ({key} = this.createKey(keyAlgo, password, salt, hashOptions));
+        }
+
         const decipher = crypto.createDecipheriv(ALGO, key, iv);
         try {
-            return Buffer.concat([decipher.update(enc), decipher.final()]);
+            return Buffer.concat([decipher.update(encryped), decipher.final()]);
         } catch (err) {
             return undefined;
         }
@@ -276,17 +323,40 @@ class CryptoLib {
     /**
      * Used to decrypt stored privateKey
      *
+     *
      * @param {String} password - utf8 encoded
      * @param {Buffer} buffer - buffer to encode
-     * @return {Buffer} encrypted buffer
+     * @param {Object} options
+     * @param {String} options.keyAlgo - @see this.createKey
+     * @param {String} options.result
+     *                      'buffer'  - return encoded value as plain buffer. First {LENGTH} bytes - IV, rest - value
+     *                      any other - object {iv, salt, ecryped, }
+     * @return {Buffer | Object} @see options.result
      */
-    static async encrypt(password, buffer) {
-        const key = Buffer.from(this.sha256(password), 'hex');
-        //        const key=await argon2.hash(password, {type: argon2d, raw: true, salt: Buffer.alloc(16, 'salt')});
+    static async encrypt(password, buffer, options = {keyAlgo: 'sha3', result: 'buffer'}) {
+        const {keyAlgo, result} = options;
+
+        // generate salt for 'scrypt' & 'argon2'
+        const salt = ['scrypt', 'argon2'].includes(keyAlgo) ? this.randomBytes(LENGTH) : undefined;
+
+        const {key, options: hashOptions} = this.createKey(keyAlgo, password, salt);
         const iv = this.randomBytes(LENGTH);
         const cipher = crypto.createCipheriv(ALGO, key, iv);
         const enc = Buffer.concat([cipher.update(buffer), cipher.final()]);
-        return Buffer.concat([iv, enc], iv.length + enc.length);
+
+        if (result === 'buffer') {
+            if (['scrypt', 'argon2'].includes(keyAlgo)) {
+                throw new Error('Only default password hash allows return encoded value as buffer');
+            }
+            return Buffer.concat([iv, enc], iv.length + enc.length);
+        }
+        return {
+            iv,
+            encryped: enc,
+            salt,
+            hashOptions,
+            keyAlgo
+        };
     }
 
     static randomBytes(length) {

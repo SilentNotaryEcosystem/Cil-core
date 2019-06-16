@@ -48,6 +48,8 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
             this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
             this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
+            this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
+            this._server.expose('getWallets', asyncRPC(this.getWallets.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -236,13 +238,12 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         async walletListUnspent(args) {
-            let {strAddress} = args;
+            let {strAddress, bStableOnly} = args;
             strAddress = stripAddressPrefix(Constants, strAddress);
-
 
             const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
                 event: 'walletListUnspent',
-                content: {strAddress}
+                content: {strAddress, bStableOnly}
             });
 
             const representResults = (arrUtxos, isStable) => {
@@ -294,6 +295,21 @@ module.exports = ({Constants, Transaction}) =>
             return prepareForStringifyObject({
                 confirmedBalance,
                 unconfirmedBalance
+            });
+        }
+
+        async watchAddress(args) {
+            let {strAddress, bReindex} = args;
+            strAddress = stripAddressPrefix(Constants, strAddress);
+            await this._nodeInstance.rpcHandler({
+                event: 'watchAddress',
+                content: {strAddress, bReindex}
+            });
+        }
+
+        async getWallets(args) {
+            return await this._nodeInstance.rpcHandler({
+                event: 'getWallets'
             });
         }
     };

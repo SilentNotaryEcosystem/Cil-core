@@ -58,7 +58,11 @@ const BlockWrapper = require('./structures/block');
 const InventoryWrapper = require('./structures/inventory');
 const UtxoWrapper = require('./structures/utxo');
 const CoinsWrapper = require('./structures/coins');
-const WitnessGroupDefinition = require('./structures/witnessGroupDefinition');
+
+const BaseConciliumDefinition = require('./conciliums/baseConciliumDefinition');
+const ConciliumClosedRR = require('./conciliums/conciliumRr');
+const ConciliumPoS = require('./conciliums/conciliumPoS');
+
 const BlockInfoWrapper = require('./structures/blockInfo');
 const ArrayOfWrapper = require('./structures/arrayOf');
 const ContractWrapper = require('./structures/contract');
@@ -89,7 +93,11 @@ class Factory {
                 this._blockImplementation = BlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
-                this._witnessGroupDefinition = WitnessGroupDefinition(this, prototypes);
+
+                this._baseConciliumDefinition = BaseConciliumDefinition;
+                this._conciliumRr = ConciliumClosedRR(this);
+                this._conciliumPoS = ConciliumPoS(this);
+
                 this._blockInfo = BlockInfoWrapper(this, prototypes);
                 this._arrayOfHashes = ArrayOfWrapper(32);
                 this._arrayOfAddresses = ArrayOfWrapper(20);
@@ -140,8 +148,16 @@ class Factory {
                parseInt(arrSubversions[2]);
     }
 
-    get WitnessGroupDefinition() {
-        return this._witnessGroupDefinition;
+    get ConciliumRr() {
+        return this._conciliumRr;
+    }
+
+    get ConciliumPos() {
+        return this._conciliumPoS;
+    }
+
+    get BaseConciliumDefinition() {
+        return this._baseConciliumDefinition;
     }
 
     get ArrayOfHashes() {
@@ -319,8 +335,6 @@ class Factory {
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
 
             utxoProto: protoStructures.lookupType("structures.UTXO"),
-
-            witnessGroupDefinitionProto: protoStructures.lookupType("structures.WitnessGroupDefinition"),
 
             contractProto: protoStructures.lookupType("structures.Contract"),
             txReceiptProto: protoStructures.lookupType("structures.TxReceipt")

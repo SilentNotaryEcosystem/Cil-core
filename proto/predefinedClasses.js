@@ -1,4 +1,8 @@
 class Base {
+    constructor(props) {
+        this._ownerAddress = callerAddress;
+    }
+
     __getCode() {
         const methods = Object
             .getOwnPropertyNames(Object.getPrototypeOf(this))
@@ -7,7 +11,7 @@ class Base {
         methods.forEach(strFuncName => {
             const strCodeMethod = this[strFuncName].toString();
 
-            // we prepend code of asyn function with '<'
+            // we prepend code of asynс function with '<'
             const codePrefix = Object.getPrototypeOf(this[strFuncName]).constructor.name === 'AsyncFunction' ? '<' : '';
             const re = new RegExp(`${strFuncName}.*?(\(.*?\).*?\{.*\})`, 'ms');
             const arrMatches = strCodeMethod.match(re);
@@ -15,5 +19,9 @@ class Base {
             objCode[strFuncName] = codePrefix + arrMatches[1];
         });
         return objCode;
+    }
+
+    _checkOwner() {
+        if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
     }
 }

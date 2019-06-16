@@ -1,4 +1,13 @@
+// part of protobuff
+const Long = require('long');
+const readline = require('readline');
+const fs = require('fs');
 const commandLineArgs = require('command-line-args');
+const v8 = require('v8');
+
+const deepCloneObject = (objToClone) => {
+    return v8.deserialize(v8.serialize(objToClone));
+};
 
 const arrayIntersection = (array1, array2) => {
     const cache = new Set(array1);
@@ -15,11 +24,14 @@ const prepareForStringifyObject = (obj) => {
 
     const resultObject = {};
     for (let key of Object.keys(obj)) {
-        if (typeof obj[key] === 'function') continue;
+        if (typeof obj[key] === 'function' || typeof obj[key] === 'undefined') continue;
+
         if (Buffer.isBuffer(obj[key])) {
             resultObject[key] = obj[key].toString('hex');
         } else if (Array.isArray(obj[key])) {
             resultObject[key] = prepareForStringifyObject(obj[key]);
+        } else if (Long.isLong(obj[key])) {
+            resultObject[key] = obj[key].toNumber();
         } else if (obj[key] instanceof Object) {
             resultObject[key] = prepareForStringifyObject(obj[key]);
         } else {
@@ -42,6 +54,24 @@ const getMapsKeys = (...arrMaps) => {
     }
     return arrResultKeys;
 };
+
+function questionAsync(prompt, password = false) {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    return new Promise(resolve => {
+        rl.question(prompt, answer => {
+            rl.close();
+            if (password) {
+                if (process.stdout.moveCursor) process.stdout.moveCursor(0, -1);
+                if (process.stdout.clearLine) process.stdout.clearLine();
+            }
+            resolve(answer.trim());
+        });
+    });
+}
 
 module.exports = {
     sleep: (delay) => {
@@ -87,7 +117,7 @@ module.exports = {
             {name: "rpcPort", type: Number, multiple: false},
             {name: "rpcAddress", type: String, multiple: false},
             {name: "genesisHash", type: String, multiple: false},
-            {name: "groupDefContract", type: String, multiple: false},
+            {name: "conciliumDefContract", type: String, multiple: false},
             {name: "privateKey", type: String, multiple: false},
             {name: "dbPath", type: String, multiple: false},
             {name: "seed", type: Boolean, multiple: false},
@@ -95,16 +125,33 @@ module.exports = {
             {name: "txIndex", type: Boolean, multiple: false},
             {name: "watchAddress", type: String, multiple: true},
             {name: "reIndexWallet", type: Boolean, multiple: false},
-            {name: "walletSupport", type: Boolean, multiple: false}
+            {name: "walletSupport", type: Boolean, multiple: false},
+            {name: "listWallets", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },
 
     prepareForStringifyObject,
 
+    questionAsync,
+    deepCloneObject,
+
+    pick(obj, keys) {
+        return keys.map(k => k in obj ? {[k]: obj[k]} : {})
+            .reduce((res, o) => Object.assign(res, o), {});
+    },
+
     stripAddressPrefix(Constants, strAddr) {
         return strAddr.substring(0, 2) === Constants.ADDRESS_PREFIX ?
             strAddr.substring(Constants.ADDRESS_PREFIX.length)
             : strAddr;
+    },
+
+    async readPrivateKeyFromFile(Crypto, path) {
+        const encodedContent = fs.readFileSync(path, 'utf8');
+
+        // TODO suppress echo
+        const password = await questionAsync('Enter password to decrypt private key: ', true);
+        return await Crypto.decrypt(password, JSON.parse(encodedContent));
     }
 };

@@ -22,12 +22,12 @@ describe('MessageWitnessBlock', () => {
     });
 
     it('should create message', async () => {
-        const msg = new factory.Messages.MsgWitnessBlock({groupId: 0});
+        const msg = new factory.Messages.MsgWitnessBlock({conciliumId: 0});
         assert.isOk(msg.isWitnessBlock());
     });
 
     it('should encode/decode message', async () => {
-        const msg = new factory.Messages.MsgWitnessBlock({groupId: 0});
+        const msg = new factory.Messages.MsgWitnessBlock({conciliumId: 0});
 
         const block = createDummyBlock(factory);
         const keyPair = factory.Crypto.createKeyPair();
@@ -40,8 +40,8 @@ describe('MessageWitnessBlock', () => {
 
         const restoredMsg = new factory.Messages.MsgWitnessBlock(buffMsg);
         assert.isOk(restoredMsg.signature);
-        assert.isOk(restoredMsg.publicKey);
-        assert.equal(restoredMsg.publicKey, keyPair.publicKey);
+        assert.isOk(restoredMsg.address);
+        assert.equal(restoredMsg.address, keyPair.address);
 
         const restoredBlock = restoredMsg.block;
         assert.equal(block.hash(), restoredBlock.hash());

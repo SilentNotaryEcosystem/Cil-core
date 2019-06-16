@@ -1,6 +1,6 @@
 {
   "name": "chain-in-law",
-  "version": "0.2.4",
+  "version": "1.0.0",
   "main": "factory.js",
   "dependencies": {
     "command-line-args": "^5.0.2",
@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
     "debug": "^3.2.6",
     "memdown": "^3.0.0",
     "mocha": "^5.2.0",

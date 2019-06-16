@@ -233,28 +233,25 @@ describe('Application layer', () => {
     it('should parse contract code', async () => {
         const strCode = `
             class A extends Base {
-                constructor(...arrValues)
-            
-            
-                {
+                constructor(...arrValues){
                     super();
                     this._data=arrValues[0];
                 }
             
-                changeDefinition(objNewDefinition)                            {
+                changeDefinition(objNewDefinition){
                 }
             
                 addDefinition
-                (objGroupDefinition)
+                (objConcilium)
                 {
             
                     // check fee!
-                    console.log(objGroupDefinition)
+                    console.log(objConcilium)
                 }
             
                 noArguments(){}
             
-                _validateDefinition(objGroupDefinition) {
+                _validateDefinition(objConcilium) {
                 }
                 
                 // getters/setters ignored
@@ -269,18 +266,20 @@ describe('Application layer', () => {
             exports=new A(10);
             `;
         const app = new factory.Application();
+        const callerAddress = generateAddress().toString('hex');
         const {receipt, contract} = app.createContract(
             1e10,
             strCode,
-            {contractAddr: 'hash'}
+            {contractAddr: 'hash', callerAddress}
         );
 
         assert.isOk(receipt.isSuccessful());
         assert.equal(
             receipt.getCoinsUsed(),
-            factory.Constants.fees.CONTRACT_FEE + contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE
+            factory.Constants.fees.CONTRACT_CREATION_FEE + contract.getDataSize() *
+            factory.Constants.fees.STORAGE_PER_BYTE_FEE
         );
-        assert.deepEqual(contract.getData(), {_data: 10});
+        assert.deepEqual(contract.getData(), {_data: 10, _ownerAddress: callerAddress});
 
         const strContractCode = contract.getCode();
         assert.isOk(strContractCode);
@@ -304,73 +303,73 @@ describe('Application layer', () => {
     });
 
     it('should run contract', async () => {
-        const groupId = 10;
+        const conciliumId = 10;
         const contract = new factory.Contract({
             contractData: {value: 100},
             contractCode: '{"add": "(a){this.value+=a;}"}',
-            groupId
+            conciliumId
         });
         const app = new factory.Application();
 
         const receipt = await app.runContract(1e5, {method: 'add', arrArguments: [10]}, contract, {});
 
         assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 110});
     });
 
     it('should throw (unknown method)', async () => {
-        const groupId = 10;
+        const conciliumId = 10;
         const contract = new factory.Contract({
             contractData: {value: 100},
             contractCode: '{"add": "(a){this.value+=a;}"}',
-            groupId
+            conciliumId
         });
         const app = new factory.Application();
 
         const receipt = await app.runContract(1e5, {method: 'subtract', arrArguments: [10]}, contract, {});
         assert.isNotOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
     it('should throw (no default function)', async () => {
-        const groupId = 10;
+        const conciliumId = 10;
         const contract = new factory.Contract({
             contractData: {value: 100},
             contractCode: '{"add": "(a){this.value+=a;}"}',
-            groupId
+            conciliumId
         });
         const app = new factory.Application();
 
         const receipt = await app.runContract(1e5, '', contract, {});
         assert.isNotOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
     it('should call default function', async () => {
-        const groupId = 10;
+        const conciliumId = 10;
         const contract = new factory.Contract({
             contractData: {value: 100},
             contractCode: '{"_default": "(){this.value+=17;}"}',
-            groupId
+            conciliumId
         });
         const app = new factory.Application();
 
         const receipt = await app.runContract(1e5, '', contract, {});
         assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
         assert.deepEqual(contract.getData(), {value: 117});
     });
 
     it('should call "constant function"', async () => {
-        const groupId = 10;
+        const conciliumId = 10;
         const sampleResult = {a: 10, b: 20};
         const contract = new factory.Contract({
             contractData: {sampleResult},
             contractCode: `{"test": "() {return this.sampleResult;}"}`,
-            groupId
+            conciliumId
         });
 
         const app = new factory.Application();

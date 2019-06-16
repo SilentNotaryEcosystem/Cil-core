@@ -1,3 +1,4 @@
+const assert = require('assert');
 const typeforce = require('typeforce');
 const MerkleTree = require('merkletreejs');
 const types = require('../types');
@@ -11,7 +12,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             this._final = false;
             if (typeof data === 'number') {
-                data = {header: blockHeaderProto.create({witnessGroupId: data})};
+                data = {header: blockHeaderProto.create({conciliumId: data})};
             }
 
             if (Buffer.isBuffer(data)) {
@@ -22,7 +23,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
                 if (errMsg) throw new Error(`Block: ${errMsg}`);
                 this._data = blockProto.create(data);
             } else {
-                throw new Error('witnessGroupId mandatory for block creation');
+                throw new Error('conciliumId mandatory for block creation');
             }
 
             if (!this._data.header.version) this._data.header.version = Constants.BLOCK_VERSION || 1;
@@ -45,8 +46,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this._data.header.merkleRoot;
         }
 
-        get witnessGroupId() {
-            return this._data.header.witnessGroupId;
+        get conciliumId() {
+            return this._data.header.conciliumId;
         }
 
         get txns() {
@@ -58,7 +59,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         get timestamp() {
-            return this._data.timestamp;
+            return this._data.header.timestamp;
         }
 
         get header() {
@@ -72,7 +73,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         hash() {
             if (!this._final) throw new Error('Call finish() before calculating hash');
             if (!this._hashCache) {
-                this._buildTxTree();
+                this._data.header.merkleRoot = this._buildTxTree();
                 this._hashCache = Crypto.createHash(blockHeaderProto.encode(this._data.header).finish());
             }
             return this._hashCache;
@@ -89,6 +90,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
         /**
          *
+         * @returns {Buffer}
          * @private
          */
         _buildTxTree() {
@@ -103,7 +105,7 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             const tree = new MerkleTree(leaves, Crypto.createHashBuffer.bind(Crypto), {isBitcoinTree: true});
 
             // tree.getRoot() returns buffer, BUT return string if has only one leaf (coinbase)!!
-            this._data.header.merkleRoot = Buffer.from(tree.getRoot(), 'hex');
+            return Buffer.from(tree.getRoot(), 'hex');
         }
 
         encode() {
@@ -136,22 +138,36 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this.txns.length === 1 && (new Transaction(this.txns[0])).isCoinbase();
         }
 
-        finish(totalTxnsFees, pubkeyReceiver) {
+        finish(totalTxnsFees, addrReceiver, minUsefulAmount = 0) {
             typeforce.Number(totalTxnsFees);
-            typeforce(types.PublicKey, pubkeyReceiver);
+            typeforce(types.Address, addrReceiver);
 
             this._hashCache = undefined;
-            const buffReceiverAddr = Crypto.getAddress(pubkeyReceiver, true);
+            const buffReceiverAddr = Buffer.from(addrReceiver, 'hex');
 
             const coinbase = Transaction.createCoinbase();
-            coinbase.witnessGroupId = this.witnessGroupId;
-            coinbase.addReceiver(totalTxnsFees, buffReceiverAddr);
+            coinbase.conciliumId = this.conciliumId;
 
-            // to make coinbase hash unique add one more random output with 0 coins
-            coinbase.addReceiver(0, Crypto.randomBytes(20));
+            // we'll create outputs ONLY if there are coins! if 0 - no outputs will be created
+            if (totalTxnsFees) {
+
+                // developer foundation. send only if it at least twice more than minUsefulAmount
+                let nFeeDevFoundation = parseInt(Constants.DEV_FOUNDATION_SHARE * totalTxnsFees);
+                if (nFeeDevFoundation >= minUsefulAmount * 2) {
+                    coinbase.addReceiver(nFeeDevFoundation, Constants.DEV_FOUNDATION_ADDRESS);
+                } else {
+                    nFeeDevFoundation = 0;
+                }
+
+                // block creator
+                coinbase.addReceiver(totalTxnsFees - nFeeDevFoundation, buffReceiverAddr);
+
+                // to make coinbase hash unique we'll add random output with 0 coins
+                coinbase.addReceiver(0, Crypto.randomBytes(20));
+            }
 
             this._data.txns.unshift(coinbase.rawData);
-            this._buildTxTree();
+            this._data.header.merkleRoot = this._buildTxTree();
 
             this._data.header.timestamp = timestamp();
             this._final = true;
@@ -169,5 +185,35 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
                 signatures: this._data.signatures,
                 tnxs: this._data.txns.map(objTx => (new Transaction(objTx)).getHash())
             };
+        }
+
+        verify(checkSignatures = true) {
+
+            // block should have at least one parent!
+            assert(Array.isArray(this.parentHashes) && this.parentHashes.length, 'Bad block parents');
+
+            // block should have at least one signature!
+            if (checkSignatures) {
+                assert(Array.isArray(this.signatures) && this.signatures.length, 'Bad block signatures');
+            }
+
+            // merkleRoot
+            const buffRoot = Buffer.from(this.merkleRoot);
+            assert(this.merkleRoot &&
+                   buffRoot.equals(this._buildTxTree()), 'Bad merkle root'
+            );
+
+            // height
+            assert(this.getHeight() > 0, 'Bad height');
+        }
+
+        getHeight() {
+            return this._data.header.height;
+        }
+
+        setHeight(nHeight) {
+            typeforce(typeforce.Number, nHeight);
+
+            this._data.header.height = nHeight;
         }
     };

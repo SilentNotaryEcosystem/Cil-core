@@ -1,3 +1,5 @@
+// part of protobuff
+const Long = require('long');
 const typeforce = require('typeforce');
 const assert = require('assert');
 
@@ -40,8 +42,7 @@ module.exports = (factory, {contractProto}) =>
 
             // we'll keep only deserialized data. serialize only for cloning & encode
             if (this._data.contractData && Buffer.isBuffer(this._data.contractData)) {
-                this._dataSize = this._data.contractData.length;
-                this._contractData = deSerializeContractData(this._data.contractData);
+                this.updateData(this._data.contractData);
             } else {
                 this._dataSize = nSizeOfEmptyData;
                 this._contractData = data.contractData || {};
@@ -49,7 +50,7 @@ module.exports = (factory, {contractProto}) =>
 
             // deal with LONG https://github.com/dcodeIO/long.js
             // convert it toNumber
-            if (typeof this._data.balance.toNumber === 'function') this._data.balance = this._data.balance.toNumber();
+            if (Long.isLong(this._data.balance)) this._data.balance = this._data.balance.toNumber();
 
             // just to show that we'll not use it after decode
             this._data.contractData = undefined;
@@ -72,8 +73,8 @@ module.exports = (factory, {contractProto}) =>
             return serializeContractData(this._contractData);
         }
 
-        getGroupId() {
-            return this._data.groupId;
+        getConciliumId() {
+            return this._data.conciliumId;
         }
 
         getDataSize() {
@@ -101,7 +102,7 @@ module.exports = (factory, {contractProto}) =>
          * @return {Buffer}
          */
         encode() {
-            assert(this._data.groupId !== undefined, 'Contract "groupId" not specified!');
+            assert(this._data.conciliumId !== undefined, 'Contract "conciliumId" not specified!');
 
             this._data.contractData = serializeContractData(this._contractData);
             return contractProto.encode(this._data).finish();

@@ -22,7 +22,7 @@ describe('Witness expose message', () => {
         const strPrivKey = 'b7760a01705490e5e153a6ef7732369a72dbf9aaafb5c482cdfd960546909ec1';
 
         // create message we plan to expose
-        const msgToExpose = new factory.Messages.MsgWitnessNextRound({roundNo: 1, groupId: 0});
+        const msgToExpose = new factory.Messages.MsgWitnessNextRound({roundNo: 1, conciliumId: 0});
         msgToExpose.sign(strPrivKey);
         const msg = new factory.Messages.MsgWitnessWitnessExpose(msgToExpose);
         msg.sign(strPrivKey);
@@ -39,7 +39,7 @@ describe('Witness expose message', () => {
         assert.isOk(exposedMessage.isNextRound());
         const msgNextRound = new factory.Messages.MsgWitnessNextRound(exposedMessage);
         assert.isOk(msgNextRound.roundNo && msgNextRound.roundNo === 1);
-        assert.isOk(msgNextRound.groupId === 0);
+        assert.isOk(msgNextRound.conciliumId === 0);
         assert.isOk(msgNextRound.isNextRound());
     });
 });

@@ -1,22 +1,33 @@
 'use strict';
 
+const Tick = require('tick-tock');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
-const { sleep } = require('../utils');
+const path = require('path');
+const fs = require('fs');
+
+const {sleep} = require('../utils');
 const types = require('../types');
-const Tick = require('tick-tock');
 
 const debug = debugLib('mempool:');
 
 // TODO: add tx expiration (14 days?)
 
-module.exports = ({ Constants, Transaction }) =>
+module.exports = ({Constants, Transaction}, factoryOptions) =>
     class Mempool {
-        constructor(options) {
+        constructor(options = {}) {
             this._mapTxns = new Map();
             this._tock = new Tick(this);
             this._tock.setInterval('outdatedTimer', this.purgeOutdated.bind(this), Constants.MEMPOOL_OUTDATED_INTERVAL);
 
+            const {dbPath, testStorage} = {...factoryOptions, ...options};
+
+            this._fileName = testStorage ? undefined : path.resolve(dbPath || Constants.DB_PATH_PREFIX,
+                Constants.LOCAL_TX_FILE_NAME
+            );
+            this._mapLocalTxns = new Map();
+
+            this._setBadTxnsHash = new Set();
         }
 
         /**
@@ -29,15 +40,21 @@ module.exports = ({ Constants, Transaction }) =>
         }
 
         removeTxns(arrTxHashes) {
+            const prevSize = this._mapLocalTxns.size;
+
             for (let txHash of arrTxHashes) {
 
-                // TODO: check could be here descendants (i.e. when we undo block, from misbehaving group). if so - implement queue
+                // TODO: check could be here descendants (i.e. when we undo block, from misbehaving concilium). if so - implement queue
                 // TODO: think about: is it problem that TX isn't present in mempool, but present in block
                 if (this._mapTxns.has(txHash)) {
                     this._mapTxns.delete(txHash);
+                } else if (this._mapLocalTxns.has(txHash)) {
+                    this._mapLocalTxns.delete(txHash);
                 } else {
                     debug(`removeTxns: no TX ${txHash} in mempool`);
                 }
+
+                if (prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
             }
         }
 
@@ -46,7 +63,7 @@ module.exports = ({ Constants, Transaction }) =>
                 if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
                     this._mapTxns.delete(hash);
                 }
-            })
+            });
         }
 
         limitConstraints() {
@@ -62,7 +79,9 @@ module.exports = ({ Constants, Transaction }) =>
             typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-            return this._mapTxns.has(strTxHash);
+            return this._mapTxns.has(strTxHash) ||
+                   this._mapLocalTxns.has(strTxHash) ||
+                   this._setBadTxnsHash.has(txHash);
         }
 
         /**
@@ -75,10 +94,29 @@ module.exports = ({ Constants, Transaction }) =>
             this.limitConstraints();
 
             const strHash = tx.getHash();
-            if (this._mapTxns.has(strHash)) throw new Error(`tx ${strHash} already in mempool`);
+            if (this.hasTx(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
-            this._mapTxns.set(strHash, { tx, arrived: Date.now() });
+            this._mapTxns.set(strHash, {tx, arrived: Date.now()});
             debug(`TX ${strHash} added`);
+        }
+
+        /**
+         * could be replaced with patch, because it loaded without patches
+         *
+         * @param {Transaction} tx - transaction to add
+         * @param {PatchDB} patchTx - patch for this tx (result of tx exec)
+         * @param {Boolean} suppressDump - @see loadLocalTxnsFromDisk
+         */
+        addLocalTx(tx, patchTx, suppressDump = false) {
+            typeforce(types.Transaction, tx);
+
+            const strHash = tx.getHash();
+            const prevSize = this._mapLocalTxns.size;
+
+            this._mapLocalTxns.set(strHash, {tx, patchTx});
+            debug(`Local TX ${strHash} added`);
+
+            if (!suppressDump && prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
         }
 
         /**
@@ -90,27 +128,45 @@ module.exports = ({ Constants, Transaction }) =>
             typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-            const tx = this._mapTxns.get(strTxHash);
-            if (!tx) throw new Error(`Mempool: No tx found by hash ${strTxHash}`);
-
-            debug(`retrieved TX ${strTxHash}`);
+            if (!this.hasTx(strTxHash)) throw new Error(`Mempool: No tx found by hash ${strTxHash}`);
+            let tx = this._mapTxns.get(strTxHash) || this._mapLocalTxns.get(strTxHash);
             return tx.tx;
         }
 
         /**
          *
-         * @param {Number} groupId - witness groupId
+         * @param {Number} conciliumId - witness conciliumId
          * @returns {IterableIterator<any>} {tx, arrived ...}
          */
-        getFinalTxns(groupId) {
+        getFinalTxns(conciliumId) {
 
             // TODO: implement lock_time
             // TODO: implement cache if mempool becomes huge
             const arrResult = [];
             for (let r of this._mapTxns.values()) {
-                if (r.tx.witnessGroupId === groupId) arrResult.push(r.tx);
+                if (r.tx.conciliumId === conciliumId) arrResult.push(r.tx);
+            }
+
+            for (let r of this._mapLocalTxns.values()) {
+                if (r.tx.conciliumId === conciliumId) arrResult.push(r.tx);
             }
             return arrResult;
+        }
+
+        /**
+         *
+         * @return {string[]}
+         */
+        getLocalTxnHashes() {
+            return [...this._mapLocalTxns.keys()];
+        }
+
+        /**
+         *
+         * @return {Array[{strTxHash, patchTx}]}
+         */
+        getLocalTxnsPatches() {
+            return [...this._mapLocalTxns].map(([strTxHash, {tx, patchTx}]) => ({strTxHash, patchTx}));
         }
 
         /**
@@ -118,6 +174,43 @@ module.exports = ({ Constants, Transaction }) =>
          * @return {Array}
          */
         getAllTxnHashes() {
-            return Array.from(this._mapTxns.keys());
+            return [].concat([...this._mapLocalTxns.keys()], [...this._mapTxns.keys()]);
+        }
+
+        _dumpToDisk() {
+            if (!this._fileName) return;
+
+            debug('Dumping to disk');
+            const objToSave = {};
+            for (let [txHash, {tx}] of this._mapLocalTxns) {
+                objToSave[txHash] = tx.encode().toString('hex');
+            }
+
+            fs.writeFileSync(this._fileName, JSON.stringify(objToSave, undefined, 2));
+        }
+
+        loadLocalTxnsFromDisk() {
+            if (!this._fileName) return;
+
+            try {
+                const objTxns = JSON.parse(fs.readFileSync(this._fileName, 'utf8'));
+                for (let strHash of Object.keys(objTxns)) {
+                    this.addLocalTx(new Transaction(Buffer.from(objTxns[strHash], 'hex')), undefined, true);
+                }
+            } catch (e) {
+                if (!e.message.match(/ENOENT/)) logger.error(e);
+            }
+        }
+
+        storeBadTxHash(strTxHash) {
+            typeforce(types.Str64, strTxHash);
+
+            this._setBadTxnsHash.add(strTxHash);
+        }
+
+        isBadTx(strTxHash) {
+            typeforce(types.Str64, strTxHash);
+
+            return this._setBadTxnsHash.has(strTxHash);
         }
     };

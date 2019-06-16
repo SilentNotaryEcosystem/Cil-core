@@ -2,10 +2,15 @@ module.exports = {
 
     // some of constants will be injected from prototypes in Factory!
     constants: {
+        LOCAL_TX_FILE_NAME: 'txns.json',
+
         ADDRESS_PREFIX: 'Ux',
 
-        GROUP_DEFINITION_CONTRACT_ADDRESS: '92002a7379ba99472af1d31226f469bf78cf95e1',
-        GENESIS_BLOCK: '707234f85ec4172300a3b2122911efd3baa04e15f7e51ef253c9059107131021',
+        DEV_FOUNDATION_ADDRESS: '961d7815df8cc96d27aa2c483f55c6c163682775',
+        DEV_FOUNDATION_SHARE: 0.1,
+
+        CONCILIUM_DEFINITION_CONTRACT_ADDRESS: '6ab4ab8161f954be88af699435f3514485ab8f9a',
+        GENESIS_BLOCK: '8b6d259ee3ee1acd524654d9b27286188c982e3764f1ef3f6db98c6382e6d777',
 
         strIdent: 'Prod',
 
@@ -105,11 +110,14 @@ module.exports = {
         // fees
         fees: {
 
-            // money send fee
-            TX_FEE: 100,
+            // money send fee per Kbyte
+            TX_FEE: 4000,
 
-            // contract creation & invocation
-            CONTRACT_FEE: 3000,
+            // contract creation
+            CONTRACT_CREATION_FEE: 1e11,
+
+            // contract invocation
+            CONTRACT_INVOCATION_FEE: 10000,
 
             // contract send moneys
             INTERNAL_TX_FEE: 300,
@@ -133,6 +141,10 @@ module.exports = {
         DB_PEERSTATE_DIR: 'peerstate',
 
         DB_TXINDEX_DIR: 'txindex',
-        DB_WALLET_DIR: 'wallet'
+        DB_WALLET_DIR: 'wallet',
+
+        concilium: {
+            HEIGHT_TO_RELEASE_ADD_ON: 5e4
+        }
     }
 };

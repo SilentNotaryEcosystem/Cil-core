@@ -62,6 +62,7 @@ module.exports = ({Coins}, {utxoProto}) =>
          *
          * @param {Number} idx - outputNo
          * @param {Coins} coins -
+         * @returns {UTXO} this - to chain calls
          */
         addCoins(idx, coins) {
             typeforce(typeforce.tuple(types.Amount, types.Coins), arguments);
@@ -73,6 +74,8 @@ module.exports = ({Coins}, {utxoProto}) =>
             // this will make serialization mode simple
             this._data.arrOutputs.push(coins.getRawData());
             this._data.arrIndexes.push(idx);
+
+            return this;
         }
 
         spendCoins(nTxOutput) {

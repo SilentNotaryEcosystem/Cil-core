@@ -203,7 +203,7 @@ describe('Peer manager', () => {
         const peerToReplace = new factory.Messages.PeerInfo({
             capabilities: [
                 {service: factory.Constants.NODE},
-                {service: factory.Constants.WITNESS, data: Buffer.from('1234')}
+                {service: factory.Constants.WITNESS, data: Buffer.from('1234', 'hex')}
             ],
             address
         });
@@ -214,7 +214,7 @@ describe('Peer manager', () => {
         const [peer] = pm.filterPeers(undefined, true);
         assert.equal(peer.capabilities.length, 2);
         assert.isOk(peer.isWitness);
-        assert.isOk(Buffer.from('1234').equals(peer.publicKey));
+        assert.isOk(peer.witnessAddress.toString() === '1234');
     });
 
     it('should KEEP connected peers', async () => {

@@ -20,28 +20,33 @@ const PENDING_BLOCKS = 'PENDING';
 const WALLET_PREFIX = 'w';
 const WALLET_ADDRESSES = 'WALLETS';
 const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
+const TX_INDEX_PREFIX = 'T';
+const INTENRAL_TX_INDEX_PREFIX = 'I';
 
 /**
  *
  * @param db - levelup instance
  * @returns {Promise<any>}
  */
-const eraseDbContent = (db) => {
-    return new Promise(resolve => {
+const eraseDbContent = async (db) => {
+    const arrBuffers = [];
+    await new Promise(resolve => {
         db.createKeyStream({keyAsBuffer: true, valueAsBuffer: false})
             .on('data', function(data) {
-                db.del(data, {keyAsBuffer: true, valueAsBuffer: false});
+                arrBuffers.push({type: 'del', key: data});
+//                db.del(data, {keyAsBuffer: true, valueAsBuffer: false});
             })
             .on('close', function() {
                 resolve();
             });
     });
+    await db.batch(arrBuffers);
 };
 
 module.exports = (factory, factoryOptions) => {
     const {
         Constants, Block, BlockInfo, UTXO, ArrayOfHashes, ArrayOfAddresses, Contract,
-        TxReceipt, WitnessGroupDefinition, Peer, PatchDB
+        TxReceipt, BaseConciliumDefinition, ConciliumRr, ConciliumPos, Peer, PatchDB
     } = factory;
 
     return class Storage {
@@ -90,6 +95,14 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          *
+         * @return {Promise<void>|*}
+         */
+        ready() {
+            return Promise.resolve();
+        }
+
+        /**
+         *
          * @param {String} strPrefix
          * @param {Buffer | undefined} buffKey
          * @param {Buffer | String} suffix
@@ -106,25 +119,48 @@ module.exports = (factory, factoryOptions) => {
             return this.createKey(UTXO_PREFIX, Buffer.from(hash, 'hex'));
         }
 
-        async _ensureArrGroupDefinition() {
-            const cont = await this.getContract(Buffer.from(Constants.GROUP_DEFINITION_CONTRACT_ADDRESS, 'hex'));
-            this._arrGroupDefinition = cont ? WitnessGroupDefinition.getFromContractData(cont.getData()) : [];
+        static createInternalTxKey(hash) {
+            return this.createKey(INTENRAL_TX_INDEX_PREFIX, Buffer.from(hash, 'hex'));
+        }
+
+        static createTxKey(hash) {
+            return this.createKey(TX_INDEX_PREFIX, Buffer.from(hash, 'hex'));
+        }
+
+        async _ensureArrConciliumDefinition() {
+
+            // cache is valid
+            if (this._arrConciliumDefinition && this._arrConciliumDefinition.length) return;
+
+            const cont = await this.getContract(Buffer.from(Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS, 'hex'));
+
+            if (cont) {
+                const {_arrConciliums} = cont.getData();
+                this._arrConciliumDefinition = _arrConciliums.map(objDefData => {
+                    const baseDef = new BaseConciliumDefinition(objDefData);
+                    if (baseDef.isPoS()) return new ConciliumPos(objDefData);
+                    if (baseDef.isRoundRobin()) return new ConciliumRr(objDefData);
+                });
+            } else {
+                this._arrConciliumDefinition = [];
+            }
         }
 
         /**
          *
-         * @param {Buffer | String} publicKey
-         * @returns {Promise<Array>} of WitnessGroupDefinition this publicKey belongs to
+         * @param {Buffer | String} address
+         * @returns {Promise<Array>} of BaseConciliumDefinition this address belongs to
          */
-        async getWitnessGroupsByKey(publicKey) {
-            const buffPubKey = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey, 'hex');
+        async getConciliumsByAddress(address) {
+            const buffAddress = Buffer.isBuffer(address) ? address : Buffer.from(address, 'hex');
 
-            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return [];
-            await this._ensureArrGroupDefinition();
+            if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return [];
+            await this._ensureArrConciliumDefinition();
 
             const arrResult = [];
-            for (let def of this._arrGroupDefinition) {
-                if (~def.getPublicKeys().findIndex(key => key.equals(buffPubKey))) {
+            for (let def of this._arrConciliumDefinition) {
+                if ((def.isRoundRobin() || def.isPoS()) &&
+                    ~def.getAddresses().findIndex(key => key.equals(buffAddress))) {
                     arrResult.push(def);
                 }
             }
@@ -134,23 +170,23 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {Number} id
-         * @returns {Promise<WitnessGroupDefinition>} of groupDefinition publicKey belongs to
+         * @returns {Promise<BaseConciliumDefinition>} publicKey belongs to
          */
-        async getWitnessGroupById(id) {
+        async getConciliumById(id) {
 
-            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return undefined;
-            await this._ensureArrGroupDefinition();
+            if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return undefined;
+            await this._ensureArrConciliumDefinition();
 
-            return id > this._arrGroupDefinition.length ?
-                undefined : this._arrGroupDefinition[id];
+            return id > this._arrConciliumDefinition.length ?
+                undefined : this._arrConciliumDefinition[id];
         }
 
-        async getWitnessGroupsCount() {
+        async getConciliumsCount() {
 
-            if (!Constants.GROUP_DEFINITION_CONTRACT_ADDRESS) return 0;
-            await this._ensureArrGroupDefinition();
+            if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return 0;
+            await this._ensureArrConciliumDefinition();
 
-            return this._arrGroupDefinition.length;
+            return this._arrConciliumDefinition.filter(def => def.isEnabled()).length;
         }
 
         async saveBlock(block, blockInfo) {
@@ -171,17 +207,7 @@ module.exports = (factory, factoryOptions) => {
             await this.saveBlockInfo(blockInfo);
 
             if (this._buildTxIndex) {
-                debug(`Storing TX index for ${block.getHash()}`);
-
-                const arrOps = [];
-                const buffBlockHash = Buffer.from(block.getHash(), 'hex');
-                for (let strTxHash of block.getTxHashes()) {
-                    const key = this.constructor.createKey('', Buffer.from(strTxHash, 'hex'));
-                    arrOps.push({type: 'put', key, value: buffBlockHash});
-                }
-
-                // BATCH WRITE
-                await this._txIndexStorage.batch(arrOps);
+                await this._storeTxnsIndex(Buffer.from(block.getHash(), 'hex'), block.getTxHashes());
             }
         }
 
@@ -366,9 +392,9 @@ module.exports = (factory, factoryOptions) => {
                 // save contracts
                 for (let [strContractAddr, contract] of statePatch.getContracts()) {
 
-                    // if we change groupDefinition contract - update cache
-                    if (Constants.GROUP_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {
-                        this._arrGroupDefinition = contract.getData();
+                    // if we change concilium contract - invalidate cache
+                    if (Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {
+                        this._arrConciliumDefinition = undefined;
                     }
                     const key = this.constructor.createKey(CONTRACT_PREFIX, Buffer.from(strContractAddr, 'hex'));
                     arrOps.push({type: 'put', key, value: contract.encode()});
@@ -376,10 +402,14 @@ module.exports = (factory, factoryOptions) => {
 
                 // save contract receipt
                 // because we use receipts only for contracts, i decided to keep single txReceipts instead of array of receipts
-                //      for whole block
+                // for whole block
                 for (let [strTxHash, receipt] of statePatch.getReceipts()) {
                     const key = this.constructor.createKey(RECEIPT_PREFIX, Buffer.from(strTxHash, 'hex'));
                     arrOps.push({type: 'put', key, value: receipt.encode()});
+
+                    if (this._buildTxIndex) {
+                        await this._storeInternalTxnsIndex(Buffer.from(strTxHash, 'hex'), receipt.getInternalTxns());
+                    }
                 }
 
                 // BATCH WRITE
@@ -519,13 +549,33 @@ module.exports = (factory, factoryOptions) => {
 
             if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
 
-            const key = this.constructor.createKey('', Buffer.from(strTxHash, 'hex'));
+            const key = this.constructor.createTxKey(Buffer.from(strTxHash, 'hex'));
 
             try {
                 const blockHash = await this._txIndexStorage.get(key);
                 return await this.getBlock(blockHash);
             } catch (e) {
                 debugLib(`Index or block for ${strTxHash} not found!`);
+            }
+            return undefined;
+        }
+
+        /**
+         *
+         * @param {String} strTxHash - to find
+         * @returns {Promise<String>} - Source TX hash
+         */
+        async findInternalTx(strTxHash) {
+            typeforce(types.Hash256bit, strTxHash);
+
+            if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
+
+            const key = this.constructor.createInternalTxKey(Buffer.from(strTxHash, 'hex'));
+
+            try {
+                return await this._txIndexStorage.get(key);
+            } catch (e) {
+                debugLib(`Internal tx with hash ${strTxHash} not found!`);
             }
             return undefined;
         }
@@ -683,6 +733,7 @@ module.exports = (factory, factoryOptions) => {
             const keyStart = this.constructor.createUtxoKey(Buffer.from([]));
             const keyEnd = this.constructor.createUtxoKey(Buffer.from('FF', 'hex'));
 
+            const arrRecords = [];
             await new Promise(resolve => {
                     this._db
                         .createReadStream({gte: keyStart, lte: keyEnd, keyAsBuffer: true, valueAsBuffer: true})
@@ -693,12 +744,54 @@ module.exports = (factory, factoryOptions) => {
                             const utxo = new UTXO({txHash: hash, data: data.value});
                             for (let strAddr of this._arrStrWalletAddresses) {
                                 const arrIndexes = utxo.getOutputsForAddress(strAddr);
-                                if (arrIndexes.length) await this._walletWriteAddressUtxo(strAddr, hash);
+//                                if (arrIndexes.length) await this._walletWriteAddressUtxo(strAddr, hash);
+                                if (arrIndexes.length) arrRecords.push({strAddr, hash});
                             }
                         })
                         .on('close', () => resolve());
                 }
             );
+            for (const {strAddr, hash} of arrRecords) {
+                await this._walletWriteAddressUtxo(strAddr, hash);
+            }
+        }
+
+        async getWallets() {
+            await this._ensureWalletInitialized();
+            return this._arrStrWalletAddresses;
+        }
+
+        async _storeTxnsIndex(buffBlockHash, arrTxnsHashes) {
+            debug(`Storing TX index for ${buffBlockHash.toString('hex')}`);
+
+            const arrOps = [];
+            for (let strTxHash of arrTxnsHashes) {
+                const key = this.constructor.createTxKey(strTxHash);
+                arrOps.push({type: 'put', key, value: buffBlockHash});
+            }
+
+            // BATCH WRITE
+            await this._txIndexStorage.batch(arrOps);
+        }
+
+        /**
+         *
+         * @param {Buffer} buffSourceTxHash - hash of original TX, produced all of those internal txns
+         * @param {Array} arrInternalTxnsHashes - of internal TXns hashes (BUFFERS!)
+         * @return {Promise<void>}
+         * @private
+         */
+        async _storeInternalTxnsIndex(buffSourceTxHash, arrInternalTxnsHashes) {
+            debug(`Storing internal TXns for ${buffSourceTxHash.toString('hex')}`);
+
+            const arrOps = [];
+            for (let strInternalTxHash of arrInternalTxnsHashes) {
+                const key = this.constructor.createInternalTxKey(strInternalTxHash);
+                arrOps.push({type: 'put', key, value: buffSourceTxHash});
+            }
+
+            // BATCH WRITE
+            await this._txIndexStorage.batch(arrOps);
         }
     };
 };

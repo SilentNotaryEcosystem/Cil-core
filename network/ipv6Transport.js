@@ -53,7 +53,8 @@ module.exports = (factory) => {
         }
 
         static addressToString(buffer) {
-            return ipaddr.fromByteArray(new Uint8Array(buffer)).toString();
+            const addr = ipaddr.fromByteArray(new Uint8Array(buffer));
+            return (addr.isIPv4MappedAddress() ? addr.toIPv4Address() : addr).toString();
         }
 
         /**

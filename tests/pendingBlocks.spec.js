@@ -11,16 +11,16 @@ const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAd
 const {arrayEquals} = require('../utils');
 
 /**
- * Duplicate block, but change witnessGroupId & change tx
+ * Duplicate block, but change conciliumId & change tx
  */
 const makeDoubleSpend = (block, newWitnessId) => {
     const newBlock = new factory.Block(newWitnessId);
 
     // first is coinbase
     const tx = new factory.Transaction(block.txns[1]);
-    tx.witnessGroupId = newWitnessId;
+    tx.conciliumId = newWitnessId;
     newBlock.addTx(tx);
-    newBlock.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+    newBlock.finish(factory.Constants.fees.TX_FEE, generateAddress());
     return newBlock;
 };
 
@@ -31,34 +31,34 @@ const createSample = (pbm, isContractFound = false) => {
     const block2 = createDummyBlock(factory, 0);
     block2.parentHashes = [block1.getHash()];
     const patch2 = patch1.merge(new factory.PatchDB());
-    patch2.setGroupId(0);
+    patch2.setConciliumId(0);
 
-    // let's add another group
+    // let's add another concilium
     const block3 = createDummyBlock(factory, 1);
     block3.parentHashes = [block2.getHash()];
     const patch3 = patch2.merge(new factory.PatchDB());
-    patch3.setGroupId(1);
+    patch3.setConciliumId(1);
 
-    // target group again
+    // target concilium again
     const block4 = createDummyBlock(factory, 0);
     block4.parentHashes = [block3.getHash()];
     const patch4 = patch3.merge(new factory.PatchDB());
-    patch4.setGroupId(0);
+    patch4.setConciliumId(0);
 
-    // this patch will win for group 0
+    // this patch will win for concilium 0
     patch4.getContract = sinon.fake.returns(isContractFound);
 
-    // let's add another group again
+    // let's add another concilium again
     const block5 = createDummyBlock(factory, 1);
     block5.parentHashes = [block4.getHash()];
     const patch5 = patch4.merge(new factory.PatchDB());
-    patch5.setGroupId(1);
+    patch5.setConciliumId(1);
 
-    // let's add third group with parent of 2d block
+    // let's add third concilium with parent of 2d block
     const block6 = createDummyBlock(factory, 2);
     block6.parentHashes = [block2.getHash()];
     const patch6 = patch4.merge(new factory.PatchDB());
-    patch6.setGroupId(2);
+    patch6.setConciliumId(2);
 
     pbm.addBlock(block1, patch1);
     pbm.addBlock(block2, patch2);
@@ -282,9 +282,9 @@ describe('Pending block manager', async () => {
             assert.isOk(arrayEquals(pbm.getTips(), [block4.getHash()]));
         });
 
-        it('should reach the FINALITY (3 groups. conflicting branches)', async () => {
+        it('should reach the FINALITY (3 conciliums. conflicting branches)', async () => {
 
-            const numOfWitnessGroup = 3;
+            const numOfConcilium = 3;
 
             // see illustration page "rejected block consensus"
             const block1 = createDummyBlock(factory, 0);
@@ -319,16 +319,16 @@ describe('Pending block manager', async () => {
                 block6 = createDummyBlock(factory, 1);
                 block6.parentHashes = arrParents;
                 pbm.addBlock(block6, new factory.PatchDB(0));
-                const result = pbm.checkFinality(block6.getHash(), numOfWitnessGroup);
+                const result = pbm.checkFinality(block6.getHash(), numOfConcilium);
 
                 // no finality
                 assert.notOk(result);
             }
 
-            // connection to group0 restored
+            // connection to concilium0 restored
             pbm.addBlock(block1, new factory.PatchDB(0));
             {
-                const result = pbm.checkFinality(block1.getHash(), numOfWitnessGroup);
+                const result = pbm.checkFinality(block1.getHash(), numOfConcilium);
 
                 // no finality
                 assert.notOk(result);
@@ -340,7 +340,7 @@ describe('Pending block manager', async () => {
                 pbm.addBlock(block7, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfWitnessGroup);
+                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfConcilium);
 
                 assert.equal(setBlocksToRollback.size, 1);
                 assert.isOk(setBlocksToRollback.has(block3.getHash()));
@@ -363,7 +363,7 @@ describe('Pending block manager', async () => {
                 pbm.addBlock(block8, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block8.getHash(), numOfWitnessGroup);
+                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block8.getHash(), numOfConcilium);
 
                 // block 3 is already deleted
                 assert.equal(setBlocksToRollback.size, 0);
@@ -410,7 +410,7 @@ describe('Pending block manager', async () => {
             assert.equal(strHash, block1.getHash());
         });
 
-        it('should pick longest path in chain for group 0', async () => {
+        it('should pick longest path in chain for concilium 0', async () => {
             const arrBlockHashes = createSample(pbm);
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
@@ -423,7 +423,7 @@ describe('Pending block manager', async () => {
             assert.equal(strHash, arrBlockHashes[4]);
         });
 
-        it('should pick longest path in chain for group 1', async () => {
+        it('should pick longest path in chain for concilium 1', async () => {
             const arrBlockHashes = createSample(pbm);
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
@@ -436,7 +436,7 @@ describe('Pending block manager', async () => {
             assert.equal(strHash, arrBlockHashes[4]);
         });
 
-        it('should pick longest path in chain for group 2', async () => {
+        it('should pick longest path in chain for concilium 2', async () => {
             const arrBlockHashes = createSample(pbm);
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
@@ -453,7 +453,7 @@ describe('Pending block manager', async () => {
             const arrHashes = createSample(pbm);
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
 
-            // block4 is winner (don't confuse with winner tip, which is block5) as latest for group 0
+            // block4 is winner (don't confuse with winner tip, which is block5) as latest for concilium 0
             const {patch} = pbm._dag.readObj(arrHashes[3]);
             assert.isOk(patch.getContract.calledOnce);
 

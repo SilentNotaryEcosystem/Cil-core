@@ -48,7 +48,7 @@ describe('Contract integration tests', () => {
         assert.isOk(changeTxHash);
         const changeUxo = patchTx.getUtxo(changeTxHash);
         assert.isOk(changeUxo);
-        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
+        assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_CREATION_FEE);
 
         // no UTXO created for transferred coins
         assert.isNotOk(patchTx.getUtxo(tx.getHash()));
@@ -86,7 +86,7 @@ describe('Contract integration tests', () => {
         assert.isOk(changeUxo);
 
         const expectedChange = nCoinsIn -
-                               factory.Constants.fees.CONTRACT_FEE -
+                               factory.Constants.fees.CONTRACT_CREATION_FEE -
                                contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
 
         assert.equal(changeUxo.amountOut(), expectedChange);
@@ -158,7 +158,7 @@ describe('Contract integration tests', () => {
             assert.isOk(changeTxHash);
             const changeUxo = patchRun.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
-            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_FEE);
+            assert.equal(changeUxo.amountOut(), nCoinsIn - factory.Constants.fees.CONTRACT_INVOCATION_FEE);
 
             // no UTXO created for transferred coins
             assert.isNotOk(patchRun.getUtxo(tx.getHash()));
@@ -183,26 +183,56 @@ describe('Contract integration tests', () => {
             undefined
         );
 
-        // tx1 & tx2 created with witnessGroupId 0
+        // tx1 & tx2 created with conciliumId 0
         const block = new factory.Block(0);
         block.addTx(tx1);
         block.addTx(tx2);
-        block.finish(0, pseudoRandomBuffer(33));
+        block.finish(0, generateAddress());
 
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();
         node._storage.getContract = () => new factory.Contract({
-            groupId: 0,
+            conciliumId: 0,
             contractCode: '{"add": "(a){this.value+=a;}"}',
             contractData: {value: 23}
         }, strContractAddr);
 
         const patchState = await node._execBlock(block);
+
         assert.isOk(patchState);
         const patchContract = patchState.getContract(strContractAddr);
         assert.isOk(patchContract);
         assert.deepEqual(patchContract.getData(), {value: 133});
     });
+
+//    it('should create block with 2 subsequent calls', async () => {
+//        const keyPair1 = factory.Crypto.createKeyPair();
+//        const wallet = new factory.Wallet(keyPair1.privateKey);
+//        const witness = new factory.Witness({wallet});
+//        await witness.ensureLoaded();
+//
+//        const strContractAddr = generateAddress().toString('hex');
+//        const tx1 = factory.Transaction.invokeContract(
+//            strContractAddr,
+//            createObjInvocationCode('add', [10]),
+//            100,
+//            undefined
+//        );
+//        const tx2 = factory.Transaction.invokeContract(
+//            strContractAddr,
+//            createObjInvocationCode('add', [100]),
+//            100,
+//            undefined
+//        );
+//
+//        witness._pendingBlocks.getBestParents =sinon.fake.resolves({arrParents: pseudoRandomBuffer()});
+//        witness._calcHeight =sinon.fake.returns(10);
+//        witness._mempool.getFinalTxns=sinon.fake.returns([tx1, tx2]);
+//        witness._processTx=sinon.fake((n1,n2,tx) =>{
+//
+//        });
+//
+//    });
 
     it('should INVOKE CONTRACT with EMPTY CODE when transferring moneys to contract', async () => {
         const buffContractAddr = generateAddress();
@@ -236,20 +266,21 @@ describe('Contract integration tests', () => {
         const tx2 = new factory.Transaction();
         tx2.addReceiver(3000, buffContractAddr);
 
-        // tx1 & tx2 created with witnessGroupId 0
+        // tx1 & tx2 created with conciliumId 0
         const block = new factory.Block(0);
         block.addTx(tx1);
         block.addTx(tx2);
-        block.finish(0, pseudoRandomBuffer(33));
+        block.finish(0, generateAddress());
 
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();
         node._storage.getContract = () => new factory.Contract({
-            groupId: 0,
+            conciliumId: 0,
             contractCode: '{"_default": "(){}"}'
         }, strContractAddr);
 
         const patchState = await node._execBlock(block);
+
         assert.isOk(patchState);
         const contractPatch = patchState.getContract(strContractAddr);
         assert.isOk(contractPatch);
@@ -268,13 +299,17 @@ describe('Contract integration tests', () => {
             class TestContract extends Base{
                 constructor(answer) {
                     super();
-                    this._ownerAddress = callerAddress;
                     this._contractAddr = contractAddr;
                     this._someData=answer;
                 }
                 
-                testVariables() {
-                    this._testResult= this._ownerAddress === callerAddress && this._contractAddr === contractAddr;
+                testVariables(blockHash, blockHeight, blockTimestamp) {
+                    this._testResult= this._ownerAddress === callerAddress && 
+                    this._contractAddr === contractAddr &&
+                    value === ${nCoinsSentToContract} &&
+                    block.hash &&
+                    block.height === blockHeight,
+                    block.timestamp===blockTimestamp;
                 }
             };
 
@@ -282,6 +317,13 @@ describe('Contract integration tests', () => {
             `;
         const tx = factory.Transaction.createContract(contractCode, generateAddress());
         tx.signForContract(kp.privateKey);
+
+        const fakeBlock = {
+            getHeight: () => 11,
+            timestamp: Date.now(),
+            getHash: () => pseudoRandomBuffer().toString('hex')
+        };
+        node._processedBlock = fakeBlock;
 
         // deploy contract and check success
         await node._processContract(false, undefined, tx, patchTx, new factory.PatchDB(), nCoinsIn);
@@ -306,7 +348,7 @@ describe('Contract integration tests', () => {
             const changeUxo = patchTx.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
             const expectedChange = nCoinsIn -
-                                   factory.Constants.fees.CONTRACT_FEE -
+                                   factory.Constants.fees.CONTRACT_CREATION_FEE -
                                    contract.getDataSize() * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
 
             assert.equal(changeUxo.amountOut(), expectedChange);
@@ -315,7 +357,10 @@ describe('Contract integration tests', () => {
         const contractDataSize = contract.getDataSize();
 
         // call for it
-        const objCodeToRun = createObjInvocationCode('testVariables', []);
+        const objCodeToRun = createObjInvocationCode(
+            'testVariables',
+            [fakeBlock.getHash(), fakeBlock.getHeight(), fakeBlock.timestamp]
+        );
         const txRun = factory.Transaction.invokeContract(
             contract.getStoredAddress(),
             objCodeToRun,
@@ -325,6 +370,7 @@ describe('Contract integration tests', () => {
         txRun.signForContract(kp.privateKey);
 
         const patchRun = new factory.PatchDB();
+        node._processedBlock = fakeBlock;
 
         await node._processContract(false, contract, txRun, patchRun, new factory.PatchDB(), nCoinsIn);
         {
@@ -348,7 +394,7 @@ describe('Contract integration tests', () => {
             const changeUxo = patchRun.getUtxo(changeTxHash);
             assert.isOk(changeUxo);
             const expectedChange = nCoinsIn -
-                                   factory.Constants.fees.CONTRACT_FEE -
+                                   factory.Constants.fees.CONTRACT_INVOCATION_FEE -
                                    (contract.getDataSize() - contractDataSize) *
                                    factory.Constants.fees.STORAGE_PER_BYTE_FEE;
 
@@ -385,8 +431,8 @@ describe('Contract integration tests', () => {
             };
         });
 
-        it('should FAIL (not enough moneys)', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+        it('should FAIL (not enough coins)', async () => {
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             const txReceipt = await node._app.runContract(
                 coinsLimit,
                 createObjInvocationCode('test', [strAddress, contractBalance + 1]),
@@ -401,7 +447,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL (not enough coins to perform send)', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             const txReceipt = await node._app.runContract(
                 coinsLimit - 1,
                 createObjInvocationCode('test', [strAddress, contractBalance]),
@@ -416,7 +462,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should Success', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             const strThisTxHash = pseudoRandomBuffer().toString('hex');
             const patchTx = new factory.PatchDB();
             const txReceipt = await node._app.runContract(
@@ -467,7 +513,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL to call (not enough coins to perform)', async () => {
-            const coinsLimit = factory.Constants.fees.CONTRACT_FEE;
+            const coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
             const txReceipt = await node._app.runContract(
                 coinsLimit - 1,
                 createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
@@ -482,7 +528,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL to call (trying to pass more coins than have)', async () => {
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_FEE;
+            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE;
 
             contract = new factory.Contract({
                 contractCode: `{"test": "<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments, coinsLimit: ${coinsLimit}})}"}`
@@ -504,7 +550,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should FAIL to call (trying to pass negative coinsLimit)', async () => {
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_FEE;
+            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE;
 
             contract = new factory.Contract({
                 contractCode: `{"test": "<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments, coinsLimit: -1})}"}`
@@ -526,7 +572,8 @@ describe('Contract integration tests', () => {
         });
 
         it('should SUCCESSFULLY "call" nested contract with nested send', async () => {
-            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
+            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                               factory.Constants.fees.INTERNAL_TX_FEE;
 
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
@@ -595,7 +642,8 @@ describe('Contract integration tests', () => {
         });
 
         it('should SUCCESSFULLY "delegatecall" nested contract with nested send', async () => {
-            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_FEE + factory.Constants.fees.INTERNAL_TX_FEE + 1;
+            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                               factory.Constants.fees.INTERNAL_TX_FEE + 1;
 
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
@@ -610,10 +658,10 @@ describe('Contract integration tests', () => {
                 contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
                 contractCode: JSON.stringify((objCode))
             }, strContractCallerAddr);
+
             const objCode2 = {
                 "testAnother": `<(strAddress){this._receivers['test']=1;}`
             };
-
             const strContractSenderAddr = generateAddress().toString('hex');
             const contract2 = new factory.Contract({
                 contractData: {_callCount: 100},

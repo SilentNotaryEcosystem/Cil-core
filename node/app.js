@@ -58,7 +58,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 // input.txHash - UTXO
                 const strInputTxHash = input.txHash.toString('hex');
                 const utxo = patchForBlock.getUtxo(strInputTxHash);
-                if (!utxo) throw new Error(`UTXO for ${strInputTxHash} not found in patch`);
+                if (!utxo) throw new Error(`UTXO ${strInputTxHash} of ${txHash} not found in patch`);
 
                 const coins = utxo.coinsAtIndex(input.nTxOutput);
 
@@ -109,7 +109,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
         createContract(coinsLimit, strCode, environment) {
 
             // deduce contract creation fee
-            let coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_FEE);
+            let coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_CREATION_FEE);
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
@@ -216,7 +216,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             try {
 
                 // deduce contract creation fee
-                coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_FEE);
+                coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_INVOCATION_FEE);
 
                 if (!objMethods[objInvocationCode.method]) {
                     throw new Error(`Method ${objInvocationCode.method} not found`);
@@ -366,7 +366,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             const contract = new Contract({
                 contractCode: strCodeExportedFunctions,
                 contractData: data,
-                groupId: this._groupId
+                conciliumId: this._conciliumId
             });
             contract.storeAddress(contractAddr);
 

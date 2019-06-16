@@ -5,7 +5,7 @@ const debugLib = require('debug');
 const sinon = require('sinon');
 
 const factory = require('../testFactory');
-const {pseudoRandomBuffer, createDummyTx, processBlock} = require('../testUtil');
+const {generateAddress, createDummyTx, processBlock} = require('../testUtil');
 const {sleep} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
@@ -17,26 +17,26 @@ const delay = 10;
 const maxConnections = 4;
 //const maxConnections = os.platform() === 'win32' ? 4 : 8;
 
-let groupId = 11;
+let conciliumId = 11;
 let arrKeyPairs;
-let groupDefinition;
+let concilium;
 
-const patchNodeForWitnesses = (node, groupDefinition) => {
-    node._storage.getWitnessGroupsByKey = sinon.fake.returns([groupDefinition]);
-    node._storage.getWitnessGroupById = sinon.fake.returns(groupDefinition);
+const patchNodeForWitnesses = (node, concilium) => {
+    node._storage.getConciliumsByAddress = sinon.fake.returns([concilium]);
+    node._storage.getConciliumById = sinon.fake.returns(concilium);
 };
 
-const createDummyDefinition = (groupId = 0, numOfKeys = 2) => {
+const createDummyDefinition = (conciliumId = 0, numOfKeys = 2) => {
     const arrKeyPairs = [];
-    const arrPublicKeys = [];
+    const arrAddresses = [];
     for (let i = 0; i < numOfKeys; i++) {
         const keyPair = factory.Crypto.createKeyPair();
         arrKeyPairs.push(keyPair);
-        arrPublicKeys.push(keyPair.publicKey);
+        arrAddresses.push(keyPair.address);
     }
-    const groupDefinition = factory.WitnessGroupDefinition.create(groupId, arrPublicKeys);
+    const concilium = factory.ConciliumRr.create(conciliumId, arrAddresses);
 
-    return {arrKeyPairs, groupDefinition};
+    return {arrKeyPairs, concilium};
 };
 
 let witnesNo = 1;
@@ -44,6 +44,8 @@ const createWitnesses = (num, seedAddress) => {
     const arrWitnesses = [];
 
     for (let i = 0; i < num; i++) {
+
+        // we use arrKeyPairs that filled in beforeEach -> createDummyDefinition
         const witnessWallet = new factory.Wallet(arrKeyPairs[i].getPrivate());
         const witness = new factory.Witness({
             wallet: witnessWallet,
@@ -51,7 +53,7 @@ const createWitnesses = (num, seedAddress) => {
             delay,
             arrSeedAddresses: [seedAddress]
         });
-        patchNodeForWitnesses(witness, groupDefinition);
+        patchNodeForWitnesses(witness, concilium);
         arrWitnesses.push(witness);
     }
     witnesNo += num;
@@ -63,31 +65,32 @@ const createGenesisBlock = () => {
     const tx = new factory.Transaction(createDummyTx());
     const block = new factory.Block(0);
     block.addTx(tx);
-    block.finish(0, pseudoRandomBuffer(33));
+    block.finish(0, generateAddress());
     factory.Constants.GENESIS_BLOCK = block.hash();
 
     return block;
 };
 
-const createGenesisBlockAndSpendingTx = (witnessGroupId = 0) => {
+const createGenesisBlockAndSpendingTx = (conciliumId = 0) => {
     const receiverKeyPair = factory.Crypto.createKeyPair();
-    const buffReceiverAddress = factory.Crypto.getAddress(receiverKeyPair.publicKey, true);
+    const buffReceiverAddress = Buffer.from(receiverKeyPair.address, 'hex');
 
     // create "genesis" tx
     const txGen = new factory.Transaction();
-    txGen.witnessGroupId = 0;
+    txGen.conciliumId = 0;
     txGen.addInput(Buffer.alloc(32), 0);
     txGen.addReceiver(1000000, buffReceiverAddress);
 
     // create "genesis" block
     const genesis = new factory.Block(0);
     genesis.addTx(txGen);
-    genesis.finish(0, pseudoRandomBuffer(33));
+    genesis.setHeight(1);
+    genesis.finish(0, generateAddress());
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     // create spending tx
     const tx = new factory.Transaction();
-    tx.witnessGroupId = witnessGroupId;
+    tx.conciliumId = conciliumId;
     tx.addInput(txGen.hash(), 0);
     tx.addReceiver(1000, buffReceiverAddress);
     tx.claim(0, receiverKeyPair.privateKey);
@@ -102,7 +105,7 @@ describe('Witness integration tests', () => {
     });
 
     beforeEach(async function() {
-        ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupId, maxConnections));
+        ({arrKeyPairs, concilium} = createDummyDefinition(conciliumId, maxConnections));
     });
 
     after(async function() {
@@ -192,17 +195,17 @@ describe('Witness integration tests', () => {
     it('should commit one block (tx in mempool)', async function() {
         this.timeout(maxConnections * 60000);
 
-        const {genesis, tx} = createGenesisBlockAndSpendingTx(groupId);
+        const {genesis, tx} = createGenesisBlockAndSpendingTx(conciliumId);
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({
             listenAddr: seedAddress,
             delay,
-            arrTestDefinition: [groupDefinition],
+            arrTestDefinition: [concilium],
             isSeed: true
         });
 
-        patchNodeForWitnesses(seedNode, groupDefinition);
+        patchNodeForWitnesses(seedNode, concilium);
         await seedNode.ensureLoaded();
         await processBlock(seedNode, genesis);
 
@@ -246,8 +249,8 @@ describe('Witness integration tests', () => {
     it('should work for SINGLE WITNESS (commit one block tx in mempool)', async function() {
         this.timeout(maxConnections * 60000);
 
-        ({arrKeyPairs, groupDefinition} = createDummyDefinition(groupId, 1));
-        const {genesis, tx} = createGenesisBlockAndSpendingTx(groupId);
+        ({arrKeyPairs, concilium} = createDummyDefinition(conciliumId, 1));
+        const {genesis, tx} = createGenesisBlockAndSpendingTx(conciliumId);
 
         const seedAddress = factory.Transport.generateAddress();
         const seedNode = new factory.Node({
@@ -257,7 +260,7 @@ describe('Witness integration tests', () => {
             rpcPass: 'test',
             isSeed: true
         });
-        patchNodeForWitnesses(seedNode, groupDefinition);
+        patchNodeForWitnesses(seedNode, concilium);
         await seedNode.ensureLoaded();
         await processBlock(seedNode, genesis);
 
@@ -289,13 +292,13 @@ describe('Witness integration tests', () => {
         await Promise.all(arrBlocksPromises);
     });
 
-    it('should NOT commit block (there is TX in mempool, but wrong witnessGroupId)', async function() {
+    it('should NOT commit block (there is TX in mempool, but wrong conciliumId)', async function() {
         this.timeout(maxConnections * 60000);
 
         // this will prevent generating empty block while we run this test
         factory.Constants.WITNESS_HOLDOFF = 2 * maxConnections * 60000;
 
-        // it will create tx for groupId==2
+        // it will create tx for conciliumId==2
         const {genesis, tx} = createGenesisBlockAndSpendingTx(2);
 
         const seedAddress = factory.Transport.generateAddress();
@@ -306,11 +309,11 @@ describe('Witness integration tests', () => {
             rpcPass: 'test',
             isSeed: true
         });
-//        patchNodeForWitnesses(seedNode, groupDefinition);
+//        patchNodeForWitnesses(seedNode, concilium);
         await seedNode.ensureLoaded();
         await processBlock(seedNode, genesis);
 
-        // create 'maxConnections' witnesses for groupId (11 see global variable)
+        // create 'maxConnections' witnesses for conciliumId (11 see global variable)
         const arrWitnesses = createWitnesses(maxConnections, seedAddress);
 
         const acceptBlockFake = sinon.fake();
@@ -346,10 +349,10 @@ describe('Witness integration tests', () => {
     //        const kpGood = factory.Crypto.createKeyPair();
     //        const kpWalletFake = factory.Crypto.createKeyPair();
     //
-    //        const groupName = 'test';
+    //        const conciliumName = 'test';
     //        const arrTestDefinition = [
-    //            [groupName, [kpTest.getPublic(), kpGood.getPublic()]],
-    //            ['anotherGroup', ['pubkey3', 'pubkey4']]
+    //            [conciliumName, [kpTest.getPublic(), kpGood.getPublic()]],
+    //            ['anotherConcilium', ['pubkey3', 'pubkey4']]
     //        ];
     //
     //        // create fake

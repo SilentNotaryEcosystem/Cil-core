@@ -120,6 +120,7 @@ describe('Node integration tests', () => {
             queryTimeout: 5000,
             arrSeedAddresses: [addr]
         });
+        await newNode.ensureLoaded();
         await newNode.bootstrap();
     });
 
@@ -219,7 +220,7 @@ describe('Node integration tests', () => {
 
             // set fakes for _mempool.addTx that means: node received tx
             arrTxPromises.push(new Promise(resolve => {
-                arrNodes[i]._mempool.addTx = resolve;
+                arrNodes[i]._handleTxMessage = resolve;
             }));
             arrBootrapPromises.push(arrNodes[i].bootstrap());
         }
@@ -281,7 +282,7 @@ describe('Node integration tests', () => {
         const amount = 1e6;
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._storage.getWitnessGroupsCount = () => 3;
+        node._storage.getConciliumsCount = () => 3;
         node._unwindBlock = sinon.fake();
 
         const kpReceiver = factory.Crypto.createKeyPair();
@@ -291,7 +292,7 @@ describe('Node integration tests', () => {
         let gBlock;
         {
             const tx = new factory.Transaction();
-            tx.witnessGroupId = 1;
+            tx.conciliumId = 1;
 
             // spend idx 0
             tx.addInput(pseudoRandomBuffer(), 0);
@@ -299,10 +300,13 @@ describe('Node integration tests', () => {
             tx.addReceiver(amount, kpReceiver.getAddress(true));
             gBlock = new factory.Block(0);
             gBlock.addTx(tx);
-            gBlock.finish(0, pseudoRandomBuffer(33));
+            gBlock.finish(0, generateAddress());
+
+            gBlock.setHeight(0);
+
+            txHash = tx.hash();
 
             factory.Constants.GENESIS_BLOCK = gBlock.getHash();
-            txHash = tx.hash();
         }
         const gPatch = await processBlock(node, gBlock);
         assert.isOk(gPatch);
@@ -322,7 +326,7 @@ describe('Node integration tests', () => {
         let block21;
         {
             const tx = new factory.Transaction();
-            tx.witnessGroupId = 1;
+            tx.conciliumId = 1;
             tx.addInput(txHash, 0);
             tx.addReceiver(1e3, generateAddress());
             tx.addReceiver(1e3, kpReceiver.getAddress(true));
@@ -331,7 +335,9 @@ describe('Node integration tests', () => {
             block21 = new factory.Block(1);
             block21.parentHashes = [gBlock.getHash()];
             block21.addTx(tx);
-            block21.finish(1e6 - 2e3, pseudoRandomBuffer(33));
+            block21.finish(1e6 - 2e3, generateAddress());
+
+            block21.setHeight(node._calcHeight(block21.parentHashes));
         }
         const patch21 = await processBlock(node, block21);
 
@@ -350,7 +356,7 @@ describe('Node integration tests', () => {
         let block10;
         {
             const tx = new factory.Transaction();
-            tx.witnessGroupId = 0;
+            tx.conciliumId = 0;
 
             // spend idx 0
             tx.addInput(txHash, 0);
@@ -361,7 +367,8 @@ describe('Node integration tests', () => {
             block10 = new factory.Block(0);
             block10.parentHashes = [gBlock.getHash()];
             block10.addTx(tx);
-            block10.finish(1e6 - 2e3, pseudoRandomBuffer(33));
+            block10.finish(1e6 - 2e3, generateAddress());
+            block10.setHeight(node._calcHeight(block10.parentHashes));
         }
         const patch10 = await processBlock(node, block10);
 
@@ -381,7 +388,8 @@ describe('Node integration tests', () => {
         {
             block32 = new factory.Block(2);
             block32.parentHashes = [block21.getHash()];
-            block32.finish(0, pseudoRandomBuffer(33));
+            block32.finish(0, generateAddress());
+            block32.setHeight(node._calcHeight(block32.parentHashes));
         }
         const patch32 = await processBlock(node, block32);
         {

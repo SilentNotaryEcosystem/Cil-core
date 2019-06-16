@@ -17,6 +17,9 @@ const createUtxo = (arrIndexes) => {
     return utxo;
 };
 
+const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer()})
+    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
+
 describe('PatchDB', () => {
     before(async function() {
         this.timeout(15000);
@@ -309,7 +312,7 @@ describe('PatchDB', () => {
         patch.spendCoins(utxo, 12, spendingTx);
 
         const mergedPatch = patch.merge(new factory.PatchDB(1));
-        mergedPatch.setGroupId(1);
+        mergedPatch.setConciliumId(1);
         mergedPatch.spendCoins(utxo, 0, spendingTx);
 
         const level3Patch = mergedPatch.merge(new factory.PatchDB(0));
@@ -380,27 +383,27 @@ describe('PatchDB', () => {
     });
 
     it('should set level', async () => {
-        const groupId = 12;
-        const patch = new factory.PatchDB(groupId);
-        assert.equal(patch._mapGroupLevel.get(groupId), 1);
+        const conciliumId = 12;
+        const patch = new factory.PatchDB(conciliumId);
+        assert.equal(patch._mapConciliumLevel.get(conciliumId), 1);
     });
 
     it('should get level', async () => {
         const patch = new factory.PatchDB(0);
         const patchMerged = patch.merge(new factory.PatchDB(1));
 
-        assert.equal(patchMerged._mapGroupLevel.get(0), 1);
-        assert.equal(patchMerged._mapGroupLevel.get(1), 1);
+        assert.equal(patchMerged._mapConciliumLevel.get(0), 1);
+        assert.equal(patchMerged._mapConciliumLevel.get(1), 1);
 
-        patchMerged.setGroupId(1);
-        assert.equal(patchMerged._mapGroupLevel.get(1), 2);
+        patchMerged.setConciliumId(1);
+        assert.equal(patchMerged._mapConciliumLevel.get(1), 2);
 
         const patchMergedAgain = patchMerged.merge(new factory.PatchDB(1));
-        assert.equal(patchMergedAgain._mapGroupLevel.get(0), 1);
-        assert.equal(patchMergedAgain._mapGroupLevel.get(1), 2);
+        assert.equal(patchMergedAgain._mapConciliumLevel.get(0), 1);
+        assert.equal(patchMergedAgain._mapConciliumLevel.get(1), 2);
 
-        patchMergedAgain.setGroupId(1);
-        assert.equal(patchMergedAgain._mapGroupLevel.get(1), 3);
+        patchMergedAgain.setConciliumId(1);
+        assert.equal(patchMergedAgain._mapConciliumLevel.get(1), 3);
     });
 
     it('should set/get contract', async () => {
@@ -413,7 +416,7 @@ describe('PatchDB', () => {
             const contract = new factory.Contract({
                 contractData: objData,
                 contractCode: strCode,
-                groupId: 0
+                conciliumId: 0
             });
             contract.storeAddress(contractAddr);
             patch.setContract(contract);
@@ -433,33 +436,33 @@ describe('PatchDB', () => {
         {
             const contract = new factory.Contract({
                 contractData: objData,
-                groupId: 0
+                conciliumId: 0
             });
             contract.storeAddress(contractAddr);
             patch.setContract(contract);
         }
 
         const patchDerived = patch.merge(new factory.PatchDB(1));
-        patchDerived.setGroupId(1);
+        patchDerived.setConciliumId(1);
         const contract = patchDerived.getContract(contractAddr);
 
         assert.isOk(contract);
         assert.deepEqual(contract.getData(), objData);
     });
 
-    it('should fail to merge patches (contract belongs to different groups)', async () => {
+    it('should fail to merge patches (contract belongs to different conciliums)', async () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch1 = new factory.PatchDB(0);
         {
-            const contract = new factory.Contract({groupId: 0});
+            const contract = new factory.Contract({conciliumId: 0});
             contract.storeAddress(contractAddr);
             patch1.setContract(contract);
         }
 
         const patch2 = new factory.PatchDB(1);
         {
-            const contract = new factory.Contract({groupId: 1});
+            const contract = new factory.Contract({conciliumId: 1});
             contract.storeAddress(contractAddr);
             patch2.setContract(contract);
         }
@@ -471,13 +474,13 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
         const patch = new factory.PatchDB(0);
 
-        const contract1 = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        const contract1 = new factory.Contract({contractData: {value: 1}, conciliumId: 0});
         contract1.storeAddress(contractAddr);
         patch.setContract(contract1);
 
         const patchDerived = patch.merge(new factory.PatchDB());
-        patchDerived.setGroupId(0);
-        const contract2 = new factory.Contract({contractData: {value: 2}, groupId: 0});
+        patchDerived.setConciliumId(0);
+        const contract2 = new factory.Contract({contractData: {value: 2}, conciliumId: 0});
         contract2.storeAddress(contractAddr);
         patchDerived.setContract(contract2);
 
@@ -498,7 +501,7 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
-        const contract1 = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        const contract1 = new factory.Contract({contractData: {value: 1}, conciliumId: 0});
         contract1.storeAddress(contractAddr);
         patch.setContract(contract1);
 
@@ -525,12 +528,12 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
-        const contract = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        const contract = new factory.Contract({contractData: {value: 1}, conciliumId: 0});
         contract.storeAddress(contractAddr);
         patch.setContract(contract);
 
         const patchDerived = patch.merge(new factory.PatchDB());
-        patchDerived.setGroupId(1);
+        patchDerived.setConciliumId(1);
         patchDerived.purge(patch);
 
         assert.isNotOk(patchDerived.getContract(contractAddr));
@@ -540,14 +543,14 @@ describe('PatchDB', () => {
         const contractAddr = generateAddress().toString('hex');
 
         const patch = new factory.PatchDB(0);
-        const contract = new factory.Contract({contractData: {value: 1}, groupId: 0});
+        const contract = new factory.Contract({contractData: {value: 1}, conciliumId: 0});
         contract.storeAddress(contractAddr);
         patch.setContract(contract);
 
         const patchDerived = patch.merge(new factory.PatchDB());
-        patchDerived.setGroupId(0);
+        patchDerived.setConciliumId(0);
 
-        const contract2 = new factory.Contract({contractData: {value: 2}, groupId: 0});
+        const contract2 = new factory.Contract({contractData: {value: 2}, conciliumId: 0});
         contract2.storeAddress(contractAddr);
         patchDerived.setContract(contract2);
         patchDerived.purge(patch);
@@ -608,6 +611,13 @@ describe('PatchDB', () => {
         patch.spendCoins(utxo, 0, pseudoRandomBuffer());
 
         patch.validateAgainstStable(patchStable);
+    });
+
+    it('should increment nonce', async () => {
+        const patch = new factory.PatchDB(0);
+        assert.equal(patch.getNonce(), 0);
+        assert.equal(patch.getNonce(), 1);
+        assert.equal(patch.getNonce(), 2);
     });
 
     describe('setReceipt', () => {
@@ -674,28 +684,28 @@ describe('PatchDB', () => {
             const strTxHash = pseudoRandomBuffer().toString('hex');
 
             const receipt1 = new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK});
-            receipt1.addInternalTx(pseudoRandomBuffer().toString('hex'));
-            receipt1.addInternalTx(pseudoRandomBuffer().toString('hex'));
+            receipt1.addInternalUtxo(createInternalUtxo());
+            receipt1.addInternalUtxo(createInternalUtxo());
 
             patch.setReceipt(strTxHash, receipt1);
 
             {
                 const arrReceipts = [...patch.getReceipts()];
                 assert.equal(arrReceipts.length, 1);
-                const [txHash, receipt] = arrReceipts[0];
+                const [, receipt] = arrReceipts[0];
                 assert.equal(receipt.getInternalTxns().length, 2);
             }
 
             const receipt2 = new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK});
-            receipt2.addInternalTx(pseudoRandomBuffer().toString('hex'));
-            receipt2.addInternalTx(pseudoRandomBuffer().toString('hex'));
+            receipt2.addInternalUtxo(createInternalUtxo());
+            receipt2.addInternalUtxo(createInternalUtxo());
 
             patch.setReceipt(strTxHash, receipt2);
 
             {
                 const arrReceipts = [...patch.getReceipts()];
                 assert.equal(arrReceipts.length, 1);
-                const [txHash, receipt] = arrReceipts[0];
+                const [, receipt] = arrReceipts[0];
                 assert.equal(receipt.getInternalTxns().length, 4);
             }
         });

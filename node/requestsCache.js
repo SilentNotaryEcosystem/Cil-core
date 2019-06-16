@@ -18,7 +18,7 @@ module.exports = ({Constants}) =>
          * @param {Buffer | String} hash - hash to be requested
          * @returns {boolean}
          *   true - means we should request (not requested yet, or previous request was timed out
-         *   false - request is pending
+         *   false - request is already pending
          */
         request(hash) {
             typeforce(types.Hash256bit, hash);
@@ -49,4 +49,15 @@ module.exports = ({Constants}) =>
             this._mapRequests.delete(hash);
         }
 
+        isEmpty() {
+            this._purgeOutdated();
+            return this._mapRequests.size === 0;
+        }
+
+        _purgeOutdated() {
+            for (let hash of this._mapRequests.keys()) {
+                const awaitTill = this._mapRequests.get(hash);
+                if (!awaitTill || awaitTill < Date.now()) this._mapRequests.delete(hash);
+            }
+        }
     };

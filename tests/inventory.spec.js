@@ -2,7 +2,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 describe('Inventory', () => {
     before(async function() {
@@ -41,7 +41,7 @@ describe('Inventory', () => {
         const block = new factory.Block(0);
 
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, generateAddress());
 
         inv.addBlock(block);
         assert.isOk(inv.vector[0]);
@@ -64,7 +64,7 @@ describe('Inventory', () => {
 
         const block = new factory.Block(0);
         block.addTx(tx);
-        block.finish(factory.Constants.fees.TX_FEE, pseudoRandomBuffer(33));
+        block.finish(factory.Constants.fees.TX_FEE, generateAddress());
 
         inv.addBlock(block);
 

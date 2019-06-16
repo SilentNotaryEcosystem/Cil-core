@@ -25,23 +25,23 @@ const createDummyPeer = (pubkey = '0a0b0c0d', address = factory.Transport.genera
 
 const createDummyPeerInfo = (pubkey, address) => createDummyPeer(pubkey, address).peerInfo;
 
-const createDummyDefinitionWallet = (groupId = 0) => {
+const createDummyDefinitionWallet = (conciliumId = 0) => {
     const keyPair1 = factory.Crypto.createKeyPair();
     const keyPair2 = factory.Crypto.createKeyPair();
     const newWallet = new factory.Wallet(keyPair1.privateKey);
 
-    const groupDefinition = factory.WitnessGroupDefinition.create(groupId,
+    const concilium = factory.ConciliumRr.create(conciliumId,
         [keyPair1.publicKey, keyPair2.publicKey]
     );
 
-    return {keyPair1, keyPair2, groupDefinition, newWallet};
+    return {keyPair1, keyPair2, concilium, newWallet};
 };
 
 const createDummyWitness = () => {
-    const {groupDefinition, newWallet} = createDummyDefinitionWallet();
-    const witness = new factory.Witness({wallet: newWallet, arrTestDefinition: [groupDefinition]});
+    const {concilium, newWallet} = createDummyDefinitionWallet();
+    const witness = new factory.Witness({wallet: newWallet, arrTestDefinition: [concilium]});
 
-    return {witness, groupDefinition};
+    return {witness, concilium};
 };
 
 describe('Witness tests', () => {
@@ -65,10 +65,10 @@ describe('Witness tests', () => {
         new factory.Witness({wallet});
     });
 
-    it('should get peers for my group', async () => {
-        const groupId = 0;
-        const {keyPair1, keyPair2, groupDefinition} = createDummyDefinitionWallet(groupId);
-        const witness = new factory.Witness({wallet, arrTestDefinition: [groupDefinition], isSeed: true});
+    it('should get peers for my concilium', async () => {
+        const conciliumId = 0;
+        const {keyPair1, keyPair2, concilium} = createDummyDefinitionWallet(conciliumId);
+        const witness = new factory.Witness({wallet, arrTestDefinition: [concilium], isSeed: true});
         await witness.ensureLoaded();
 
         const peer1 = createDummyPeer(keyPair1.publicKey);
@@ -79,27 +79,27 @@ describe('Witness tests', () => {
             await witness._peerManager.addPeer(peer);
         }
 
-        const result = await witness._getGroupPeers(groupDefinition);
+        const result = await witness._getConciliumPeers(concilium);
         assert.isOk(Array.isArray(result));
         assert.equal(result.length, 2);
     });
 
     it('should reject message with wrong signature prom peer', async () => {
-        const groupId = 11;
+        const conciliumId = 11;
 
-        // mock peer with public key from group
+        // mock peer with public key from concilium
         const peer = createDummyPeer();
 
-        const def = factory.WitnessGroupDefinition.create(
-            groupId,
+        const def = factory.ConciliumRr.create(
+            conciliumId,
             [wallet.publicKey, Buffer.from('pubkey1'), Buffer.from('pubkey2')]
         );
         const arrTestDefinition = [def];
 
         // create witness
         const witness = new factory.Witness({wallet, arrTestDefinition});
-        await witness._createConsensusForGroup(def);
-        const newBft = witness._consensuses.get(def.getGroupId());
+        await witness._createConsensusForConcilium(def);
+        const newBft = witness._consensuses.get(def.getConciliumId());
         newBft._stopTimer();
 
         try {
@@ -114,7 +114,7 @@ describe('Witness tests', () => {
     it('should create block', async () => {
         factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
 
-        const {witness, groupDefinition} = createDummyWitness();
+        const {witness, concilium} = createDummyWitness();
         await witness.ensureLoaded();
 
         const patchSource = new factory.PatchDB(0);
@@ -137,9 +137,9 @@ describe('Witness tests', () => {
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
-        const {block, patch} = await witness._createBlock(groupDefinition.getGroupId());
-        assert.equal(block.txns.length, 3);
+        witness._calcHeight = sinon.fake.returns(10);
 
-        assert.isOk(patch.getUtxo(new factory.Transaction(block.txns[0]).hash()));
+        const {block} = await witness._createBlock(concilium.getConciliumId());
+        assert.equal(block.txns.length, 3);
     });
 });

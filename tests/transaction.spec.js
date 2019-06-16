@@ -120,13 +120,13 @@ describe('Transaction tests', () => {
 
     it('should test setters/getters', async () => {
         const tx = new factory.Transaction();
-        tx.witnessGroupId = 17;
+        tx.conciliumId = 17;
         const [input1, input2] = [pseudoRandomBuffer(), pseudoRandomBuffer()];
         tx.addInput(input1, 15);
         tx.addInput(input2, 11);
         tx.addReceiver(1117, Buffer.allocUnsafe(20));
 
-        assert.equal(tx.witnessGroupId, 17);
+        assert.equal(tx.conciliumId, 17);
         assert.isOk(tx.inputs && tx.inputs.length === 2);
         assert.isOk(tx.outputs && tx.outputs.length === 1);
         assert.isNotOk(tx.claimProofs.length);
@@ -191,7 +191,7 @@ describe('Transaction tests', () => {
 
     it('should verify', async () => {
         const tx = new factory.Transaction();
-        tx.witnessGroupId = 0;
+        tx.conciliumId = 0;
         tx.addInput(pseudoRandomBuffer(), 0);
         tx.addReceiver(1, Buffer.allocUnsafe(20));
         tx.claim(0, keyPair.privateKey);
@@ -363,5 +363,46 @@ describe('Transaction tests', () => {
         );
 
         assert.isOk(buffAddr.equals(tx.getContractAddr()));
+    });
+
+    it('should calculate size', async () => {
+        const tx = new factory.Transaction(createDummyTx());
+        const size = tx.getSize();
+        assert.isOk(size);
+
+        // size of tx with 1 input, 1 output, claimProof (signature)
+        assert.isOk(size >= 111);
+    });
+
+    it('should calculate size with signature for contract', async () => {
+        const kp = factory.Crypto.createKeyPair();
+        const tx = new factory.Transaction(createDummyTx());
+        tx.signForContract(kp.privateKey);
+
+        const size = tx.getSize();
+        assert.isOk(size);
+
+        // size of tx with 1 input, 1 output, claimProof (signature), 1 tx signature
+        console.log(size);
+        assert.isOk(size >= 177);
+    });
+
+    describe('COINBASE TX', async () => {
+        it('should fail to verifyCoinbase (not a coinbase)', async () => {
+            const tx = new factory.Transaction(createDummyTx());
+            assert.throws(() => tx.verifyCoinbase(tx.amountOut()));
+        });
+
+        it('should fail to verifyCoinbase (bad amount)', async () => {
+            const coinbase = factory.Transaction.createCoinbase();
+            coinbase.addReceiver(100, generateAddress());
+            assert.throws(() => coinbase.verifyCoinbase(tx.amountOut() - 1));
+        });
+
+        it('should pass verifyCoinbase', async () => {
+            const coinbase = factory.Transaction.createCoinbase();
+            coinbase.addReceiver(100, pseudoRandomBuffer(20));
+            assert.doesNotThrow(() => coinbase.verifyCoinbase(coinbase.amountOut()));
+        });
     });
 });

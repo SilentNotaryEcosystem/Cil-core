@@ -145,10 +145,14 @@ module.exports = (factory) => {
             this._loadDone = true;
         }
 
-        get publicKey() {
+        /**
+         * @see witness.js/constructor
+         * @return {String}
+         */
+        get witnessAddress() {
             if (!this.isWitness) throw new Error('This peer has no witness capability');
             const witnessCap = this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
-            return witnessCap.data;
+            return witnessCap.data.toString('hex');
         }
 
         get witnessLoadDone() {
@@ -277,7 +281,7 @@ module.exports = (factory) => {
             if (msg.signature) {
 
                 // if message signed: check signature
-                if (this.isWitness && msg.verifySignature(this.publicKey)) {
+                if (this.isWitness && msg.address === this.witnessAddress) {
                     this.emit('witnessMessage', this, msg);
                 } else {
                     this.emit('witnessMessage', this, undefined);
@@ -293,6 +297,9 @@ module.exports = (factory) => {
 
         // TODO: for MsgGetData - make a cache for already requested hashes!
         async pushMessage(msg) {
+
+            // part of node bootstrap mechanism
+            if (msg.isGetBlocks()) this.getBlocksSent();
 
             // we have pending messages
             if (Array.isArray(this._queue)) {
@@ -437,6 +444,30 @@ module.exports = (factory) => {
         _updateMisbehave(score) {
             this.peerInfo.lifetimeMisbehaveScore += score;
             this._misbehaveScore += score;
+        }
+
+        markAsPossiblyAhead() {
+            this._bPossiblyAhead = true;
+        }
+
+        markAsEven() {
+            this._bPossiblyAhead = false;
+        }
+
+        isAhead() {
+            return this._bPossiblyAhead;
+        }
+
+        getBlocksSent() {
+            this._getBlocksValidTill = Date.now() + Constants.INV_REQUEST_HOLDOFF;
+        }
+
+        isGetBlocksSent() {
+            return this._getBlocksValidTill && this._getBlocksValidTill > Date.now();
+        }
+
+        doneGetBlocks() {
+            this._getBlocksValidTill = undefined;
         }
     };
 };

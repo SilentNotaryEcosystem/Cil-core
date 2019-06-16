@@ -99,6 +99,7 @@ module.exports = (Constants, Crypto, MessageProto) => {
         set pongMessage(unused) {
             this.message = MSG_PONG;
         }
+
         /**
          * ATTENTION! encodeDelimited will prefix buffer with length!
          *
@@ -132,9 +133,13 @@ module.exports = (Constants, Crypto, MessageProto) => {
             return Crypto.verify(this.payloadHash, this.signature, publicKey);
         }
 
-        get publicKey() {
+        get _publicKey() {
             if (!this.signature) throw new Error('Message has no signature');
             return Crypto.recoverPubKey(this.payloadHash, this.signature);
+        }
+
+        get address() {
+            return Crypto.getAddress(this._publicKey);
         }
 
         isVerAck() {
