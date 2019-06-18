@@ -12,3 +12,7 @@
 if you want tonns of debug info 
 - run `npm run-script testDebugNix` for ***nix**
 - run `npm run-script testDebugWin` for **Windows**
+## dev_dependencies
+--gcc
+-nodejs???
+--npm 
