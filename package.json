@@ -1,5 +1,8 @@
 {
   "name": "chain-in-law",
+  "engines": {
+    "node": ">=10.15.2"
+  },
   "version": "1.0.0",
   "main": "factory.js",
   "dependencies": {
