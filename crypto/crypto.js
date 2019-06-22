@@ -67,6 +67,7 @@ class KeyPair {
 const ALGO = 'aes256';
 const LENGTH = 16;
 const SCRYPT_OPTIONS = {N: 16384, p: 1};
+const PBKDF2_OPTIONS = {iterations: 1e5};
 
 class CryptoLib {
 
@@ -245,6 +246,11 @@ class CryptoLib {
         return crypto.scryptSync(password, salt, hashLength, options);
     }
 
+    static pbkdf2(password, salt, hashLength = 32, hashOptions) {
+        const {iterations} = hashOptions;
+        return crypto.pbkdf2Sync(password, salt, iterations, hashLength, null);
+    }
+
     /**
      *
      * @param {Buffer} buffer
@@ -270,8 +276,9 @@ class CryptoLib {
         let key;
         let options;
         switch (passwordHashFunction) {
-            case 'sha3':
-                key = this.sha3(password, 256);
+            case 'pbkdf2':
+                options = hashOptions || PBKDF2_OPTIONS;
+                key = this.pbkdf2(password, salt, 32, options);
                 break;
             case 'argon2':
                 key = this.argon2(password, salt, 32);
@@ -291,30 +298,20 @@ class CryptoLib {
      * Used to stored privateKey
      *
      * @param {String} password - plain text (utf8) secret
-     * @param {Buffer|String|Object} value - string or buffer to decrypt
+     * @param {Object} objEncryptedData - {iv, encrypted, salt, hashOptions, keyAlgo}
      * @return {Buffer} - decrypted key
      */
-    static async decrypt(password, value) {
-        let {iv, encryped, salt, hashOptions, keyAlgo} = value;
-        let key;
+    static decrypt(password, objEncryptedData) {
+        let {iv, encrypted, salt, hashOptions, keyAlgo} = objEncryptedData;
+        iv = Buffer.from(iv, 'hex');
+        encrypted = Buffer.from(encrypted, 'hex');
+        salt = !salt || Buffer.from(salt, 'hex');
 
-        if (Buffer.isBuffer(value) || typeof value === 'string') {
-            const ivEnc = Buffer.isBuffer(value) ? value : Buffer.from(value, 'hex');
-            iv = ivEnc.slice(0, LENGTH);
-            encryped = ivEnc.slice(LENGTH);
-
-            ({key} = this.createKey('sha3', password));
-        } else {
-            iv = Buffer.from(iv, 'hex');
-            encryped = Buffer.from(encryped, 'hex');
-            salt = !salt || Buffer.from(salt, 'hex');
-
-            ({key} = this.createKey(keyAlgo, password, salt, hashOptions));
-        }
+        const {key} = this.createKey(keyAlgo, password, salt, hashOptions);
 
         const decipher = crypto.createDecipheriv(ALGO, key, iv);
         try {
-            return Buffer.concat([decipher.update(encryped), decipher.final()]);
+            return Buffer.concat([decipher.update(encrypted), decipher.final()]);
         } catch (err) {
             return undefined;
         }
@@ -326,33 +323,22 @@ class CryptoLib {
      *
      * @param {String} password - utf8 encoded
      * @param {Buffer} buffer - buffer to encode
-     * @param {Object} options
-     * @param {String} options.keyAlgo - @see this.createKey
-     * @param {String} options.result
-     *                      'buffer'  - return encoded value as plain buffer. First {LENGTH} bytes - IV, rest - value
-     *                      any other - object {iv, salt, ecryped, }
-     * @return {Buffer | Object} @see options.result
+     * @param {String} keyAlgo - @see this.createKey
+     * @return {Object}
      */
-    static async encrypt(password, buffer, options = {keyAlgo: 'sha3', result: 'buffer'}) {
-        const {keyAlgo, result} = options;
+    static async encrypt(password, buffer, keyAlgo = 'scrypt') {
 
         // generate salt for 'scrypt' & 'argon2'
-        const salt = ['scrypt', 'argon2'].includes(keyAlgo) ? this.randomBytes(LENGTH) : undefined;
+        const salt = this.randomBytes(LENGTH);
 
         const {key, options: hashOptions} = this.createKey(keyAlgo, password, salt);
         const iv = this.randomBytes(LENGTH);
         const cipher = crypto.createCipheriv(ALGO, key, iv);
         const enc = Buffer.concat([cipher.update(buffer), cipher.final()]);
 
-        if (result === 'buffer') {
-            if (['scrypt', 'argon2'].includes(keyAlgo)) {
-                throw new Error('Only default password hash allows return encoded value as buffer');
-            }
-            return Buffer.concat([iv, enc], iv.length + enc.length);
-        }
         return {
             iv,
-            encryped: enc,
+            encrypted: enc,
             salt,
             hashOptions,
             keyAlgo

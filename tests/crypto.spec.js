@@ -40,26 +40,17 @@ describe('Crypto library', () => {
         assert.isOk(Crypto.verify('string', buffSignature, keyPair.getPublic(), 'hex'));
     });
 
-    it('encrypt/decrypt key (default sha3. result - buffer)', async () => {
-        const keyPair = Crypto.createKeyPair();
-        const strPrivKey = keyPair.getPrivate();
-        const encryptedKey = (await Crypto.encrypt(
-            '234',
-            Buffer.from(strPrivKey, 'hex')
-        )).toString('hex');
-
-        const decryptedKey = await Crypto.decrypt('234', encryptedKey);
-        assert.equal(strPrivKey, decryptedKey.toString('hex'));
-    });
-
-    it('encrypt/decrypt key (default sha3. result - object)', async () => {
+    it('encrypt/decrypt key (pbkdf2)', async () => {
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
         const objEncryptedKey = await Crypto.encrypt(
             '234',
             Buffer.from(strPrivKey, 'hex'),
-            {keyAlgo: 'sha3', result: 'object'}
+            'pbkdf2'
         );
+
+        console.log(strPrivKey);
+        console.dir(prepareForStringifyObject(objEncryptedKey), {colors: true, depth: null});
 
         {
             // from object
@@ -79,7 +70,7 @@ describe('Crypto library', () => {
         const objEncryptedKey = await Crypto.encrypt(
             '234',
             Buffer.from(strPrivKey, 'hex'),
-            {keyAlgo: 'scrypt', result: 'object'}
+            'scrypt'
         );
 
         {
@@ -97,12 +88,12 @@ describe('Crypto library', () => {
     it('FAIL to decrypt key (wrong password)', async () => {
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
-        const encryptedKey = (await Crypto.encrypt(
+        const objEncryptedKey = await Crypto.encrypt(
             '234',
             Buffer.from(strPrivKey, 'hex')
-        )).toString('hex');
+        );
 
-        const decryptedKey = await Crypto.decrypt('111', encryptedKey);
+        const decryptedKey = await Crypto.decrypt('111', objEncryptedKey);
         assert.isNotOk(decryptedKey);
     });
 
