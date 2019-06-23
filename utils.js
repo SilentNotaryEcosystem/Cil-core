@@ -73,6 +73,34 @@ function questionAsync(prompt, password = false) {
     });
 }
 
+function decryptPkFileContent(Crypto, fileContent, password) {
+    let objEncodedData;
+    let encoding = 'hex';
+
+    try {
+        objEncodedData = JSON.parse(fileContent);
+    } catch (e) {
+
+        // V1: concatenated salt, iv, base64Encoded
+        const salt = fileContent.substr(0, 32);
+        const iv = fileContent.substr(32, 32);
+        const encrypted = Buffer.from(fileContent.substring(64), 'base64');
+
+        objEncodedData = {
+            iv,
+            encrypted,
+            salt,
+            hashOptions: {iterations: 100},
+            keyAlgo: 'pbkdf2'
+        };
+
+        // decrypted value will be neither 32 byte length buffer, nor hex String of length 64, but 64 byte length Buffer
+        encoding = undefined;
+    }
+
+    return Crypto.decrypt(password, objEncodedData).toString(encoding);
+}
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
@@ -152,6 +180,9 @@ module.exports = {
 
         // TODO suppress echo
         const password = await questionAsync('Enter password to decrypt private key: ', true);
-        return await Crypto.decrypt(password, JSON.parse(encodedContent));
-    }
+
+        return decryptPkFileContent(Crypto, encodedContent, password);
+    },
+
+    decryptPkFileContent
 };
