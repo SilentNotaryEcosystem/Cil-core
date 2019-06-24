@@ -178,8 +178,14 @@ module.exports = {
     async readPrivateKeyFromFile(Crypto, path) {
         const encodedContent = fs.readFileSync(path, 'utf8');
 
-        // TODO suppress echo
-        const password = await questionAsync('Enter password to decrypt private key: ', true);
+        let password;
+        if (typeof process.env.PK_PASSWORD !== 'string') {
+
+            // TODO suppress echo
+            password = await questionAsync('Enter password to decrypt private key: ', true);
+        } else {
+            password = process.env.PK_PASSWORD.trim();
+        }
 
         return decryptPkFileContent(Crypto, encodedContent, password);
     },
