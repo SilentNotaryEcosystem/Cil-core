@@ -926,15 +926,15 @@ module.exports = (factory, factoryOptions) => {
             assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
 
-            const patchNewTx = await this._processReceivedTx(newTx, false);
+            const patchNewTx = await this._processReceivedTx(newTx, false, false);
 
             // let's check for patch conflicts with other local txns
 
             try {
                 for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
-                    if (!patchTx) {
 
-                        // mempool just loaded, we need to exec all stored local txns
+                    // mempool just loaded, we need to exec all stored local txns
+                    if (!patchTx) {
                         const localTx = this._mempool.getTx(strTxHash);
 
                         // exec it. no need to validate. local txns were already validated
@@ -957,10 +957,12 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {Transaction} tx
+         * @param {Boolean} bStoreInMempool - should we store it in mempool (false - only for received from RPC txns)
+         * @param {Boolean} bInformNeighbours - should we store broadcast it (false - only for received from RPC txns)
          * @returns {Promise<PatchDB>}
          * @private
          */
-        async _processReceivedTx(tx, bStoreInMempool = true) {
+        async _processReceivedTx(tx, bStoreInMempool = true, bInformNeighbours = true) {
             typeforce(types.Transaction, tx);
 
             const strTxHash = tx.getHash();
@@ -981,7 +983,7 @@ module.exports = (factory, factoryOptions) => {
                 throw e;
             }
 
-            await this._informNeighbors(tx);
+            if (bInformNeighbours) await this._informNeighbors(tx);
 
             return patchThisTx;
         }
