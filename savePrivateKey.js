@@ -15,13 +15,12 @@ const {questionAsync, prepareForStringifyObject} = require('./utils');
 
     const filename = await questionAsync('Enter filename: ');
     const keyGenFunction = await questionAsync(
-        'Enter key generation mechanism (avail: "sha3", "scrypt". default: "scrypt"): ');
+        'Enter key generation mechanism (avail: "pbkdf2", "scrypt". default: "scrypt"): ');
 
     const objEncryptedPk = await factory.Crypto.encrypt(
         password,
-        Buffer.from(pk, 'hex'), {
-            keyAlgo: keyGenFunction === '' ? "scrypt" : keyGenFunction
-        }
+        Buffer.from(pk, 'hex'),
+        keyGenFunction === '' ? "scrypt" : keyGenFunction
     );
     fs.writeFileSync(filename, JSON.stringify({
         ...prepareForStringifyObject(objEncryptedPk),
