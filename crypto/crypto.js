@@ -276,6 +276,9 @@ class CryptoLib {
         let key;
         let options;
         switch (passwordHashFunction) {
+            case 'sha3':
+                key = this.sha3(password, 256);
+                break;
             case 'pbkdf2':
                 options = hashOptions || PBKDF2_OPTIONS;
                 key = this.pbkdf2(password, salt, 32, options);
