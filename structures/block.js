@@ -59,6 +59,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         get timestamp() {
+
+            // Dummy for building stage. Used for processing contracts
+            if (this._building) return timestamp();
+
             return this._data.header.timestamp;
         }
 
@@ -71,6 +75,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
          * @returns {String} !!
          */
         hash() {
+
+            // Dummy for building stage. Used for processing contracts
+            if (this._building) return Constants.GENESIS_BLOCK;
+
             if (!this._final) throw new Error('Call finish() before calculating hash');
             if (!this._hashCache) {
                 this._data.header.merkleRoot = this._buildTxTree();
@@ -139,6 +147,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         finish(totalTxnsFees, addrReceiver, minUsefulAmount = 0) {
+            this._building = false;
+
             typeforce.Number(totalTxnsFees);
             typeforce(types.Address, addrReceiver);
 
@@ -215,5 +225,9 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             typeforce(typeforce.Number, nHeight);
 
             this._data.header.height = nHeight;
+        }
+
+        markAsBuilding() {
+            this._building = true;
         }
     };

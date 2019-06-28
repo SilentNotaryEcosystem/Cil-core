@@ -1119,6 +1119,8 @@ module.exports = (factory, factoryOptions) => {
             // 2nd - not used coins (in/out diff - coinsUsed) as internal TX
             let receipt;
 
+            if (!this._processedBlock) console.error('Warning! this._processedBlock is empty!');
+
             // global variables for contract
             const environment = {
                 contractTx: tx.hash(),

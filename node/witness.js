@@ -401,37 +401,49 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _createBlock(conciliumId) {
-
             const block = new Block(conciliumId);
-            let {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
-            patchMerged = patchMerged ? patchMerged : new PatchDB();
-            patchMerged.setConciliumId(conciliumId);
+            block.markAsBuilding();
 
-            assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
-            block.parentHashes = arrParents;
-            block.setHeight(this._calcHeight(arrParents));
+            const lock = await this._mutex.acquire(['blockExec', 'blockCreate']);
+            try {
+                let {arrParents, patchMerged} = await this._pendingBlocks.getBestParents();
+                patchMerged = patchMerged ? patchMerged : new PatchDB();
+                patchMerged.setConciliumId(conciliumId);
 
-            const arrBadHashes = [];
-            let totalFee = 0;
-            for (let tx of this._mempool.getFinalTxns(conciliumId)) {
-                try {
-                    const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
-                    totalFee += fee;
-                    patchMerged = patchMerged.merge(patchThisTx, true);
-                    block.addTx(tx);
-                } catch (e) {
-                    logger.error(e);
-                    arrBadHashes.push(tx.hash());
+                assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
+                block.parentHashes = arrParents;
+                block.setHeight(this._calcHeight(arrParents));
+
+                // variables for contracts (dummies)
+                this._processedBlock = block;
+
+                const arrBadHashes = [];
+                let totalFee = 0;
+                for (let tx of this._mempool.getFinalTxns(conciliumId)) {
+                    try {
+                        const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
+                        totalFee += fee;
+                        patchMerged = patchMerged.merge(patchThisTx, true);
+                        block.addTx(tx);
+                    } catch (e) {
+                        logger.error(e);
+                        arrBadHashes.push(tx.hash());
+                    }
                 }
+
+                // remove failed txns
+                if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
+
+                block.finish(totalFee, this._wallet.address, await this._getFeeSizePerInput(conciliumId));
+
+                debugWitness(
+                    `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
+            } catch (e) {
+                logger.error(`Failed to create block!`, e);
+            } finally {
+                this._mutex.release(lock);
+                this._processedBlock = undefined;
             }
-
-            // remove failed txns
-            if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
-
-            block.finish(totalFee, this._wallet.address, await this._getFeeSizePerInput(conciliumId));
-
-            debugWitness(
-                `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
 
             return {block};
         }
