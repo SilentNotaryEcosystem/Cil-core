@@ -7,6 +7,24 @@ module.exports = {
 
         ...commonConfig.constants,
 
+        // fees
+        fees: {
+
+            // money send fee per Kbyte
+            TX_FEE: 4000,
+
+            // contract creation
+            CONTRACT_CREATION_FEE: 1e4,
+
+            // contract invocation
+            CONTRACT_INVOCATION_FEE: 1e4,
+
+            // contract send moneys
+            INTERNAL_TX_FEE: 300,
+
+            STORAGE_PER_BYTE_FEE: 10
+        },
+
         strIdent: 'Devel',
 
         network: 0x12880004,
@@ -15,9 +33,9 @@ module.exports = {
 
         DNS_SEED: ['dev-seed.silentnotary.io'],
 
-        DEV_FOUNDATION_ADDRESS: '7db2f263e789036128d3a76061258044f5112435',
-        CONCILIUM_DEFINITION_CONTRACT_ADDRESS: '16444c2b8be38ff1bc3745a9ccde75334902fa0a',
-        GENESIS_BLOCK: '86a272cfe06515e09dd6adc7052416b11ce2886e827527b877c6def65c94e284',
+        DEV_FOUNDATION_ADDRESS: '087b7b06bfc8f198eb25655c358355692187f9d1',
+        CONCILIUM_DEFINITION_CONTRACT_ADDRESS: 'a46b92916bc8db1d4b403198f557b987b88f5ae2',
+        GENESIS_BLOCK: '2bf44e4c0602b8b3c9184fd78bb44b049cfb483727c765638ec0b08afaec3509',
 
         // how much we suppress creating empty blocks
 

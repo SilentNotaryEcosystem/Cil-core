@@ -268,7 +268,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
         const callerAddress = generateAddress().toString('hex');
         const {receipt, contract} = app.createContract(
-            1e10,
+            factory.Constants.fees.CONTRACT_CREATION_FEE * 10,
             strCode,
             {contractAddr: 'hash', callerAddress}
         );

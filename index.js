@@ -20,7 +20,15 @@ process.on('warning', e => console.warn(e.stack));
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.conciliumDefContract;
     }
 
-    const commonOptions = {
+    let localDevNodeDef = {};
+    if (objCmdLineParams.localDevNode) {
+        localDevNodeDef = {
+            arrDnsSeeds: ['non-existed.cil'],
+            listenPort: 28223,
+            arrSeedAddresses: ['1.1.1.1']
+        };
+    }
+    let commonOptions = {
 
         // if command line parameter have same name as option name, like "rpcUser"
         ...objCmdLineParams,
@@ -29,7 +37,9 @@ process.on('warning', e => console.warn(e.stack));
         buildTxIndex: objCmdLineParams.txIndex,
         listenPort: objCmdLineParams.port,
         arrSeedAddresses: objCmdLineParams.seedAddr ? [objCmdLineParams.seedAddr] : [],
-        isSeed: objCmdLineParams.seed
+        isSeed: objCmdLineParams.seed,
+
+        ...localDevNodeDef
     };
 
     let node;

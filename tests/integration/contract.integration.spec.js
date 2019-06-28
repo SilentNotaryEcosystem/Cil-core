@@ -18,7 +18,7 @@ describe('Contract integration tests', () => {
     });
 
     it('should NOT DEPLOY contract (constructor throws)', async () => {
-        const nCoinsIn = 1e5;
+        const nCoinsIn = factory.Constants.fees.CONTRACT_CREATION_FEE + 1e3;
         const node = new factory.Node();
         const patchTx = new factory.PatchDB();
         const contractCode = `
@@ -55,7 +55,7 @@ describe('Contract integration tests', () => {
     });
 
     it('should deploy contract', async () => {
-        const nCoinsIn = 1e5;
+        const nCoinsIn = factory.Constants.fees.CONTRACT_CREATION_FEE + 1e3;
         const node = new factory.Node();
         const patchTx = new factory.PatchDB();
         const contractCode = `
@@ -96,7 +96,7 @@ describe('Contract integration tests', () => {
     });
 
     it('should TERMINATE contract INVOCATION (throws error)', async () => {
-        const nCoinsIn = 1e5;
+        const nCoinsIn = factory.Constants.fees.CONTRACT_CREATION_FEE + 1e3;
         const node = new factory.Node();
         const patchTx = new factory.PatchDB();
 
@@ -288,7 +288,8 @@ describe('Contract integration tests', () => {
     });
 
     it('should DEPLOY & INVOKE contract & test GLOBAL VARIABLES', async () => {
-        const nCoinsIn = 1e5;
+        const nCoinsIn = factory.Constants.fees.CONTRACT_CREATION_FEE + factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                         1e5;
         const node = new factory.Node();
         const patchTx = new factory.PatchDB();
 
