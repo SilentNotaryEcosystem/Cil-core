@@ -1,6 +1,13 @@
 const factory = require('./factory');
 
-const {readCmdLineOptions, sleep, stripAddressPrefix, readPrivateKeyFromFile} = require('./utils');
+const {
+    readCmdLineOptions,
+    sleep,
+    stripAddressPrefix,
+    readPrivateKeyFromFile,
+    mapEnvToOptions,
+    mapOptionsToNodeParameters
+} = require('./utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -9,19 +16,26 @@ process.on('warning', e => console.warn(e.stack));
 
     console.log(`Using ${factory.Constants.strIdent} config`);
 
-    // read command line options
-    const objCmdLineParams = readCmdLineOptions();
+    // Read user-defined parameters
+    const objUserParams = {
+        // read ENV options
+        ...mapEnvToOptions(),
 
-    // wallets tasks will exit after completion!
-    await walletTasks(objCmdLineParams);
+        // read command line options (have precedence over ENV)
+        ...readCmdLineOptions()
+    };
 
-    if (objCmdLineParams.genesisHash) factory.Constants.GENESIS_BLOCK = objCmdLineParams.genesisHash;
-    if (objCmdLineParams.conciliumDefContract) {
-        factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = objCmdLineParams.conciliumDefContract;
+    // override global parameters
+    if (objUserParams.genesisHash) factory.Constants.GENESIS_BLOCK = objUserParams.genesisHash;
+    if (objUserParams.conciliumDefContract) {
+        factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = objUserParams.conciliumDefContract;
     }
 
+    // wallets tasks will exit after completion!
+    await walletTasks(objUserParams);
+
     let localDevNodeDef = {};
-    if (objCmdLineParams.localDevNode) {
+    if (objUserParams.localDevNode) {
         localDevNodeDef = {
             arrDnsSeeds: ['non-existed.cil'],
             listenPort: 28223,
@@ -29,22 +43,13 @@ process.on('warning', e => console.warn(e.stack));
         };
     }
     let commonOptions = {
-
-        // if command line parameter have same name as option name, like "rpcUser"
-        ...objCmdLineParams,
-
-        // non matching names
-        buildTxIndex: objCmdLineParams.txIndex,
-        listenPort: objCmdLineParams.port,
-        arrSeedAddresses: objCmdLineParams.seedAddr ? [objCmdLineParams.seedAddr] : [],
-        isSeed: objCmdLineParams.seed,
-
+        ...mapOptionsToNodeParameters(objUserParams),
         ...localDevNodeDef
     };
 
     let node;
-    if (objCmdLineParams.privateKey) {
-        const decryptedPk = await readPrivateKeyFromFile(factory.Crypto, objCmdLineParams.privateKey);
+    if (objUserParams.privateKey) {
+        const decryptedPk = await readPrivateKeyFromFile(factory.Crypto, objUserParams.privateKey);
         if (!decryptedPk) throw new Error('failed to decrypt file with private key');
         const witnessWallet = new factory.Wallet(decryptedPk);
         node = new factory.Witness({

@@ -101,6 +101,57 @@ function decryptPkFileContent(Crypto, fileContent, password) {
     return Crypto.decrypt(password, objEncodedData).toString(encoding);
 }
 
+/**
+ * Designed to pass values to Docker container
+ * So, other option have no use in Docker deployment
+ *
+ * @returns Object
+ */
+function mapEnvToOptions() {
+
+    const {SEED_ADDRESS, RPC_USER, RPC_PASS, GENESIS_HASH, CONCILIUM_CONTRACT, WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT} = process.env;
+    return {
+
+        // if you plan to send TXns through your node
+        rpcUser: RPC_USER,
+        rpcPass: RPC_PASS,
+
+        // if you plan to query your node
+        txIndex: BUILD_TX_INDEX ? true : false,
+        walletSupport: WALLET_SUPPORT ? true : false,
+
+        // WITNESS_NODE is a Boolean variable, indicating witness node.
+        // Just mount your real file name into container /app/private
+        privateKey: WITNESS_NODE ? './private' : undefined,
+        seed: SEED_NODE ? true : false,
+
+        // Variables below used for development, regular user don't need it
+        seedAddr: SEED_ADDRESS,
+        genesisHash: GENESIS_HASH,
+        conciliumDefContract: CONCILIUM_CONTRACT
+    };
+}
+
+/**
+ * Maps user-defined parameters into Node parameters names
+ *
+ * @param {Object} objUserParams from command line or ENV
+ * @returns Object
+ */
+function mapOptionsToNodeParameters(objUserParams) {
+    return {
+
+        // if command line parameter have same name as option name, like "rpcUser"
+        ...objUserParams,
+
+        // non matching names
+        buildTxIndex: objUserParams.txIndex,
+        listenPort: objUserParams.port,
+        arrSeedAddresses: objUserParams.seedAddr ? [objUserParams.seedAddr] : [],
+        isSeed: objUserParams.seed
+    };
+}
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
@@ -191,5 +242,7 @@ module.exports = {
         return decryptPkFileContent(Crypto, encodedContent, password);
     },
 
-    decryptPkFileContent
+    decryptPkFileContent,
+    mapEnvToOptions,
+    mapOptionsToNodeParameters
 };
