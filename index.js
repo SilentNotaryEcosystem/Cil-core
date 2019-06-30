@@ -34,17 +34,9 @@ process.on('warning', e => console.warn(e.stack));
     // wallets tasks will exit after completion!
     await walletTasks(objUserParams);
 
-    let localDevNodeDef = {};
-    if (objUserParams.localDevNode) {
-        localDevNodeDef = {
-            arrDnsSeeds: ['non-existed.cil'],
-            listenPort: 28223,
-            arrSeedAddresses: ['1.1.1.1']
-        };
-    }
     let commonOptions = {
+        ...setImpliedParameters(objUserParams),
         ...mapOptionsToNodeParameters(objUserParams),
-        ...localDevNodeDef
     };
 
     let node;
@@ -124,3 +116,29 @@ async function walletTasks(objCmdLineParams) {
     }
 }
 
+/**
+ * Let user skip some parameters.
+ * I.e. if he set rpcUser, we think he wants RPC, but RPC will be started only if rpcAddress present. So let's set it
+ *
+ * @param {Object} objUserParams
+ */
+function setImpliedParameters(objUserParams) {
+    let objAddOn = {};
+    if (objUserParams.localDevNode) {
+        objAddOn = {
+            ...objAddOn,
+            arrDnsSeeds: ['non-existed.cil'],
+            listenPort: 28223,
+            arrSeedAddresses: ['1.1.1.1']
+        };
+    }
+
+    if (objUserParams.rpcUser) {
+        objAddOn = {
+            ...objAddOn,
+            rpcAddress: '0.0.0.0'
+        };
+    }
+
+    return objAddOn;
+}
