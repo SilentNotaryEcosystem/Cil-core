@@ -86,6 +86,7 @@ describe('Conciliums', async () => {
             const feeTxSize = 15000;
             const feeContractCreation = 1e12;
             const feeContractInvocation = 15000;
+            const feeStorage = 15;
 
             const concilium = new factory.ConciliumRr({
                 publicKeys: [pseudoRandomBuffer(33), pseudoRandomBuffer(33)],
@@ -95,14 +96,16 @@ describe('Conciliums', async () => {
                     fees: {
                         feeTxSize,
                         feeContractCreation,
-                        feeContractInvocation
+                        feeContractInvocation,
+                        feeStorage
                     }
                 }
             });
 
             assert.equal(concilium.getFeeTxSize(), feeTxSize);
-            assert.equal(concilium.getContractCreationFee(), feeContractCreation);
-            assert.equal(concilium.getContractInvocationFee(), feeContractInvocation);
+            assert.equal(concilium.getFeeContractCreation(), feeContractCreation);
+            assert.equal(concilium.getFeeContractInvocation(), feeContractInvocation);
+            assert.equal(concilium.getFeeStorage(), feeStorage);
         });
 
         it('should be isRoundRobin', async () => {
