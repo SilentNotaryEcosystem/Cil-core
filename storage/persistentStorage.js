@@ -177,8 +177,9 @@ module.exports = (factory, factoryOptions) => {
             if (!Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS) return undefined;
             await this._ensureArrConciliumDefinition();
 
-            return id > this._arrConciliumDefinition.length ?
-                undefined : this._arrConciliumDefinition[id];
+            assert(id < this._arrConciliumDefinition.length, `ConciliumId "${id}" exceed number registered conciliums`);
+
+            return this._arrConciliumDefinition[id];
         }
 
         async getConciliumsCount() {

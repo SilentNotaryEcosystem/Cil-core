@@ -39,7 +39,9 @@ const createDummyDefinitionWallet = (conciliumId = 0) => {
 
 const createDummyWitness = () => {
     const {concilium, newWallet} = createDummyDefinitionWallet();
-    const witness = new factory.Witness({wallet: newWallet, arrTestDefinition: [concilium]});
+    const witness = new factory.Witness({wallet: newWallet});
+    witness._storage.getConciliumsByAddress = async () => [concilium];
+    witness._storage.getConciliumById = async () => concilium;
 
     return {witness, concilium};
 };

@@ -27,6 +27,12 @@ const createGenesis = (factory, utxoHash) => {
 };
 
 describe('Application layer', () => {
+    let nFeeContractInvocation;
+    let nFeeContractCreation;
+    let nFeeStorage;
+    let nFeeSizeFakeTx;
+    let coinsIn;
+
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -34,6 +40,16 @@ describe('Application layer', () => {
 
     after(async function() {
         this.timeout(15000);
+    });
+
+    beforeEach(() => {
+        nFeeContractInvocation = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
+        nFeeContractCreation = factory.Constants.fees.CONTRACT_CREATION_FEE;
+        nFeeStorage = factory.Constants.fees.STORAGE_PER_BYTE_FEE;
+        nFeeSizeFakeTx = 100;
+        coinsIn = factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                  1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE +
+                  nFeeSizeFakeTx;
     });
 
     it('should create instance', async () => {
@@ -267,17 +283,18 @@ describe('Application layer', () => {
             `;
         const app = new factory.Application();
         const callerAddress = generateAddress().toString('hex');
+
         const {receipt, contract} = app.createContract(
             factory.Constants.fees.CONTRACT_CREATION_FEE * 10,
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            {nFeeContractCreation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
         );
 
         assert.isOk(receipt.isSuccessful());
         assert.equal(
             receipt.getCoinsUsed(),
-            factory.Constants.fees.CONTRACT_CREATION_FEE + contract.getDataSize() *
-            factory.Constants.fees.STORAGE_PER_BYTE_FEE
+            nFeeContractCreation + contract.getDataSize() * nFeeStorage + nFeeSizeFakeTx
         );
         assert.deepEqual(contract.getData(), {_data: 10, _ownerAddress: callerAddress});
 
@@ -305,17 +322,23 @@ describe('Application layer', () => {
     it('should run contract', async () => {
         const conciliumId = 10;
         const contract = new factory.Contract({
-            contractData: {value: 100},
+            contractData: {value: 200100},
             contractCode: '{"add": "(a){this.value+=a;}"}',
             conciliumId
         });
         const app = new factory.Application();
+        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(1e5, {method: 'add', arrArguments: [10]}, contract, {});
+        const receipt = await app.runContract(
+            coinsIn, {method: 'add', arrArguments: [10]}, contract,
+            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        );
 
         assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
-        assert.deepEqual(contract.getData(), {value: 110});
+        assert.equal(receipt.getCoinsUsed(),
+            nFeeContractInvocation + (contract.getDataSize() - prevDataSize) * nFeeStorage + nFeeSizeFakeTx
+        );
+        assert.deepEqual(contract.getData(), {value: 200110});
     });
 
     it('should throw (unknown method)', async () => {
@@ -326,10 +349,14 @@ describe('Application layer', () => {
             conciliumId
         });
         const app = new factory.Application();
+        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(1e5, {method: 'subtract', arrArguments: [10]}, contract, {});
+        const receipt = await app.runContract(
+            coinsIn, {method: 'subtract', arrArguments: [10]}, contract,
+            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        );
         assert.isNotOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
+        assert.equal(receipt.getCoinsUsed(), nFeeContractInvocation + nFeeSizeFakeTx);
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
@@ -341,10 +368,16 @@ describe('Application layer', () => {
             conciliumId
         });
         const app = new factory.Application();
+        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(1e5, '', contract, {});
+        const receipt = await app.runContract(coinsIn, '', contract,
+            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        );
         assert.isNotOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
+        assert.equal(
+            receipt.getCoinsUsed(),
+            nFeeContractInvocation + (contract.getDataSize() - prevDataSize) * nFeeStorage + nFeeSizeFakeTx
+        );
         assert.deepEqual(contract.getData(), {value: 100});
     });
 
@@ -356,10 +389,16 @@ describe('Application layer', () => {
             conciliumId
         });
         const app = new factory.Application();
+        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(1e5, '', contract, {});
+        const receipt = await app.runContract(coinsIn, '', contract,
+            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        );
         assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), factory.Constants.fees.CONTRACT_INVOCATION_FEE);
+        assert.equal(
+            receipt.getCoinsUsed(),
+            nFeeContractInvocation + (contract.getDataSize() - prevDataSize) * nFeeStorage + nFeeSizeFakeTx
+        );
         assert.deepEqual(contract.getData(), {value: 117});
     });
 
@@ -373,12 +412,14 @@ describe('Application layer', () => {
         });
 
         const app = new factory.Application();
+
         const result = await app.runContract(
-            1e10,
+            coinsIn,
             {method: 'test', arrArguments: []},
             contract,
             {},
             undefined,
+            {},
             {},
             true
         );

@@ -104,12 +104,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Number} coinsLimit - spend no more than this limit
          * @param {String} strCode - contract code
          * @param {Object} environment - global variables for contract (like contractAddr)
+         * @param {Object} objFees - {nFeeContractCreation, nFeeStorage, nFeeSize}
          * @returns {receipt: TxReceipt, contract: Contract}
          */
-        createContract(coinsLimit, strCode, environment) {
+        createContract(coinsLimit, strCode, environment, objFees) {
+            const {nFeeContractCreation, nFeeStorage, nFeeSize} = objFees;
 
-            // deduce contract creation fee
-            let coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_CREATION_FEE);
+            // deduce contract creation fee and size fee
+            let coinsRemained = _spendCoins(coinsLimit, nFeeContractCreation + nFeeSize);
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
@@ -118,7 +120,6 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 }
             });
 
-            // TODO: implement fee! (wrapping contract)
             // prepend predefined classes to code
             let status;
             let contract;
@@ -140,9 +141,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 contract = this._newContract(environment.contractAddr, objData, strCodeExportedFunctions);
 
                 const newDataSize = contract.getDataSize();
-                coinsRemained = _spendCoins(
-                    coinsRemained, newDataSize * Constants.fees.STORAGE_PER_BYTE_FEE
-                );
+
+                coinsRemained = _spendCoins(coinsRemained, newDataSize * nFeeStorage);
 
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
@@ -150,8 +150,6 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 status = Constants.TX_STATUS_FAILED;
             }
 
-            // TODO: create TX with change to author!
-            // TODO: return Fee (see coinsUsed)
             return {
                 receipt: new TxReceipt({
                     contractAddress: Buffer.from(environment.contractAddr, 'hex'),
@@ -174,49 +172,64 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Function} objCallbacks.invokeContract
          * @param {Function} objCallbacks.createInternalTx
          * @param {Function} objCallbacks.processTx
+         * @param {Object} objFees - {nFeeContractInvocation, nFeeStorage, nFeeSize}
          * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
          * @returns {Promise<TxReceipt>}
          */
         async runContract(coinsLimit, objInvocationCode, contract,
-                          environment, context, objCallbacks, isConstantCall = false) {
+                          environment, context, objCallbacks, objFees, isConstantCall = false) {
             let coinsRemained = coinsLimit;
 
-            // TODO: implement fee! (wrapping contract)
-            // this will bind code to data (assign 'this' variable)
-            const objMethods = JSON.parse(contract.getCode());
-
-            // if code it empty - call default function.
-            // No "default" - throws error, coins that sent to contract will be lost
-            if (!objInvocationCode || !objInvocationCode.method || objInvocationCode.method === '') {
-                objInvocationCode = {
-                    method: defaultFunctionName,
-                    arrArguments: []
-                };
-            }
-
-            // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones :))
-            // if it's initial call - form context from contract data
-            // for nested calls with delegatecall - we'll use parameter
-            const thisContext = context || {
-                ...environment,
-                [CONTEXT_NAME]: Object.assign({}, contract.getData()),
-                send,
-                call: async (strAddress, objParams) => await callWithContext(strAddress, objParams, undefined),
-                delegatecall: async (strAddress, objParams) => await callWithContext(strAddress, objParams, thisContext)
-            };
-
-            const vm = new VM({
-                timeout: Constants.TIMEOUT_CODE,
-                sandbox: thisContext
-            });
+            const {nFeeContractInvocation, nFeeSize = 0, nFeeStorage} = objFees;
 
             let status;
             let message;
             let result;
             try {
 
-                // deduce contract creation fee
-                coinsRemained = _spendCoins(coinsLimit, Constants.fees.CONTRACT_INVOCATION_FEE);
+                if (!isConstantCall) {
+
+                    // deduce contract invocation fee and size fee
+                    coinsRemained = _spendCoins(coinsLimit, nFeeContractInvocation + nFeeSize);
+                }
+
+                // this will bind code to data (assign 'this' variable)
+                const objMethods = JSON.parse(contract.getCode());
+
+                // if code it empty - call default function.
+                // No "default" - throws error, coins that sent to contract will be lost
+                if (!objInvocationCode || !objInvocationCode.method || objInvocationCode.method === '') {
+                    objInvocationCode = {
+                        method: defaultFunctionName,
+                        arrArguments: []
+                    };
+                }
+
+                // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones :))
+                // if it's initial call - form context from contract data
+                // for nested calls with delegatecall - we'll use parameter
+                const thisContext = context || {
+                    ...environment,
+                    [CONTEXT_NAME]: Object.assign({}, contract.getData()),
+                    send,
+                    call: async (strAddress, objParams) => await callWithContext(
+                        strAddress,
+                        objParams,
+                        undefined,
+                        {nFeeContractInvocation, nFeeStorage}
+                    ),
+                    delegatecall: async (strAddress, objParams) => await callWithContext(
+                        strAddress,
+                        objParams,
+                        thisContext,
+                        {nFeeContractInvocation, nFeeStorage}
+                    )
+                };
+
+                const vm = new VM({
+                    timeout: Constants.TIMEOUT_CODE,
+                    sandbox: thisContext
+                });
 
                 if (!objMethods[objInvocationCode.method]) {
                     throw new Error(`Method ${objInvocationCode.method} not found`);
@@ -242,13 +255,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                     contract.updateData(objData);
                     const newDataSize = contract.getDataSize();
 
-                    if (newDataSize - prevDataSize > 0) {
-                        coinsRemained = _spendCoins(
-                            coinsRemained,
-                            (newDataSize - prevDataSize) * Constants.fees.STORAGE_PER_BYTE_FEE
-                        );
-
-                    }
+                    coinsRemained = _spendCoins(coinsRemained, (newDataSize - prevDataSize) * nFeeStorage);
                 }
 
                 status = Constants.TX_STATUS_OK;
@@ -262,7 +269,6 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 message = err.message;
             }
 
-            // TODO: create TX with change to author!
             // TODO: return Fee (see coinsUsed)
             return new TxReceipt({
                 coinsUsed: _spendCoins(coinsLimit, coinsRemained),
@@ -273,13 +279,18 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             // we need those function here, since JS can't pass variables by ref (coinsRemained)
             //________________________________________
             function send(strAddress, amount) {
-                if (contract.getBalance() < amount) throw new Error('Not enough funds');
+                if (contract.getBalance() < amount) throw new Error('Not enough funds for "send"');
                 coinsRemained = _spendCoins(coinsRemained, Constants.fees.INTERNAL_TX_FEE);
                 objCallbacks.createInternalTx(strAddress, amount);
                 contract.withdraw(amount);
             }
 
-            async function callWithContext(strAddress, {method, arrArguments, coinsLimit: coinsToPass}, callContext) {
+            async function callWithContext(
+                strAddress,
+                {method, arrArguments, coinsLimit: coinsToPass},
+                callContext,
+                objFees
+            ) {
                 if (typeof coinsToPass === 'number') {
                     if (coinsToPass < 0) throw new Error('coinsLimit should be positive');
                     if (coinsToPass > coinsRemained) throw new Error('Trying to pass more coins than have');
@@ -292,6 +303,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                         arrArguments,
                         coinsLimit: coinsToPass ? coinsToPass : coinsRemained,
                         environment,
+                        objFees,
 
                         // important!
                         context: callContext
