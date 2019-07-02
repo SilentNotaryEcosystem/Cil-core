@@ -797,7 +797,7 @@ module.exports = (factory, factoryOptions) => {
             await this._txIndexStorage.batch(arrOps);
         }
 
-        async dropAllForReIndex() {
+        async dropAllForReIndex(bEraseBlockStorage = false) {
             if (typeof this._downAdapter.destroy === 'function') {
 
                 await this._blockStorage.close();
@@ -809,6 +809,11 @@ module.exports = (factory, factoryOptions) => {
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`);
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`);
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`);
+
+                if (bEraseBlockStorage) {
+                    console.log('INFO: erased blockstate!');
+                    await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`);
+                }
             }
         }
 
