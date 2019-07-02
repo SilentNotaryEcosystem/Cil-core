@@ -101,15 +101,19 @@ const createSimpleChain = async (callback) => {
 
 const createSimpleFork = async (callback) => {
     const genesis = createDummyBlock(factory);
+    genesis.setHeight(0);
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
 
     const block1 = createDummyBlock(factory);
+    block1.setHeight(1);
     block1.parentHashes = [genesis.getHash()];
 
     const block2 = createDummyBlock(factory);
+    block2.setHeight(1);
     block2.parentHashes = [genesis.getHash()];
 
     const block3 = createDummyBlock(factory);
+    block3.setHeight(2);
     block3.parentHashes = [block1.getHash(), block2.getHash()];
 
     await callback(genesis);
@@ -2389,6 +2393,7 @@ describe('Node tests', () => {
         it('should storeBadTxHash', async () => {
             const node = new factory.Node();
             await node.ensureLoaded();
+            await node._storage.dropAllForReIndex();
 
             node._processTx = sinon.fake.rejects('failed');
             node._mempool.storeBadTxHash = sinon.fake();
@@ -2401,6 +2406,20 @@ describe('Node tests', () => {
             }
 
             throw new Error('Unexpected success');
+        });
+    });
+
+    describe('rebuildDb', async => {
+        it('should rebuild simple fork', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+            node._processBlock = sinon.fake();
+
+            await createSimpleFork(async block => await node._storage.saveBlock(block));
+
+            await node.rebuildDb();
+            assert.equal(node._mainDag.order, 4);
+            assert.equal(node._mainDag.size, 4);
         });
     });
 });

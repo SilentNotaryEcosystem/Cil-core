@@ -6,6 +6,7 @@ const levelup = require('levelup');
 const leveldown = require('leveldown');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
+const util = require('util');
 
 const types = require('../types');
 
@@ -22,6 +23,8 @@ const WALLET_ADDRESSES = 'WALLETS';
 const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
 const TX_INDEX_PREFIX = 'T';
 const INTENRAL_TX_INDEX_PREFIX = 'I';
+
+const levelDbDestroy = util.promisify(leveldown.destroy);
 
 /**
  *
@@ -59,35 +62,34 @@ module.exports = (factory, factoryOptions) => {
             const {testStorage, buildTxIndex, walletSupport, dbPath, mutex} = options;
             assert(mutex, 'Storage constructor requires Mutex instance!');
 
-            let downAdapter;
             if (testStorage) {
 
                 // used for tests
-                downAdapter = require('memdown');
+                this._downAdapter = require('memdown');
             } else {
-                downAdapter = leveldown;
+                this._downAdapter = leveldown;
             }
 
-            const pathPrefix = path.resolve(dbPath || Constants.DB_PATH_PREFIX);
+            this._pathPrefix = path.resolve(dbPath || Constants.DB_PATH_PREFIX);
 
-            this._db = levelup(downAdapter(`${pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`));
+            this._db = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`));
 
             // it's a good idea to keep blocks separately from UTXO DB
             // it will allow erase UTXO DB, and rebuild it from block DB
             // it could be levelDB also, but in different dir
-            this._blockStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
+            this._blockStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
 
-            this._peerStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
+            this._peerStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
 
             if (buildTxIndex) {
                 this._buildTxIndex = true;
-                this._txIndexStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
+                this._txIndexStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
             }
 
             // TODO: make it persistent after adding first address/key to wallet?
             if (walletSupport) {
                 this._walletSupport = true;
-                this._walletStorage = levelup(downAdapter(`${pathPrefix}/${Constants.DB_WALLET_DIR}`));
+                this._walletStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_WALLET_DIR}`));
             }
 
             this._mutex = mutex;
@@ -793,6 +795,42 @@ module.exports = (factory, factoryOptions) => {
 
             // BATCH WRITE
             await this._txIndexStorage.batch(arrOps);
+        }
+
+        async dropAllForReIndex() {
+            if (typeof this._downAdapter.destroy === 'function') {
+
+                await this._blockStorage.close();
+                await this._db.close();
+                await this._peerStorage.close();
+                if (this._txIndexStorage) await this._txIndexStorage.close();
+                if (this._walletStorage) await this._walletStorage.close();
+
+                await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`);
+                await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`);
+                await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`);
+            }
+        }
+
+        async* readBlocks() {
+            const it = this._blockStorage.iterator();
+            const $_terminated = Symbol.for("terminated");
+
+            while (true) {
+                const next = await new Promise((r, x) => {
+                    it.next(function(err, key, value) {
+                        if (arguments.length === 0) r(undefined);
+                        if (err === null && key === undefined && value === undefined) r(undefined);
+                        if (err) x(err);
+                        r({key: key, value: value});
+                    });
+                });
+                if (next === undefined) { break; }
+                if ((yield next) === $_terminated) {
+                    await new Promise((r, x) => it.end((e) => (e ? x(x) : r())));
+                    return;
+                }
+            }
         }
     };
 };

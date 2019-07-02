@@ -31,12 +31,15 @@ process.on('warning', e => console.warn(e.stack));
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = objUserParams.conciliumDefContract;
     }
 
-    // wallets tasks will exit after completion!
+    // if there are wallet tasks - program will terminate after completion!
     await walletTasks(objUserParams);
+
+    // if there is rebuild task - program will terminate after completion!
+    await rebuildDb(objUserParams);
 
     let commonOptions = {
         ...setImpliedParameters(objUserParams),
-        ...mapOptionsToNodeParameters(objUserParams),
+        ...mapOptionsToNodeParameters(objUserParams)
     };
 
     let node;
@@ -72,6 +75,24 @@ process.on('warning', e => console.warn(e.stack));
     .catch(err => {
         console.error(err);
     });
+
+async function rebuildDb(objCmdLineParams) {
+    const {rebuildDb} = objCmdLineParams;
+    if (!rebuildDb) return;
+
+    try {
+        const storage = new factory.Storage({...objCmdLineParams, mutex: new factory.Mutex()});
+        await storage.dropAllForReIndex();
+
+        const node = new factory.Node({...objCmdLineParams, workerSuspended: true, networkSuspended: true});
+        await node.ensureLoaded();
+        await node.rebuildDb();
+        process.exit(0);
+    } catch (e) {
+        console.error(e);
+        process.exit(1);
+    }
+}
 
 async function walletTasks(objCmdLineParams) {
     const {listWallets, reIndexWallet, watchAddress} = objCmdLineParams;

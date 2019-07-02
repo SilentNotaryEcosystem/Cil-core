@@ -63,10 +63,13 @@ module.exports = (factory, factoryOptions) => {
                 ...options
             };
 
-            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout, workerSuspended} = options;
+            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout, workerSuspended, networkSuspended} = options;
+
+            this._workerSuspended = workerSuspended;
+            this._networkSuspended = networkSuspended;
+            this._msecOffset = 0;
 
             this._mutex = new Mutex();
-
             this._storage = new Storage({...options, mutex: this._mutex});
 
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
@@ -74,14 +77,11 @@ module.exports = (factory, factoryOptions) => {
 
             this._arrSeedAddresses = arrSeedAddresses || [];
             this._arrDnsSeeds = arrDnsSeeds || Constants.DNS_SEED;
-            this._workerSuspended = workerSuspended;
+
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
 
             // create mempool
             this._mempool = new Mempool(options);
-
-            this._transport = new Transport(options);
-            this._transport.on('connect', this._incomingConnection.bind(this));
 
             this._mapBlocksToExec = new Map();
             this._mapUnknownBlocks = new Map();
@@ -89,15 +89,16 @@ module.exports = (factory, factoryOptions) => {
             this._app = new Application(options);
 
             this._rebuildPromise = this._rebuildBlockDb();
-            this._listenPromise = this._initNetwork(options);
-
-            this._msecOffset = 0;
-
-            this._reconnectTimer = new Tick(this);
-            this._requestCache = new RequestCache();
+            this._listenPromise = networkSuspended ? Promise.resolve() : this._initNetwork(options);
         }
 
         _initNetwork(options) {
+            this._transport = new Transport(options);
+            this._transport.on('connect', this._incomingConnection.bind(this));
+
+            this._reconnectTimer = new Tick(this);
+            this._requestCache = new RequestCache();
+
             return new Promise(async resolve => {
 
                 // we'll init network after all local tasks are done
@@ -1430,8 +1431,6 @@ module.exports = (factory, factoryOptions) => {
 
             // store pending blocks (for restore state after node restart)
             await this._storage.updatePendingBlocks(this._pendingBlocks.getAllHashes());
-
-            this._informNeighbors(block);
         }
 
         async _processFinalityResults(result) {
@@ -1985,7 +1984,7 @@ module.exports = (factory, factoryOptions) => {
                 if (patchState) {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
-                    await this._informNeighbors(block);
+                    if (!this._networkSuspended) this._informNeighbors(block);
                 }
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);
@@ -2183,8 +2182,37 @@ module.exports = (factory, factoryOptions) => {
         _checkHeight(block) {
             const calculatedHeight = this._calcHeight(block.parentHashes);
             assert(calculatedHeight === block.getHeight(),
-                `Block ${block.getHash()} has incorrect height ${calculatedHeight} (expected ${block.getHash()}`
+                `Incorrect height "${calculatedHeight}" were calculated for block ${block.getHash()} (expected ${block.getHeight()}`
             );
+        }
+
+        async cleanDb() {
+            await this._storage.dropAllForReIndex();
+        }
+
+        /**
+         * Rebuild chainstate from blockDb (reExecute them one more time)
+         *
+         * @returns {Promise<void>}
+         */
+        async rebuildDb() {
+            this._mainDag = new MainDag();
+
+            for await (let {value} of this._storage.readBlocks()) {
+                const block = new factory.Block(value);
+                this._mainDag.addBlock(new BlockInfo(block.header));
+            }
+
+            const genesis = this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK);
+            assert(genesis, 'No Genesis found');
+            let arrBlockInfos = [genesis];
+            do {
+                this._mapBlocksToExec = new Map(arrBlockInfos.map(bi => [bi.getHash(), undefined]));
+                await this._blockProcessor();
+                let arrChilds = [];
+                arrBlockInfos.forEach(bi => arrChilds.concat(arrChilds, this._mainDag.getChildren(bi.getHash())));
+                arrBlockInfos = arrChilds;
+            } while (arrBlockInfos.length);
         }
     };
 };
