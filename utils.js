@@ -206,7 +206,8 @@ module.exports = {
             {name: "reIndexWallet", type: Boolean, multiple: false},
             {name: "walletSupport", type: Boolean, multiple: false},
             {name: "listWallets", type: Boolean, multiple: false},
-            {name: "localDevNode", type: Boolean, multiple: false}
+            {name: "localDevNode", type: Boolean, multiple: false},
+            {name: "rebuildDb", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },

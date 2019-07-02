@@ -2144,8 +2144,37 @@ module.exports = (factory, factoryOptions) => {
         _checkHeight(block) {
             const calculatedHeight = this._calcHeight(block.parentHashes);
             assert(calculatedHeight === block.getHeight(),
-                `Block ${block.getHash()} has incorrect height ${calculatedHeight} (expected ${block.getHash()}`
+                `Incorrect height "${calculatedHeight}" were calculated for block ${block.getHash()} (expected ${block.getHeight()}`
             );
+        }
+
+        async cleanDb() {
+            await this._storage.dropAllForReIndex();
+        }
+
+        /**
+         * Rebuild chainstate from blockDb (reExecute them one more time)
+         *
+         * @returns {Promise<void>}
+         */
+        async rebuildDb() {
+            this._mainDag = new MainDag();
+
+            for await (let {value} of this._storage.readBlocks()) {
+                const block = new factory.Block(value);
+                this._mainDag.addBlock(new BlockInfo(block.header));
+            }
+
+            const genesis = this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK);
+            assert(genesis, 'No Genesis found');
+            let arrBlockInfos = [genesis];
+            do {
+                this._mapBlocksToExec = new Map(arrBlockInfos.map(bi => [bi.getHash(), undefined]));
+                await this._blockProcessor();
+                let arrChilds = [];
+                arrBlockInfos.forEach(bi => arrChilds.concat(arrChilds, this._mainDag.getChildren(bi.getHash())));
+                arrBlockInfos = arrChilds;
+            } while (arrBlockInfos.length);
         }
     };
 };

@@ -15,7 +15,7 @@ const debug = debugLib(debugChannel);
 
 const factory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
-const {timestamp, arrayEquals} = require('../utils');
+const {timestamp, arrayEquals, prepareForStringifyObject} = require('../utils');
 
 const createBlockInfo = () => {
     return new factory.BlockInfo({
@@ -770,6 +770,22 @@ describe('Storage tests', () => {
                 const arrUtxo3 = await storage.walletListUnspent(buffAddr3.toString('hex'));
                 assert.equal(arrUtxo3.length, 0);
             }
+        });
+    });
+
+    describe('readBlocks', function() {
+        it('should read blocks one by one', async () => {
+            const storage = new factory.Storage();
+            await storage.saveBlock(createDummyBlock(factory));
+            await storage.saveBlock(createDummyBlock(factory));
+
+            let nBlocksCount = 0;
+            for await (let {value} of storage.readBlocks()) {
+                nBlocksCount++;
+                const block = new factory.Block(value);
+                console.dir(prepareForStringifyObject(block.toObject()), {colors: true, depth: null});
+            }
+            assert.equal(nBlocksCount, 2);
         });
     });
 });
