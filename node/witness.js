@@ -27,17 +27,19 @@ module.exports = (factory, factoryOptions) => {
 
             super(options);
 
-            const {wallet} = options;
+            const {wallet, networkSuspended} = options;
             this._wallet = wallet;
             if (!this._wallet) throw new Error('Pass wallet into witness');
 
-            // upgrade capabilities from regular Node to Witness
-            this._listenPromise.then(() => {
-                this._myPeerInfo.addCapability(
-                    {service: Constants.WITNESS, data: Buffer.from(wallet.address, 'hex')});
-                this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
-            });
+            if (!networkSuspended) {
 
+                // upgrade capabilities from regular Node to Witness
+                this._listenPromise.then(() => {
+                    this._myPeerInfo.addCapability(
+                        {service: Constants.WITNESS, data: Buffer.from(wallet.address, 'hex')});
+                    this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
+                });
+            }
             this._consensuses = new Map();
         }
 
