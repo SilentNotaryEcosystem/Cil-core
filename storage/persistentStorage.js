@@ -1,5 +1,6 @@
 'use strict';
 
+const EventEmitter = require('events');
 const path = require('path');
 const assert = require('assert');
 const levelup = require('levelup');
@@ -52,12 +53,14 @@ module.exports = (factory, factoryOptions) => {
         TxReceipt, BaseConciliumDefinition, ConciliumRr, ConciliumPos, Peer, PatchDB
     } = factory;
 
-    return class Storage {
+    return class Storage extends EventEmitter {
         constructor(options) {
             options = {
                 ...factoryOptions,
                 ...options
             };
+
+            super();
 
             const {testStorage, buildTxIndex, walletSupport, dbPath, mutex} = options;
             assert(mutex, 'Storage constructor requires Mutex instance!');
@@ -131,20 +134,28 @@ module.exports = (factory, factoryOptions) => {
 
         async _ensureArrConciliumDefinition() {
 
-            // cache is valid
-            if (this._arrConciliumDefinition && this._arrConciliumDefinition.length) return;
+            const lock = await this._mutex.acquire(['conciliums']);
 
-            const cont = await this.getContract(Buffer.from(Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS, 'hex'));
+            try {
 
-            if (cont) {
-                const {_arrConciliums} = cont.getData();
-                this._arrConciliumDefinition = _arrConciliums.map(objDefData => {
-                    const baseDef = new BaseConciliumDefinition(objDefData);
-                    if (baseDef.isPoS()) return new ConciliumPos(objDefData);
-                    if (baseDef.isRoundRobin()) return new ConciliumRr(objDefData);
-                });
-            } else {
-                this._arrConciliumDefinition = [];
+                // cache is valid
+                if (this._arrConciliumDefinition && this._arrConciliumDefinition.length) return;
+
+                const cont = await this.getContract(
+                    Buffer.from(Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS, 'hex'));
+
+                if (cont) {
+                    const {_arrConciliums} = cont.getData();
+                    this._arrConciliumDefinition = _arrConciliums.map(objDefData => {
+                        const baseDef = new BaseConciliumDefinition(objDefData);
+                        if (baseDef.isPoS()) return new ConciliumPos(objDefData);
+                        if (baseDef.isRoundRobin()) return new ConciliumRr(objDefData);
+                    });
+                } else {
+                    this._arrConciliumDefinition = [];
+                }
+            } finally {
+                this._mutex.release(lock);
             }
         }
 
@@ -379,7 +390,7 @@ module.exports = (factory, factoryOptions) => {
         async applyPatch(statePatch) {
 
             const arrOps = [];
-            const lock = await this._mutex.acquire(['utxo', 'contract', 'receipt']);
+            const lock = await this._mutex.acquire(['utxo', 'contract', 'receipt', 'conciliums']);
             try {
                 for (let [strTxHash, utxo] of statePatch.getCoins()) {
                     const key = this.constructor.createUtxoKey(strTxHash);
@@ -419,6 +430,8 @@ module.exports = (factory, factoryOptions) => {
                 await this._db.batch(arrOps);
             } finally {
                 this._mutex.release(lock);
+
+                if (!this._arrConciliumDefinition) this.emit('conciliumsChanged');
             }
         }
 
