@@ -5,6 +5,22 @@ const fs = require('fs');
 const commandLineArgs = require('command-line-args');
 const v8 = require('v8');
 
+/**
+ *
+ * @param {Array} arrNumbers
+ * @returns {number}
+ * @constructor
+ */
+function GCD(arrNumbers) {
+    let x = Math.abs(arrNumbers[0]);
+    for (let i = 1; i < arrNumbers.length; i++) {
+        let y = Math.abs(arrNumbers[i]);
+        while (x && y) { x > y ? x %= y : y %= x; }
+        x += y;
+    }
+    return x;
+}
+
 const deepCloneObject = (objToClone) => {
     return v8.deserialize(v8.serialize(objToClone));
 };
@@ -117,13 +133,13 @@ function mapEnvToOptions() {
         rpcPass: RPC_PASS,
 
         // if you plan to query your node
-        txIndex: BUILD_TX_INDEX ? true : false,
-        walletSupport: WALLET_SUPPORT ? true : false,
+        txIndex: !!BUILD_TX_INDEX,
+        walletSupport: !!WALLET_SUPPORT,
 
         // WITNESS_NODE is a Boolean variable, indicating witness node.
         // Just mount your real file name into container /app/private
         privateKey: WITNESS_NODE ? './private' : undefined,
-        seed: SEED_NODE ? true : false,
+        seed: !!SEED_NODE,
 
         // Variables below used for development, regular user don't need it
         seedAddr: SEED_ADDRESS,
@@ -245,5 +261,6 @@ module.exports = {
 
     decryptPkFileContent,
     mapEnvToOptions,
-    mapOptionsToNodeParameters
+    mapOptionsToNodeParameters,
+    GCD
 };

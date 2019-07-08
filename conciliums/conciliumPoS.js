@@ -1,10 +1,15 @@
 'use strict';
 
 const typeforce = require('typeforce');
+const debugLib = require('debug');
+
 const assert = require('assert');
 const types = require('../types');
+const {GCD} = require('../utils');
 
 const BaseConciliumDefinition = require('./baseConciliumDefinition');
+
+const debug = debugLib('conciliumPoS:');
 
 //--------------- Witness concilium definition ---------
 
@@ -31,7 +36,12 @@ const BaseConciliumDefinition = require('./baseConciliumDefinition');
 
 module.exports = ({Constants}) =>
     class ConciliumPoS extends BaseConciliumDefinition {
-        constructor(data) {
+        /**
+         *
+         * @param {Object} data - posDef see above
+         * @param {Number} nSeqLength - length of sequence to be formed for each epoche
+         */
+        constructor(data, nSeqLength = 20) {
             super(data);
 
             assert(data.nMinAmountToJoin, 'Specify nMinAmountToJoin');
@@ -39,11 +49,25 @@ module.exports = ({Constants}) =>
             this._setType(BaseConciliumDefinition.CONCILIUM_TYPE_POS);
 
             if (!Array.isArray(this._data.arrMembers)) this._data.arrMembers = [];
-            this._totalAmount = this._data.arrMembers.reduce((accum, objMember) => accum + objMember.amount, 0);
-            this._quorum = (0.5 * this._totalAmount + 1) / this._totalAmount;
+
+            const nGcd = GCD(this._data.arrMembers.map(m => m.amount));
+            this._arrShares = this._data.arrMembers.map(m => m.amount / nGcd);
+
+            this._totalSharesAmount = this._arrShares.reduce((accum, share) => accum + share, 0);
+
+            // we need 50% +1
+            // as _totalSharesAmount = Sum(amounts) / nGcd
+            this._quorum = this._arrShares.length === 1 ?
+                1 : (0.5 * this._totalSharesAmount + 1) / this._totalSharesAmount;
+
+            this._nSeqLength = nSeqLength;
+
+            // see _getSlot
+            this._paramA = 7;
+            this._paramB = 17;
         }
 
-        static create(conciliumId, nMinAmountToJoin, currentHeight, arrMembers) {
+        static create(conciliumId, nMinAmountToJoin, currentHeight, arrMembers, nSeqLength) {
             typeforce(
                 typeforce.tuple(typeforce.Number, typeforce.Number, typeforce.Number, typeforce.Array),
                 arguments
@@ -61,7 +85,7 @@ module.exports = ({Constants}) =>
                 nMinAmountToJoin,
                 arrMembers,
                 isOpen: !arrMembers.length
-            });
+            }, nSeqLength);
 
         }
 
@@ -90,6 +114,7 @@ module.exports = ({Constants}) =>
             const arrAddresses = this.getAddresses();
             const idx = roundNo % arrAddresses.length;
             return arrAddresses[idx].toString('hex');
+
         }
 
         /**
@@ -99,13 +124,67 @@ module.exports = ({Constants}) =>
          * @return {number} It coulnd't be greater than 1!
          */
         getWitnessWeight(strAddress) {
-            const objMember = this._data.arrMembers.find(objMember => objMember.address === strAddress);
-            if (!objMember) throw new Error(`address: "${strAddress}" not found in concilium`);
+            const nIdx = this._data.arrMembers.findIndex(objMember => objMember.address === strAddress);
+            if (!~nIdx) throw new Error(`address: "${strAddress}" not found in concilium`);
 
-            return objMember.amount / this._totalAmount;
+            return this._arrShares[nIdx] / this._totalSharesAmount;
         }
 
         isEnabled() {
             return super.isEnabled() && !!this._data.arrMembers.length;
+        }
+
+        initRounds() {
+            this._nLocalRound = 0;
+
+            // 2 variables, because this._nSeed could change asynchronously
+            if (this._nRoundBase === this._nSeed) {
+
+                // this could happens when whole network stuck (no stable blocks)
+                debug('Seed unchanged! Just incrementing');
+                this._nSeed += this._nSeqLength;
+            }
+
+            this._nRoundBase = this._nSeed;
+            this._formProposerAddressesSequence(this._nRoundBase);
+        }
+
+        getRound() {
+            assert(this._nLocalRound !== undefined, 'InitRounds first');
+
+            return this._nRoundBase + this._nLocalRound;
+        }
+
+        nextRound() {
+            assert(this._nLocalRound !== undefined, 'InitRounds first');
+
+            if (++this._nLocalRound >= this._nSeqLength) this.initRounds();
+            return this._nLocalRound;
+        }
+
+        _findIdxByRound(round) {
+            let start = 0;
+            round %= this._totalSharesAmount;
+            for (let i = 0; i < this._arrShares.length; i++) {
+                if (round >= start && round < this._arrShares[i] + start) return i;
+                start += this._arrShares[i];
+            }
+
+            throw new Error('You aren\'t supposed to be here');
+        }
+
+        _formProposerAddressesSequence(seed) {
+            typeforce(typeforce.Number, seed);
+
+            this._arrProposers = [];
+
+            for (let i = 0; i < this._nSeqLength; i++) {
+                const proposerIdx = this._findIdxByRound(this._getSlot(seed + i));
+                this._arrProposers.push(this._data.arrMembers[proposerIdx].address);
+            }
+        }
+
+        _getSlot(x) {
+            return this._paramA * (x) + this._paramB;
         }
     };

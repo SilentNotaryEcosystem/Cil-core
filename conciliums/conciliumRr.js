@@ -80,4 +80,22 @@ module.exports = ({Constants}) =>
         isEnabled() {
             return super.isEnabled() && !!this._data.addresses.length;
         }
+
+        initRounds() {
+            this._nRoundBase = this._nSeed;
+            this._nLocalRound = 0;
+        }
+
+        getRound() {
+            assert(this._nLocalRound !== undefined, 'InitRounds first');
+
+            return this._nRoundBase + this._nLocalRound;
+        }
+
+        nextRound() {
+            assert(this._nLocalRound !== undefined, 'InitRounds first');
+
+            if (++this._nLocalRound >= this._data.addresses.length) this.initRounds();
+            return this._nLocalRound;
+        }
     };

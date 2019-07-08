@@ -37,6 +37,8 @@ module.exports = class BaseConciliumDefinition {
                 isEnabled: true
             };
         }
+
+        this.changeSeed(0);
     }
 
     getType() {
@@ -102,5 +104,21 @@ module.exports = class BaseConciliumDefinition {
      */
     getProposerKey(roundNo) {
         throw new Error('Implement!');
+    }
+
+    initRounds() {
+        throw new Error('Implement!');
+    }
+
+    getRound() {
+        throw new Error('Implement!');
+    }
+
+    nextRound() {
+        throw new Error('Implement!');
+    }
+
+    changeSeed(nSeed) {
+        this._nSeed = nSeed;
     }
 };
