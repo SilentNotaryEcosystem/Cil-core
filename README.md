@@ -1,61 +1,63 @@
-## Процесс установки (Linux, macOS, Windows):
-#### 1. Склонировать проект
+[Russian version of document](README.rus.md)
+
+## The installation process (Linux, macOS, Windows):
+
+#### 1. Git clone the project
 ```
 git clone https://github.com/SilentNotaryEcosystem/Cil-core.git
 cd Cil-core
 git checkout tags/latest
 ```
-#### 2. Установить [Node.js (10.15.2) и npm](https://nodejs.org/dist/v10.15.2/node-v10.15.2.pkg)
-#### 3. Установить зависимости и запустить ноду
+#### 2. Setup [Node.js (10.15.2) и npm](https://nodejs.org/dist/v10.15.2/node-v10.15.2.pkg)
+#### 3. Setup dependencies and run a Node.js App
 ```
 npm install
-node index.js //запуск ноды
-node savePrivateKey.js` //запись приватного ключа в файл (аналог keystore)
+node index.js // node install
+node savePrivateKey.js` //write private key to file (keystore analog)
 ```
+## The installation process (Docker):
+...Coming soon
 
-## Процесс установки (Docker):
-#### ...Comming soon
+## Settings for launch
 
-## Параметры для запуска ноды
-Параметры по умолчанию заданы в файле [prod.conf.js](https://github.com/SilentNotaryEcosystem/Cil-core/blob/devel/config/prod.conf.js) (для production сети) и [devel.conf.js](https://github.com/SilentNotaryEcosystem/Cil-core/blob/devel/config/devel.conf.js) (для development сети). 
+The default options are set in file [prod.conf.js](https://github.com/SilentNotaryEcosystem/Cil-core/blob/devel/config/prod.conf.js) (for production net) and [devel.conf.js](https://github.com/SilentNotaryEcosystem/Cil-core/blob/devel/config/devel.conf.js) (for development net).
 
-|Параметр|Описание|
+|Parameter|Description|
 |---|---|
-|listenAddr|Заданный адрес|
-|port|Заданный порт|
-|seedAddr|Адрес seed'а для загрузки ноды|
-|rpcUser|Имя пользователя для вызова функций из ноды|
-|rpcPass|Пароль для вызова функций из ноды|
-|rpcPort|Порт для вызова функций из ноды|
-|rpcAddress|Адрес для вызова функций из ноды|
-|genesisHash|Хэш генезис блока для настройки тестового окружения|
-|conciliumDefContract|Контракт генезис блока для настройки тестового окружения|
-|privateKey|Файл с приватным ключом для запуска ноды свидетеля|
-|dbPath|Директория для хранения файлов с базами данных|
-|seed|Опция, что запускаемая нода будет являться seed'ом (будет хранить и раздавать адреса тех, кто к ней подключен (peers))|
-|strictAddresses|Опция для закрытия соединений с двойными IP адресами|
-|txIndex|Опция получения индекса транзакции по хешу|
-|watchAddress|Опция для работы с локальными кошельками. Используется для добавления адреса кошелька в ноду для отслеживания входящих и исходящих транзакций на этот адрес|
-|reIndexWallet|Опция для работы с старыми кошельками. Используется для получения всех транзакций в базе по заданному адресу кошелька|
-|walletSupport|Булевая функция для поддержки нодой кошельков|
-|listWallets|Служебная функция для просмотра списка адресов, которые добавлены в ноду|
+|listenAddr|URL|
+|port|Specified port
+|seedAddr|Seed address to run Node|
+|rpcUser|Username used to call the functions from Node|
+|rpcPass|Password used to call the functions from Node|
+|rpcPort|Port used to call the functions from Node|
+|rpcAddress|Address used to call the functions from Node|
+|genesisHash|The genesis block's hash to set up a test environment|
+|conciliumDefContract|The genesis block's contract to set up a test environment|
+|privateKey|Private key file to run a witness node|
+|dbPath|Directory for storing database files|
+|seed|Function used for the running node to be a seed (It will store and distribute the addresses of those who are connected to it (peers))|
+|strictAddresses|Function used to close the connection with the duplicate IP address|
+|txIndex|Function used to get transaction index by its hash|
+|watchAddress|Function used to operate with local wallets. Used for adding wallet address to Node to track all incoming and outgoing transactions|
+|reIndexWallet|Function used to operate with old wallets. Used to receive all transactions in the database by the specified wallet address|
+|walletSupport|Boolean function used by Node to support the wallet|
+|listWallets|Service function used to see the list of addresses that are added to the Node|
 
-## Запуск ноды development сети
-Необходимо установить переменную окружения `NODE_ENV=Devel`.
+## Node install for development net
+Set the environment variable `NODE_ENV=Devel`.
 
-Для вывода отладочной информации необходимо установить переменную `DEBUG=peer:*,node:*`.
+To display debug information, you must set a variable `DEBUG=peer:*,node:*`.
 
-В компонентах которые поддерживают отладку в начале файла есть тэг, который используется для отладки.
+In components that support debugging at the beginning of the file there is a tag that is used for debugging.
 
-Пример (Linux):
+Example (Linux):
 ```
 NODE_ENV=Devel DEBUG=peer:*,node:* node index.js
 ```
-
-## Тестирование
-#### Запуск тестов
+## Testing
+#### Running tests
 ```npm test```
-#### Запуск тестов c выводом отладочной информации (*nix)
+#### Running tests with debug output (*nix)
 ```npm run-script testDebugNix```
-#### Запуск тестов c выводом отладочной информации (Windows)
+#### Running tests with debug output (Windows)
 ```npm run-script testDebugWin```
