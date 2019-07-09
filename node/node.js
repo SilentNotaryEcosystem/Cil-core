@@ -937,7 +937,7 @@ module.exports = (factory, factoryOptions) => {
             try {
                 for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
 
-                    // mempool just loaded, we need to exec all stored local txns
+                    // NO patches - means mempool just loaded, we need to exec all stored local txns
                     if (!patchTx) {
                         const localTx = this._mempool.getTx(strTxHash);
 
@@ -953,6 +953,9 @@ module.exports = (factory, factoryOptions) => {
 
                 // all merges passed - accept new tx
                 this._mempool.addLocalTx(newTx, patchNewTx);
+
+                // inform about new Tx
+                await this._informNeighbors(newTx);
             } catch (e) {
                 throw new Error(`Tx is not accepted: ${e.message}`);
             }
