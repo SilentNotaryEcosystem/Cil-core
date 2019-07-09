@@ -433,16 +433,18 @@ describe('BFT general tests', () => {
     it('should reach consensus BUT NOT create block (hold off)', async () => {
         const {arrKeyPairs, newWallet, newBft} = createDummyBFT();
         const [, keyPair2] = arrKeyPairs;
+        const roundNo = 1;
 
         newBft.shouldPublish = sinon.fake.returns(true);
+        newBft._concilium.getRound = sinon.fake.returns(roundNo);
 
         // Message received from party
-        const msgRoundParty = new factory.Messages.MsgWitnessNextRound({conciliumId, roundNo: 1});
+        const msgRoundParty = new factory.Messages.MsgWitnessNextRound({conciliumId, roundNo});
         msgRoundParty.sign(keyPair2.privateKey);
         newBft.processMessage(msgRoundParty);
 
         // My message
-        const msgRoundMy = new factory.Messages.MsgWitnessNextRound({conciliumId, roundNo: 1});
+        const msgRoundMy = new factory.Messages.MsgWitnessNextRound({conciliumId, roundNo});
         msgRoundMy.sign(newWallet.privateKey);
         newBft.processMessage(msgRoundMy);
 
@@ -488,22 +490,22 @@ describe('BFT general tests', () => {
 
         assert.isOk(newBft._nextRound.calledOnce);
         assert.equal(newBft._state, factory.Constants.consensusStates.ROUND_CHANGE);
-        assert.notEqual(newBft._roundNo, prevRound);
     });
 
     it('should enter BLOCK state from ROUND_CHANGE', async () => {
         const {newBft} = createDummyBFT();
+        const roundNo = 864;
         const blockCreateHandler = sinon.fake();
         newBft.on('createBlock', blockCreateHandler);
         newBft._state = factory.Constants.consensusStates.ROUND_CHANGE;
-        const msg = new factory.Messages.MsgWitnessNextRound({conciliumId, roundNo: 864});
+        const msg = new factory.Messages.MsgWitnessNextRound({conciliumId, roundNo});
         msg.encode();
+        newBft._concilium.getRound = sinon.fake.returns(roundNo);
 
         newBft._roundChangeHandler(true, {state: newBft._state, ...msg.content});
 
         assert.isNotOk(newBft._nextRound.calledOnce);
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);
-        assert.equal(newBft._roundNo, 864);
 
         if (newBft.shouldPublish()) assert.isOk(blockCreateHandler.calledOnce);
     });
@@ -643,11 +645,15 @@ describe('BFT general tests', () => {
         const {newBft} = createDummyBFT();
         newBft.shouldPublish = sinon.fake.returns(true);
         const blockCreateHandler = sinon.fake();
+
+        const roundNo = 512;
+        newBft._concilium.getRound = sinon.fake.returns(roundNo);
+
         newBft.on('createBlock', blockCreateHandler);
 
         newBft._stateChange(true, {
             state: factory.Constants.consensusStates.ROUND_CHANGE,
-            data: Buffer.from([123])
+            data: Buffer.from([roundNo])
         });
 
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);

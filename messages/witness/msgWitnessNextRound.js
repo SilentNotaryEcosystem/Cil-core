@@ -27,7 +27,7 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessNextRoundProto
                     throw new Error(`Wrong message type. Expected "${MSG_WITNESS_NEXT_ROUND}" got "${this.message}"`);
                 }
             } else {
-                if (!data.roundNo) {
+                if (data.roundNo === undefined) {
                     throw new Error('Specify "roundNo"');
                 }
 
