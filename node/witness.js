@@ -449,5 +449,10 @@ module.exports = (factory, factoryOptions) => {
 
             return {block};
         }
-    };
+
+        _createPseudoRandomSeed(arrLastStableBlockHashes) {
+            const seed = super._createPseudoRandomSeed(arrLastStableBlockHashes);
+            this._consensuses.forEach(c => c.setRoundSeed(seed));
+        };
+    }
 };

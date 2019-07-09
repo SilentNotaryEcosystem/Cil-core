@@ -538,5 +538,9 @@ module.exports = (factory) => {
 
             return gatheredWeight >= quorum ? arrSignatures : undefined;
         }
+
+        setRoundSeed(nNewSeed) {
+            this._concilium.changeSeed(nNewSeed);
+        }
     };
 };

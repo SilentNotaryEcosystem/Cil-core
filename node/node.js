@@ -1488,6 +1488,27 @@ module.exports = (factory, factoryOptions) => {
             }
 
             await this._storage.updateLastAppliedBlocks(arrNewLastApplied);
+
+            this._createPseudoRandomSeed(arrNewLastApplied);
+        }
+
+        /**
+         * Simple deterministic algorithm For seeding some pseudo random value
+         *
+         * @param {Array <String>} arrLastStableBlockHashes
+         * @private
+         */
+        _createPseudoRandomSeed(arrLastStableBlockHashes) {
+            const lowestHash = arrLastStableBlockHashes.reduce((strLowest, strCurrent) => {
+                return strLowest < strCurrent ? strLowest : strCurrent;
+            }, 'z');
+
+            const buffHash = Buffer.from(lowestHash, 'hex');
+            let seed = 0;
+            for (let [, val] of buffHash.entries()) {
+                seed += val;
+            }
+            return seed;
         }
 
         /**
