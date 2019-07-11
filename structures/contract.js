@@ -37,6 +37,7 @@ module.exports = (factory, {contractProto}) =>
                 if (typeof data.contractCode === 'object') data.contractCode = JSON.stringify(data.contractData);
                 const errMsg = contractProto.verify(data);
                 if (errMsg) throw new Error(`Contract: ${errMsg}`);
+
                 this._data = contractProto.create(data);
             }
 
@@ -59,6 +60,16 @@ module.exports = (factory, {contractProto}) =>
         }
 
         /**
+         *
+         * @param {Object} data - raw data of this class
+         * @returns {this}
+         */
+        static createFromData(data) {
+            data.__proto__ = this.prototype;
+            return data;
+        }
+
+        /**
          * @return {String}
          */
         getCode() {
@@ -75,6 +86,10 @@ module.exports = (factory, {contractProto}) =>
 
         getConciliumId() {
             return this._data.conciliumId;
+        }
+
+        setConciliumId(nConciliumId) {
+            this._data.conciliumId = nConciliumId;
         }
 
         getDataSize() {
