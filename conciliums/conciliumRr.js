@@ -98,4 +98,8 @@ module.exports = ({Constants}) =>
             if (++this._nLocalRound >= this._data.addresses.length) this.initRounds();
             return this._nLocalRound;
         }
+
+        getMembersCount() {
+            return this._data.addresses.length;
+        }
     };

@@ -157,7 +157,7 @@ module.exports = (factory) => {
         runConsensus() {
 
             // i'm a single node (for example Initial witness)
-            if (this._concilium.getQuorum() === 1 &&
+            if (this._concilium.getMembersCount() === 1 &&
                 this._arrAddresses.includes(this._wallet.address)) {
                 return this._views[this._wallet.address][this._wallet.address];
             }
@@ -408,7 +408,8 @@ module.exports = (factory) => {
 
                         if (!arrSignatures || !arrSignatures.length) {
                             logger.error(
-                                `Consensus reached for block ${consensusValue.blockHash}, but fail to get signatures!`);
+                                `Consensus reached for block ${consensusValue.blockHash.toString(
+                                    'hex')}, but fail to get signatures!`);
                             return this._nextRound();
                         }
 

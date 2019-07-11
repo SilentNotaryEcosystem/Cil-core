@@ -138,13 +138,6 @@ module.exports = ({Constants}) =>
             this._nLocalRound = 0;
 
             // 2 variables, because this._nSeed could change asynchronously
-            if (this._nRoundBase === this._nSeed) {
-
-                // this could happens when whole network stuck (no stable blocks)
-                debug('Seed unchanged! Just incrementing');
-                this._nSeed += this._nSeqLength;
-            }
-
             this._nRoundBase = this._nSeed;
             this._formProposerAddressesSequence(this._nRoundBase);
         }
@@ -186,5 +179,9 @@ module.exports = ({Constants}) =>
 
         _getSlot(x) {
             return this._paramA * (x) + this._paramB;
+        }
+
+        getMembersCount() {
+            return this._data.arrMembers.length;
         }
     };

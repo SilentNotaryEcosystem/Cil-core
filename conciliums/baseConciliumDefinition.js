@@ -121,4 +121,8 @@ module.exports = class BaseConciliumDefinition {
     changeSeed(nSeed) {
         this._nSeed = nSeed;
     }
+
+    getMembersCount() {
+        throw new Error('Implement!');
+    }
 };
