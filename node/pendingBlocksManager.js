@@ -187,15 +187,15 @@ module.exports = (factory) => {
         /**
          * Undefined means that no new stable vertices found
          *
-         * @param {String} newVertex - blockHash of processed block
+         * @param {String} strHashNewVertex - blockHash of processed block
          * @param {Number} nConciliumCount - how many conciliums definition existed now
          * @return {undefined | {patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
          */
-        checkFinality(newVertex, nConciliumCount) {
+        checkFinality(strHashNewVertex, nConciliumCount) {
             typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
 
             // find all path from this vertex
-            const arrTopStable = this._findTopStable(newVertex, majority(nConciliumCount));
+            const arrTopStable = this._findTopStable(strHashNewVertex, majority(nConciliumCount));
 
             // no stable yet - stop here
             if (!arrTopStable.length) return;
@@ -213,7 +213,7 @@ module.exports = (factory) => {
             debug(`Removed total ${setAlsoStableVertices.size} stable`);
 
             // remove bad chains (their tips will conflict with patchToApply)
-            const setBlocksToRollback = this._removeConflictingBranches(patchToApply);
+            const setBlocksToRollback = this._removeConflictingBranches(strHashNewVertex, patchToApply);
 
             if (setBlocksToRollback.size) debug(`Removed ${setBlocksToRollback.size} blocks from conflicting branches`);
             debug(`Remaining DAG order ${this._dag.order}.`);
@@ -298,11 +298,12 @@ module.exports = (factory) => {
 
         /**
          *
+         * @param {String} strHashToExclude - new vertex that already known as non-conflicting
          * @param {PatchDB} patchToApply - merged patch that we'll apply to storage
          * @returns {Set} of hashes block to unroll to mempool
          * @private
          */
-        _removeConflictingBranches(patchToApply) {
+        _removeConflictingBranches(strHashToExclude, patchToApply) {
             typeforce(types.Patch, patchToApply);
 
             // TODO: improve it by searching WHICH vertex contain conflict, and remove only vertices above.
@@ -310,6 +311,7 @@ module.exports = (factory) => {
 
             let setBlocksToRollback = new Set();
             for (let tip of this.getTips()) {
+                if (tip === strHashToExclude) continue;
                 const {patch} = this._dag.readObj(tip);
                 try {
                     patch.merge(patchToApply);
