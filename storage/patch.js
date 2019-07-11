@@ -2,6 +2,8 @@
 const assert = require('assert');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
+const v8 = require('v8');
+
 const types = require('../types');
 const {arrayIntersection, getMapsKeysUnique} = require('../utils');
 
@@ -9,7 +11,7 @@ const debug = debugLib('patch:');
 
 // Could be used for undo blocks
 
-module.exports = ({UTXO, Contract}) =>
+module.exports = ({UTXO, Contract, TxReceipt}) =>
     class PatchDB {
         constructor(nConciliumId) {
             this._data = {
@@ -26,6 +28,35 @@ module.exports = ({UTXO, Contract}) =>
             this._mapTxReceipts = new Map();
 
             this._nonce = 0;
+        }
+
+        /**
+         *
+         * @param {String} strData
+         * @returns {*}
+         */
+        static deserialize(strData) {
+            const patch = v8.deserialize(Buffer.from(strData, 'hex'));
+            patch.__proto__ = this.prototype;
+
+            const arrUtxos = [];
+            patch._data.coins.forEach((value, key) => arrUtxos.push([key, UTXO.createFromData(value)]));
+            patch._data.coins = new Map(arrUtxos);
+
+            patch._mapContractStates.forEach(
+                (value, key) => patch._mapContractStates.set(key, Contract.createFromData(value)));
+            patch._mapTxReceipts.forEach(
+                (value, key) => patch._mapTxReceipts.set(key, TxReceipt.createFromData(value)));
+
+            return patch;
+        }
+
+        /**
+         *
+         * @returns {String}
+         */
+        serialize() {
+            return v8.serialize(this).toString('hex');
         }
 
         /**
@@ -169,6 +200,7 @@ module.exports = ({UTXO, Contract}) =>
                             resultPatch.createCoins(coinHash, idx, coins);
                         } catch (e) {
 
+                            debug(e);
                             // not found
                         }
                     }
@@ -375,8 +407,6 @@ module.exports = ({UTXO, Contract}) =>
          * @returns {any}
          */
         getLevel(nConciliumId) {
-            assert(this._conciliumId !== undefined, '"conciliumId" not specified!');
-
             nConciliumId = nConciliumId === undefined ? this._conciliumId : nConciliumId;
             return this._mapConciliumLevel.get(nConciliumId);
         }
