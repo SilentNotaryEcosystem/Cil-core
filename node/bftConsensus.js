@@ -542,5 +542,9 @@ module.exports = (factory) => {
         setRoundSeed(nNewSeed) {
             this._concilium.changeSeed(nNewSeed);
         }
+
+        getCurrentRound() {
+            return this._concilium.getRound();
+        }
     };
 };

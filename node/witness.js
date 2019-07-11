@@ -329,7 +329,7 @@ module.exports = (factory, factoryOptions) => {
             consensus.on('commitBlock', async (block) => {
                 await this._handleArrivedBlock(block);
                 logger.log(
-                    `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus._roundNo} commited at ${new Date} `);
+                    `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
                 consensus.blockCommited();
             });
         }
