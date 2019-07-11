@@ -18,8 +18,21 @@ module.exports = ({Constants, Coins}, {txReceiptProto}) =>
             if (Buffer.isBuffer(data)) {
                 this._data = txReceiptProto.decode(data);
             } else {
+                const errMsg = txReceiptProto.verify(data);
+                if (errMsg) throw new Error(`TxReceipt: ${errMsg}`);
+
                 this._data = txReceiptProto.create(data);
             }
+        }
+
+        /**
+         *
+         * @param {Object} data - raw data of this class
+         * @returns {this}
+         */
+        static createFromData(data) {
+            data.__proto__ = this.prototype;
+            return data;
         }
 
         /**
