@@ -54,7 +54,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
         ({genesis, strConciliumDefContractTx, arrWitnesses, moneyIssueTx} = createGenesisBlock());
         genesisNode = new factory.Node({
             listenAddr: seedAddress,
-            delay
+            delay,
+            workerSuspended: false
         });
         await genesisNode.ensureLoaded();
 
@@ -87,7 +88,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
         const wallet = new factory.Wallet(arrWitnesses[0].privateKey);
         witnessConciliumOne = new factory.Witness({
             wallet,
-            delay
+            delay,
+            workerSuspended: false
         });
 
         await witnessConciliumOne.ensureLoaded();
@@ -118,7 +120,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
         witnessConciliumTwo = new factory.Witness({
             wallet,
             arrSeedAddresses: [seedAddress],
-            delay
+            delay,
+            workerSuspended: false
         });
         await witnessConciliumTwo.ensureLoaded();
         await witnessConciliumTwo.bootstrap();
@@ -325,7 +328,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         nodeThree = new factory.Node({
             arrSeedAddresses: [seedAddress],
-            delay
+            delay,
+            workerSuspended: false
         });
         await nodeThree.ensureLoaded();
         await nodeThree.bootstrap();
@@ -351,7 +355,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         nodeFour = new factory.Node({
             arrSeedAddresses: [seedAddress],
-            delay
+            delay,
+            workerSuspended: false
         });
         await nodeFour.ensureLoaded();
         await processBlock(nodeFour, genesis);

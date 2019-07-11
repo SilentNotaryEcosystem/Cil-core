@@ -10,6 +10,7 @@ const {arrayEquals, prepareForStringifyObject} = require('../../utils');
 process.on('warning', e => console.warn(e.stack));
 
 const CONCILIUM_CREATE_FEE = 1e6;
+const CONCILIUM_INVOKE_FEE = 1e6;
 
 // set to undefined to use random delays
 const delay = undefined;
@@ -25,6 +26,7 @@ let moneyIssueTx;
 
 let witnessConciliumOne;
 let witnessConciliumTwo;
+let witnessThree;
 let nodeThree;
 let nodeFour;
 
@@ -61,7 +63,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         assert.isOk(genesis);
         assert.isOk(strConciliumDefContractTx);
         assert.isOk(moneyIssueTx);
-        assert.isOk(Array.isArray(arrWitnesses) && arrWitnesses.length === 2);
+        assert.isOk(Array.isArray(arrWitnesses) && arrWitnesses.length === 3);
 
         factory.Constants.GENESIS_BLOCK = genesis.getHash();
         const patch = await processBlock(genesisNode, genesis);
@@ -85,7 +87,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
         const wallet = new factory.Wallet(arrWitnesses[0].privateKey);
         witnessConciliumOne = new factory.Witness({
             wallet,
-            delay
+            delay,
+            workerSuspended: false
         });
 
         await witnessConciliumOne.ensureLoaded();
@@ -116,7 +119,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
         witnessConciliumTwo = new factory.Witness({
             wallet,
             arrSeedAddresses: [seedAddress],
-            delay
+            delay,
+            workerSuspended: false
         });
         await witnessConciliumTwo.ensureLoaded();
         await witnessConciliumTwo.bootstrap();
@@ -133,7 +137,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         }));
         sinon.restore();
 
-        const txCode = createAnotherConcilium(wallet.privateKey, wallet.address, moneyIssueTx.hash(), 4);
+        const txCode = createAnotherConcilium(wallet.privateKey, moneyIssueTx.hash(), 4);
         await witnessConciliumTwo.rpcHandler({event: 'tx', content: txCode});
 
         // wait for witnessOne receive tx & produce block with new concilium def & send us (witnessConciliumTwo) second block
@@ -151,18 +155,50 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         assert.isOk(await witnessConciliumOne._storage.getConciliumById(1));
         assert.isOk(await witnessConciliumTwo._storage.getConciliumById(1));
+
+        stepDone = true;
+    });
+
+    it('should join & start witness concilium', async function() {
+        this.timeout(300000);
+
+        const wallet = witnessConciliumTwo._wallet;
+
+        // use next (5th output)
+        const txCode = joinConcilium(wallet.privateKey, moneyIssueTx.hash(), 5, 1e5);
+        await witnessConciliumTwo.rpcHandler({event: 'tx', content: txCode});
+
+        // wait for witnessOne receive tx & produce block with new concilium def & send us (witnessConciliumTwo) second block
+        const donePromise = new Promise((resolve, reject) => {
+            sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
+                if (block.txns.length === 2) {
+                    resolve();
+                } else {
+                    reject();
+                }
+            });
+        });
+
+        await donePromise;
+
+        const concilium = await witnessConciliumTwo._storage.getConciliumById(1);
+        assert.isOk(concilium);
+        assert.isOk(Array.isArray(concilium.getAddresses()));
+        assert.isOk(concilium.getAddresses().length === 1);
+        assert.isOk(concilium.getAddresses()[0].toString('hex') === wallet.address);
+
         await witnessConciliumTwo.start();
 
         stepDone = true;
     });
 
-    it('should be 0 pending & 2 stable blocks', async () => {
+    it('should be 0 pending & 3 stable blocks', async () => {
         assert.equal(witnessConciliumOne._pendingBlocks.getAllHashes().length, 0);
         assert.equal(witnessConciliumTwo._pendingBlocks.getAllHashes().length, 0);
 
         // all blocks
-        assert.equal(witnessConciliumOne._mainDag.order, 2);
-        assert.equal(witnessConciliumTwo._mainDag.order, 2);
+        assert.equal(witnessConciliumOne._mainDag.order, 3);
+        assert.equal(witnessConciliumTwo._mainDag.order, 3);
 
         stepDone = true;
     });
@@ -173,11 +209,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         const wallet = new factory.Wallet(arrWitnesses[1].privateKey);
 
         // create TX for new concilium (id: 1)
-        const tx = new factory.Transaction();
-        tx.conciliumId = 1;
-        tx.addInput(moneyIssueTx.hash(), 5);
-        tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-        tx.claim(0, wallet.privateKey);
+        const tx = sendMoneys(wallet.privateKey, moneyIssueTx.hash(), 6, 1);
 
         await witnessConciliumTwo.rpcHandler({event: 'tx', content: tx});
 
@@ -216,9 +248,9 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
     it('should be only one pending block', async () => {
         assert.equal(witnessConciliumOne._pendingBlocks.getAllHashes().length, 1);
-        assert.equal(witnessConciliumOne._mainDag.order, 3);
+        assert.equal(witnessConciliumOne._mainDag.order, 4);
         assert.equal(witnessConciliumTwo._pendingBlocks.getAllHashes().length, 1);
-        assert.equal(witnessConciliumTwo._mainDag.order, 3);
+        assert.equal(witnessConciliumTwo._mainDag.order, 4);
 
         stepDone = true;
     });
@@ -233,144 +265,106 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should create one more block for each concilium', async function() {
+    it('should create 3d witness & join concilium', async function() {
         this.timeout(300000);
 
-        const wallet = new factory.Wallet(arrWitnesses[0].privateKey);
-
-        {
-            // create TX for concilium (id: 0)
-            const tx = new factory.Transaction();
-            tx.conciliumId = 0;
-            tx.addInput(moneyIssueTx.hash(), 1);
-            tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-            tx.claim(0, wallet.privateKey);
-
-            await witnessConciliumOne.rpcHandler({event: 'tx', content: tx});
-        }
-
-        {
-            // wait for witnessConciliumOne RECEIVE this block for concilium == 0
-            const donePromiseW1 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake((block) => {
-                    if (block.txns.length === 2 && block.conciliumId === 0) {
-                        resolve();
-                    }
-                });
-            });
-
-            // wait for witnessConciliumTwo receive that block
-            const donePromiseW2 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
-                    if (block.txns.length === 2 && block.conciliumId === 0) {
-                        resolve();
-                    }
-                });
-            });
-
-            await Promise.all([donePromiseW1, donePromiseW2]);
-            sinon.restore();
-        }
-
-        {
-            // create TX for concilium (id: 1)
-            const tx = new factory.Transaction();
-            tx.conciliumId = 1;
-            tx.addInput(moneyIssueTx.hash(), 2);
-            tx.addReceiver(1e5, Buffer.from(wallet.address, 'hex'));
-            tx.claim(0, wallet.privateKey);
-
-            await witnessConciliumTwo.rpcHandler({event: 'tx', content: tx});
-        }
-
-        {
-            // wait for witnessConciliumTwo PRODUCE block concilium ==1
-            const donePromiseW2 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
-                    if (block.txns.length === 2 && block.conciliumId === 1) {
-                        resolve();
-                    }
-                });
-            });
-
-            // wait for witnessConciliumOne receive that block
-            const donePromiseW1 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake((block) => {
-                    if (block.txns.length === 2 && block.conciliumId === 1) {
-                        resolve();
-                    }
-                });
-            });
-
-            await Promise.all([donePromiseW1, donePromiseW2]);
-        }
-
-        stepDone = true;
-    });
-
-    it('should be same LAST_APPLIED_BLOCKS for both witnesses (2 hashes)', async () => {
-        const arrHashesOne = await witnessConciliumOne._storage.getLastAppliedBlockHashes();
-        const arrHashesTwo = await witnessConciliumTwo._storage.getLastAppliedBlockHashes();
-
-        assert.isOk(arrayEquals(arrHashesOne, arrHashesTwo));
-        assert.equal(arrHashesOne.length, 2);
-
-        stepDone = true;
-    });
-
-    it('should create 3d node and load 4 blocks', async function() {
-        this.timeout(300000);
-
-        nodeThree = new factory.Node({
+        const wallet = new factory.Wallet(arrWitnesses[2].privateKey);
+        witnessThree = new factory.Witness({
+            wallet,
             arrSeedAddresses: [seedAddress],
-            delay
+            delay,
+            workerSuspended: false
         });
-        await nodeThree.ensureLoaded();
-        await nodeThree.bootstrap();
+        await witnessThree.ensureLoaded();
+        await witnessThree.bootstrap();
 
-        // wait 4 blocks: Genesis, with definition of 2nd concilium, of new concilium, and one more
-        const donePromise = new Promise((resolve) => {
-            let i = 0;
-            sinon.stub(nodeThree, '_postAcceptBlock').callsFake(() => {
-                if (++i === 4) {resolve();}
+        // wait to 4 block (including one with concilium 1 definition)
+        await (new Promise((resolve, reject) => {
+            sinon.stub(witnessThree, '_postAcceptBlock').callsFake(() => {
+                if (witnessThree._mainDag.order === 4) {
+                    resolve();
+                }
+            });
+        }));
+        sinon.restore();
+
+        const txCode = joinConcilium(wallet.privateKey, moneyIssueTx.hash(), 8, 1e7);
+        await witnessThree.rpcHandler({event: 'tx', content: txCode});
+
+        // wait for witnessOne receive tx & produce block with concilium invocation & send us (witnessThree) that block
+        const donePromise = new Promise((resolve, reject) => {
+            sinon.stub(witnessThree, '_postAcceptBlock').callsFake((block) => {
+                if (block.txns.length === 2) {
+                    resolve();
+                } else {
+                    reject();
+                }
             });
         });
 
         await donePromise;
 
-        assert.equal(nodeThree._pendingBlocks.getAllHashes().length, 1);
-        assert.equal(nodeThree._mainDag.order, 4);
+        // block with updated concilium arrived, but it's "unstable" so, we need concilium 1 (which still have one witness) produce a block
 
         stepDone = true;
     });
 
-    it('should create 4th node, that has Genesis, so it should load 3 blocks', async function() {
+    it('should create block at concilium 1 (to make block with join stable)', async function() {
         this.timeout(300000);
 
-        nodeFour = new factory.Node({
-            arrSeedAddresses: [seedAddress],
-            delay
-        });
-        await nodeFour.ensureLoaded();
-        await processBlock(nodeFour, genesis);
+        const wallet = witnessThree._wallet;
 
-        assert.equal(nodeFour._pendingBlocks.getAllHashes().length, 0);
-        assert.equal(nodeFour._mainDag.order, 1);
+        const txCode = sendMoneys(wallet.privateKey, moneyIssueTx.hash(), 9, 1);
+        await witnessThree.rpcHandler({event: 'tx', content: txCode});
 
-        await nodeFour.bootstrap();
-
-        // wait 3 blocks: all except Genesis
-        const donePromise = new Promise((resolve) => {
-            let i = 0;
-            sinon.stub(nodeFour, '_postAcceptBlock').callsFake(() => {
-                if (++i === 3) {resolve();}
+        {
+            // wait for witnessTwo receive tx & produce block & send us (witnessThree) that block
+            const donePromise = new Promise((resolve, reject) => {
+                sinon.stub(witnessThree, '_postAcceptBlock').callsFake((block) => {
+                    if (block.txns.length === 2) {
+                        resolve();
+                    } else {
+                        reject();
+                    }
+                });
             });
-        });
 
-        await donePromise;
+            await donePromise;
+        }
 
-        assert.equal(nodeFour._pendingBlocks.getAllHashes().length, 1);
-        assert.equal(nodeFour._mainDag.order, 4);
+        const concilium = await witnessThree._storage.getConciliumById(1);
+        assert.isOk(concilium);
+        assert.isOk(Array.isArray(concilium.getAddresses()));
+        assert.isOk(concilium.getAddresses().length === 2);
+        assert.isOk(concilium.getAddresses()[1].toString('hex') === wallet.address);
+
+        await witnessThree.start();
+
+        stepDone = true;
+    });
+
+    it('should create ONE MORE block at concilium 1 (now with 2 witnesses)', async function() {
+        this.timeout(300000);
+
+        const wallet = witnessThree._wallet;
+
+        const txCode = sendMoneys(wallet.privateKey, moneyIssueTx.hash(), 10, 1);
+        await witnessThree.rpcHandler({event: 'tx', content: txCode});
+
+        {
+            // wait for witnessTwo receive tx & produce block & send us (witnessThree) that block
+            const donePromise = new Promise((resolve, reject) => {
+                sinon.stub(witnessThree, '_postAcceptBlock').callsFake((block) => {
+                    if (block.txns.length === 2) {
+                        resolve();
+                    } else {
+                        reject();
+                    }
+                });
+            });
+
+            await donePromise;
+        }
 
         stepDone = true;
     });
@@ -380,6 +374,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
 function createGenesisBlock() {
     const witnessOne = factory.Crypto.createKeyPair();
     const witnessTwo = factory.Crypto.createKeyPair();
+    const witnessThree = factory.Crypto.createKeyPair();
 
     const initialConcilium = factory.ConciliumRr.create(0, [witnessOne.address], 1);
 
@@ -605,6 +600,10 @@ exports=new ContractConciliums(${JSON.stringify(
     moneyIssueTx.addReceiver(1e8, witnessTwo.getAddress());
     moneyIssueTx.addReceiver(1e8, witnessTwo.getAddress());
     moneyIssueTx.addReceiver(1e8, witnessTwo.getAddress());
+    moneyIssueTx.addReceiver(1e8, witnessThree.getAddress());
+    moneyIssueTx.addReceiver(1e8, witnessThree.getAddress());
+    moneyIssueTx.addReceiver(1e8, witnessThree.getAddress());
+    moneyIssueTx.addReceiver(1e8, witnessThree.getAddress());
 
     const contractDeployTx = factory.Transaction.createContract(contractCode);
 
@@ -617,24 +616,19 @@ exports=new ContractConciliums(${JSON.stringify(
     return {
         genesis,
         strConciliumDefContractTx: contractDeployTx.hash(),
-        arrWitnesses: [witnessOne, witnessTwo],
+        arrWitnesses: [witnessOne, witnessTwo, witnessThree],
         moneyIssueTx
     };
 }
 
-function createAnotherConcilium(strClaimPrivateKey, witnessAddress, utxo, idx) {
+function createAnotherConcilium(strClaimPrivateKey, utxo, idx) {
     console.log(`Using UTXo ${utxo} idx ${idx}`);
 
     const concilium = new factory.ConciliumPos({
         conciliumId: 1,
         nMinAmountToJoin: 1e3,
         isOpen: true,
-        arrMembers: [
-            {
-                address: witnessAddress,
-                amount: 1e3
-            }
-        ]
+        arrMembers: []
     });
 
     const contractCode = {
@@ -653,6 +647,42 @@ function createAnotherConcilium(strClaimPrivateKey, witnessAddress, utxo, idx) {
 
     // spend witness2 coins (WHOLE!)
     tx.addInput(utxo, idx);
+    tx.claim(0, strClaimPrivateKey);
+
+    return tx;
+}
+
+function joinConcilium(strClaimPrivateKey, utxo, idx, amount) {
+    console.log(`Using UTXo ${utxo} idx ${idx}`);
+
+    const contractCode = {
+        method: 'joinConcilium',
+        arrArguments: [1]
+    };
+
+    // WARNING! it's just test/demo. All coins at this UTXO become fee
+    const tx = factory.Transaction.invokeContract(
+        factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS,
+        contractCode,
+        amount
+    );
+
+    // spend coins (WHOLE!)
+    tx.addInput(utxo, idx);
+    tx.claim(0, strClaimPrivateKey);
+    tx.signForContract(strClaimPrivateKey);
+
+    return tx;
+}
+
+function sendMoneys(strClaimPrivateKey, utxo, idx, conciliumId = 0) {
+    console.log(`Using UTXo ${utxo} idx ${idx}`);
+
+    const tx = new factory.Transaction();
+    tx.conciliumId = conciliumId;
+
+    tx.addInput(utxo, idx);
+    tx.addReceiver(1e4, generateAddress());
     tx.claim(0, strClaimPrivateKey);
 
     return tx;
