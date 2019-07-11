@@ -41,6 +41,8 @@ module.exports = (factory, factoryOptions) => {
                 });
             }
             this._consensuses = new Map();
+
+            this._storage.on('conciliumsChanged', this.restart.bind(this));
         }
 
         async bootstrap() {
@@ -72,6 +74,15 @@ module.exports = (factory, factoryOptions) => {
 
             return arrConciliums.length;
             // TODO: add watchdog to maintain connections to as much as possible witnesses
+        }
+
+        async restart() {
+            const wasStarted = this._consensuses.size;
+
+            if (wasStarted) {
+                this._consensuses = new Map();
+                await this.start();
+            }
         }
 
         /**
