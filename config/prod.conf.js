@@ -144,7 +144,8 @@ module.exports = {
         DB_WALLET_DIR: 'wallet',
 
         concilium: {
-            HEIGHT_TO_RELEASE_ADD_ON: 5e4
+            HEIGHT_TO_RELEASE_ADD_ON: 5e4,
+            POS_CONCILIUM_ROUNDS: 20
         }
     }
 };

@@ -26,6 +26,11 @@ module.exports = {
         MEMPOOL_TX_LIFETIME: 5000,
         MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
 
-        DB_PATH_PREFIX: './testDb'
+        DB_PATH_PREFIX: './testDb',
+
+        concilium: {
+            HEIGHT_TO_RELEASE_ADD_ON: 1,
+            POS_CONCILIUM_ROUNDS: 1
+        }
     }
 };
