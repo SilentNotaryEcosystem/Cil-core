@@ -1200,7 +1200,6 @@ module.exports = (factory, factoryOptions) => {
                         environment,
                         {nFeeContractCreation, nFeeSize, nFeeStorage}
                     ));
-                contract.setConciliumId(tx.conciliumId);
             } else {
 
                 const nFeeContractInvocation = await this._getFeeContractInvocatoin(tx, isGenesis);
@@ -1244,6 +1243,8 @@ module.exports = (factory, factoryOptions) => {
             // contract could throw, so it could be undefined
             if (contract) {
                 patchThisTx.setContract(contract);
+
+                if (!contract.getConciliumId()) contract.setConciliumId(tx.conciliumId);
 
                 // increase balance of contract
                 if (receipt.isSuccessful()) contract.deposit(tx.getContractSentAmount());
