@@ -1200,6 +1200,7 @@ module.exports = (factory, factoryOptions) => {
                         environment,
                         {nFeeContractCreation, nFeeSize, nFeeStorage}
                     ));
+                contract.setConciliumId(tx.conciliumId);
             } else {
 
                 const nFeeContractInvocation = await this._getFeeContractInvocatoin(tx, isGenesis);
