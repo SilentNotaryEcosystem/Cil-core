@@ -38,6 +38,16 @@ module.exports = ({Coins}, {utxoProto}) =>
         }
 
         /**
+         *
+         * @param {Object} data - {_txHash, _data} raw data of class UTXO
+         * @returns {UTXO}
+         */
+        static createFromData(data) {
+            data.__proto__ = this.prototype;
+            return data;
+        }
+
+        /**
          * All outputs in UTXO are spent!
          *
          * @returns {boolean}
