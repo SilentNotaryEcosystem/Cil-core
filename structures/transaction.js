@@ -103,12 +103,16 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         /**
          *
          * @param {String} strCode
-         * @param {Buffer | undefined} addrChangeReceiver
+         * @param {Address} addrChangeReceiver
          * @returns {Transaction}
          */
         static createContract(strCode, addrChangeReceiver) {
             typeforce(typeforce.String, strCode);
-            typeforce(typeforce.maybe(types.StrAddress, addrChangeReceiver));
+            typeforce(typeforce.maybe(types.Address, addrChangeReceiver));
+
+            if (addrChangeReceiver && !Buffer.isBuffer(addrChangeReceiver)) {
+                addrChangeReceiver = Buffer.from(addrChangeReceiver, 'hex');
+            }
 
             const tx = new this();
             tx._data.payload.outs.push({
@@ -130,7 +134,11 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          */
         static invokeContract(strContractAddr, objInvokeCode, amount, addrChangeReceiver) {
             typeforce(typeforce.tuple(types.StrAddress, typeforce.Object, typeforce.Number), arguments);
-            typeforce(typeforce.maybe(types.StrAddress, addrChangeReceiver));
+            typeforce(typeforce.maybe(types.Address, addrChangeReceiver));
+
+            if (addrChangeReceiver && !Buffer.isBuffer(addrChangeReceiver)) {
+                addrChangeReceiver = Buffer.from(addrChangeReceiver, 'hex');
+            }
 
             const tx = new this();
             tx._data.payload.outs.push({
