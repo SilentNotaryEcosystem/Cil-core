@@ -30,7 +30,7 @@ module.exports = {
 
         concilium: {
             HEIGHT_TO_RELEASE_ADD_ON: 1,
-            POS_CONCILIUM_ROUNDS: 1
+            POS_CONCILIUM_ROUNDS: 2
         }
     }
 };

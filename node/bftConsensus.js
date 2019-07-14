@@ -314,9 +314,10 @@ module.exports = (factory) => {
          */
         _stateChange(isConsensus = false, consensusValue = undefined) {
             const prevState = this._state;
+            this._adjustTimer();
+
             if (isConsensus && consensusValue && consensusValue.state) {
                 this._state = consensusValue.state;
-                this._adjustTimer();
             }
 
             switch (this._state) {
@@ -339,8 +340,6 @@ module.exports = (factory) => {
                 debug(
                     `BFT "${this._nonce}" STATE changed! prev: "${prevState}" new "${this._state}" Round: ${this._concilium.getRound()}`);
             }
-
-            this._adjustTimer();
         }
 
         /**
@@ -361,8 +360,6 @@ module.exports = (factory) => {
                 this._nextRound();
             } else {
                 this._state = States.BLOCK;
-                this._adjustTimer();
-
                 if (this.shouldPublish()) {
                     debug(
                         `BFT "${this._nonce}" will create block! RoundNo: ${this._concilium.getRound()}`);

@@ -294,10 +294,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
         // wait for witnessOne receive tx & produce block with concilium invocation & send us (witnessThree) that block
         const donePromise = new Promise((resolve, reject) => {
             sinon.stub(witnessThree, '_postAcceptBlock').callsFake((block) => {
-                if (block.txns.length === 2) {
+                if (block.conciliumId === 0 && block.txns.length === 2) {
                     resolve();
-                } else {
-                    reject();
                 }
             });
         });
@@ -321,10 +319,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
             // wait for witnessTwo receive tx & produce block & send us (witnessThree) that block
             const donePromise = new Promise((resolve, reject) => {
                 sinon.stub(witnessThree, '_postAcceptBlock').callsFake((block) => {
-                    if (block.txns.length === 2) {
+                    if (block.conciliumId === 1 && block.txns.length === 2) {
                         resolve();
-                    } else {
-                        reject();
                     }
                 });
             });
