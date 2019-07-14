@@ -108,6 +108,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          */
         static createContract(strCode, addrChangeReceiver) {
             typeforce(typeforce.String, strCode);
+            typeforce(typeforce.maybe(types.StrAddress, addrChangeReceiver));
 
             const tx = new this();
             tx._data.payload.outs.push({
@@ -129,7 +130,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          */
         static invokeContract(strContractAddr, objInvokeCode, amount, addrChangeReceiver) {
             typeforce(typeforce.tuple(types.StrAddress, typeforce.Object, typeforce.Number), arguments);
-            typeforce(typeforce.oneOf(types.Address, types.Empty), addrChangeReceiver);
+            typeforce(typeforce.maybe(types.StrAddress, addrChangeReceiver));
 
             const tx = new this();
             tx._data.payload.outs.push({
