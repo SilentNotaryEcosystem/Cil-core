@@ -1,7 +1,7 @@
 const fs = require('fs');
 
-const factory = require('./factory');
-const {questionAsync, prepareForStringifyObject} = require('./utils');
+const factory = require('../factory');
+const {questionAsync, prepareForStringifyObject} = require('../utils');
 
 ;(async () => {
     await factory.asyncLoad();

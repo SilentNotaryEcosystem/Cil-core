@@ -149,9 +149,7 @@ module.exports = (factory, factoryOptions) => {
                     this._arrConciliumDefinition = _arrConciliums.map(objDefData => {
                         const baseDef = new BaseConciliumDefinition(objDefData);
                         if (baseDef.isPoS()) {
-                            return new ConciliumPos(objDefData,
-                                Constants.concilium.POS_CONCILIUM_ROUNDS
-                            );
+                            return new ConciliumPos(objDefData, Constants.concilium.POS_CONCILIUM_ROUNDS);
                         }
                         if (baseDef.isRoundRobin()) return new ConciliumRr(objDefData);
                     });

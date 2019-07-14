@@ -29,7 +29,6 @@
     "memdown": "^3.0.0",
     "mocha": "^5.2.0",
     "node-uuid": "^1.4.8",
-    "one-time": "0.0.4",
     "sinon": "^6.3.5"
   },
   "scripts": {
