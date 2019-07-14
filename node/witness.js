@@ -80,6 +80,7 @@ module.exports = (factory, factoryOptions) => {
             const wasStarted = this._consensuses.size;
 
             if (wasStarted) {
+                this._consensuses.forEach(bft => bft._stopTimer());
                 this._consensuses = new Map();
                 await this.start();
             }
@@ -465,5 +466,5 @@ module.exports = (factory, factoryOptions) => {
             const seed = super._createPseudoRandomSeed(arrLastStableBlockHashes);
             this._consensuses.forEach(c => c.setRoundSeed(seed));
         };
-    }
+    };
 };
