@@ -31,16 +31,16 @@ process.on('warning', e => console.warn(e.stack));
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = objUserParams.conciliumDefContract;
     }
 
+    let commonOptions = {
+        ...mapOptionsToNodeParameters(objUserParams),
+        ...setImpliedParameters(objUserParams)
+    };
+
     // if there are wallet tasks - program will terminate after completion!
-    await walletTasks(objUserParams);
+    await walletTasks(commonOptions);
 
     // if there is rebuild task - program will terminate after completion!
-    await rebuildDb(objUserParams);
-
-    let commonOptions = {
-        ...setImpliedParameters(objUserParams),
-        ...mapOptionsToNodeParameters(objUserParams)
-    };
+    await rebuildDb(commonOptions);
 
     let node;
     if (objUserParams.privateKey) {
@@ -158,6 +158,13 @@ function setImpliedParameters(objUserParams) {
         objAddOn = {
             ...objAddOn,
             rpcAddress: '0.0.0.0'
+        };
+    }
+
+    if (objUserParams.reIndexWallet || objUserParams.watchAddress) {
+        objAddOn = {
+            ...objAddOn,
+            walletSupport: true
         };
     }
 
