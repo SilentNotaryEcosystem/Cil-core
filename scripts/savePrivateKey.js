@@ -13,7 +13,7 @@ const {questionAsync, prepareForStringifyObject} = require('../utils');
     const passwordCheck = await questionAsync('Repeat password: ');
     if (password !== passwordCheck) throw('Passwords are not same!');
 
-    const filename = await questionAsync('Enter filename: ');
+    const filename = await questionAsync('Enter filename (empty for docker): ');
     const keyGenFunction = await questionAsync(
         'Enter key generation mechanism (avail: "pbkdf2", "scrypt". default: "scrypt"): ');
 
@@ -22,13 +22,16 @@ const {questionAsync, prepareForStringifyObject} = require('../utils');
         Buffer.from(pk, 'hex'),
         keyGenFunction === '' ? "scrypt" : keyGenFunction
     );
-    fs.writeFileSync(filename, JSON.stringify({
+
+    const objKeyFileContent = JSON.stringify({
         ...prepareForStringifyObject(objEncryptedPk),
         version: 1
-    }));
+    });
+
+    console.error(objKeyFileContent);
+    if (filename && filename.length) fs.writeFileSync(filename, JobjKeyFileContent);
 
 })().then(() => {
-    console.log('Done');
     process.exit(0);
 }).catch((error) => {
     console.error(error);
