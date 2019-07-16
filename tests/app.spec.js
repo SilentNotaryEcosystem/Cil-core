@@ -303,7 +303,9 @@ describe('Application layer', () => {
         const objCode = JSON.parse(strContractCode);
         assert.isOk(objCode);
         assert.isOk(arrayEquals(Object.keys(objCode),
-            ['changeDefinition', 'addDefinition', 'noArguments', '_validateDefinition']
+            [
+                'changeDefinition', 'addDefinition', 'noArguments', '_validateDefinition', '_checkOwner',
+                '_transferOwnership', '_validateAddress']
         ));
         console.log(strContractCode);
 

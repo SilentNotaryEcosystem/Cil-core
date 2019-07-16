@@ -4,9 +4,12 @@ class Base {
     }
 
     __getCode() {
+        const arrFunctionsToPropagateFromBase = ['_checkOwner', '_transferOwnership', '_validateAddress'];
+
         const methods = Object
             .getOwnPropertyNames(Object.getPrototypeOf(this))
-            .filter(name => name !== 'constructor' && typeof this[name] === 'function');
+            .filter(name => name !== 'constructor' && typeof this[name] === 'function')
+            .concat(arrFunctionsToPropagateFromBase);
         const objCode = {};
         methods.forEach(strFuncName => {
             const strCodeMethod = this[strFuncName].toString();
@@ -21,7 +24,18 @@ class Base {
         return objCode;
     }
 
+    _validateAddress(strAddress) {
+        if (strAddress.length !== 40) throw ('Bad address');
+    }
+
     _checkOwner() {
         if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
+    }
+
+    _transferOwnership(strNewAddress) {
+        this._checkOwner();
+        this._validateAddress(strNewAddress);
+
+        this._ownerAddress = strNewAddress;
     }
 }
