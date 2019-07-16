@@ -403,7 +403,7 @@ module.exports = (factory, factoryOptions) => {
 
                 // TODO: verify rihgt before exec. BC if it's block for new concilium,
                 //  we could have concilium definition in pending blocks also!
-                await this._verifyBlock(block);
+                await this._verifyBlock(block, false);
 
                 // store it in DAG & disk
                 await this._blockInFlight(block);
