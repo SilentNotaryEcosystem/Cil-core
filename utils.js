@@ -125,12 +125,13 @@ function decryptPkFileContent(Crypto, fileContent, password) {
  */
 function mapEnvToOptions() {
 
-    const {SEED_ADDRESS, RPC_USER, RPC_PASS, GENESIS_HASH, CONCILIUM_CONTRACT, WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT} = process.env;
+    const {SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS, GENESIS_HASH, CONCILIUM_CONTRACT, WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT} = process.env;
     return {
 
         // if you plan to send TXns through your node
         rpcUser: RPC_USER,
         rpcPass: RPC_PASS,
+        rpcAddress: RPC_ADDRESS,
 
         // if you plan to query your node
         txIndex: !!BUILD_TX_INDEX,
