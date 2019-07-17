@@ -945,7 +945,12 @@ describe('Node tests', () => {
     });
 
     it('should SKIP requesting already requested items (_handleInvMessage)', async () => {
-        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake(), isGetBlocksSent: sinon.fake()};
+        const fakePeer = {
+            pushMessage: sinon.fake(),
+            markAsEven: sinon.fake(),
+            isGetBlocksSent: sinon.fake(),
+            singleBlockRequested: sinon.fake()
+        };
         const msgInv = new factory.Messages.MsgInv();
 
         const inv = new factory.Inventory();
@@ -966,7 +971,14 @@ describe('Node tests', () => {
     });
 
     it('should REQUEST all items (_handleInvMessage)', async () => {
-        const fakePeer = {pushMessage: sinon.fake(), markAsEven: sinon.fake(), isGetBlocksSent: sinon.fake()};
+        const fakePeer = {
+            pushMessage: sinon.fake(),
+            markAsEven: sinon.fake(),
+            isGetBlocksSent: sinon.fake(),
+            singleBlockRequested: sinon.fake(),
+            markAsPossiblyAhead: sinon.fake(),
+            doneGetBlocks: sinon.fake()
+        };
         const msgInv = new factory.Messages.MsgInv();
 
         const inv = new factory.Inventory();
@@ -1633,7 +1645,8 @@ describe('Node tests', () => {
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer3);
 
-                [peer, peer2, peer3].forEach(p => p.pushMessage = sinon.fake());
+                [peer, peer2, peer3].forEach(
+                    p => {p.pushMessage = sinon.fake(), p.singleBlockRequested = sinon.fake();});
 
                 ({mapPeerBlocks} = node._createMapBlockPeer());
             });
@@ -2104,7 +2117,6 @@ describe('Node tests', () => {
             const node = new factory.Node();
             const nTotalHas = 1e5;
             const coinsUsed = 1000;
-
 
             const {tx, strContractAddr} = createContractInvocationTx({}, false);
 

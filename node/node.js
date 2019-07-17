@@ -399,6 +399,7 @@ module.exports = (factory, factoryOptions) => {
 
         async _handleArrivedBlock(block, peer) {
             const lock = await this._mutex.acquire([`blockReceived`]);
+
             try {
 
                 // TODO: verify rihgt before exec. BC if it's block for new concilium,
@@ -465,13 +466,14 @@ module.exports = (factory, factoryOptions) => {
 
                 // if peer expose us more than MAX_BLOCKS_INV - it seems it is ahead
                 // so we should resend MSG_GET_BLOCKS later
-                if (peer.isGetBlocksSent()) {
-                    if (nBlockToRequest > 1) {
-                        peer.markAsPossiblyAhead();
-                        peer.doneGetBlocks();
-                    } else {
-                        peer.markAsEven();
-                    }
+                if (nBlockToRequest > 1) {
+                    peer.markAsPossiblyAhead();
+
+                    // we think it was a response to MSG_GET_BLOCKS, so let's mark it as done
+                    peer.doneGetBlocks();
+                } else {
+                    peer.markAsEven();
+                    peer.singleBlockRequested();
                 }
             } catch (e) {
                 throw e;
@@ -2033,6 +2035,31 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        async _sendMsgGetDataToPeers(mapPeerBlocks) {
+            const arrConnectedPeers = this._peerManager.getConnectedPeers();
+            if (!arrConnectedPeers || !arrConnectedPeers.length) return;
+
+            for (let [key, setBlocks] of mapPeerBlocks) {
+                if (!setBlocks.size) continue;
+
+                const arrHashesToRequest = [...setBlocks].slice(0, Constants.MAX_BLOCKS_INV);
+                const msg = this._createGetDataMsg(arrHashesToRequest);
+                if (!msg.inventory.vector.length) return;
+
+                const foundPeer = arrConnectedPeers.find(p => createPeerKey(p) === key);
+                const peer = foundPeer ? foundPeer : arrConnectedPeers[0];
+
+                msg.inventory.vector.forEach(v => this._requestCache.request(v.hash));
+
+                if (peer && !peer.disconnected) {
+                    peer.singleBlockRequested();
+
+                    debugMsg(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
+                    await peer.pushMessage(msg);
+                }
+            }
+        }
+
         async _requestUnknownBlocks() {
 
             // request all unknown blocks
@@ -2041,7 +2068,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._queryPeerForRestOfBlocks(peer);
             }
             await this._sendMsgGetDataToPeers(mapPeerBlocks);
-
         }
 
         /**
@@ -2074,29 +2100,6 @@ module.exports = (factory, factoryOptions) => {
                 setBlocks.add(hash);
             }
             return {mapPeerBlocks, mapPeerAhead};
-        }
-
-        async _sendMsgGetDataToPeers(mapPeerBlocks) {
-            const arrConnectedPeers = this._peerManager.getConnectedPeers();
-            if (!arrConnectedPeers || !arrConnectedPeers.length) return;
-
-            for (let [key, setBlocks] of mapPeerBlocks) {
-                if (!setBlocks.size) continue;
-
-                const arrHashesToRequest = [...setBlocks].slice(0, Constants.MAX_BLOCKS_INV);
-                const msg = this._createGetDataMsg(arrHashesToRequest);
-                if (!msg.inventory.vector.length) return;
-
-                const foundPeer = arrConnectedPeers.find(p => createPeerKey(p) === key);
-                const peer = foundPeer ? foundPeer : arrConnectedPeers[0];
-
-                msg.inventory.vector.forEach(v => this._requestCache.request(v.hash));
-
-                if (peer && !peer.disconnected) {
-                    debugMsg(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
-                    await peer.pushMessage(msg);
-                }
-            }
         }
 
         async _getBlockAndState(hash) {
