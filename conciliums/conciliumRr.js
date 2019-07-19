@@ -45,6 +45,7 @@ module.exports = ({Constants}) =>
          * @return {Array<Buffer>}
          */
         getAddresses(bConvertToBuffer = true) {
+            if (!Array.isArray(this._data.addresses)) return undefined;
             return this._data.addresses.map(addr => bConvertToBuffer ? Buffer.from(addr, 'hex') : addr.toString('hex'));
         }
 

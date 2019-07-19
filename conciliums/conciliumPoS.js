@@ -90,6 +90,8 @@ module.exports = ({Constants}) =>
         }
 
         getAddresses(bConvertToBuffer = true) {
+            if (!Array.isArray(this._data.arrMembers)) return undefined;
+
             return this._data.arrMembers.map(objRecord => bConvertToBuffer ?
                 Buffer.from(objRecord.address, 'hex') : objRecord.address.toString('hex'));
         }
@@ -106,7 +108,7 @@ module.exports = ({Constants}) =>
         /**
          * Redefine this to change proposing behavior
          *
-         * @returns {Strings}
+         * @returns {String}
          */
         getProposerAddress(roundNo) {
 
@@ -114,7 +116,6 @@ module.exports = ({Constants}) =>
             const arrAddresses = this.getAddresses();
             const idx = roundNo % arrAddresses.length;
             return arrAddresses[idx].toString('hex');
-
         }
 
         /**

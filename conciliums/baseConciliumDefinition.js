@@ -7,7 +7,7 @@ const {deepCloneObject} = require('../utils');
 
 // common parameters
 //const def = {
-//    conciliumId: 0,
+//    conciliumId: 0, //     will be set by Concilium management contract
 //    type: Constants.CONCILIUM_TYPE_POS | Constants.CONCILIUM_TYPE_RR,
 //    parameters: {
 //        fees: {
@@ -27,16 +27,15 @@ module.exports = class BaseConciliumDefinition {
             throw new Error(
                 `BaseConciliumDefinition. Unexpected construction from ${typeof data}`);
         }
-        if (data.conciliumId === undefined) throw new Error(`BaseConciliumDefinition. Specify conciliumId`);
 
         this._data = deepCloneObject(data);
 
         if (!this._data.parameters) {
             this._data.parameters = {
                 fees: {},
-                isEnabled: true
             };
         }
+        this._data.parameters.isEnabled = true;
 
         this.changeSeed(0);
     }
@@ -77,6 +76,11 @@ module.exports = class BaseConciliumDefinition {
         throw new Error('Implement!');
     }
 
+    /**
+     * We plan to use it punish scenario
+     *
+     * @returns {boolean}
+     */
     isEnabled() {
         return this._data.parameters.isEnabled;
     }
