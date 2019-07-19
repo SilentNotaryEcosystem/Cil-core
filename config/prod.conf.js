@@ -15,7 +15,7 @@ module.exports = {
         strIdent: 'Prod',
 
         network: 0x12882304,
-        protocolVersion: 0x0123,
+        protocolVersion: 0x0124,
         port: 8223,
 
         rpcPort: 8222,
@@ -114,10 +114,10 @@ module.exports = {
             TX_FEE: 4000,
 
             // contract creation
-            CONTRACT_CREATION_FEE: 1e11,
+            CONTRACT_CREATION_FEE: 1e4,
 
             // contract invocation
-            CONTRACT_INVOCATION_FEE: 10000,
+            CONTRACT_INVOCATION_FEE: 1e4,
 
             // contract send moneys
             INTERNAL_TX_FEE: 300,
