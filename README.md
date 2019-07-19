@@ -24,7 +24,7 @@ sudo docker pull trueshura/cil-core-staging
 then download & untar helper scripts
 ```$xslt
 wget -t0 -c https://github.com/SilentNotaryEcosystem/Cil-core/releases/download/v0.1.0-staging/docker-scripts.tgz
-tar fxz ocker-scripts.tgz 
+tar fxz docker-scripts.tgz 
 ```
 pick desired scenario & run script from corresponding directory
 
