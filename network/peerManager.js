@@ -136,7 +136,8 @@ module.exports = (factory) => {
                 assert(peer.peerInfo.address.equals(cPeerInfo.address), 'Peer tries to forge its address!');
             }
 
-            peer.peerInfo = peerInfo;
+            // TODO rethink "canonical" addresses for multihome nodes
+//            peer.peerInfo = peerInfo;
             this._mapCandidatePeers.delete(keyCandidate);
 
             return this.addPeer(peer, true);
