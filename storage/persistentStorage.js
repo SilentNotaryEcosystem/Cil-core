@@ -311,6 +311,20 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
+         * Remove BlockInfo
+
+         * @param {Buffer | String} blockHash
+         */
+        async removeBlockInfo(blockHash) {
+            typeforce(types.Hash256bit, blockHash);
+
+            const buffHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
+
+            const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, buffHash);
+            await this._db.del(blockInfoKey);
+        }
+
+        /**
          * Set BlockInfo.isBad for specified hash
          * Remove from block storage, to save space
          *
