@@ -558,12 +558,17 @@ module.exports = (factory, factoryOptions) => {
             do {
                 const setNextLevel = new Set();
                 for (let hash of currentLevel) {
-
+                    const biCurrent = this._mainDag.getBlockInfo(hash);
                     this._mainDag.getChildren(hash).forEach(
                         child => {
+                            const biChild = this._mainDag.getBlockInfo(child);
 
-                            // we already processed it
-                            if (!setBlocksToSend.has(child) && !setKnownHashes.has(child)) setNextLevel.add(child);
+                            // if we didn't already processed it and it's direct child (height diff === 1) - let's add it
+                            // it not direct child - we'll add it when find direct one
+                            if (!setBlocksToSend.has(child) && !setKnownHashes.has(child)
+                                && biChild.getHeight() - biCurrent.getHeight() === 1) {
+                                setNextLevel.add(child);
+                            }
                         });
                     setBlocksToSend.add(hash);
                     if (setBlocksToSend.size > Constants.MAX_BLOCKS_INV) break;
