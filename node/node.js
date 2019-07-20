@@ -154,11 +154,7 @@ module.exports = (factory, factoryOptions) => {
 
             // will try to load address book
             const arrPeers = await this._peerManager.loadPeers();
-            if (arrPeers.length) {
-
-                // success, we have address book - let's deal with them
-                arrPeers.forEach(peer => this._peerManager.addPeer(peer, true));
-            } else {
+            if (!arrPeers.length) {
 
                 // empty address book. let's ask seeds for peer list
                 this._arrSeedAddresses.forEach(strAddr =>
@@ -452,7 +448,7 @@ module.exports = (factory, factoryOptions) => {
                     if (bShouldRequest) {
                         invToRequest.addVector(objVector);
                         this._requestCache.request(objVector.hash);
-                        debugMsgFull(`Requesting "${objVector.hash.toString('hex')}" from "${peer.address}"`);
+                        debugMsgFull(`Will request "${objVector.hash.toString('hex')}" from "${peer.address}"`);
                     }
                 }
 
@@ -2054,7 +2050,7 @@ module.exports = (factory, factoryOptions) => {
                 if (peer && !peer.disconnected) {
                     peer.singleBlockRequested();
 
-                    debugMsg(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
+                    debugMsgFull(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
                     await peer.pushMessage(msg);
                 }
             }

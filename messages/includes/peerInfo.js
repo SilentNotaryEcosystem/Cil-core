@@ -1,15 +1,15 @@
 /**
  *
  * @param {Object} Constants
- * @param {Object} MessageProto - protobuf compiled message PeerInfo
+ * @param {Object} PeerInfoProto - protobuf compiled message PeerInfo
  * @return {{new(*): MessageCommon}}
  */
-module.exports = (Constants, MessageProto) =>
+module.exports = (Constants, PeerInfoProto) =>
     class PeerInfo {
 
         constructor(data) {
             if (Buffer.isBuffer(data)) {
-                this._data = {...MessageProto.decode(data)};
+                this._data = {...PeerInfoProto.decode(data)};
             } else if (typeof data === 'object') {
 
                 // transform address to internal representation
@@ -19,10 +19,10 @@ module.exports = (Constants, MessageProto) =>
                 if (!data.port) data.port = Constants.port;
                 if (!data.capabilities) data.capabilities = [{service: Constants.NODE}];
 
-                const errMsg = MessageProto.verify(data);
+                const errMsg = PeerInfoProto.verify(data);
                 if (errMsg) throw new Error(`PeerInfo: ${errMsg}`);
 
-                this._data = MessageProto.create(data);
+                this._data = PeerInfoProto.create(data);
             } else {
                 throw new Error('Use buffer or object to initialize PeerInfo');
             }
@@ -55,6 +55,11 @@ module.exports = (Constants, MessageProto) =>
         get port() {
             if (!this._data || !this._data.port) throw new Error('PeerInfo not initialized!');
             return this._data.port;
+        }
+
+        set port(value) {
+            if (!this._data) throw new Error('PeerInfo not initialized!');
+            this._data.port = value;
         }
 
         addCapability(objCapability) {
@@ -122,6 +127,6 @@ module.exports = (Constants, MessageProto) =>
          * @return {Uint8Array}
          */
         encode() {
-            return MessageProto.encode(this._data).finish();
+            return PeerInfoProto.encode(this._data).finish();
         }
     };

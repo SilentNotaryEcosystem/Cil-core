@@ -19,7 +19,7 @@ module.exports = (factory) => {
     return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {transport, storage, isSeed, strictAddresses, useNonRoutableAddresses} = options;
+            const {transport, storage, isSeed, strictAddresses} = options;
 
             // is this PeerManager belongs to seed node? if so - we'll return all peers, even "dead"
             this._isSeed = isSeed;
@@ -47,9 +47,6 @@ module.exports = (factory) => {
             this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
                 Constants.PEERMANAGER_BACKUP_TIMEOUT
             );
-
-            // will we store non-routable addresses or no
-            this._useNonRoutableAddresses = useNonRoutableAddresses;
         }
 
         /**
@@ -76,10 +73,8 @@ module.exports = (factory) => {
         addPeer(peer, bForceRewrite) {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
-            // it's senseless to store DISCONNECTED peer with private addresses. we couldn't connect them anyway
-            if (peer.disconnected &&
-                !this._useNonRoutableAddresses &&
-                !Transport.isRoutableAddress(peer.address)) {
+            // it's senseless to store peer with private addresses. we couldn't connect them anyway
+            if (!Transport.isRoutableAddress(peer.address)) {
                 return peer;
             }
 
@@ -137,7 +132,7 @@ module.exports = (factory) => {
             }
 
             // TODO rethink "canonical" addresses for multihome nodes
-//            peer.peerInfo = peerInfo;
+            peer.peerInfo.port = peerInfo.port;
             this._mapCandidatePeers.delete(keyCandidate);
 
             return this.addPeer(peer, true);
@@ -243,7 +238,9 @@ module.exports = (factory) => {
         }
 
         async loadPeers() {
-            return await this._storage.loadPeers();
+            const arrPeers = await this._storage.loadPeers();
+            arrPeers.forEach(peer => this.addPeer(peer, true));
+            return arrPeers;
         }
 
         async savePeers(arrPeers) {

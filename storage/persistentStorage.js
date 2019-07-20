@@ -547,7 +547,7 @@ module.exports = (factory, factoryOptions) => {
          *
          * @returns {Promise<Array>} of Peers
          */
-        loadPeers() {
+        async loadPeers() {
             let arrPeers = [];
             return new Promise((resolve, reject) => {
                 this._peerStorage.createValueStream()
