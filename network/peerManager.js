@@ -214,7 +214,7 @@ module.exports = (factory) => {
                 if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
 
                     if (!peer.isBanned() &&
-                        (bIncludeInactive || this._isSeed || !peer.isRestricted() || peer.isAlive())) {
+                        (bIncludeInactive || this._isSeed || (peer.isAlive() && !peer.isRestricted()))) {
                         arrResult.push(peer);
                     }
                 }
