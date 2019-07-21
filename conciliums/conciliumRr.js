@@ -28,6 +28,7 @@ module.exports = ({Constants}) =>
             super(data);
 
             this._setType(BaseConciliumDefinition.CONCILIUM_TYPE_RR);
+            if (!Array.isArray(this._data.addresses)) this._data.addresses = [];
         }
 
         static create(conciliumId, arrAddresses, quorum) {
