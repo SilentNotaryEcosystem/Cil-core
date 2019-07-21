@@ -2237,11 +2237,14 @@ module.exports = (factory, factoryOptions) => {
             this._queryPeerForRestOfBlocks = this._requestUnknownBlocks = () => {
                 console.error('we have unresolved dependencies! will possibly fail to rebuild DB');
             };
+
             const originalQueueBlockExec = this._queueBlockExec.bind(this);
             let bStop = Constants.GENESIS_BLOCK === strHashToStop;
-            this._queueBlockExec = (hash, peer) => {
+            this._queueBlockExec = async (hash, peer) => {
                 if (bStop) return;
                 if (hash === strHashToStop) bStop = true;
+                const blockInfo = this._mainDag.getBlockInfo(hash);
+                this._storage.saveBlockInfo(blockInfo).catch(err => console.error(err));
                 originalQueueBlockExec(hash, peer);
             };
 
