@@ -41,10 +41,11 @@ module.exports = {
 
         WITNESS_HOLDOFF: 5 * 60 * 1000,
 
-        INV_REQUEST_HOLDOFF: 5 * 60 * 1000
-    },
-    concilium: {
-        HEIGHT_TO_RELEASE_ADD_ON: 50,
-        POS_CONCILIUM_ROUNDS: 10
+        INV_REQUEST_HOLDOFF: 5 * 60 * 1000,
+
+        concilium: {
+            HEIGHT_TO_RELEASE_ADD_ON: 50,
+            POS_CONCILIUM_ROUNDS: 10
+        }
     }
 };
