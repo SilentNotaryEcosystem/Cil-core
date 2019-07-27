@@ -989,7 +989,7 @@ module.exports = (factory, factoryOptions) => {
             let patchThisTx;
             try {
                 await this._storage.checkTxCollision([strTxHash]);
-                ({patchThisTx} = await this._processTx(undefined, false, tx));
+                ({patchThisTx} = await this._processTx(new PatchDB(), false, tx));
                 if (bStoreInMempool) this._mempool.addTx(tx);
             } catch (e) {
                 this._mempool.storeBadTxHash(strTxHash);
