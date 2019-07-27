@@ -31,6 +31,23 @@ module.exports = {
         concilium: {
             HEIGHT_TO_RELEASE_ADD_ON: 1,
             POS_CONCILIUM_ROUNDS: 2
+        },
+
+        fees: {
+
+            // money send fee per Kbyte
+            TX_FEE: 4000,
+
+            // contract creation
+            CONTRACT_CREATION_FEE: 1e6,
+
+            // contract invocation
+            CONTRACT_INVOCATION_FEE: 10000,
+
+            // contract send moneys
+            INTERNAL_TX_FEE: 300,
+
+            STORAGE_PER_BYTE_FEE: 10
         }
     }
 };

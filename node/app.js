@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
+const util = require('util');
 const types = require('../types');
 
 const debug = debugLib('application:');
@@ -186,6 +187,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let message;
             let result;
             try {
+
+                debug(`Invoking ${util.inspect(objInvocationCode, {colors: true, depth: null})}`);
 
                 if (!isConstantCall) {
 
