@@ -1666,7 +1666,9 @@ module.exports = (factory, factoryOptions) => {
                 for (let parent of block.parentHashes) {
                     if (!mapPatches.has(parent)) await runBlock(parent);
                 }
+                this._processedBlock = block;
                 mapPatches.set(hash, await this._execBlock(block));
+                this._processedBlock = undefined;
             };
 
             for (let hash of arrPendingBlocksHashes) {
