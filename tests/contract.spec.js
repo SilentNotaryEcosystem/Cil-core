@@ -133,6 +133,106 @@ describe('Contract tests', () => {
             }
         });
     });
+
+    describe('Proxy contracts', async () => {
+        it('should proxy it', async () => {
+            const contract = new factory.Contract({});
+            const newContract = new factory.Contract({});
+            newContract.proxyContract(contract);
+        });
+
+        it('should get proxied balance', async () => {
+            const nInitialBalance = 100;
+            const contract = new factory.Contract({});
+            contract.deposit(nInitialBalance);
+
+            const newContract = new factory.Contract({});
+            newContract.proxyContract(contract);
+
+            assert.equal(contract.getBalance(), nInitialBalance);
+            assert.equal(newContract.getBalance(), nInitialBalance);
+        });
+
+        it('should deposit to proxied contract', async () => {
+            const nInitialBalance = 100;
+            const nAmount = 100;
+
+            const contract = new factory.Contract({});
+            contract.deposit(nInitialBalance);
+            const newContract = new factory.Contract({});
+            newContract.proxyContract(contract);
+
+            newContract.deposit(nAmount);
+
+            assert.equal(contract.getBalance(), nInitialBalance + nAmount);
+            assert.equal(newContract.getBalance(), nInitialBalance + nAmount);
+        });
+
+        it('should withdraw from proxied contract', async () => {
+            const nInitialBalance = 100;
+            const nAmount = 100;
+
+            const contract = new factory.Contract({});
+            contract.deposit(nInitialBalance);
+            const newContract = new factory.Contract({});
+            newContract.proxyContract(contract);
+
+            newContract.withdraw(nAmount);
+
+            assert.equal(contract.getBalance(), nInitialBalance - nAmount);
+            assert.equal(newContract.getBalance(), nInitialBalance - nAmount);
+        });
+
+        it('should FAIL to withdraw from proxied contract (not enough moneys)', async () => {
+            const nInitialBalance = 100;
+            const nAmount = 101;
+
+            const contract = new factory.Contract({});
+            contract.deposit(nInitialBalance);
+            const newContract = new factory.Contract({});
+            newContract.proxyContract(contract);
+
+            assert.throws(() => newContract.withdraw(nAmount), 'Insufficient funds!');
+        });
+
+        it('should WITHDRAW from DEEP proxied contract', async () => {
+            const nInitialBalance = 100;
+            const nAmount = 100;
+
+            const contract = new factory.Contract({});
+            contract.deposit(nInitialBalance);
+            const newContract = new factory.Contract({});
+            newContract.proxyContract(contract);
+            const depthTwoContract = new factory.Contract({});
+            depthTwoContract.proxyContract(newContract);
+
+            depthTwoContract.withdraw(nAmount);
+
+            assert.equal(contract.getBalance(), nInitialBalance - nAmount);
+            assert.equal(newContract.getBalance(), nInitialBalance - nAmount);
+            assert.equal(depthTwoContract.getBalance(), nInitialBalance - nAmount);
+        });
+
+        it('should DEPOSIT TO DEEP proxied contract', async () => {
+            const nInitialBalance = 100;
+            const nAmount = 100;
+
+            const contract = new factory.Contract({});
+            contract.deposit(nInitialBalance);
+            const newContract = new factory.Contract({});
+            newContract.proxyContract(contract);
+            const depthTwoContract = new factory.Contract({});
+            depthTwoContract.proxyContract(newContract);
+
+            depthTwoContract.deposit(nAmount);
+
+            assert.equal(contract.getBalance(), nInitialBalance + nAmount);
+            assert.equal(newContract.getBalance(), nInitialBalance + nAmount);
+            assert.equal(depthTwoContract.getBalance(), nInitialBalance + nAmount);
+        });
+
+    });
+
     describe('Data size', () => {
         it('should be zero', async () => {
             {

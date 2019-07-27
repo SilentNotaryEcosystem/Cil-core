@@ -30,6 +30,8 @@ module.exports = (factory, {contractProto}) =>
         constructor(data, strContractAddr) {
             typeforce(typeforce.oneOf('Object', 'Buffer'), data);
 
+            this._proxiedContract = undefined;
+
             if (Buffer.isBuffer(data)) {
                 this._data = contractProto.decode(data);
             } else {
@@ -146,19 +148,35 @@ module.exports = (factory, {contractProto}) =>
          * @returns {number|*}
          */
         getBalance() {
-            return this._data.balance;
+            return this._proxiedContract ? this._proxiedContract.getBalance() : this._data.balance;
         }
 
         deposit(amount) {
-            this._data.balance += amount;
+            typeforce('Number', amount);
+
+            if (this._proxiedContract) {
+                this._proxiedContract.deposit(amount);
+            } else {
+                this._data.balance += amount;
+            }
         }
 
         withdraw(amount) {
             if (this.getBalance() < amount) throw new Error('Insufficient funds!');
-            this._data.balance -= amount;
+            this.deposit(0 - amount);
         }
 
         clone() {
             return new Contract(this.encode(), this._strAddress);
+        }
+
+        /**
+         * Now we proxy only balances!
+         * Data not used
+         *
+         * @param contract
+         */
+        proxyContract(contract) {
+            this._proxiedContract = contract;
         }
     };
