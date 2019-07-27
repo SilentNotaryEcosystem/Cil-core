@@ -17,6 +17,7 @@ function createPeerKey(peer) {
 
 module.exports = (factory, factoryOptions) => {
     const {
+        Contract,
         Transport,
         Messages,
         Constants,
@@ -1230,7 +1231,7 @@ module.exports = (factory, factoryOptions) => {
                     contract,
                     environment,
                     undefined,
-                    this._createCallbacksForApp(patchForBlock, patchThisTx, tx.hash()),
+                    this._createCallbacksForApp(contract, patchForBlock, patchThisTx, tx.hash()),
                     {
                         nFeeContractInvocation,
                         nFeeSize,
@@ -1258,10 +1259,20 @@ module.exports = (factory, factoryOptions) => {
             return fee;
         }
 
-        _createCallbacksForApp(patchBlock, patchTx, strTxHash) {
+        /**
+         * Used only for contract invocation
+         *
+         * @param contract
+         * @param patchBlock
+         * @param patchTx
+         * @param strTxHash
+         * @returns {createInternalTx, invokeContract}
+         * @private
+         */
+        _createCallbacksForApp(contract, patchBlock, patchTx, strTxHash) {
             return {
                 createInternalTx: this._sendCoins.bind(this, patchTx, strTxHash),
-                invokeContract: this._invokeNestedContract.bind(this, patchBlock, patchTx, strTxHash)
+                invokeContract: this._invokeNestedContract.bind(this, contract, patchBlock, patchTx, strTxHash)
             };
         }
 
@@ -1286,9 +1297,9 @@ module.exports = (factory, factoryOptions) => {
             patchTx.setReceipt(strTxHash, receipt);
         }
 
-        async _invokeNestedContract(patchBlock, patchTx, strTxHash, strAddress, objParams) {
+        async _invokeNestedContract(contract, patchBlock, patchTx, strTxHash, strAddress, objParams) {
             typeforce(
-                typeforce.tuple(types.Patch, types.Patch, types.Str64, types.Address, typeforce.Object),
+                typeforce.tuple(types.Contract, types.Patch, types.Patch, types.Str64, types.Address, typeforce.Object),
                 arguments
             );
 
@@ -1298,26 +1309,30 @@ module.exports = (factory, factoryOptions) => {
                 [method, arrArguments, coinsLimit]
             );
 
-            const contract = await this._getContractByAddr(strAddress, patchBlock);
-            if (!contract) throw new Error('Contract not found!');
+            const cNestedContract = await this._getContractByAddr(strAddress, patchBlock);
+            if (!cNestedContract) throw new Error('Contract not found!');
+
+            // context set - it's delegatecall, proxy contract
+            if (context) cNestedContract.proxyContract(contract);
+
             const newEnv = {
                 ...environment,
-                contractAddr: contract.getStoredAddress(),
-                balance: contract.getBalance()
+                contractAddr: cNestedContract.getStoredAddress(),
+                balance: cNestedContract.getBalance()
             };
             const receipt = await this._app.runContract(
                 coinsLimit,
                 {method, arrArguments},
-                contract,
+                cNestedContract,
                 newEnv,
                 context,
-                this._createCallbacksForApp(patchBlock, patchTx, strTxHash),
+                this._createCallbacksForApp(cNestedContract, patchBlock, patchTx, strTxHash),
                 objFees
             );
 
             if (receipt.isSuccessful()) {
                 patchTx.setReceipt(strTxHash, receipt);
-                patchTx.setContract(contract);
+                patchTx.setContract(cNestedContract);
             }
             return {success: receipt.isSuccessful(), fee: receipt.getCoinsUsed()};
         }
@@ -2186,7 +2201,7 @@ module.exports = (factory, factoryOptions) => {
                 contract,
                 newEnv,
                 undefined,
-                this._createCallbacksForApp(new PatchDB(), new PatchDB(), Crypto.randomBytes(32)),
+                this._createCallbacksForApp(new Contract({}), new PatchDB(), new PatchDB(), Crypto.randomBytes(32)),
                 {},
                 true
             );

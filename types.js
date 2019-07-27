@@ -54,6 +54,7 @@ module.exports = {
     Empty,
     InvVector: typeforce.compile({type: 'Number', hash: Hash256bit}),
     Coins: typeforce.quacksLike('Coins'),
+    Contract: typeforce.quacksLike('Contract'),
     Patch: typeforce.quacksLike('PatchDB'),
     Block: typeforce.quacksLike('Block'),
     BlockInfo: typeforce.quacksLike('BlockInfo'),

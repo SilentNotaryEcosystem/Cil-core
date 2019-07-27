@@ -1758,7 +1758,12 @@ describe('Node tests', () => {
                 new factory.UTXO({txHash: pseudoRandomBuffer()})
                     .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}))
             );
-            const {createInternalTx} = node._createCallbacksForApp(undefined, patchTx, strTxHash);
+            const {createInternalTx} = node._createCallbacksForApp(
+                undefined,
+                undefined,
+                patchTx,
+                strTxHash
+            );
 
             const strAddress = generateAddress().toString('hex');
             const nAmount = 100;
@@ -1776,7 +1781,9 @@ describe('Node tests', () => {
 
             node._invokeNestedContract = sinon.fake();
             const {invokeContract} = node._createCallbacksForApp(
-                new factory.PatchDB(), new factory.PatchDB(),
+                undefined,
+                new factory.PatchDB(),
+                new factory.PatchDB(),
                 strTxHash
             );
 
@@ -1786,7 +1793,7 @@ describe('Node tests', () => {
             invokeContract(strAddress.toString('hex'), {method, arrArguments});
 
             assert.isOk(node._invokeNestedContract.calledOnce);
-            const [patchBlockArg, patchTxArg, strTxHashArg, strAddrArg, {method: methodArg, arrArguments: arrArgumentsArg}] = node._invokeNestedContract.args[0];
+            const [contract, patchBlockArg, patchTxArg, strTxHashArg, strAddrArg, {method: methodArg, arrArguments: arrArgumentsArg}] = node._invokeNestedContract.args[0];
             assert.isOk(patchBlockArg && patchBlockArg instanceof factory.PatchDB);
             assert.isOk(patchTxArg && patchTxArg instanceof factory.PatchDB);
             assert.equal(strAddress, strAddrArg);

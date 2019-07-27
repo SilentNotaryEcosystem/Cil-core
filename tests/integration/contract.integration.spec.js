@@ -490,7 +490,7 @@ describe('Contract integration tests', () => {
                 contract,
                 env,
                 undefined,
-                node._createCallbacksForApp(undefined, patchTx, strThisTxHash),
+                node._createCallbacksForApp(undefined, undefined, patchTx, strThisTxHash),
                 {
                     nFeeContractInvocation: factory.Constants.fees.CONTRACT_INVOCATION_FEE,
                     nFeeSize: 4e3,
@@ -631,12 +631,12 @@ describe('Contract integration tests', () => {
                 contractCode: JSON.stringify((objCode))
             }, strContractCallerAddr);
             const objCode2 = {
-                "testAnother": `<(strAddress){this._callCount++; send(strAddress, ${nAmountToSend})}`
+                "testAnother": `<(strAddress){this._someSecondContractVal++; send(strAddress, ${nAmountToSend})}`
             };
 
             const strContractSenderAddr = generateAddress().toString('hex');
             const contract2 = new factory.Contract({
-                contractData: {_callCount: 100},
+                contractData: {_someSecondContractVal: 100},
                 contractCode: JSON.stringify((objCode2)),
                 balance: 1e10
             }, strContractSenderAddr);
@@ -651,7 +651,7 @@ describe('Contract integration tests', () => {
                 contract,
                 env,
                 undefined,
-                node._createCallbacksForApp(new factory.PatchDB(), patchTx, strThisTx),
+                node._createCallbacksForApp(contract, new factory.PatchDB(), patchTx, strThisTx),
                 {
                     nFeeContractInvocation: factory.Constants.fees.CONTRACT_INVOCATION_FEE,
                     nFeeSize: 4e3,
@@ -680,19 +680,23 @@ describe('Contract integration tests', () => {
                 // new data of contract2
                 const contractSender = patchTx.getContract(strContractSenderAddr);
                 assert.isOk(contractSender);
-                const {_callCount} = contractSender.getData();
-                assert.equal(_callCount, 101);
+                const {_someSecondContractVal} = contractSender.getData();
+                assert.equal(_someSecondContractVal, 101);
 
                 // new balance of contract2
                 assert.equal(contractSender.getBalance(), 1e10 - 1e3);
             }
         });
 
-        it('should SUCCESSFULLY "delegatecall" nested contract with nested send', async () => {
+        it('should SUCCESSFULLY "delegatecall" nested contract', async () => {
+            const nBalanceCaller = 1e4;
+            const nBalanceSender = 1e10;
+            const nAmountToSend = 100;
             const coinsLimit = 3 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
                                factory.Constants.fees.INTERNAL_TX_FEE +
                                factory.Constants.fees.TX_FEE;
 
+            // first contract will call second contract and set internal _receivers with argument address
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
                 "test": `<(strAddress){
@@ -704,17 +708,22 @@ describe('Contract integration tests', () => {
             const strContractCallerAddr = generateAddress().toString('hex');
             contract = new factory.Contract({
                 contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
-                contractCode: JSON.stringify((objCode))
+                contractCode: JSON.stringify((objCode)),
+                balance: nBalanceCaller
             }, strContractCallerAddr);
 
+            // second contract will set internal _receivers with argument 'test'
             const objCode2 = {
-                "testAnother": `<(strAddress){this._receivers['test']=1;}`
+                "testAnother": `<(strAddress){
+                    this._receivers['test']=1; 
+                    send(strAddress, ${nAmountToSend});
+                }`
             };
             const strContractSenderAddr = generateAddress().toString('hex');
             const contract2 = new factory.Contract({
-                contractData: {_callCount: 100},
+                contractData: {_someSecondContractVal: 100},
                 contractCode: JSON.stringify((objCode2)),
-                balance: 1e10
+                balance: nBalanceSender
             }, strContractSenderAddr);
 
             node._getContractByAddr = sinon.fake.resolves(contract2);
@@ -727,7 +736,7 @@ describe('Contract integration tests', () => {
                 contract,
                 env,
                 undefined,
-                node._createCallbacksForApp(new factory.PatchDB(), patchTx, strThisTx),
+                node._createCallbacksForApp(contract, new factory.PatchDB(), patchTx, strThisTx),
                 {
                     nFeeContractInvocation: factory.Constants.fees.CONTRACT_INVOCATION_FEE,
                     nFeeSize: 4e3,
@@ -744,16 +753,23 @@ describe('Contract integration tests', () => {
                 // new data of contract
                 const contractCaller = patchTx.getContract(strContractCallerAddr);
                 assert.isOk(contractCaller);
+
                 const {_receivers} = contractCaller.getData();
                 assert.equal(Object.keys(_receivers).length, 3);
                 assert.isOk(_receivers[strReceiver]);
                 assert.isOk(_receivers['test']);
 
+                // balance of original contract was changed
+                assert.equal(contractCaller.getBalance(), nBalanceCaller - nAmountToSend);
+
+
                 // OLD! data of contract2
                 const contractSender = patchTx.getContract(strContractSenderAddr);
                 assert.isOk(contractSender);
-                const {_callCount} = contractSender.getData();
-                assert.equal(_callCount, 100);
+
+                const {_someSecondContractVal, _receivers: secondReceivers} = contractSender.getData();
+                assert.equal(_someSecondContractVal, 100);
+                assert.notOk(secondReceivers);
             }
         });
     });
