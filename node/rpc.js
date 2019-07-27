@@ -45,6 +45,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getPrev', asyncRPC(this.getPrev.bind(this)));
             this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
             this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
+            this._server.expose('getContractData', asyncRPC(this.getContractData.bind(this)));
             this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
             this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
             this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
@@ -311,5 +312,16 @@ module.exports = ({Constants, Transaction}) =>
             return await this._nodeInstance.rpcHandler({
                 event: 'getWallets'
             });
+        }
+
+        async getContractData(args) {
+            let {strAddress} = args;
+            strAddress = stripAddressPrefix(Constants, strAddress);
+            const objData = await this._nodeInstance.rpcHandler({
+                event: 'getContractData',
+                content: strAddress
+            });
+
+            return prepareForStringifyObject(objData);
         }
     };

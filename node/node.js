@@ -852,6 +852,8 @@ module.exports = (factory, factoryOptions) => {
                 switch (event) {
                     case 'tx':
                         return await this._acceptLocalTx(content);
+                    case 'getContractData':
+                        return await this._getContractData(content);
                     case 'txReceipt':
                         return await this._storage.getTxReceipt(content);
                     case 'getBlock':
@@ -2216,6 +2218,15 @@ module.exports = (factory, factoryOptions) => {
             assert(calculatedHeight === block.getHeight(),
                 `Incorrect height "${calculatedHeight}" were calculated for block ${block.getHash()} (expected ${block.getHeight()}`
             );
+        }
+
+        async _getContractData(strContractAddr) {
+            typeforce(types.StrAddress, strContractAddr);
+
+            const cont = await this._storage.getContract(
+                Buffer.from(strContractAddr, 'hex'));
+
+            return cont.getData();
         }
 
         async cleanDb() {
