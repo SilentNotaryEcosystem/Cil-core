@@ -24,11 +24,6 @@ describe('Concilium contract', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
-        global.callerAddress = generateAddress().toString('hex');
-        global.contractTx = pseudoRandomBuffer().toString('hex');
-        global.block = {
-            height: 100
-        };
     });
 
     after(async function() {
@@ -37,6 +32,11 @@ describe('Concilium contract', () => {
 
     beforeEach(async () => {
         global.value = 1e8;
+        global.callerAddress = generateAddress().toString('hex');
+        global.contractTx = pseudoRandomBuffer().toString('hex');
+        global.block = {
+            height: 100
+        };
 
         const initialConcilium = factory.ConciliumRr.create(0, [global.callerAddress]);
         contract = new Contract(initialConcilium.toObject());
@@ -478,6 +478,32 @@ describe('Concilium contract', () => {
             const height = await contract.getHeightToRelease(1);
 
             assert.equal(height, global.block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON);
+        });
+    });
+
+    describe('Change parameters', async () => {
+        it('should set fees', async () => {
+            const objNewParameters = {
+                fees: {
+                    feeTxSize: 111,
+                    feeContractCreation: 111,
+                    feeContractInvocation: 111,
+                    feeStorage: 111
+                }
+            };
+
+            const concilium = new factory.ConciliumPos({
+                isOpen: true,
+                nMinAmountToJoin: 1e5
+            });
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            contract._posConciliumMemberExists = sinon.fake.returns(true);
+
+            await contract.changeConciliumParameters(1, objNewParameters);
+
+            const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
+            assert.equal(storedConcilium.getFeeTxSize(), 111);
         });
     });
 });

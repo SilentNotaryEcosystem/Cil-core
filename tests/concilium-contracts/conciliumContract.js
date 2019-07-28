@@ -158,7 +158,7 @@ module.exports = class ContractConciliums extends Base {
             if (!this._rrConciliumMemberExists(objConcilium, callerAddress)) throw ('Unauthorized call');
         }
 
-        objConcilium.parameters = Object.assign({}, objNewParameters, objConcilium.parameters);
+        objConcilium.parameters = Object.assign({}, objConcilium.parameters, objNewParameters);
     }
 
     // PoS concilium
