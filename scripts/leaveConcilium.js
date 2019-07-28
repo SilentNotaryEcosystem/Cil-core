@@ -27,13 +27,12 @@ async function main() {
     const privateKey = await readPrivateKeyFromFile(factory.Crypto, './private');
     const wallet = new factory.Wallet(privateKey);
 
-    const amount = parseFloat(await questionAsync('Enter amount to deposit:'));
 
     const fees = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.STORAGE_PER_BYTE_FEE * 100;
     const arrUtxos = await getUtxos(wallet.address);
-    const {arrCoins} = gatherInputsForAmount(arrUtxos, amount + fees);
+    const {arrCoins} = gatherInputsForAmount(arrUtxos, fees);
 
-    const tx = leaveConcilium(1, amount, wallet, arrCoins);
+    const tx = leaveConcilium(1, wallet, arrCoins);
     console.error(
         `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
 //    console.log(tx.encode().toString('hex'));
@@ -43,13 +42,12 @@ async function main() {
 /**
  *
  * @param {Number} conciliumId
- * @param {Number} amount
  * @param {Wallet} wallet
  * @param {Array} arrUtxos - [{"hash", "nOut", "amount","isStable"}]
  * @returns {*}
  */
 
-function leaveConcilium(conciliumId, amount, wallet, arrUtxos) {
+function leaveConcilium(conciliumId, wallet, arrUtxos) {
     const contractCode = {
         method: 'leaveConcilium',
         arrArguments: [conciliumId]
@@ -58,7 +56,7 @@ function leaveConcilium(conciliumId, amount, wallet, arrUtxos) {
     const tx = factory.Transaction.invokeContract(
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS,
         contractCode,
-        amount,
+        0,
         wallet.address
     );
 
