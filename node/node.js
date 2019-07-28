@@ -662,7 +662,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             // TODO: review version compatibility
-            if (message.protocolVersion >= Constants.protocolVersion) {
+            if (message.protocolVersion == Constants.protocolVersion) {
 
                 if (!peer.version) {
                     peer.version = message.protocolVersion;
