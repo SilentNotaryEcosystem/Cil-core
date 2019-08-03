@@ -48,7 +48,7 @@ module.exports = (factory, {contractProto}) =>
                 this.updateData(this._data.contractData);
             } else {
                 this._dataSize = nSizeOfEmptyData;
-                this._contractData = data.contractData || {};
+                this._contractData = {};
             }
 
             // deal with LONG https://github.com/dcodeIO/long.js
@@ -111,7 +111,7 @@ module.exports = (factory, {contractProto}) =>
                 this._dataSize = serializeContractData(data).length;
             }
 
-            this._contractData = data;
+            this._contractData = Object.assign({}, data);
         }
 
         /**

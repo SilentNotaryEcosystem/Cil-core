@@ -1664,7 +1664,7 @@ module.exports = (factory, factoryOptions) => {
             this._pendingBlocks = new PendingBlocksManager(arrLastStableHashes);
 
             const mapBlocks = new Map();
-            const mapPatches = new Map();
+            const setPatches = new Set();
             for (let hash of arrPendingBlocksHashes) {
                 hash = hash.toString('hex');
                 let bi = this._mainDag.getBlockInfo(hash);
@@ -1677,14 +1677,16 @@ module.exports = (factory, factoryOptions) => {
             const runBlock = async (hash) => {
 
                 // are we already executed this block
-                if (!mapBlocks.get(hash) || mapPatches.has(hash)) return;
+                if (!mapBlocks.get(hash) || setPatches.has(hash)) return;
 
                 const block = mapBlocks.get(hash);
                 for (let parent of block.parentHashes) {
-                    if (!mapPatches.has(parent)) await runBlock(parent);
+                    if (!setPatches.has(parent)) await runBlock(parent);
                 }
                 this._processedBlock = block;
-                mapPatches.set(hash, await this._execBlock(block));
+                const patchBlock = await this._execBlock(block);
+                this._pendingBlocks.addBlock(block, patchBlock);
+                setPatches.add(hash);
                 this._processedBlock = undefined;
             };
 
@@ -1692,11 +1694,7 @@ module.exports = (factory, factoryOptions) => {
                 await runBlock(hash);
             }
 
-            if (mapBlocks.size !== mapPatches.size) throw new Error('rebuildPending. Failed to process all blocks!');
-
-            for (let [hash, block] of mapBlocks) {
-                this._pendingBlocks.addBlock(block, mapPatches.get(hash));
-            }
+            if (mapBlocks.size !== setPatches.size) throw new Error('rebuildPending. Failed to process all blocks!');
         }
 
         async _blockBad(blockOrBlockInfo) {
