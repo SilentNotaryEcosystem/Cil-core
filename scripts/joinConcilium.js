@@ -14,6 +14,9 @@ if (process.env.NODE_ENV === 'Devel') {
     urlRpc = 'http://localhost:8222';
 }
 
+const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_ID) : 1;
+const nMinAmount = process.env.MIN_AMOUNT ? parseFloat(process.env.MIN_AMOUNT) : 1e8;
+
 main()
     .then(_ => {
         process.exit(0);
@@ -27,18 +30,21 @@ async function main() {
     const privateKey = await readPrivateKeyFromFile(factory.Crypto, './private');
     const wallet = new factory.Wallet(privateKey);
 
-    const amount = parseFloat(await questionAsync('Enter amount to deposit:'));
+    const amount = parseFloat(await questionAsync(`Enter amount to deposit (minimum ${nMinAmount} coins):`));
+    if (amount < nMinAmount) {
+        throw new Error(`You want to deposit (${amount} coins). It's less than minumum (${nMinAmount})`);
+    }
 
     const fees = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.STORAGE_PER_BYTE_FEE * 100;
     const arrUtxos = await getUtxos(wallet.address);
     const {arrCoins} = gatherInputsForAmount(arrUtxos, amount + fees);
 
-    const tx = joinConcilium(1, amount, wallet, arrCoins);
+    const tx = joinConcilium(nConciliumId, amount, wallet, arrCoins);
     console.error(
         `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
     console.log(`Tx hash ${tx.getHash()}`);
 //    console.log(tx.encode().toString('hex'));
-    await sendTx(tx.encode().toString('hex'));
+//    await sendTx(tx.encode().toString('hex'));
 }
 
 /**
