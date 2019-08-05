@@ -29,7 +29,7 @@ const {questionAsync, prepareForStringifyObject} = require('../utils');
     });
 
     console.error(objKeyFileContent);
-    if (filename && filename.length) fs.writeFileSync(filename, JobjKeyFileContent);
+    if (filename && filename.length) fs.writeFileSync(filename, objKeyFileContent);
 
 })().then(() => {
     process.exit(0);
