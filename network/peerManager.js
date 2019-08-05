@@ -132,10 +132,15 @@ module.exports = (factory) => {
             }
 
             // TODO rethink "canonical" addresses for multihome nodes
-            peer.peerInfo.port = peerInfo.port;
+            peer.updatePeerFromPeerInfo(peerInfo);
             this._mapCandidatePeers.delete(keyCandidate);
 
             return this.addPeer(peer, true);
+        }
+
+        storeOutboundPeer(peer, peerInfo) {
+            peer.peerInfo.port = peerInfo.port;
+            peer.capabilities = peerInfo.port;
         }
 
         /**

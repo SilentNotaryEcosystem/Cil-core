@@ -168,16 +168,28 @@ module.exports = (factory, factoryOptions) => {
             // start worker
             if (!this._workerSuspended) setImmediate(this._nodeWorker.bind(this));
 
-            // start connecting to peers
+            // start connecting to peers (just one! the rest will be tried by _reconnectPeers)
             // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
             const arrBestPeers = this._peerManager.findBestPeers();
-            await this._connectToPeers(arrBestPeers);
+            await this._connectToPeers(arrBestPeers.slice(0, 1));
 
             this._reconnectTimer.setInterval(
                 Constants.PEER_RECONNECT_TIMER,
                 this._reconnectPeers,
                 Constants.PEER_RECONNECT_INTERVAL
             );
+        }
+
+        async _connectToPeers(peers) {
+            for (let peer of peers) {
+                try {
+                    if (peer.disconnected) await this._connectToPeer(peer);
+                    await peer.pushMessage(this._createMsgVersion());
+                    await peer.loaded();
+                } catch (e) {
+                    logger.error(e.message);
+                }
+            }
         }
 
         /**
@@ -239,18 +251,6 @@ module.exports = (factory, factoryOptions) => {
 
         async _peerDisconnect(peer) {
             this._msecOffset -= peer.offsetDelta;
-        }
-
-        async _connectToPeers(peers) {
-            for (let peer of peers) {
-                try {
-                    if (peer.disconnected) await this._connectToPeer(peer);
-                    await peer.pushMessage(this._createMsgVersion());
-                    await peer.loaded();
-                } catch (e) {
-                    logger.error(e.message);
-                }
-            }
         }
 
         async _reconnectPeers() {
@@ -680,9 +680,11 @@ module.exports = (factory, factoryOptions) => {
                     return;
                 }
 
-                // very beginning of inbound connection
                 if (peer.inbound) {
+
+                    // very beginning of inbound connection
                     const result = this._peerManager.associatePeer(peer, message.peerInfo);
+
                     if (result instanceof Peer) {
 
                         // send own version
@@ -715,6 +717,9 @@ module.exports = (factory, factoryOptions) => {
                         peer.disconnect(reason);
                         return;
                     }
+                } else {
+                    peer.updatePeerFromPeerInfo(message.peerInfo);
+                    const result = this._peerManager.addPeer(peer, true);
                 }
 
                 this._adjustNetworkTime(_offset);
@@ -774,8 +779,6 @@ module.exports = (factory, factoryOptions) => {
                 .filterPeers()
                 .map(peer => peer.toObject());
 
-            // add address of this node (it's absent in peerManager)
-            arrPeerInfos.push(this._myPeerInfo.data);
             if (arrPeerInfos.length > Constants.ADDR_MAX_LENGTH) {
                 logger.error('Its time to implement multiple addr messages');
             }

@@ -261,8 +261,8 @@ describe('Node tests', () => {
         assert.isOk(msg && msg.isAddr());
         assert.isOk(msg.peers);
 
-        // 4 known + self
-        assert.equal(msg.peers.length, 5);
+        // 4 known
+        assert.equal(msg.peers.length, 4);
         msg.peers.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
         });

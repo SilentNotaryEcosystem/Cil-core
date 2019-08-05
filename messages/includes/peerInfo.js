@@ -70,6 +70,10 @@ module.exports = (Constants, PeerInfoProto) =>
             return this._data.capabilities;
         }
 
+        set capabilities(objValue) {
+            this._data.capabilities = objValue;
+        }
+
         get lifetimeMisbehaveScore() {
             return this._data.lifetimeMisbehaveScore;
         }

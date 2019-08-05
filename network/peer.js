@@ -181,6 +181,16 @@ module.exports = (factory) => {
         }
 
         /**
+         * Update capabilities & canonical port from MSG_VERSION
+         *
+         * @param peerInfo
+         */
+        updatePeerFromPeerInfo(peerInfo) {
+            this._peerInfo.capabilities = peerInfo.capabilities;
+            this._peerInfo.port = peerInfo.port;
+        }
+
+        /**
          * this means peer was disconnected because we wish to connect to various nodes
          * but if there are no other peer (small net) - we'll reconnect after PEER_RESTRICT_TIME interval
          *

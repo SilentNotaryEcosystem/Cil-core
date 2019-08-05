@@ -111,14 +111,17 @@ module.exports = (factory, factoryOptions) => {
                 debugWitness(`(address: "${this._debugAddress}") reusing connection to "${peer.address}"`);
             }
 
-            if (!peer.disconnected && !peer.witnessLoadDone) {
+            if (!peer.disconnected) {
 
-                // to prove that it's real witness it should perform signed handshake
-                const handshakeMsg = this._createHandshakeMessage(concilium.getConciliumId());
-                debugWitnessMsg(
-                    `(address: "${this._debugAddress}") sending SIGNED message "${handshakeMsg.message}" to "${peer.address}"`);
-                await peer.pushMessage(handshakeMsg);
-                await Promise.race([peer.witnessLoaded(), sleep(Constants.PEER_QUERY_TIMEOUT)]);
+                if (!peer.witnessLoadDone) {
+
+                    // to prove that it's real witness it should perform signed handshake
+                    const handshakeMsg = this._createHandshakeMessage(concilium.getConciliumId());
+                    debugWitnessMsg(
+                        `(address: "${this._debugAddress}") sending SIGNED message "${handshakeMsg.message}" to "${peer.address}"`);
+                    await peer.pushMessage(handshakeMsg);
+                    await Promise.race([peer.witnessLoaded(), sleep(Constants.PEER_QUERY_TIMEOUT)]);
+                }
 
                 if (peer.witnessLoadDone) {
 
