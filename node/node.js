@@ -254,9 +254,15 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _reconnectPeers() {
+            if (this._bReconnectInProgress) return;
+
+            this._bReconnectInProgress = true;
+
             let bestPeers = this._peerManager.findBestPeers().filter(p => p.disconnected);
             let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.getConnectedPeers().length);
             await this._connectToPeers(peers);
+
+            this._bReconnectInProgress = false;
         }
 
         /**
