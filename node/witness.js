@@ -242,16 +242,17 @@ module.exports = (factory, factoryOptions) => {
                 throw(`Witness: "${this._debugAddress}" this guy UNKNOWN!`);
             }
 
-            if (peer.inbound) {
+            if (!peer.witnessLoadDone) {
 
                 // we don't check version & self connection because it's done on previous step (node connection)
                 const response = this._createHandshakeMessage(messageWitness.conciliumId);
                 debugWitnessMsg(
                     `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
+                await peer.pushMessage(response);
             }
 
-            await this._storeWitness(peer, messageWitness.conciliumId);
             peer.witnessLoadDone = true;
+            await this._storeWitness(peer, messageWitness.conciliumId);
         }
 
         /**

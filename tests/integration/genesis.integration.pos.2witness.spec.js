@@ -39,6 +39,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         seedAddress = factory.Transport.generateAddress();
         factory.Constants.DNS_SEED = [seedAddress];
+        factory.Constants.PEER_RECONNECT_INTERVAL = 20000;
     });
 
     beforeEach(() => {
@@ -288,7 +289,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         }));
         sinon.restore();
 
-        const txCode = joinConcilium(wallet.privateKey, moneyIssueTx.hash(), 8, 1e7);
+        const txCode = joinConcilium(wallet.privateKey, moneyIssueTx.hash(), 8, 1e5);
         await witnessThree.rpcHandler({event: 'tx', content: txCode});
 
         // wait for witnessOne receive tx & produce block with concilium invocation & send us (witnessThree) that block
