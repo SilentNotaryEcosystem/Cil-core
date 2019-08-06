@@ -44,7 +44,7 @@ async function main() {
         `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
     console.log(`Tx hash ${tx.getHash()}`);
 //    console.log(tx.encode().toString('hex'));
-//    await sendTx(tx.encode().toString('hex'));
+    await sendTx(tx.encode().toString('hex'));
 }
 
 /**

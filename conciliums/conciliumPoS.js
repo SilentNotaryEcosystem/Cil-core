@@ -153,7 +153,7 @@ module.exports = ({Constants}) =>
             assert(this._nLocalRound !== undefined, 'InitRounds first');
 
             if (++this._nLocalRound >= this._nSeqLength) this.initRounds();
-            return this._nLocalRound;
+            return this.getRound();
         }
 
         _findIdxByRound(round) {

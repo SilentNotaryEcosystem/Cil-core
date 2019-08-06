@@ -98,7 +98,7 @@ module.exports = ({Constants}) =>
             assert(this._nLocalRound !== undefined, 'InitRounds first');
 
             if (++this._nLocalRound >= this._data.addresses.length) this.initRounds();
-            return this._nLocalRound;
+            return this.getRound();
         }
 
         getMembersCount() {

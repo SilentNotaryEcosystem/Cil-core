@@ -357,7 +357,7 @@ module.exports = (factory) => {
         _roundChangeHandler(isConsensus, consensusValue) {
             if (!isConsensus) {
                 debug(`BFT "${this._nonce}" round failed`);
-                this._nextRound();
+                this._nextRound(false);
             } else {
                 this._state = States.BLOCK;
                 if (this.shouldPublish()) {
@@ -437,14 +437,17 @@ module.exports = (factory) => {
          *
          * @private
          */
-        _nextRound() {
+        _nextRound(bShouldAdvanceRound = true) {
             this._block = undefined;
             this._state = States.ROUND_CHANGE;
 
             debug(
                 `BFT "${this._nonce}" restarting "ROUND_CHANGE" new round: ${this._concilium.getRound()}`);
 
-            const msg = new MsgWitnessNextRound({conciliumId: this.conciliumId, roundNo: this._concilium.nextRound()});
+            const nRoundNo = bShouldAdvanceRound
+                ? this._concilium.nextRound()
+                : (this._concilium.initRounds(), this._concilium.getRound());
+            const msg = new MsgWitnessNextRound({conciliumId: this.conciliumId, roundNo: nRoundNo});
             msg.sign(this._wallet.privateKey);
             this.emit('message', msg);
         }
