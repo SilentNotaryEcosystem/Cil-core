@@ -156,11 +156,7 @@ module.exports = (factory) => {
         }
 
         get witnessLoadDone() {
-            return this._witnessLoadDone || this.disconnected;
-        }
-
-        set witnessLoadDone(trueVal) {
-            this._witnessLoadDone = true;
+            return !this.disconnected && this._persistent && Array.isArray(this._tags);
         }
 
         get offsetDelta() {

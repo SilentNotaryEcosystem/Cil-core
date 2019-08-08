@@ -127,7 +127,6 @@ module.exports = (factory, factoryOptions) => {
                 }
 
                 if (peer.witnessLoadDone) {
-                    await this._storeWitness(peer, concilium.getConciliumId());
                     debugWitness(`----- "${this._debugAddress}". WITNESS handshake with "${peer.address}" DONE ---`);
                 } else {
                     debugWitness(`----- "${this._debugAddress}". WITNESS peer "${peer.address}" TIMED OUT ---`);
@@ -251,7 +250,6 @@ module.exports = (factory, factoryOptions) => {
                 await peer.pushMessage(response);
             }
 
-            peer.witnessLoadDone = true;
             await this._storeWitness(peer, messageWitness.conciliumId);
         }
 
