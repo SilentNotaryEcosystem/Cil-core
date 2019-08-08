@@ -154,10 +154,14 @@ module.exports = (factory, factoryOptions) => {
             if (this._bReconnectInProgress) return;
 
             this._bReconnectInProgress = true;
+            try {
+                await this.start();
 
-            await this.start();
-
-            this._bReconnectInProgress = false;
+            } catch (e) {
+                console.error(e.message);
+            } finally {
+                this._bReconnectInProgress = false;
+            }
 
             // after we connected as much witnesses as possible - reconnect to other peers if we still have slots
             await super._reconnectPeers();
