@@ -404,7 +404,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _handleArrivedBlock(block, peer) {
-            const lock = await this._mutex.acquire([`blockReceived`]);
+            const lock = await this._mutex.acquire(['blockReceived', 'inventory']);
 
             try {
 
