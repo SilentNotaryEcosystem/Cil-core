@@ -156,7 +156,7 @@ module.exports = (factory) => {
         }
 
         get witnessLoadDone() {
-            return !this.disconnected && this._persistent && Array.isArray(this._tags);
+            return !this.disconnected && this._persistent && Array.isArray(this._tags) && this._tags.length;
         }
 
         get offsetDelta() {
@@ -394,7 +394,6 @@ module.exports = (factory) => {
             this._msecOffsetDelta = 0;
 
             this._loadDone = false;
-            this._witnessLoadDone = false;
 
             this._nCountSingleBlocks = 0;
         }
