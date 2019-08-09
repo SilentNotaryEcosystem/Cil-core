@@ -934,6 +934,9 @@ module.exports = (factory, factoryOptions) => {
                     case 'getWallets':
                         return await this._storage.getWallets();
                         break;
+                    case 'getWitnesses':
+                        return await this._getAllWitnesses();
+                        break;
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }
@@ -2291,6 +2294,10 @@ module.exports = (factory, factoryOptions) => {
             this._mapBlocksToExec.set(genesis.getHash(), undefined);
 
             await this._blockProcessor();
+        }
+
+        async _getAllWitnesses() {
+            return this._peerManager.filterPeers({service: Constants.WITNESS}, true);
         }
     };
 };

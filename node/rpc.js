@@ -51,6 +51,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
             this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
             this._server.expose('getWallets', asyncRPC(this.getWallets.bind(this)));
+            this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -323,5 +324,16 @@ module.exports = ({Constants, Transaction}) =>
             });
 
             return prepareForStringifyObject(objData);
+        }
+
+        async getWitnesses() {
+            const arrWitnessPeers = await this._nodeInstance.rpcHandler({
+                event: 'getWitnesses'
+            });
+
+            const objResult = {};
+            arrWitnessPeers.forEach(peer => objResult[peer.witnessAddress] = peer.address);
+
+            return objResult;
         }
     };
