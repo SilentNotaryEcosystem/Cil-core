@@ -479,8 +479,7 @@ module.exports = (factory) => {
         }
 
         singleBlockRequested() {
-            // TODO: temporary fix for stalled network
-//            if (++this._nCountSingleBlocks > 6) this.markAsPossiblyAhead();
+            if (++this._nCountSingleBlocks > 6) this.markAsPossiblyAhead();
         }
     };
 };
