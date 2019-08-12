@@ -154,24 +154,22 @@ module.exports = (factory, factoryOptions) => {
             await this._mergeSeedPeers();
 
             // will try to load address book
-            const arrPeers = await this._peerManager.loadPeers();
-            if (!arrPeers.length) {
-
-                // empty address book. let's ask seeds for peer list
-                this._arrSeedAddresses.forEach(strAddr =>
-                    this._peerManager.addPeer(new PeerInfo({
-                        address: Transport.strToAddress(factory.Transport.toIpV6Address(strAddr)),
-                        capabilities: [{service: Constants.NODE}]
-                    })), true);
-            }
+            await this._peerManager.loadPeers();
 
             // start worker
             if (!this._workerSuspended) setImmediate(this._nodeWorker.bind(this));
 
-            // start connecting to peers (just one! the rest will be tried by _reconnectPeers)
-            // TODO: make it not greedy, because we should keep slots for incoming connections! i.e. twice less than _nMaxPeers
-            const arrBestPeers = this._peerManager.findBestPeers();
-            await this._connectToPeers(arrBestPeers.slice(0, 1));
+            // start connecting to peers (just seed peers! to get network topology
+            // the rest will be connected by _reconnectPeers)
+            const arrSeedPeers = this._arrSeedAddresses.map(
+                strAddr => this._peerManager.addPeer(
+                    new PeerInfo({
+                        address: Transport.strToAddress(factory.Transport.toIpV6Address(strAddr)),
+                        capabilities: [{service: Constants.NODE}]
+                    })
+                )
+            );
+            await this._connectToPeers(arrSeedPeers);
 
             this._reconnectTimer.setInterval(
                 Constants.PEER_RECONNECT_TIMER,
@@ -242,6 +240,8 @@ module.exports = (factory, factoryOptions) => {
 
         async _incomingConnection(connection) {
             try {
+
+                // TODO: disconnect this peer if we already have Constant.MAX_PEERS (CIL-124)
                 this._peerManager.addCandidateConnection(connection);
             } catch (err) {
                 logger.error(err);
