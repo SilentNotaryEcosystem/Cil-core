@@ -133,6 +133,12 @@ class Factory {
                 process.exit(10);
             });
 
+        try {
+            this._options = require('./factoryOptions.json');
+        } catch (e) {
+            this._options = {};
+        }
+
         this._constants = {
             ...config.constants
         };
@@ -288,6 +294,10 @@ class Factory {
 
     get utils() {
         return utils;
+    }
+
+    get FactoryOptions() {
+        return this._options;
     }
 
     asyncLoad() {
