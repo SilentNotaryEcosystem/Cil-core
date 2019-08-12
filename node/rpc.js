@@ -332,8 +332,11 @@ module.exports = ({Constants, Transaction}) =>
             });
 
             const objResult = {};
-            arrWitnessPeers.forEach(peer => objResult[peer.witnessAddress] = peer.address);
-
+            arrWitnessPeers.forEach(
+                peer => objResult[peer.witnessAddress] = {
+                    address: peer.address,
+                    version: peer.version ? peer.version.toString(16) : undefined
+                });
             return objResult;
         }
     };
