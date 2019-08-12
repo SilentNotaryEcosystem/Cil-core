@@ -12,7 +12,7 @@ const Tick = require('tick-tock');
  */
 
 module.exports = (factory) => {
-    const {Messages, Transport, Constants} = factory;
+    const {Messages, Transport, Constants, FactoryOptions} = factory;
     const {
         MsgCommon,
         PeerInfo
@@ -479,7 +479,7 @@ module.exports = (factory) => {
         }
 
         singleBlockRequested() {
-            if (++this._nCountSingleBlocks > 6) this.markAsPossiblyAhead();
+            if (!FactoryOptions.slowBoot && ++this._nCountSingleBlocks > 6) this.markAsPossiblyAhead();
         }
     };
 };
