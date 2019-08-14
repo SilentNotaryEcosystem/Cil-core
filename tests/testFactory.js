@@ -290,6 +290,10 @@ class Factory {
         return await this._loadMessagePrototypes();
     }
 
+    get FactoryOptions() {
+        return {};
+    }
+
     /**
      *
      * @return {Promise<Object>} - compiled prototypes
