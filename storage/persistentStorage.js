@@ -293,7 +293,7 @@ module.exports = (factory, factoryOptions) => {
             const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, bufHash);
 
             const buffInfo = await this._db.get(blockInfoKey).catch(err => debug(err));
-            if (!buffInfo) throw new Error(`Storage: No block found by hash ${bufHash.toString('hex')}`);
+            if (!buffInfo) throw new Error(`Storage: No blockInfo found by hash ${bufHash.toString('hex')}`);
 
             return raw ? buffInfo : new BlockInfo(buffInfo);
         }

@@ -1724,11 +1724,16 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _blockInFlight(block, bOnlyDag = false) {
-            debugNode(`Block "${block.getHash()}" stored`);
+            const lock = await this._mutex.acquire(['blockStore']);
+            try {
+                debugNode(`Block "${block.getHash()}" stored`);
 
-            const blockInfo = new BlockInfo(block.header);
-            blockInfo.markAsInFlight();
-            await this._storeBlockAndInfo(block, blockInfo, bOnlyDag);
+                const blockInfo = new BlockInfo(block.header);
+                blockInfo.markAsInFlight();
+                await this._storeBlockAndInfo(block, blockInfo, bOnlyDag);
+            } finally {
+                this._mutex.release(lock);
+            }
         }
 
         _isBlockExecuted(hash) {
@@ -2038,7 +2043,7 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Executing block "${block.getHash()}"`);
 
-            const lock = await this._mutex.acquire(['blockExec']);
+            const lock = await this._mutex.acquire(['blockStore', 'blockExec']);
             this._processedBlock = block;
             try {
                 const patchState = await this._execBlock(block);
