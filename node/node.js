@@ -1295,6 +1295,7 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          * Send coins from contract
+         * Balance & remainingCoins managed by app.runContract.send
          *
          * @param {Patch} patchTx
          * @param {String} strTxHash
