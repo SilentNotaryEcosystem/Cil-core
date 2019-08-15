@@ -337,7 +337,7 @@ module.exports = (factory) => {
         ban() {
             this._updateMisbehave(Constants.BAN_PEER_SCORE);
             this._bannedTill = Date.now() + Constants.BAN_PEER_TIME;
-            debug(`Peer banned till ${new Date(this._bannedTill)}`);
+            logger.log(`Peer banned till ${new Date(this._bannedTill)}`);
             if (!this.disconnected) this.disconnect('Peer banned');
             this.emit('peerBanned', this);
         }
