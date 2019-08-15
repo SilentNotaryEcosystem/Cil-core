@@ -193,4 +193,51 @@ describe('TX Receipt tests', () => {
             receipt2.toObject()
         );
     });
+
+    it('should merge receipt', async () => {
+        const nCoinUsed1 = 1000;
+        const nCoinUsed2 = 2000;
+        const arrInternalTxns = [
+            pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer()];
+
+        const objReceipt1 = {
+            contractAddress: generateAddress(),
+            coinsUsed: nCoinUsed1,
+            status: factory.Constants.TX_STATUS_OK,
+            internalTxns: [
+                arrInternalTxns[0],
+                arrInternalTxns[1]
+            ],
+            coins: [
+                {amount: 100, receiverAddr: generateAddress()},
+                {amount: 100, receiverAddr: generateAddress()}
+            ]
+        };
+
+        const objReceipt2 = {
+            contractAddress: generateAddress(),
+            coinsUsed: nCoinUsed2,
+            status: factory.Constants.TX_STATUS_FAILED,
+            internalTxns: [
+                arrInternalTxns[2],
+                arrInternalTxns[3]
+            ],
+            coins: [
+                {amount: 200, receiverAddr: generateAddress()},
+                {amount: 200, receiverAddr: generateAddress()}
+            ]
+        };
+
+        const receipt1 = new factory.TxReceipt(objReceipt1);
+        const receipt2 = new factory.TxReceipt(objReceipt2);
+
+        receipt1.merge(receipt2);
+
+        assert.equal(receipt1.getCoinsUsed(), nCoinUsed2);
+        assert.equal(receipt1.getInternalTxns().length, 4);
+
+        for (let buffTxHash of arrInternalTxns) {
+            assert.isOk(receipt1.getCoinsForTx(buffTxHash));
+        }
+    });
 });

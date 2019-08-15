@@ -692,10 +692,12 @@ describe('Contract integration tests', () => {
             const nBalanceCaller = 1e4;
             const nBalanceSender = 1e10;
             const nAmountToSend = 100;
-            const coinsLimit = 3 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                               factory.Constants.fees.INTERNAL_TX_FEE +
-                               factory.Constants.fees.TX_FEE;
-
+            const nNumOfNestedSend = 3;
+            const nFakeFeeSize = 4e3;
+            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                               nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE +
+                               nFakeFeeSize +
+                               1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
             // first contract will call second contract and set internal _receivers with argument address
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
@@ -711,12 +713,13 @@ describe('Contract integration tests', () => {
                 contractCode: JSON.stringify((objCode)),
                 balance: nBalanceCaller
             }, strContractCallerAddr);
+            const nSizeDataContractBefore = contract.getDataSize();
 
             // second contract will set internal _receivers with argument 'test'
             const objCode2 = {
                 "testAnother": `<(strAddress){
-                    this._receivers['test']=1; 
-                    send(strAddress, ${nAmountToSend});
+                    this._receivers['test']=1;
+                    for(let i=0; i< ${nNumOfNestedSend};i++) send(strAddress, ${nAmountToSend});
                 }`
             };
             const strContractSenderAddr = generateAddress().toString('hex');
@@ -739,7 +742,7 @@ describe('Contract integration tests', () => {
                 node._createCallbacksForApp(contract, new factory.PatchDB(), patchTx, strThisTx),
                 {
                     nFeeContractInvocation: factory.Constants.fees.CONTRACT_INVOCATION_FEE,
-                    nFeeSize: 4e3,
+                    nFeeSize: nFakeFeeSize,
                     nFeeStorage: factory.Constants.fees.STORAGE_PER_BYTE_FEE
                 }
             );
@@ -748,6 +751,16 @@ describe('Contract integration tests', () => {
 
             patchTx.setReceipt(strThisTx, txReceipt);
             patchTx.setContract(contract);
+
+            const receiptResult = patchTx.getReceipt(strThisTx);
+            assert.equal(receiptResult.getInternalTxns().length, nNumOfNestedSend);
+
+            const nExpectedFee = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                                 nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE +
+                                 nFakeFeeSize +
+                                 (contract.getDataSize() - nSizeDataContractBefore) *
+                                 factory.Constants.fees.STORAGE_PER_BYTE_FEE;
+            assert.equal(receiptResult.getCoinsUsed(), nExpectedFee);
 
             {
                 // new data of contract
@@ -760,8 +773,7 @@ describe('Contract integration tests', () => {
                 assert.isOk(_receivers['test']);
 
                 // balance of original contract was changed
-                assert.equal(contractCaller.getBalance(), nBalanceCaller - nAmountToSend);
-
+                assert.equal(contractCaller.getBalance(), nBalanceCaller - nNumOfNestedSend * nAmountToSend);
 
                 // OLD! data of contract2
                 const contractSender = patchTx.getContract(strContractSenderAddr);

@@ -1,5 +1,6 @@
 const typeforce = require('typeforce');
 const types = require('../types');
+const assert = require('assert');
 
 module.exports = ({Constants, Coins}, {txReceiptProto}) =>
 
@@ -37,6 +38,26 @@ module.exports = ({Constants, Coins}, {txReceiptProto}) =>
 
         /**
          *
+         * @param {TxReceipt} receiptToMerge
+         * @returns {TxReceipt}
+         */
+        merge(receiptToMerge) {
+
+            this._data.internalTxns = this._data.internalTxns.concat(receiptToMerge._data.internalTxns);
+            this._data.coins = this._data.coins.concat(receiptToMerge._data.coins);
+            this.setStatus(receiptToMerge.getStatus());
+
+//            Scenario is following:
+//            - we already have receipt for some tx
+//            - and "receiptToMerge" expected to have cumulative coinsUsed
+            assert(receiptToMerge.getCoinsUsed() >= this.getCoinsUsed(), 'receiptToMerge have more coinsUsed');
+            this._updateCoinsUsed(receiptToMerge.getCoinsUsed());
+
+            return this;
+        }
+
+        /**
+         *
          * @return {String}
          */
         getContractAddress() {
@@ -49,6 +70,13 @@ module.exports = ({Constants, Coins}, {txReceiptProto}) =>
          */
         getCoinsUsed() {
             return this._data.coinsUsed;
+        }
+
+        /**
+         *
+         */
+        _updateCoinsUsed(nNewValue) {
+            this._data.coinsUsed = nNewValue;
         }
 
         /**
@@ -89,7 +117,7 @@ module.exports = ({Constants, Coins}, {txReceiptProto}) =>
 
         /**
          *
-         * @param {UTXO} utxo
+         * @param {UTXO} utxo with only ONE COIN! @see node._createInternalTx
          */
         addInternalUtxo(utxo) {
             typeforce(types.UTXO, utxo);
