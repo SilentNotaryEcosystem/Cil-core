@@ -1053,8 +1053,7 @@ module.exports = (factory, factoryOptions) => {
 
                     // calculate TX size fee
                     nFeeSize = await this._calculateSizeFee(tx, isGenesis);
-                    nRemainingCoins -= nFeeSize;
-                    assert(nRemainingCoins > 0, `Require fee at least ${nFeeSize} but you sent less than fee!`);
+                    assert(nRemainingCoins > nFeeSize, `Require fee at least ${nFeeSize} but you sent less than fee!`);
                 }
 
                 // TODO: move it to per output processing. So we could use multiple contract invocation in one TX
@@ -1873,17 +1872,17 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         _createContractChange(tx, maxFee, patch, contract, receipt) {
+            let fee = receipt.getCoinsUsed();
+
+            assert(maxFee - fee >= 0, '_createContractChange. We spent more than have!');
 
             // no changeReceiver? ok - no change. all coins become goes to witness!
             const addrChangeReceiver = tx.getContractChangeReceiver();
-            if (!addrChangeReceiver || !addrChangeReceiver.length) return maxFee;
-
-            let fee = maxFee;
-            assert(maxFee >= fee, 'We spent more than have!');
+            if (!addrChangeReceiver || !addrChangeReceiver.length) return maxFee - fee;
 
             if (Buffer.isBuffer(addrChangeReceiver)) {
-                fee = receipt.getCoinsUsed();
 
+                // something left? let's create change
                 if (maxFee - fee !== 0) {
                     const changeUtxo = this._createInternalTx(
                         patch,
