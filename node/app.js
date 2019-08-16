@@ -172,7 +172,6 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Object} objCallbacks - for sending funds & nested contract calls
          * @param {Function} objCallbacks.invokeContract
          * @param {Function} objCallbacks.createInternalTx
-         * @param {Function} objCallbacks.processTx
          * @param {Object} objFees - {nFeeContractInvocation, nFeeStorage, nFeeSize}
          * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
          * @returns {Promise<TxReceipt>}

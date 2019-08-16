@@ -26,16 +26,16 @@ let seedNode;
 
 const conciliumId = 10;
 
-const createContractInvocationTx = (code = {}, hasChangeReceiver = true) => {
+const createContractInvocationTx = (code = {}, hasChangeReceiver = true, amount = 0) => {
     const contractAddr = generateAddress().toString('hex');
 
     // prepare tx (for non genesis block)
     let tx;
 
     if (hasChangeReceiver) {
-        tx = factory.Transaction.invokeContract(contractAddr, code, 0, generateAddress());
+        tx = factory.Transaction.invokeContract(contractAddr, code, amount, generateAddress());
     } else {
-        tx = factory.Transaction.invokeContract(contractAddr, code, 0);
+        tx = factory.Transaction.invokeContract(contractAddr, code, amount);
     }
     tx.conciliumId = conciliumId;
     tx.addInput(pseudoRandomBuffer(), 12);
@@ -2066,6 +2066,50 @@ describe('Node tests', () => {
             return assert.isRejected(node._processTx(undefined, false, tx), /for contract invocation less than/);
         });
 
+        it('should FAIL to invoke contract (NO fee! all coins are transfered to contract balance)', async () => {
+            const node = new factory.Node();
+            const nTotalHas = 1e3;
+
+            const {tx, strContractAddr} = createContractInvocationTx({}, true, nTotalHas);
+
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
+
+            node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+
+            return assert.isRejected(node._processTx(undefined, false, tx), /Require fee at least/);
+        });
+
+        it('should send right change (minus contract value, second output and fee)', async () => {
+            const node = new factory.Node();
+            const nTotalHas = 1e5;
+            const nAmountSecondOutput = 1e4;
+            const nMoneysToContract = 1e3;
+            const nFakeCoinsUsed = 1e3;
+
+            const kp = factory.Crypto.createKeyPair();
+            const {tx, strContractAddr} = createContractInvocationTx({}, true, nMoneysToContract);
+            tx.addReceiver(nAmountSecondOutput, generateAddress());
+            tx.signForContract(kp.privateKey);
+
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
+
+            node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+            node._app.runContract = sinon.fake.returns(
+                new factory.TxReceipt({coinsUsed: nFakeCoinsUsed, status: factory.Constants.TX_STATUS_OK})
+            );
+
+            const {patchThisTx} = await node._processTx(undefined, false, tx);
+
+            const cReceipt = patchThisTx.getReceipt(tx.getHash());
+            const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
+
+            const totalSpent = await node._calculateSizeFee(tx) +
+                               nAmountSecondOutput +
+                               nMoneysToContract +
+                               nFakeCoinsUsed;
+            assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
+        });
+
         it('should invoke contract with environment', async () => {
             const node = new factory.Node();
             const nTotalHas = 1e5;
@@ -2102,7 +2146,6 @@ describe('Node tests', () => {
 
             const {tx, strContractAddr} = createContractInvocationTx({});
             tx.addReceiver(nChange, generateAddress());
-            ;
 
             node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 

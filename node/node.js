@@ -1044,22 +1044,24 @@ module.exports = (factory, factoryOptions) => {
                     ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
                 }
 
-                let nRemainingCoins = totalHas;
+                let totalSent = 0;
+                let contract;
+                const isContract = tx.isContractCreation() ||
+                                   (contract = await this._getContractByAddr(tx.getContractAddr(), patchForBlock));
+
+                let nRemainingCoins = totalHas - (isContract ? tx.getContractSentAmount() : 0);
+
                 if (!isGenesis) {
 
                     // calculate TX size fee
                     nFeeSize = await this._calculateSizeFee(tx, isGenesis);
-                    nRemainingCoins = totalHas - nFeeSize;
+                    nRemainingCoins -= nFeeSize;
                     assert(nRemainingCoins > 0, `Require fee at least ${nFeeSize} but you sent less than fee!`);
                 }
 
-                let totalSent = 0;
-                let contract;
-
                 // TODO: move it to per output processing. So we could use multiple contract invocation in one TX
                 //  it's useful for mass payments, where some of addresses could be contracts!
-                if (tx.isContractCreation() ||
-                    (contract = await this._getContractByAddr(tx.getContractAddr(), patchForBlock))) {
+                if (isContract) {
 
                     // process contract creation/invocation
                     fee = await this._processContract(
@@ -1295,6 +1297,7 @@ module.exports = (factory, factoryOptions) => {
 
         /**
          * Send coins from contract
+         * Balance & remainingCoins managed by app.runContract.send
          *
          * @param {Patch} patchTx
          * @param {String} strTxHash

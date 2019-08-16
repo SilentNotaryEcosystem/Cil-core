@@ -48,6 +48,7 @@ module.exports = {
             INTERNAL_TX_FEE: 300,
 
             STORAGE_PER_BYTE_FEE: 10
-        }
+        },
+        TIMEOUT_CODE: 100000
     }
 };

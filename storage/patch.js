@@ -473,15 +473,9 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             }
 
             assert(sameTxReceipt.isSuccessful(), `You shouldn't continue exec of already failed TX ${strTxHash}`);
+            sameTxReceipt.merge(receipt);
 
-            // it was already added to patch by nested contract call
-            for (let buffInternalTxHash of receipt.getInternalTxns()) {
-                sameTxReceipt.addInternalUtxo(
-                    new UTXO({txHash: buffInternalTxHash.toString('hex')})
-                        .addCoins(0, receipt.getCoinsForTx(buffInternalTxHash))
-                );
-            }
-            sameTxReceipt.setStatus(receipt.getStatus());
+            return sameTxReceipt;
         }
 
         /**
