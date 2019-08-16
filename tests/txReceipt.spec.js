@@ -194,50 +194,83 @@ describe('TX Receipt tests', () => {
         );
     });
 
-    it('should merge receipt', async () => {
+    describe('Merge receipts', async () => {
         const nCoinUsed1 = 1000;
         const nCoinUsed2 = 2000;
-        const arrInternalTxns = [
-            pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer()];
+        let arrInternalTxns;
+        let receipt1;
+        let receipt2;
 
-        const objReceipt1 = {
-            contractAddress: generateAddress(),
-            coinsUsed: nCoinUsed1,
-            status: factory.Constants.TX_STATUS_OK,
-            internalTxns: [
-                arrInternalTxns[0],
-                arrInternalTxns[1]
-            ],
-            coins: [
-                {amount: 100, receiverAddr: generateAddress()},
-                {amount: 100, receiverAddr: generateAddress()}
-            ]
-        };
+        beforeEach(async () => {
 
-        const objReceipt2 = {
-            contractAddress: generateAddress(),
-            coinsUsed: nCoinUsed2,
-            status: factory.Constants.TX_STATUS_FAILED,
-            internalTxns: [
-                arrInternalTxns[2],
-                arrInternalTxns[3]
-            ],
-            coins: [
-                {amount: 200, receiverAddr: generateAddress()},
-                {amount: 200, receiverAddr: generateAddress()}
-            ]
-        };
+            arrInternalTxns = [
+                pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer()];
 
-        const receipt1 = new factory.TxReceipt(objReceipt1);
-        const receipt2 = new factory.TxReceipt(objReceipt2);
+            const objReceipt1 = {
+                contractAddress: generateAddress(),
+                coinsUsed: nCoinUsed1,
+                status: factory.Constants.TX_STATUS_OK,
+                internalTxns: [
+                    arrInternalTxns[0],
+                    arrInternalTxns[1]
+                ],
+                coins: [
+                    {amount: 100, receiverAddr: generateAddress()},
+                    {amount: 100, receiverAddr: generateAddress()}
+                ]
+            };
 
-        receipt1.merge(receipt2);
+            const objReceipt2 = {
+                contractAddress: generateAddress(),
+                coinsUsed: nCoinUsed2,
+                status: factory.Constants.TX_STATUS_FAILED,
+                internalTxns: [
+                    arrInternalTxns[2],
+                    arrInternalTxns[3]
+                ],
+                coins: [
+                    {amount: 200, receiverAddr: generateAddress()},
+                    {amount: 200, receiverAddr: generateAddress()}
+                ]
+            };
 
-        assert.equal(receipt1.getCoinsUsed(), nCoinUsed2);
-        assert.equal(receipt1.getInternalTxns().length, 4);
+            receipt1 = new factory.TxReceipt(objReceipt1);
+            receipt2 = new factory.TxReceipt(objReceipt2);
 
-        for (let buffTxHash of arrInternalTxns) {
-            assert.isOk(receipt1.getCoinsForTx(buffTxHash));
-        }
+            receipt1.setStatus(factory.Constants.TX_STATUS_OK);
+            receipt2.setStatus(factory.Constants.TX_STATUS_OK);
+        });
+
+        it('should merge receipt', async () => {
+            receipt1.merge(receipt2);
+
+            assert.equal(receipt1.getCoinsUsed(), nCoinUsed2);
+            assert.equal(receipt1.getInternalTxns().length, 4);
+
+            for (let buffTxHash of arrInternalTxns) {
+                assert.isOk(receipt1.getCoinsForTx(buffTxHash));
+            }
+        });
+
+        it('should be TX_STATUS_OK after merge', async () => {
+            receipt1.merge(receipt2);
+
+            assert.isOk(receipt1.isSuccessful());
+        });
+
+        it('should be TX_STATUS_FAILED after merge (first failed)', async () => {
+            receipt1.setStatus(factory.Constants.TX_STATUS_FAILED);
+            receipt1.merge(receipt2);
+
+            assert.isNotOk(receipt1.isSuccessful());
+        });
+
+        it('should be TX_STATUS_FAILED after merge (second failed)', async () => {
+            receipt2.setStatus(factory.Constants.TX_STATUS_FAILED);
+            receipt1.merge(receipt2);
+
+            assert.isNotOk(receipt1.isSuccessful());
+        });
     });
+
 });
