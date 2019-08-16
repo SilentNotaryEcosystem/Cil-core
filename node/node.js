@@ -64,6 +64,8 @@ module.exports = (factory, factoryOptions) => {
                 ...options
             };
 
+            this._nMinConnections = Constants.MIN_PEERS;
+
             const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout, workerSuspended, networkSuspended} = options;
 
             this._workerSuspended = workerSuspended;
@@ -259,7 +261,7 @@ module.exports = (factory, factoryOptions) => {
             this._bReconnectInProgress = true;
             try {
                 let bestPeers = this._peerManager.findBestPeers().filter(p => p.disconnected);
-                let peers = bestPeers.splice(0, Constants.MIN_PEERS - this._peerManager.getConnectedPeers().length);
+                let peers = bestPeers.splice(0, this._nMinConnections - this._peerManager.getConnectedPeers().length);
                 await this._connectToPeers(peers);
             } catch (e) {
                 console.error(e.message);

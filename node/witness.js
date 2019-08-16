@@ -64,12 +64,16 @@ module.exports = (factory, factoryOptions) => {
          * @return {Promise<void>}
          */
         async start() {
+            this._nMinConnections = Constants.MIN_PEERS;
+
             const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
             // this need only at very beginning when witness start without genesis. In this case
             const wasInitialized = this._consensuses.size;
 
             for (let def of arrConciliums) {
+                this._nMinConnections += def.getMembersCount();
+
                 if (!wasInitialized) await this._createConsensusForConcilium(def);
                 await this.startConcilium(def);
             }
