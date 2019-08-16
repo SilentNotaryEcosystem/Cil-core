@@ -2103,7 +2103,7 @@ describe('Node tests', () => {
             const cReceipt = patchThisTx.getReceipt(tx.getHash());
             const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
 
-            const totalSpent = await node._calculateSizeFee(tx) +
+            const totalSpent =
                                nAmountSecondOutput +
                                nMoneysToContract +
                                nFakeCoinsUsed;
@@ -2179,7 +2179,7 @@ describe('Node tests', () => {
 
             const {fee, patchThisTx} = await node._processTx(undefined, false, tx);
 
-            assert.equal(fee, nTotalHas - await node._calculateSizeFee(tx));
+            assert.equal(fee, nTotalHas - coinsUsed);
             assert.isOk(patchThisTx.getContract(strContractAddr));
             assert.isOk(patchThisTx.getReceipt(tx.hash()));
         });
