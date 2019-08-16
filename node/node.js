@@ -1162,7 +1162,7 @@ module.exports = (factory, factoryOptions) => {
          * @param {PatchDB} patchForBlock - used for nested contracts
          * @param {Number} nCoinsIn - sum of all inputs coins
          * @param {Number} nFeeSize - fee for TX size (for nested contracts ==0)
-         * @returns {Promise<number>}
+         * @returns {Promise<number>} - fee
          * @private
          */
         async _processContract(isGenesis, contract, tx, patchThisTx, patchForBlock, nCoinsIn, nFeeSize = 0) {
