@@ -32,6 +32,7 @@ describe('Application layer', () => {
     let nFeeStorage;
     let nFeeSizeFakeTx;
     let coinsIn;
+    let app;
 
     before(async function() {
         this.timeout(15000);
@@ -50,6 +51,16 @@ describe('Application layer', () => {
         coinsIn = factory.Constants.fees.CONTRACT_INVOCATION_FEE +
                   1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE +
                   nFeeSizeFakeTx;
+
+        app = new factory.Application();
+        app.setupVariables({
+            coinsLimit: coinsIn,
+            objFees: {
+                nFeeContractInvocation,
+                nFeeSize: nFeeSizeFakeTx,
+                nFeeStorage
+            }
+        });
     });
 
     it('should create instance', async () => {
@@ -281,21 +292,15 @@ describe('Application layer', () => {
             }
             exports=new A(10);
             `;
-        const app = new factory.Application();
         const callerAddress = generateAddress().toString('hex');
 
-        const {receipt, contract} = app.createContract(
-            factory.Constants.fees.CONTRACT_CREATION_FEE * 10,
+        const contract = app.createContract(
             strCode,
             {contractAddr: 'hash', callerAddress},
-            {nFeeContractCreation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
         );
 
-        assert.isOk(receipt.isSuccessful());
-        assert.equal(
-            receipt.getCoinsUsed(),
-            nFeeContractCreation + contract.getDataSize() * nFeeStorage + nFeeSizeFakeTx
-        );
+        assert.isOk(contract);
+        assert.equal(app.coinsSpent(), nFeeContractCreation);
         assert.deepEqual(contract.getData(), {_data: 10, _ownerAddress: callerAddress});
 
         const strContractCode = contract.getCode();
@@ -328,18 +333,14 @@ describe('Application layer', () => {
             contractCode: '{"add": "(a){this.value+=a;}"}',
             conciliumId
         });
-        const app = new factory.Application();
-        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(
-            coinsIn, {method: 'add', arrArguments: [10]}, contract,
-            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        await app.runContract(
+            {method: 'add', arrArguments: [10]},
+            contract,
+            undefined, undefined
         );
 
-        assert.isOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(),
-            nFeeContractInvocation + (contract.getDataSize() - prevDataSize) * nFeeStorage + nFeeSizeFakeTx
-        );
+        assert.equal(app.coinsSpent(), nFeeContractInvocation);
         assert.deepEqual(contract.getData(), {value: 200110});
     });
 
@@ -350,12 +351,11 @@ describe('Application layer', () => {
             contractCode: '{"add": "(a){this.value+=a;}"}',
             conciliumId
         });
-        const app = new factory.Application();
-        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(
-            coinsIn, {method: 'subtract', arrArguments: [10]}, contract,
-            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        await app.runContract(
+            {method: 'subtract', arrArguments: [10]},
+            contract,
+            undefined, undefined
         );
         assert.isNotOk(receipt.isSuccessful());
         assert.equal(receipt.getCoinsUsed(), nFeeContractInvocation + nFeeSizeFakeTx);
@@ -369,13 +369,12 @@ describe('Application layer', () => {
             contractCode: '{"add": "(a){this.value+=a;}"}',
             conciliumId
         });
-        const app = new factory.Application();
-        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(coinsIn, '', contract,
-            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        await app.runContract(
+            '',
+            contract,
+            undefined, undefined
         );
-        assert.isNotOk(receipt.isSuccessful());
         assert.equal(
             receipt.getCoinsUsed(),
             nFeeContractInvocation + (contract.getDataSize() - prevDataSize) * nFeeStorage + nFeeSizeFakeTx

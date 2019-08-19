@@ -2205,7 +2205,9 @@ describe('Node tests', () => {
             const patch = new factory.PatchDB(conciliumId);
             patch.getContract = sinon.fake.returns(undefined);
 
-            await node._processTx(patch, true, tx);
+            const {fee} = await node._processTx(patch, true, tx);
+
+            assert.equal(fee, 0);
 
             assert.isOk(patch.getContract.calledOnce);
             assert.isOk(node._storage.getContract.calledOnce);

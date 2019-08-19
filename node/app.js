@@ -102,17 +102,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * 2. Last code line - is creating instance of contract class
          * 3. Contract invocation - string. like functionName(...params)
          *
-         * @param {Number} coinsLimit - spend no more than this limit
          * @param {String} strCode - contract code
          * @param {Object} environment - global variables for contract (like contractAddr)
-         * @param {Object} objFees - {nFeeContractCreation, nFeeStorage, nFeeSize}
-         * @returns {receipt: TxReceipt, contract: Contract}
+         * @returns {contract}
          */
-        createContract(coinsLimit, strCode, environment, objFees) {
-            const {nFeeContractCreation, nFeeStorage, nFeeSize} = objFees;
+        createContract(strCode, environment) {
+            typeforce(typeforce.tuple(typeforce.String, typeforce.Object), arguments);
 
-            // deduce contract creation fee and size fee
-            let coinsRemained = _spendCoins(coinsLimit, nFeeContractCreation + nFeeSize);
+            this._execStarted();
 
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
@@ -121,9 +118,13 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 }
             });
 
+            this._nCoinsLimit = _spendCoins(this._nCoinsLimit, this._objFees.nFeeContractCreation);
+
             // prepend predefined classes to code
             let status;
             let contract;
+            let message;
+
             try {
 
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
@@ -141,65 +142,71 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
                 contract = this._newContract(environment.contractAddr, objData, strCodeExportedFunctions);
 
-                const newDataSize = contract.getDataSize();
-
-                coinsRemained = _spendCoins(coinsRemained, newDataSize * nFeeStorage);
-
-                status = Constants.TX_STATUS_OK;
-            } catch (err) {
-                logger.error('Error while creating contract!', new Error(err));
-                status = Constants.TX_STATUS_FAILED;
+            } finally {
+                this._execDone(contract);
             }
 
-            return {
-                receipt: new TxReceipt({
-                    contractAddress: Buffer.from(environment.contractAddr, 'hex'),
-                    coinsUsed: _spendCoins(coinsLimit, coinsRemained),
-                    status
-                }),
-                contract
-            };
+            return contract;
+        }
+
+        /**
+         *
+         * @param {Object} objCallbacks - for sending funds & nested contract calls
+         * @param {Function} objCallbacks.invokeContract
+         * @param {Function} objCallbacks.createInternalTx
+         * @param objVariables
+         */
+        setupVariables(objVariables) {
+            const {coinsLimit, objFees, objCallbacks} = objVariables;
+
+            this._objFees = objFees;
+            this._nInitialConis = this._nCoinsLimit = coinsLimit;
+            this._objCallbacks = objCallbacks;
+
+            this._nDataDelta = 0;
+            this._arrContractDataSize = [];
+            this._arrContracts = [];
         }
 
         /**
          * It will update contract in a case of success
          *
-         * @param {Number} coinsLimit - spend no more than this limit
          * @param {Object} objInvocationCode - {method, arrArguments} to invoke
          * @param {Contract} contract - contract loaded from store (@see structures/contract.js)
          * @param {Object} environment - global variables for contract (like contractAddr)
-         * @param {Object} context - within we'll execute code
-         * @param {Object} objCallbacks - for sending funds & nested contract calls
-         * @param {Function} objCallbacks.invokeContract
-         * @param {Function} objCallbacks.createInternalTx
-         * @param {Object} objFees - {nFeeContractInvocation, nFeeStorage, nFeeSize}
+         * @param {Object} context - within we'll execute code, contain: contractData, global functions, environment
          * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
-         * @returns {Promise<TxReceipt>}
+         * @returns {Promise<result>}
          */
-        async runContract(coinsLimit, objInvocationCode, contract,
-                          environment, context, objCallbacks, objFees, isConstantCall = false) {
-            let coinsRemained = coinsLimit;
+        async runContract(objInvocationCode, contract, environment, context = undefined, isConstantCall = false) {
+            typeforce(
+                typeforce.tuple(
+                    typeforce.Object,
+                    types.Contract,
+                    typeforce.Object
+                ),
+                arguments
+            );
 
-            const {nFeeContractInvocation, nFeeSize = 0, nFeeStorage} = objFees;
+            this._execStarted(contract);
+
+            const {nFeeContractInvocation, nFeeStorage} = this._objFees;
 
             let status;
             let message;
             let result;
-            try {
 
+            try {
                 debug(`Invoking ${util.inspect(objInvocationCode, {colors: true, depth: null})}`);
 
-                if (!isConstantCall) {
-
-                    // deduce contract invocation fee and size fee
-                    coinsRemained = _spendCoins(coinsLimit, nFeeContractInvocation + nFeeSize);
-                }
+                // deduce contract invocation fee
+                this._nCoinsLimit = _spendCoins(this._nCoinsLimit, nFeeContractInvocation);
 
                 // this will bind code to data (assign 'this' variable)
                 const objMethods = JSON.parse(contract.getCode());
 
                 // if code it empty - call default function.
-                // No "default" - throws error, coins that sent to contract will be lost
+                // No "default" - throws error
                 if (!objInvocationCode || !objInvocationCode.method || objInvocationCode.method === '') {
                     objInvocationCode = {
                         method: defaultFunctionName,
@@ -213,18 +220,18 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 const thisContext = context || {
                     ...environment,
                     [CONTEXT_NAME]: Object.assign({}, contract.getData()),
-                    send,
-                    call: async (strAddress, objParams) => await callWithContext(
+                    send: (strAddress, amount) => this._send(strAddress, amount),
+                    call: async (strAddress, objParams) => await this._callWithContext(
                         strAddress,
                         objParams,
                         undefined,
-                        {nFeeContractInvocation, nFeeStorage}
+                        environment
                     ),
-                    delegatecall: async (strAddress, objParams) => await callWithContext(
+                    delegatecall: async (strAddress, objParams) => await this._callWithContext(
                         strAddress,
                         objParams,
                         thisContext,
-                        {nFeeContractInvocation, nFeeStorage}
+                        environment
                     )
                 };
 
@@ -250,70 +257,16 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 // we shouldn't save data for delegated calls in this contract!
                 if (!context) {
                     const newContractState = vm.run(`;${CONTEXT_NAME};`);
-                    const prevDataSize = contract.getDataSize();
 
                     // this will keep only data (strip proxies & member functions that we inject to call like this.method)
                     const objData = JSON.parse(JSON.stringify(newContractState));
                     contract.updateData(objData);
-                    const newDataSize = contract.getDataSize();
-
-                    coinsRemained = _spendCoins(coinsRemained, (newDataSize - prevDataSize) * nFeeStorage);
                 }
-
-                status = Constants.TX_STATUS_OK;
-            } catch (err) {
-                logger.error(err);
-
-                // if it's just call - we'r done here
-                if (isConstantCall) throw err;
-
-                status = Constants.TX_STATUS_FAILED;
-                message = err.message;
+            } finally {
+                this._execDone(contract);
             }
 
-            // TODO: return Fee (see coinsUsed)
-            return new TxReceipt({
-                coinsUsed: _spendCoins(coinsLimit, coinsRemained),
-                status,
-                message
-            });
-
-            // we need those function here, since JS can't pass variables by ref (coinsRemained)
-            //________________________________________
-            function send(strAddress, amount) {
-                if (contract.getBalance() < amount) throw new Error('Not enough funds for "send"');
-                coinsRemained = _spendCoins(coinsRemained, Constants.fees.INTERNAL_TX_FEE);
-                objCallbacks.createInternalTx(strAddress, amount);
-                contract.withdraw(amount);
-            }
-
-            async function callWithContext(
-                strAddress,
-                {method, arrArguments, coinsLimit: coinsToPass},
-                callContext,
-                objFees
-            ) {
-                if (typeof coinsToPass === 'number') {
-                    if (coinsToPass < 0) throw new Error('coinsLimit should be positive');
-                    if (coinsToPass > coinsRemained) throw new Error('Trying to pass more coins than have');
-                }
-
-                const {success, fee} = await objCallbacks.invokeContract(
-                    strAddress,
-                    {
-                        method,
-                        arrArguments,
-                        coinsLimit: coinsToPass ? coinsToPass : coinsRemained,
-                        environment,
-                        objFees,
-
-                        // important!
-                        context: callContext
-                    }
-                );
-                coinsRemained = _spendCoins(coinsRemained, fee);
-                return success;
-            }
+            return result;
         }
 
         /**
@@ -384,5 +337,71 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             contract.storeAddress(contractAddr);
 
             return contract;
+        }
+
+        _send(strAddress, amount) {
+
+            // if it will throw (not enough) - no assignment will be made
+            this._nCoinsLimit = _spendCoins(this._nCoinsLimit, Constants.fees.INTERNAL_TX_FEE);
+            this._objCallbacks.sendCoins(strAddress, amount, this._getCurrentContract());
+        }
+
+        async _callWithContext(
+            strAddress,
+            {method, arrArguments, coinsLimit: coinsToPass},
+            callContext,
+            environment
+        ) {
+            if (typeof coinsToPass === 'number') {
+                if (coinsToPass < 0) throw new Error('coinsLimit should be positive');
+                if (coinsToPass > this._nCoinsLimit) throw new Error('Trying to pass more coins than have');
+            }
+
+            const result = await this._objCallbacks.invokeContract(
+                strAddress,
+                {
+                    method,
+                    arrArguments,
+                    coinsLimit: coinsToPass ? coinsToPass : this._nCoinsLimit,
+                    environment,
+
+                    // important!
+                    context: callContext
+                },
+                this._getCurrentContract()
+            );
+
+            // all fees for nested contract will be handled by it
+            return result;
+        }
+
+        coinsSpent() {
+            return this._nInitialConis - this._nCoinsLimit;
+        }
+
+        getDataDelta() {
+            return this._nDataDelta;
+        }
+
+        _execStarted(contract) {
+            if (!this._arrContractDataSize) throw new Error('App. Uninitialized variables, or recursion error');
+
+            this._arrContractDataSize.push(contract ? contract.getDataSize() : 0);
+            this._arrContracts.push(contract);
+        }
+
+        _execDone(contract) {
+            if (!this._arrContractDataSize.length) throw new Error('App. Recursion error');
+
+            this._arrContracts.pop();
+
+            const nPrevDataSize = this._arrContractDataSize.pop();
+            if (contract) this._nDataDelta += contract.getDataSize() - nPrevDataSize;
+
+            if (!this._arrContractDataSize.length) this._arrContractDataSize = undefined;
+        }
+
+        _getCurrentContract() {
+            return this._arrContracts[this._arrContracts.length - 1];
         }
     };
