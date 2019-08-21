@@ -351,7 +351,9 @@ module.exports = (factory, factoryOptions) => {
                 try {
                     const {conciliumId} = consensus;
                     const {block} = await this._createBlock(conciliumId);
-                    if (block.isEmpty() && !consensus.timeForWitnessBlock()) {
+                    if (block.isEmpty() &&
+                        !consensus.timeForWitnessBlock() &&
+                        !this._pendingBlocks.isReasonToWitness(conciliumId)) {
 
                         // catch it below
                         throw (0);
