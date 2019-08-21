@@ -98,10 +98,10 @@ module.exports = (factory) => {
         /**
          * It will check "compatibility" of tips (ability to merge patches)
          *
-         * @returns {arrParents}
+         * @returns {{arrParents, patchMerged}}
          * @private
          */
-        async getBestParents() {
+        getBestParents() {
             let arrTips = this.getTips();
 
             if (!arrTips.length) arrTips = this._topStable;
@@ -118,6 +118,7 @@ module.exports = (factory) => {
 
             // TODO: review it
             if (!arrParents.length) logger.debug('No pending parents found, using stable tips!');
+
             return {
                 arrParents: arrParents.length ? arrParents : arrTips,
                 patchMerged

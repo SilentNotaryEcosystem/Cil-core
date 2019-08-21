@@ -922,7 +922,7 @@ module.exports = (factory, factoryOptions) => {
 
                         let arrPendingUtxos = [];
                         if (!bStableOnly) {
-                            const {patchMerged} = await this._pendingBlocks.getBestParents();
+                            const {patchMerged} = this._pendingBlocks.getBestParents();
                             arrPendingUtxos = Array.from(patchMerged.getCoins().values());
                         }
                         const arrStableUtxos = await this._storage.walletListUnspent(strAddress);

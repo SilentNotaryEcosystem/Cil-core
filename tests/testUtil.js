@@ -21,8 +21,8 @@ const createDummyTx = (hash, conciliumId) => {
     };
 };
 
-const createDummyBlock = (factory, witnessId = 0) => {
-    const block = new factory.Block(witnessId);
+const createDummyBlock = (factory, nConciliumId = 0) => {
+    const block = new factory.Block(nConciliumId);
     block.parentHashes = [pseudoRandomBuffer().toString('hex')];
     block.finish(factory.Constants.fees.TX_FEE, generateAddress());
     return block;
@@ -54,8 +54,8 @@ module.exports = {
     createDummyBlockInfo,
     pseudoRandomBuffer,
 
-    createDummyBlockWithTx: (factory, witnessId = 0) => {
-        const block = new factory.Block(witnessId);
+    createDummyBlockWithTx: (factory, nConciliumId = 0) => {
+        const block = new factory.Block(nConciliumId);
         const tx = new factory.Transaction(createDummyTx());
         block.addTx(tx);
         block.parentHashes = [pseudoRandomBuffer().toString('hex')];

@@ -13,12 +13,12 @@ const {arrayEquals} = require('../utils');
 /**
  * Duplicate block, but change conciliumId & change tx
  */
-const makeDoubleSpend = (block, newWitnessId) => {
-    const newBlock = new factory.Block(newWitnessId);
+const makeDoubleSpend = (block, newConciliumId) => {
+    const newBlock = new factory.Block(newConciliumId);
 
     // first is coinbase
     const tx = new factory.Transaction(block.txns[1]);
-    tx.conciliumId = newWitnessId;
+    tx.conciliumId = newConciliumId;
     newBlock.addTx(tx);
     newBlock.finish(factory.Constants.fees.TX_FEE, generateAddress());
     return newBlock;
@@ -122,7 +122,7 @@ describe('Pending block manager', async () => {
         pbm.addBlock(block2, new factory.PatchDB(1));
         pbm.addBlock(block3, new factory.PatchDB(2));
 
-        const {arrParents} = await pbm.getBestParents();
+        const {arrParents} = pbm.getBestParents();
         assert.isOk(arrParents.length, 3);
         assert.isOk(arrayEquals(arrParents, [block1.getHash(), block2.getHash(), block3.getHash()]));
     });
@@ -139,7 +139,7 @@ describe('Pending block manager', async () => {
         pbm.addBlock(block1, new factory.PatchDB(0));
         pbm.addBlock(block2, patch);
 
-        const {arrParents} = await pbm.getBestParents();
+        const {arrParents} = pbm.getBestParents();
         assert.isOk(arrParents.length, 1);
         assert.isOk(arrayEquals(arrParents, [block1.getHash()]));
     });
@@ -160,7 +160,7 @@ describe('Pending block manager', async () => {
         pbm.addBlock(block2, patch);
         pbm.addBlock(block3, new factory.PatchDB(0));
 
-        const {arrParents} = await pbm.getBestParents();
+        const {arrParents} = pbm.getBestParents();
         assert.isOk(arrParents.length, 1);
         assert.isOk(arrayEquals(arrParents, [block3.getHash()]));
     });
@@ -176,7 +176,7 @@ describe('Pending block manager', async () => {
             const block = createDummyBlock(factory, i, i + 1);
             pbm.addBlock(block, patch);
         }
-        await pbm.getBestParents();
+        pbm.getBestParents();
         assert.isOk(patch.merge.callCount === 10);
     });
 
@@ -203,7 +203,7 @@ describe('Pending block manager', async () => {
         pbm.addBlock(block3, patch);
         pbm.addBlock(block4, patch);
 
-        const {arrParents} = await pbm.getBestParents();
+        const {arrParents} = pbm.getBestParents();
 
         assert.isOk(arrParents.length === 2);
 
@@ -301,7 +301,7 @@ describe('Pending block manager', async () => {
 
             let block5;
             {
-                const {arrParents} = await pbm.getBestParents();
+                const {arrParents} = pbm.getBestParents();
 
                 // block 3 (or 2) will fail to merge
                 assert.equal(arrParents.length, 1);
@@ -313,7 +313,7 @@ describe('Pending block manager', async () => {
 
             let block6;
             {
-                const {arrParents} = await pbm.getBestParents();
+                const {arrParents} = pbm.getBestParents();
                 assert.equal(arrParents.length, 1);
 
                 block6 = createDummyBlock(factory, 1);
@@ -352,7 +352,7 @@ describe('Pending block manager', async () => {
             // from now test not connected to page "rejected block consensus"
             const block8 = createDummyBlock(factory, 1);
             {
-                const {arrParents} = await pbm.getBestParents();
+                const {arrParents} = pbm.getBestParents();
                 assert.equal(arrParents.length, 2);
 
                 // chain through 7->1 and through 6 have same witness numbers (1) but first chain is longer

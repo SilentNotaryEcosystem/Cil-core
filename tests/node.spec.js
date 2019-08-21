@@ -1470,7 +1470,7 @@ describe('Node tests', () => {
 
                 const patchPending = new factory.PatchDB();
                 patchPending.setUtxo(utxo2);
-                node._pendingBlocks.getBestParents = sinon.fake.resolves({patchMerged: patchPending});
+                node._pendingBlocks.getBestParents = sinon.fake.returns({patchMerged: patchPending});
 
             });
 
