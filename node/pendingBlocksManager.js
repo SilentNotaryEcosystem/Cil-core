@@ -104,8 +104,8 @@ module.exports = (factory) => {
         getBestParents() {
             let arrTips = this.getTips();
 
-            if (!arrTips.length) arrTips = this._topStable;
-            if (!arrTips.length) arrTips = [Constants.GENESIS_BLOCK];
+            if (!arrTips || !arrTips.length) arrTips = this._topStable;
+            if (!arrTips || !arrTips.length) arrTips = [Constants.GENESIS_BLOCK];
 
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
@@ -386,6 +386,33 @@ module.exports = (factory) => {
             }
 
             return undefined;
+        }
+
+        /**
+         * is there a reason to create a block of "nConciliumId" upon bestParents
+         *
+         * the reason is if we have at least one tip that has no blocks of "nConciliumId" in every path
+         * from this "tip" to stable blocks
+         *
+         * @param {Number} nConciliumId
+         * @returns {Boolean}
+         */
+        isReasonToWitness(nConciliumId) {
+            let {arrParents} = this.getBestParents();
+
+            // we are interested only in pending tips!
+            arrParents = arrParents.filter(strHash => this._dag.hasVertex(strHash));
+
+            return !arrParents.every(hash => {
+                const arrPaths = this._dag.findPathsDown(hash);
+                for (let path of arrPaths) {
+                    for (let vertex of path) {
+                        const {blockHeader} = this._dag.readObj(vertex);
+                        if (blockHeader.conciliumId === nConciliumId) return true;
+                    }
+                }
+                return false;
+            });
         }
     };
 };

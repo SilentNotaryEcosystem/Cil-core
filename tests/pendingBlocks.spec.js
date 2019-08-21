@@ -10,6 +10,24 @@ const factory = require('./testFactory');
 const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 
+const createRhombus = (pbm) => {
+    const block1 = createDummyBlock(factory, 1);
+    const block2 = createDummyBlock(factory, 2);
+    const block3 = createDummyBlock(factory, 3);
+    const block4 = createDummyBlock(factory, 4);
+
+    const patch = new factory.PatchDB();
+
+    block2.parentHashes = [block1.getHash()];
+    block3.parentHashes = [block1.getHash()];
+    block4.parentHashes = [block2.getHash(), block3.getHash()];
+
+    pbm.addBlock(block1, patch);
+    pbm.addBlock(block2, patch);
+    pbm.addBlock(block3, patch);
+    pbm.addBlock(block4, patch);
+};
+
 /**
  * Duplicate block, but change conciliumId & change tx
  */
@@ -209,6 +227,52 @@ describe('Pending block manager', async () => {
 
         // 'hash1' - conflicts
         assert.isOk(arrayEquals(arrParents, [block3.getHash(), block4.getHash()]));
+    });
+
+    describe('isReasonToWitness', async () => {
+        let pbm;
+        beforeEach(async () => {
+            pbm = new factory.PendingBlocksManager();
+        });
+
+        it('should be NO reason for empty PBM', async () => {
+            factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
+            assert.isNotOk(pbm.isReasonToWitness(0));
+        });
+
+        it('should be a reason for single tip of other concilium', async () => {
+            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+
+            assert.isOk(pbm.isReasonToWitness(0));
+        });
+
+        it('should be NO reason for single tip of same concilium', async () => {
+            pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+
+            assert.isNotOk(pbm.isReasonToWitness(0));
+        });
+
+        it('should be NO reason for rhombus (existed inside rhombus)', async () => {
+            createRhombus(pbm);
+
+            assert.isNotOk(pbm.isReasonToWitness(1));
+            assert.isNotOk(pbm.isReasonToWitness(2));
+            assert.isNotOk(pbm.isReasonToWitness(3));
+            assert.isNotOk(pbm.isReasonToWitness(4));
+        });
+
+        it('should be a reason for rhombus (new concilium)', async () => {
+            createRhombus(pbm);
+
+            assert.isOk(pbm.isReasonToWitness(0));
+        });
+
+        it('should be a reason for rhombus (existed inside rhombus, but has single tip)', async () => {
+            createRhombus(pbm);
+            pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+
+            assert.isOk(pbm.isReasonToWitness(2));
+        });
     });
 
     describe('FINALITY', async () => {
