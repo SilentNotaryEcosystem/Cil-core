@@ -10,11 +10,19 @@ const factory = require('./testFactory');
 const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 
-const createRhombus = (pbm) => {
-    const block1 = createDummyBlock(factory, 1);
-    const block2 = createDummyBlock(factory, 2);
-    const block3 = createDummyBlock(factory, 3);
-    const block4 = createDummyBlock(factory, 4);
+const createNonEmptyBlock = (nConciliumId) => {
+    const block = createDummyBlock(factory, nConciliumId);
+    block.isEmpty = () => false;
+    return block;
+};
+
+const createRhombus = (pbm, bNonEmpty = false) => {
+    const createBlockFunction = bNonEmpty ? createNonEmptyBlock : createDummyBlock.bind(createDummyBlock, factory);
+
+    const block1 = createBlockFunction(1);
+    const block2 = createBlockFunction(2);
+    const block3 = createBlockFunction(3);
+    const block4 = createBlockFunction(4);
 
     const patch = new factory.PatchDB();
 
@@ -241,7 +249,7 @@ describe('Pending block manager', async () => {
         });
 
         it('should be a reason for single tip of other concilium', async () => {
-            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+            pbm.addBlock(createNonEmptyBlock(1), new factory.PatchDB());
 
             assert.isOk(pbm.isReasonToWitness(0));
         });
@@ -261,18 +269,34 @@ describe('Pending block manager', async () => {
             assert.isNotOk(pbm.isReasonToWitness(4));
         });
 
-        it('should be a reason for rhombus (new concilium)', async () => {
+        it('should be NO reason for rhombus (not existed inside rhombus, but empty blocks)', async () => {
             createRhombus(pbm);
+
+            assert.isNotOk(pbm.isReasonToWitness(0));
+        });
+
+        it('should be a reason for rhombus (new concilium and non empty blocks)', async () => {
+            createRhombus(pbm, true);
 
             assert.isOk(pbm.isReasonToWitness(0));
         });
 
-        it('should be a reason for rhombus (existed inside rhombus, but has single tip)', async () => {
+        it('should be a reason for rhombus (existed inside rhombus of empty blocks, but has single non empty tip)',
+            async () => {
             createRhombus(pbm);
-            pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+                pbm.addBlock(createNonEmptyBlock(0), new factory.PatchDB());
 
             assert.isOk(pbm.isReasonToWitness(2));
-        });
+            }
+        );
+
+        it('should be a reason for rhombus (existed inside rhombus of non-empty blocks, but has single yet empty tip)',
+            async () => {
+                createRhombus(pbm, true);
+                pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+
+                assert.isOk(pbm.isReasonToWitness(2));
+            });
     });
 
     describe('FINALITY', async () => {

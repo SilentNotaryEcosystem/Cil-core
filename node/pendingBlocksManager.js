@@ -45,7 +45,10 @@ module.exports = (factory) => {
             for (let strHash of block.parentHashes) {
                 if (this._dag.hasVertex(strHash)) this._dag.add(block.getHash(), strHash);
             }
-            this._dag.saveObj(block.getHash(), {patch: patchState, blockHeader: block.header});
+            this._dag.saveObj(
+                block.getHash(),
+                {patch: patchState, blockHeader: block.header, bIsEmpty: block.isEmpty()}
+            );
         }
 
         /**
@@ -393,6 +396,7 @@ module.exports = (factory) => {
          *
          * the reason is if we have at least one tip that has no blocks of "nConciliumId" in every path
          * from this "tip" to stable blocks
+         * and there is at least one non-empty blocks
          *
          * @param {Number} nConciliumId
          * @returns {Boolean}
@@ -403,16 +407,21 @@ module.exports = (factory) => {
             // we are interested only in pending tips!
             arrParents = arrParents.filter(strHash => this._dag.hasVertex(strHash));
 
+            // we need non-empty blocks
+            let bFoundNonEmptyBlock = false;
+
             return !arrParents.every(hash => {
                 const arrPaths = this._dag.findPathsDown(hash);
+                let bConciliumFound = false;
                 for (let path of arrPaths) {
                     for (let vertex of path) {
-                        const {blockHeader} = this._dag.readObj(vertex);
-                        if (blockHeader.conciliumId === nConciliumId) return true;
+                        const {blockHeader, bIsEmpty} = this._dag.readObj(vertex);
+                        if (blockHeader.conciliumId === nConciliumId) bConciliumFound = true;
+                        bFoundNonEmptyBlock |= !bIsEmpty;
                     }
                 }
-                return false;
-            });
+                return bConciliumFound;
+            }) && bFoundNonEmptyBlock;
         }
     };
 };
