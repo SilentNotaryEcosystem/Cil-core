@@ -352,22 +352,15 @@ module.exports = (factory, factoryOptions) => {
                     const {conciliumId} = consensus;
                     const {block} = await this._createBlock(conciliumId);
                     if (block.isEmpty() &&
-                        !consensus.timeForWitnessBlock() &&
-                        !this._pendingBlocks.isReasonToWitness(conciliumId)) {
-
-                        // catch it below
-                        throw (0);
-                    }
-
-                    await this._broadcastBlock(conciliumId, block);
-
-                    consensus.processValidBlock(block);
-                } catch (e) {
-                    if (typeof e === 'number') {
+                        (!consensus.timeForWitnessBlock() || !this._pendingBlocks.isReasonToWitness(block))
+                    ) {
                         this._suppressedBlockHandler();
                     } else {
-                        logger.error(e);
+                        await this._broadcastBlock(conciliumId, block);
+                        consensus.processValidBlock(block);
                     }
+                } catch (e) {
+                    logger.error(e);
                 } finally {
                     this._mutex.release(lock);
                 }
