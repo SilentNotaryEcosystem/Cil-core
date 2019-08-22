@@ -34,6 +34,8 @@ const createRhombus = (pbm, bNonEmpty = false) => {
     pbm.addBlock(block2, patch);
     pbm.addBlock(block3, patch);
     pbm.addBlock(block4, patch);
+
+    return block4;
 };
 
 /**
@@ -245,58 +247,111 @@ describe('Pending block manager', async () => {
 
         it('should be NO reason for empty PBM', async () => {
             factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
-            assert.isNotOk(pbm.isReasonToWitness(0));
+            const block = createDummyBlock(factory, 0);
+
+            assert.isNotOk(pbm.isReasonToWitness(block));
         });
 
         it('should be a reason for single tip of other concilium', async () => {
-            pbm.addBlock(createNonEmptyBlock(1), new factory.PatchDB());
+            const block = createNonEmptyBlock(1);
+            pbm.addBlock(block, new factory.PatchDB());
+            const blockChild = createNonEmptyBlock(0);
+            blockChild.parentHashes = [block.getHash()];
 
-            assert.isOk(pbm.isReasonToWitness(0));
+            assert.isOk(pbm.isReasonToWitness(blockChild));
         });
 
-        it('should be NO reason for single tip of same concilium', async () => {
-            pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+        it('should be NO reason for single non-empty tip of same concilium', async () => {
+            const block = createNonEmptyBlock(1);
+            pbm.addBlock(block, new factory.PatchDB());
+            const blockChild = createNonEmptyBlock(1);
+            blockChild.parentHashes = [block.getHash()];
 
-            assert.isNotOk(pbm.isReasonToWitness(0));
+            assert.isNotOk(pbm.isReasonToWitness(blockChild));
+        });
+
+        it('should be NO reason for 2 empty tips', async () => {
+            const block1 = createDummyBlock(factory, 1);
+            const block2 = createDummyBlock(factory, 2);
+            pbm.addBlock(block1, new factory.PatchDB());
+            pbm.addBlock(block2, new factory.PatchDB());
+
+            {
+                const blockChild = createNonEmptyBlock(1);
+                blockChild.parentHashes = [block1.getHash(), block2.getHash()];
+                assert.isNotOk(pbm.isReasonToWitness(blockChild));
+            }
+            {
+                const blockChild = createNonEmptyBlock(2);
+                blockChild.parentHashes = [block1.getHash(), block2.getHash()];
+                assert.isNotOk(pbm.isReasonToWitness(blockChild));
+            }
+        });
+
+        it('should be reason for 2 non-empty tips', async () => {
+            const block1 = createNonEmptyBlock(1);
+            const block2 = createNonEmptyBlock(2);
+            pbm.addBlock(block1, new factory.PatchDB());
+            pbm.addBlock(block2, new factory.PatchDB());
+
+            {
+                const blockChild = createNonEmptyBlock(1);
+                blockChild.parentHashes = [block1.getHash(), block2.getHash()];
+                assert.isOk(pbm.isReasonToWitness(blockChild));
+            }
+            {
+                const blockChild = createNonEmptyBlock(2);
+                blockChild.parentHashes = [block1.getHash(), block2.getHash()];
+                assert.isOk(pbm.isReasonToWitness(blockChild));
+            }
         });
 
         it('should be NO reason for rhombus (existed inside rhombus)', async () => {
-            createRhombus(pbm);
-
-            assert.isNotOk(pbm.isReasonToWitness(1));
-            assert.isNotOk(pbm.isReasonToWitness(2));
-            assert.isNotOk(pbm.isReasonToWitness(3));
-            assert.isNotOk(pbm.isReasonToWitness(4));
+            const blockTip = createRhombus(pbm);
+            assert.isNotOk(pbm.isReasonToWitness(blockTip));
         });
 
         it('should be NO reason for rhombus (not existed inside rhombus, but empty blocks)', async () => {
-            createRhombus(pbm);
+            const blockTip = createRhombus(pbm);
+            const block = createNonEmptyBlock(0);
+            block.parentHashes = [blockTip.getHash()];
 
-            assert.isNotOk(pbm.isReasonToWitness(0));
+            assert.isNotOk(pbm.isReasonToWitness(block));
         });
 
         it('should be a reason for rhombus (new concilium and non empty blocks)', async () => {
-            createRhombus(pbm, true);
+            const blockTip = createRhombus(pbm, true);
+            const block = createNonEmptyBlock(0);
+            block.parentHashes = [blockTip.getHash()];
 
-            assert.isOk(pbm.isReasonToWitness(0));
+            assert.isOk(pbm.isReasonToWitness(block));
         });
 
         it('should be a reason for rhombus (existed inside rhombus of empty blocks, but has single non empty tip)',
             async () => {
-            createRhombus(pbm);
-                pbm.addBlock(createNonEmptyBlock(0), new factory.PatchDB());
+                const blockTip1 = createRhombus(pbm);
+                const blockTip2 = createNonEmptyBlock(0);
+                pbm.addBlock(blockTip2, new factory.PatchDB());
 
-            assert.isOk(pbm.isReasonToWitness(2));
+                const block = createNonEmptyBlock(2);
+                block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
+
+                assert.isOk(pbm.isReasonToWitness(block));
             }
         );
 
         it('should be a reason for rhombus (existed inside rhombus of non-empty blocks, but has single yet empty tip)',
             async () => {
-                createRhombus(pbm, true);
-                pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+                const blockTip1 = createRhombus(pbm, true);
+                const blockTip2 = createDummyBlock(factory, 0);
+                pbm.addBlock(blockTip2, new factory.PatchDB());
 
-                assert.isOk(pbm.isReasonToWitness(2));
-            });
+                const block = createNonEmptyBlock(2);
+                block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
+
+                assert.isOk(pbm.isReasonToWitness(block));
+            }
+        );
     });
 
     describe('FINALITY', async () => {

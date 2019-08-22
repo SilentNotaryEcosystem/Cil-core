@@ -398,14 +398,13 @@ module.exports = (factory) => {
          * from this "tip" to stable blocks
          * and there is at least one non-empty blocks
          *
-         * @param {Number} nConciliumId
+         * @param {Block} block - that we look a reason to process
          * @returns {Boolean}
          */
-        isReasonToWitness(nConciliumId) {
-            let {arrParents} = this.getBestParents();
+        isReasonToWitness(block) {
 
-            // we are interested only in pending tips!
-            arrParents = arrParents.filter(strHash => this._dag.hasVertex(strHash));
+            // we are interested only in pending parents!
+            const arrParents = block.parentHashes.filter(strHash => this._dag.hasVertex(strHash));
 
             // we need non-empty blocks
             let bFoundNonEmptyBlock = false;
@@ -416,7 +415,7 @@ module.exports = (factory) => {
                 for (let path of arrPaths) {
                     for (let vertex of path) {
                         const {blockHeader, bIsEmpty} = this._dag.readObj(vertex);
-                        if (blockHeader.conciliumId === nConciliumId) bConciliumFound = true;
+                        if (blockHeader.conciliumId === block.conciliumId) bConciliumFound = true;
                         bFoundNonEmptyBlock |= !bIsEmpty;
                     }
                 }
