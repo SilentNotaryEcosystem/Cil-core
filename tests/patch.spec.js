@@ -154,6 +154,63 @@ describe('PatchDB', () => {
         assert.isOk(resultPatch.getUtxo(strHash) instanceof factory.UTXO);
     });
 
+    it('should have empty UTXO in patch (one empty)', async () => {
+        const patch = new factory.PatchDB(0);
+        const utxo = createUtxo([1]);
+        const spendingTx = pseudoRandomBuffer();
+
+        patch.setUtxo(utxo);
+
+        const patch2 = patch.merge(new factory.PatchDB());
+        patch2.spendCoins(utxo, 1, spendingTx);
+
+        {
+            const mergedPatch = patch.merge(patch2);
+
+            const utxoPatch = mergedPatch.getUtxo(utxo.getTxHash());
+            assert.isOk(utxoPatch);
+            assert.isOk(utxoPatch.isEmpty());
+        }
+        {
+            const mergedPatch = patch2.merge(patch);
+
+            const utxoPatch = mergedPatch.getUtxo(utxo.getTxHash());
+            assert.isOk(utxoPatch);
+            assert.isOk(utxoPatch.isEmpty());
+        }
+    });
+
+    it('should have empty UTXO in patch (all indexes spend)', async () => {
+        const utxo = createUtxo([0, 1, 2, 3]);
+        const spendingTx1 = pseudoRandomBuffer();
+        const spendingTx2 = pseudoRandomBuffer();
+
+        const patch = new factory.PatchDB(0);
+        patch.setUtxo(utxo);
+        patch.spendCoins(utxo, 0, spendingTx1);
+        patch.spendCoins(utxo, 2, spendingTx1);
+
+        const patch2 = new factory.PatchDB(1);
+        patch2.setUtxo(utxo);
+        patch2.spendCoins(utxo, 1, spendingTx2);
+        patch2.spendCoins(utxo, 3, spendingTx2);
+
+        {
+            const mergedPatch = patch.merge(patch2);
+
+            const utxoPatch = mergedPatch.getUtxo(utxo.getTxHash());
+            assert.isOk(utxoPatch);
+            assert.isOk(utxoPatch.isEmpty());
+        }
+        {
+            const mergedPatch = patch2.merge(patch);
+
+            const utxoPatch = mergedPatch.getUtxo(utxo.getTxHash());
+            assert.isOk(utxoPatch);
+            assert.isOk(utxoPatch.isEmpty());
+        }
+    });
+
     it('should MERGE patches (different outputs same spending TX)', async () => {
         const patch = new factory.PatchDB(0);
         const utxo = createUtxo([12, 0, 431]);

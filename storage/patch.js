@@ -182,7 +182,7 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
 
                 } else {
 
-                    // both has (if both doesn't have some, there will be no that hash in setUnionHashes)
+                    // both has
                     const utxoMy = this.getUtxo(coinHash);
                     const utxoHis = patch.getUtxo(coinHash);
 
@@ -191,18 +191,14 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
                     // if both doesn't have - check it for double spend. if found - throws
                     // so if we need only intersection we could travers any for indexes
 
-                    // process common (both has) indexes. we could choose any to pick indexes
-                    for (let idx of utxoMy.getIndexes()) {
-                        try {
-                            const coins = utxoHis.coinsAtIndex(idx);
-
-                            // put it in result
-                            resultPatch.createCoins(coinHash, idx, coins);
-                        } catch (e) {
-
-                            debug(e);
-                            // not found
-                        }
+                    // process common (both has) indexes. so we could choose any to pick coins
+                    const arrUnspentIndexes = arrayIntersection(
+                        Array.from(utxoMy.getIndexes()),
+                        Array.from(utxoHis.getIndexes())
+                    );
+                    resultPatch.setUtxo(new UTXO({txHash: coinHash}));
+                    for (let idx of arrUnspentIndexes) {
+                        resultPatch.createCoins(coinHash, idx, utxoMy.coinsAtIndex(idx));
                     }
 
                     // all good utxos added to resulting patch now search for double spends
