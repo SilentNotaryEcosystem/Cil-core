@@ -61,9 +61,16 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async joinConcilium(conciliumId) {
+
+        // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {method: "joinConcilium", arrArguments: [conciliumId]});
         }
+
+        conciliumId = parseInt(conciliumId);
+
+        // this will also include failure to join conciliumId 0. it's ok!
+        if (!conciliumId) throw ('Invalid concilium');
 
         const objConcilium = this._checkConciliumId(conciliumId);
 
@@ -79,6 +86,8 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async leaveConcilium(conciliumId) {
+
+        // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {method: "leaveConcilium", arrArguments: [conciliumId]});
         }
@@ -148,6 +157,9 @@ module.exports = class ContractConciliums extends Base {
                 {method: "changeConciliumParameters", arrArguments: [conciliumId, objNewParameters]}
             );
         }
+
+        this._checkOwner();
+
         const objConcilium = this._checkConciliumId(conciliumId);
 
 //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
