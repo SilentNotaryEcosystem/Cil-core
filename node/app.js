@@ -342,7 +342,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
         _send(strAddress, amount) {
 
             // if it will throw (not enough) - no assignment will be made
-            this._nCoinsLimit = _spendCoins(this._nCoinsLimit, Constants.fees.INTERNAL_TX_FEE);
+            this._nCoinsLimit = _spendCoins(this._nCoinsLimit, this._objFees.nFeeInternalTx);
             this._objCallbacks.sendCoins(strAddress, amount, this._getCurrentContract());
         }
 

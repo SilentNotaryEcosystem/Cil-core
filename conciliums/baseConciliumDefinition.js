@@ -15,6 +15,7 @@ const {deepCloneObject} = require('../utils');
 //            feeContractCreation: 111,
 //            feeContractInvocation: 111,
 //            feeStorage: 111,
+//            feeInternalTx: 111,
 //        },
 //        isEnabled: true,
 //
@@ -74,6 +75,10 @@ module.exports = class BaseConciliumDefinition {
 
     getFeeStorage() {
         return this._data.parameters.fees ? this._data.parameters.fees.feeStorage : undefined;
+    }
+
+    getFeeInternalTx() {
+        return this._data.parameters.fees ? this._data.parameters.fees.feeInternalTx : undefined;
     }
 
     validateBlock(block) {

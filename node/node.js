@@ -1142,6 +1142,15 @@ module.exports = (factory, factoryOptions) => {
                 ? witnessConcilium.getFeeContractInvocation() : Constants.fees.CONTRACT_INVOCATION_FEE;
         }
 
+        async _getFeeInternalTx(tx, isGenesis = false) {
+            if (isGenesis) return 0;
+
+            const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
+            return witnessConcilium &&
+                   witnessConcilium.getFeeInternalTx()
+                ? witnessConcilium.getFeeInternalTx() : Constants.fees.INTERNAL_TX_FEE;
+        }
+
         async _getFeeStorage(tx, isGenesis = false) {
             if (isGenesis) return 0;
 
@@ -1196,6 +1205,7 @@ module.exports = (factory, factoryOptions) => {
             const nFeeStorage = await this._getFeeStorage(tx, isGenesis);
             const nFeeContractCreation = await this._getFeeContractCreation(tx, isGenesis);
             const nFeeContractInvocation = await this._getFeeContractInvocatoin(tx, isGenesis);
+            const nFeeInternalTx = await this._getFeeInternalTx(tx, isGenesis);
 
             const coinsLimit = nMaxCoins - nFeeSize;
 
@@ -1220,7 +1230,7 @@ module.exports = (factory, factoryOptions) => {
                     }
 
                     this._app.setupVariables({
-                        objFees: {nFeeContractCreation, nFeeContractInvocation},
+                        objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
                         coinsLimit
                     });
                     contract = await this._app.createContract(tx.getContractCode(), environment);
@@ -1243,7 +1253,7 @@ module.exports = (factory, factoryOptions) => {
                     environment.balance = contract.getBalance();
 
                     this._app.setupVariables({
-                        objFees: {nFeeContractCreation, nFeeContractInvocation},
+                        objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
                         coinsLimit,
                         objCallbacks: this._createCallbacksForApp(patchForBlock, patchThisTx, tx.hash())
                     });
@@ -2252,7 +2262,7 @@ module.exports = (factory, factoryOptions) => {
 
             const nCoinsDummy = Number.MAX_SAFE_INTEGER;
             this._app.setupVariables({
-                objFees: {nFeeContractCreation: nCoinsDummy, nFeeContractInvocation: nCoinsDummy},
+                objFees: {nFeeContractInvocation: nCoinsDummy},
                 nCoinsDummy,
                 objCallbacks: this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64))
             });
