@@ -502,13 +502,28 @@ describe('Concilium contract', () => {
     });
 
     describe('Change parameters', async () => {
-        it('should set fees', async () => {
+        it('should record tx with changes to concilium', async () => {
+            const concilium = new factory.ConciliumRr({
+                isOpen: true
+            });
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            contract._rrConciliumMemberExists = sinon.fake.returns(true);
+
+            await contract.changeConciliumParameters(1, {});
+
+            const storedConcilium = contract._checkConciliumId(1);
+            assert.isOk(Array.isArray(storedConcilium.parameterTXNs) && storedConcilium.parameterTXNs.length === 1);
+            assert.strictEqual(storedConcilium.parameterTXNs[0], contractTx);
+        });
+        it('should set fees (whole reset)', async () => {
+            const nNewFee = 111;
             const objNewParameters = {
                 fees: {
-                    feeTxSize: 111,
-                    feeContractCreation: 111,
-                    feeContractInvocation: 111,
-                    feeStorage: 111
+                    feeTxSize: nNewFee,
+                    feeContractCreation: nNewFee,
+                    feeContractInvocation: nNewFee,
+                    feeStorage: nNewFee
                 }
             };
 
@@ -523,7 +538,87 @@ describe('Concilium contract', () => {
             await contract.changeConciliumParameters(1, objNewParameters);
 
             const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
-            assert.equal(storedConcilium.getFeeTxSize(), 111);
+            assert.equal(storedConcilium.getFeeTxSize(), nNewFee);
+            assert.equal(storedConcilium.getFeeContractCreation(), nNewFee);
+            assert.equal(storedConcilium.getFeeContractInvocation(), nNewFee);
+            assert.equal(storedConcilium.getFeeStorage(), nNewFee);
+        });
+
+        it('should set fees (change only one)', async () => {
+            const nOldFee = 120;
+            const nNewFeeTxSize = 111;
+            const strDocHash = 'cf60920089b7db942206e6484ea7df51b01e7b1f77dd99c1ecdc766cf5c6a77a';
+
+            const objNewParameters = {
+                fees: {
+                    feeTxSize: nNewFeeTxSize
+                }
+            };
+            const concilium = new factory.ConciliumPos({
+                isOpen: true,
+                nMinAmountToJoin: 1e5,
+                parameters: {
+                    fees: {
+                        feeTxSize: nOldFee,
+                        feeContractCreation: nOldFee,
+                        feeContractInvocation: nOldFee,
+                        feeStorage: nOldFee
+                    },
+                    document: strDocHash
+                }
+            });
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            contract._posConciliumMemberExists = sinon.fake.returns(true);
+
+            await contract.changeConciliumParameters(1, objNewParameters);
+
+            const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
+            assert.equal(storedConcilium.getFeeTxSize(), nNewFeeTxSize);
+
+            // should keep everything else
+            assert.equal(storedConcilium.getFeeContractCreation(), nOldFee);
+            assert.equal(storedConcilium.getFeeContractInvocation(), nOldFee);
+            assert.equal(storedConcilium.getFeeStorage(), nOldFee);
+
+            assert.strictEqual(storedConcilium.getDocument(), strDocHash);
+        });
+
+        it('should replace document (keep everything else)', async () => {
+            const nOldFee = 120;
+            const strOldDocHash = 'cb7ada0c4cddbb79374b2b433c1432203f092a388eef084d9d0c146a970affdc';
+            const strNewDocHash = 'cf60920089b7db942206e6484ea7df51b01e7b1f77dd99c1ecdc766cf5c6a77a';
+            const objNewParameters = {
+                document: strNewDocHash
+            };
+            const concilium = new factory.ConciliumPos({
+                isOpen: true,
+                nMinAmountToJoin: 1e5,
+                parameters: {
+                    fees: {
+                        feeTxSize: nOldFee,
+                        feeContractCreation: nOldFee,
+                        feeContractInvocation: nOldFee,
+                        feeStorage: nOldFee
+                    },
+                    document: strOldDocHash
+                }
+            });
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            contract._posConciliumMemberExists = sinon.fake.returns(true);
+
+            await contract.changeConciliumParameters(1, objNewParameters);
+
+            const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
+            assert.strictEqual(storedConcilium.getDocument(), strNewDocHash);
+
+            // should keep everything else
+            assert.equal(storedConcilium.getFeeTxSize(), nOldFee);
+            assert.equal(storedConcilium.getFeeContractCreation(), nOldFee);
+            assert.equal(storedConcilium.getFeeContractInvocation(), nOldFee);
+            assert.equal(storedConcilium.getFeeStorage(), nOldFee);
         });
     });
-});
+})
+;

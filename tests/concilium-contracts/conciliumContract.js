@@ -31,6 +31,8 @@ class Base {
 module.exports = class ContractConciliums extends Base {
     constructor(objInitialConcilium, nFeeCreate) {
         super();
+
+        // remove everything below for proxy!
         this._arrConciliums = [];
         if (!objInitialConcilium) throw('Specify initial objInitialConcilium');
 
@@ -56,7 +58,8 @@ module.exports = class ContractConciliums extends Base {
         this._arrConciliums.push({
             ...objConcilium,
             conciliumId: this._arrConciliums.length,
-            conciliumCreationTx: contractTx
+            conciliumCreationTx: contractTx,
+            parameterTXNs: []
         });
     }
 
@@ -170,7 +173,13 @@ module.exports = class ContractConciliums extends Base {
             if (!this._rrConciliumMemberExists(objConcilium, callerAddress)) throw ('Unauthorized call');
         }
 
-        objConcilium.parameters = Object.assign({}, objConcilium.parameters, objNewParameters);
+        const oldFees = objConcilium.parameters && objConcilium.parameters.fees ? objConcilium.parameters.fees : {};
+        objConcilium.parameters.fees = {...oldFees, ...objNewParameters.fees};
+        objConcilium.parameters.isEnabled = objNewParameters.isEnabled || objConcilium.parameters.isEnabled;
+
+        objConcilium.parameters.document = objNewParameters.document || objConcilium.parameters.document;
+
+        objConcilium.parameterTXNs.push(contractTx);
     }
 
     // PoS concilium
