@@ -982,6 +982,7 @@ module.exports = (factory, factoryOptions) => {
                 // inform about new Tx
                 await this._informNeighbors(newTx);
             } catch (e) {
+                console.error(e);
                 throw new Error(`Tx is not accepted: ${e.message}`);
             }
         }
@@ -2249,14 +2250,18 @@ module.exports = (factory, factoryOptions) => {
                 balance: contract.getBalance()
             };
 
+            const nCoinsDummy = Number.MAX_SAFE_INTEGER;
+            this._app.setupVariables({
+                objFees: {nFeeContractCreation: nCoinsDummy, nFeeContractInvocation: nCoinsDummy},
+                nCoinsDummy,
+                objCallbacks: this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64))
+            });
+
             return await this._app.runContract(
-                Number.MAX_SAFE_INTEGER,
                 {method, arrArguments},
                 contract,
                 newEnv,
                 undefined,
-                this._createCallbacksForApp(new Contract({}), new PatchDB(), new PatchDB(), Crypto.randomBytes(32)),
-                {},
                 true
             );
         }
