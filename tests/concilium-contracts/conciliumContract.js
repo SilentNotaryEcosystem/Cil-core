@@ -31,6 +31,8 @@ class Base {
 module.exports = class ContractConciliums extends Base {
     constructor(objInitialConcilium, nFeeCreate) {
         super();
+
+        // remove everything below for proxy!
         this._arrConciliums = [];
         if (!objInitialConcilium) throw('Specify initial objInitialConcilium');
 
