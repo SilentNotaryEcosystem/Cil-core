@@ -124,7 +124,7 @@ module.exports = class ContractConciliums extends Base {
             throw ('this method only for CONCILIUM_TYPE_RR');
         }
 
-        this._addRrConciliumMember(objConcilium, callerAddress);
+        arrAddresses.forEach(add => this._addRrConciliumMember(objConcilium, add));
     }
 
     setFeeCreate(nFeeNew) {

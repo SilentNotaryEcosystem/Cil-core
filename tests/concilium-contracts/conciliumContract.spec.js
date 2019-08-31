@@ -468,7 +468,7 @@ describe('Concilium contract', () => {
             });
             await contract.createConcilium(concilium.toObject());
 
-            contract.inviteToConcilium(1, generateAddress().toString('hex'));
+            contract.inviteToConcilium(1, [generateAddress().toString('hex')]);
 
             const storedConcilium = new factory.ConciliumRr(contract._checkConciliumId(1));
             assert.strictEqual(storedConcilium.getMembersCount(), 1);
