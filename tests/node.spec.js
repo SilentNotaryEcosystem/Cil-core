@@ -1401,7 +1401,7 @@ describe('Node tests', () => {
 
                 assert.deepEqual(result, expectedResult);
                 assert.isOk(node._app.runContract.calledOnce);
-                const [, , contract] = node._app.runContract.args[0];
+                const [, contract] = node._app.runContract.args[0];
                 assert.deepEqual(contract.getData(), {sampleResult: pendingData});
             });
 
@@ -1434,7 +1434,7 @@ describe('Node tests', () => {
 
                 assert.deepEqual(result, expectedResult);
                 assert.isOk(node._app.runContract.calledOnce);
-                const [, , contract] = node._app.runContract.args[0];
+                const [, contract] = node._app.runContract.args[0];
                 assert.deepEqual(contract.getData(), {sampleResult: stableData});
             });
         });
@@ -1752,25 +1752,27 @@ describe('Node tests', () => {
 
         it('should properly bind context & pass args for _createInternalTx', async () => {
             const patchTx = new factory.PatchDB();
+            const patchBlock = new factory.PatchDB();
             const strTxHash = pseudoRandomBuffer().toString('hex');
 
             node._createInternalTx = sinon.fake.returns(
                 new factory.UTXO({txHash: pseudoRandomBuffer()})
                     .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}))
             );
-            const {createInternalTx} = node._createCallbacksForApp(
-                undefined,
-                undefined,
+            const {sendCoins} = node._createCallbacksForApp(
+                patchBlock,
                 patchTx,
                 strTxHash
             );
 
             const strAddress = generateAddress().toString('hex');
             const nAmount = 100;
-            createInternalTx(strAddress, nAmount);
+            const contract = new factory.Contract({balance: 100});
+
+            sendCoins(strAddress, nAmount, contract);
 
             assert.isOk(node._createInternalTx.calledOnce);
-            const [patchTxArg, strAddrArg, nAmountArg] = node._createInternalTx.args[0];
+            const [patchTxArg, strAddrArg, nAmountArg, strTxHashArg] = node._createInternalTx.args[0];
             assert.isOk(patchTxArg && patchTxArg instanceof factory.PatchDB);
             assert.equal(strAddrArg, strAddress);
             assert.equal(nAmountArg, nAmount);
@@ -1781,19 +1783,18 @@ describe('Node tests', () => {
 
             node._invokeNestedContract = sinon.fake();
             const {invokeContract} = node._createCallbacksForApp(
-                undefined,
                 new factory.PatchDB(),
                 new factory.PatchDB(),
                 strTxHash
             );
-
             const arrArguments = [1, 2, 3, 4];
             const method = 'test';
             const strAddress = generateAddress().toString('hex');
+
             invokeContract(strAddress.toString('hex'), {method, arrArguments});
 
             assert.isOk(node._invokeNestedContract.calledOnce);
-            const [contract, patchBlockArg, patchTxArg, strTxHashArg, strAddrArg, {method: methodArg, arrArguments: arrArgumentsArg}] = node._invokeNestedContract.args[0];
+            const [patchBlockArg, patchTxArg, strTxHashArg, strAddrArg, {method: methodArg, arrArguments: arrArgumentsArg}] = node._invokeNestedContract.args[0];
             assert.isOk(patchBlockArg && patchBlockArg instanceof factory.PatchDB);
             assert.isOk(patchTxArg && patchTxArg instanceof factory.PatchDB);
             assert.equal(strAddress, strAddrArg);
@@ -1867,16 +1868,6 @@ describe('Node tests', () => {
             assert.equal(nFeeCreation, factory.Constants.fees.CONTRACT_CREATION_FEE);
         });
 
-        it('should use conctant since concilium fee too small', async () => {
-            const node = new factory.Node();
-            const conciliumFee = factory.Constants.fees.CONTRACT_CREATION_FEE - 1;
-            node._storage.getConciliumById = sinon.fake.resolves({getFeeContractCreation: () => conciliumFee});
-            const fakeTx = {conciliumId: 0};
-
-            const nFeeCreation = await node._getFeeContractCreation(fakeTx);
-            assert.equal(nFeeCreation, factory.Constants.fees.CONTRACT_CREATION_FEE);
-        });
-
         it('should get it from concilium', async () => {
             const node = new factory.Node();
             const conciliumFee = factory.Constants.fees.CONTRACT_CREATION_FEE * 2;
@@ -1892,16 +1883,6 @@ describe('Node tests', () => {
         it('should fail to get fees from concilium, and use Constants', async () => {
             const node = new factory.Node();
             node._storage.getConciliumById = sinon.fake.resolves(undefined);
-            const fakeTx = {conciliumId: 0};
-
-            const nFeeInvocation = await node._getFeeContractInvocatoin(fakeTx);
-            assert.equal(nFeeInvocation, factory.Constants.fees.CONTRACT_INVOCATION_FEE);
-        });
-
-        it('should use conctant since concilium fee too small', async () => {
-            const node = new factory.Node();
-            const conciliumFee = factory.Constants.fees.CONTRACT_INVOCATION_FEE - 1;
-            node._storage.getConciliumById = sinon.fake.resolves({getFeeContractInvocation: () => conciliumFee});
             const fakeTx = {conciliumId: 0};
 
             const nFeeInvocation = await node._getFeeContractInvocatoin(fakeTx);
@@ -1929,16 +1910,6 @@ describe('Node tests', () => {
             assert.equal(nFeeStorage, factory.Constants.fees.STORAGE_PER_BYTE_FEE);
         });
 
-        it('should use conctant since concilium fee too small', async () => {
-            const node = new factory.Node();
-            const conciliumFee = factory.Constants.fees.STORAGE_PER_BYTE_FEE - 1;
-            node._storage.getConciliumById = sinon.fake.resolves({getFeeStorage: () => conciliumFee});
-            const fakeTx = {conciliumId: 0};
-
-            const nFeeCreation = await node._getFeeStorage(fakeTx);
-            assert.equal(nFeeCreation, factory.Constants.fees.STORAGE_PER_BYTE_FEE);
-        });
-
         it('should get it from concilium', async () => {
             const node = new factory.Node();
             const conciliumFee = factory.Constants.fees.STORAGE_PER_BYTE_FEE * 2;
@@ -1946,6 +1917,29 @@ describe('Node tests', () => {
             const fakeTx = {conciliumId: 0};
 
             const nFeeCreation = await node._getFeeStorage(fakeTx);
+            assert.equal(nFeeCreation, conciliumFee);
+        });
+    });
+
+    describe('Internal TX fee calculation', async () => {
+        it('should fail to get fees from concilium, and use Constants', async () => {
+            const node = new factory.Node();
+            node._storage.getConciliumById = sinon.fake.resolves(undefined);
+            const fakeTx = {conciliumId: 0};
+
+            const nFeeStorage = await node._getFeeInternalTx(fakeTx);
+
+            assert.equal(nFeeStorage, factory.Constants.fees.INTERNAL_TX_FEE);
+        });
+
+        it('should get it from concilium', async () => {
+            const node = new factory.Node();
+            const conciliumFee = factory.Constants.fees.INTERNAL_TX_FEE * 2;
+            node._storage.getConciliumById = sinon.fake.resolves({getFeeInternalTx: () => conciliumFee});
+            const fakeTx = {conciliumId: 0};
+
+            const nFeeCreation = await node._getFeeInternalTx(fakeTx);
+
             assert.equal(nFeeCreation, conciliumFee);
         });
     });
@@ -2018,13 +2012,10 @@ describe('Node tests', () => {
 
             const contract = new factory.Contract({});
             contract.storeAddress(generateAddress());
-            node._app.createContract = sinon.fake.returns({
-                contract,
-                receipt: new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK})
-            });
+            node._app.createContract = sinon.fake.returns(contract);
 
             // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
-            await node._processTx(undefined, true, tx);
+            await node._processTx(new factory.PatchDB(), true, tx);
 
             assert.isOk(node._app.createContract.called);
         });
@@ -2043,12 +2034,11 @@ describe('Node tests', () => {
                 sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK}));
 
             // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
-            await node._processTx(undefined, true, tx);
+            await node._processTx(new factory.PatchDB(), true, tx);
 
             assert.isOk(node._app.runContract.calledOnce);
-            const [coinsLimit, strInvocationCode, contract] = node._app.runContract.args[0];
-            assert.equal(coinsLimit, Number.MAX_SAFE_INTEGER);
-            assert.isOk(typeof strInvocationCode === 'object');
+            const [objInvocationCode, contract] = node._app.runContract.args[0];
+            assert.isOk(typeof objInvocationCode === 'object');
             assert.isOk(contract instanceof factory.Contract);
         });
 
@@ -2061,9 +2051,15 @@ describe('Node tests', () => {
             node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000}));
+            node._app.runContract = sinon.fake.returns(1000);
+            node._app.coinsSpent = sinon.fake.returns(0);
+            node._app.getDataDelta = sinon.fake.returns(0);
 
-            return assert.isRejected(node._processTx(undefined, false, tx), /for contract invocation less than/);
+            const {patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
+
+            const receipt = patchThisTx.getReceipt(tx.getHash());
+            assert.strictEqual(receipt.getStatus(), factory.Constants.TX_STATUS_FAILED);
+            assert.isOk(receipt.getMessage().match(/for contract invocation less than/));
         });
 
         it('should FAIL to invoke contract (NO fee! all coins are transfered to contract balance)', async () => {
@@ -2092,21 +2088,21 @@ describe('Node tests', () => {
             tx.signForContract(kp.privateKey);
 
             node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
-
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(
-                new factory.TxReceipt({coinsUsed: nFakeCoinsUsed, status: factory.Constants.TX_STATUS_OK})
-            );
+            node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
+            node._app.getDataDelta = sinon.fake.returns(0);
 
-            const {patchThisTx} = await node._processTx(undefined, false, tx);
+            const {patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
 
             const cReceipt = patchThisTx.getReceipt(tx.getHash());
             const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
 
             const totalSpent =
-                               nAmountSecondOutput +
-                               nMoneysToContract +
-                               nFakeCoinsUsed;
+                nAmountSecondOutput +
+                nMoneysToContract +
+                nFakeCoinsUsed +
+                await node._calculateSizeFee(tx, false)
+            ;
             assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
         });
 
@@ -2123,14 +2119,12 @@ describe('Node tests', () => {
             node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(
-                new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK})
-            );
+            node._app.runContract = sinon.fake.returns();
 
-            await node._processTx(undefined, false, tx);
+            await node._processTx(new factory.PatchDB(), false, tx);
 
             assert.isOk(node._app.runContract.calledOnce);
-            const [, , , environment] = node._app.runContract.args[0];
+            const [, , environment] = node._app.runContract.args[0];
 
             assert.equal(environment.callerAddress, kp.address);
             assert.equal(environment.contractTx, tx.getHash());
@@ -2150,13 +2144,12 @@ describe('Node tests', () => {
             node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(
-                new factory.TxReceipt({coinsUsed, status: factory.Constants.TX_STATUS_OK})
-            );
+            node._app.coinsSpent = sinon.fake.returns(coinsUsed);
+            node._app.runContract = sinon.fake.returns();
 
-            const {fee, patchThisTx} = await node._processTx(undefined, false, tx);
+            const {fee, patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
 
-            assert.equal(fee, coinsUsed);
+            assert.equal(fee, coinsUsed + await node._calculateSizeFee(tx, false));
             assert.isOk(patchThisTx.getContract(strContractAddr));
             const receipt = patchThisTx.getReceipt(tx.hash());
             assert.isOk(receipt);
@@ -2173,13 +2166,12 @@ describe('Node tests', () => {
             node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-            node._app.runContract = sinon.fake.returns(
-                new factory.TxReceipt({coinsUsed, status: factory.Constants.TX_STATUS_OK})
-            );
+            node._app.coinsSpent = sinon.fake.returns(coinsUsed);
+            node._app.runContract = sinon.fake.returns();
 
-            const {fee, patchThisTx} = await node._processTx(undefined, false, tx);
+            const {fee, patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
 
-            assert.equal(fee, nTotalHas - coinsUsed);
+            assert.equal(fee, nTotalHas - (coinsUsed + await node._calculateSizeFee(tx, false)));
             assert.isOk(patchThisTx.getContract(strContractAddr));
             assert.isOk(patchThisTx.getReceipt(tx.hash()));
         });
@@ -2451,7 +2443,7 @@ describe('Node tests', () => {
             tx.addReceiver(amount, buffAddress);
             tx.claim(0, keyPair.privateKey);
 
-            return assert.isRejected(node._processReceivedTx(tx), /fee .+ too small!/);
+            return assert.isRejected(node._processReceivedTx(tx), /Require fee at least \d+/);
         });
 
         it('should storeBadTxHash', async () => {

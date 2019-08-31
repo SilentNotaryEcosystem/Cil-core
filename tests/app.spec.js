@@ -1,9 +1,12 @@
 'use strict';
 
 const {describe, it} = require('mocha');
-const {assert} = require('chai');
+const chai = require('chai');
 const sinon = require('sinon').createSandbox();
 const debug = require('debug')('application:test');
+
+chai.use(require('chai-as-promised'));
+const {assert} = chai;
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
@@ -296,11 +299,10 @@ describe('Application layer', () => {
 
         const contract = app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress},
+            {contractAddr: 'hash', callerAddress}
         );
 
         assert.isOk(contract);
-        assert.equal(app.coinsSpent(), nFeeContractCreation);
         assert.deepEqual(contract.getData(), {_data: 10, _ownerAddress: callerAddress});
 
         const strContractCode = contract.getCode();
@@ -337,7 +339,7 @@ describe('Application layer', () => {
         await app.runContract(
             {method: 'add', arrArguments: [10]},
             contract,
-            undefined, undefined
+            {}, undefined
         );
 
         assert.equal(app.coinsSpent(), nFeeContractInvocation);
@@ -352,14 +354,11 @@ describe('Application layer', () => {
             conciliumId
         });
 
-        await app.runContract(
+        return assert.isRejected(app.runContract(
             {method: 'subtract', arrArguments: [10]},
             contract,
-            undefined, undefined
-        );
-        assert.isNotOk(receipt.isSuccessful());
-        assert.equal(receipt.getCoinsUsed(), nFeeContractInvocation + nFeeSizeFakeTx);
-        assert.deepEqual(contract.getData(), {value: 100});
+            {}, undefined
+        ), /Method .+ not found/);
     });
 
     it('should throw (no default function)', async () => {
@@ -370,16 +369,11 @@ describe('Application layer', () => {
             conciliumId
         });
 
-        await app.runContract(
-            '',
+        return assert.isRejected(app.runContract(
+            {},
             contract,
-            undefined, undefined
-        );
-        assert.equal(
-            receipt.getCoinsUsed(),
-            nFeeContractInvocation + (contract.getDataSize() - prevDataSize) * nFeeStorage + nFeeSizeFakeTx
-        );
-        assert.deepEqual(contract.getData(), {value: 100});
+            {}, undefined
+        ), /Method _default not found/);
     });
 
     it('should call default function', async () => {
@@ -390,16 +384,17 @@ describe('Application layer', () => {
             conciliumId
         });
         const app = new factory.Application();
-        const prevDataSize = contract.getDataSize();
 
-        const receipt = await app.runContract(coinsIn, '', contract,
-            undefined, undefined, undefined, {nFeeContractInvocation, nFeeStorage, nFeeSize: nFeeSizeFakeTx}
+        app.setupVariables({
+            coinsLimit: Number.MAX_SAFE_INTEGER,
+            objFees: {nFeeContractInvocation: 1e4, nFeeStorage: 10}
+        });
+
+        await app.runContract(
+            {}, contract,
+            {}, undefined, false
         );
-        assert.isOk(receipt.isSuccessful());
-        assert.equal(
-            receipt.getCoinsUsed(),
-            nFeeContractInvocation + (contract.getDataSize() - prevDataSize) * nFeeStorage + nFeeSizeFakeTx
-        );
+
         assert.deepEqual(contract.getData(), {value: 117});
     });
 
@@ -414,14 +409,16 @@ describe('Application layer', () => {
 
         const app = new factory.Application();
 
+        app.setupVariables({
+            coinsLimit: Number.MAX_SAFE_INTEGER,
+            objFees: {nFeeContractInvocation: 1e4, nFeeStorage: 10}
+        });
+
         const result = await app.runContract(
-            coinsIn,
             {method: 'test', arrArguments: []},
             contract,
             {},
             undefined,
-            {},
-            {},
             true
         );
 
