@@ -36,6 +36,7 @@ module.exports = class BaseConciliumDefinition {
         if (!this._data.parameters) {
             this._data.parameters = {
                 fees: {},
+                document: []
             };
         }
         this._data.parameters.isEnabled = true;
