@@ -14,6 +14,8 @@ if (process.env.NODE_ENV === 'Devel') {
     urlRpc = 'http://localhost:8222';
 }
 
+const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_ID) : 1;
+
 main()
     .then(_ => {
         process.exit(0);
@@ -32,7 +34,7 @@ async function main() {
     const arrUtxos = await getUtxos(wallet.address);
     const {arrCoins} = gatherInputsForAmount(arrUtxos, fees);
 
-    const tx = leaveConcilium(1, wallet, arrCoins);
+    const tx = leaveConcilium(nConciliumId, wallet, arrCoins);
     console.error(
         `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
 //    console.log(tx.encode().toString('hex'));
