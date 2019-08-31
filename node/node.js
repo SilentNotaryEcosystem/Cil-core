@@ -1117,7 +1117,7 @@ module.exports = (factory, factoryOptions) => {
             if (isGenesis) return 0;
 
             const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
-            const nFeePerKb = witnessConcilium && witnessConcilium.getFeeTxSize() >= Constants.fees.TX_FEE
+            const nFeePerKb = witnessConcilium && witnessConcilium.getFeeTxSize()
                 ? witnessConcilium.getFeeTxSize() : Constants.fees.TX_FEE;
             const nKbytes = tx.getSize() / 1024;
 
@@ -1129,7 +1129,7 @@ module.exports = (factory, factoryOptions) => {
 
             const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
 
-            return witnessConcilium && witnessConcilium.getFeeContractCreation() >= Constants.fees.CONTRACT_CREATION_FEE
+            return witnessConcilium && witnessConcilium.getFeeContractCreation()
                 ? witnessConcilium.getFeeContractCreation() : Constants.fees.CONTRACT_CREATION_FEE;
         }
 
@@ -1138,7 +1138,7 @@ module.exports = (factory, factoryOptions) => {
 
             const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
             return witnessConcilium &&
-                   witnessConcilium.getFeeContractInvocation() >= Constants.fees.CONTRACT_INVOCATION_FEE
+                   witnessConcilium.getFeeContractInvocation()
                 ? witnessConcilium.getFeeContractInvocation() : Constants.fees.CONTRACT_INVOCATION_FEE;
         }
 
@@ -1146,7 +1146,7 @@ module.exports = (factory, factoryOptions) => {
             if (isGenesis) return 0;
 
             const witnessConcilium = await this._storage.getConciliumById(tx.conciliumId);
-            return witnessConcilium && witnessConcilium.getFeeStorage() >= Constants.fees.STORAGE_PER_BYTE_FEE
+            return witnessConcilium && witnessConcilium.getFeeStorage()
                 ? witnessConcilium.getFeeStorage() : Constants.fees.STORAGE_PER_BYTE_FEE;
         }
 
