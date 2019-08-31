@@ -16,7 +16,10 @@ const {deepCloneObject} = require('../utils');
 //            feeContractInvocation: 111,
 //            feeStorage: 111,
 //        },
-//        isEnabled: true
+//        isEnabled: true,
+//
+//        SN hash of document with concilium description.
+//        document: 'cf60920089b7db942206e6484ea7df51b01e7b1f77dd99c1ecdc766cf5c6a77a'
 //    }
 //};
 
@@ -128,5 +131,9 @@ module.exports = class BaseConciliumDefinition {
 
     getMembersCount() {
         throw new Error('Implement!');
+    }
+
+    getDocument() {
+        return this._data.parameters.document;
     }
 };
