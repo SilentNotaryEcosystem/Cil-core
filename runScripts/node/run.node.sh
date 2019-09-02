@@ -1,1 +1,12 @@
-sudo docker run --restart always -d -p 8222:8222 -p 8223:8223 --env-file sample.node.env --name cil-node trueshura/cil-core-prod:latest
+#!/usr/bin/env bash
+
+CONTAINER_NAME=$1
+CONTAINER_NAME="${CONTAINER_NAME:-cil-node}"
+
+sudo docker run \
+--restart always \
+-d \
+-p 8222:8222 -p 8223:8223 \
+--env-file sample.node.env \
+--name $CONTAINER_NAME \
+trueshura/cil-core-prod:latest
