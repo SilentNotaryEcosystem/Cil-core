@@ -359,6 +359,7 @@ module.exports = (factory) => {
                 debug(`BFT "${this._nonce}" round failed`);
                 this._nextRound(false);
             } else {
+                this._concilium.adjustRound(consensusValue.roundNo);
                 this._state = States.BLOCK;
                 if (this.shouldPublish()) {
                     debug(

@@ -25,7 +25,7 @@ const BaseConciliumDefinition = require('./baseConciliumDefinition');
 module.exports = ({Constants}) =>
     class ConciliumRrDefinition extends BaseConciliumDefinition {
         constructor(data) {
-            super(data);
+            super(data, data.addresses ? data.addresses.length : 1);
 
             this._setType(BaseConciliumDefinition.CONCILIUM_TYPE_RR);
             if (!Array.isArray(this._data.addresses)) this._data.addresses = [];
@@ -83,22 +83,10 @@ module.exports = ({Constants}) =>
             return super.isEnabled() && !!this._data.addresses.length;
         }
 
-        initRounds() {
-            this._nRoundBase = this._nSeed;
-            this._nLocalRound = 0;
-        }
-
         getRound() {
             assert(this._nLocalRound !== undefined, 'InitRounds first');
 
             return this._nRoundBase + this._nLocalRound;
-        }
-
-        nextRound() {
-            assert(this._nLocalRound !== undefined, 'InitRounds first');
-
-            if (++this._nLocalRound >= this._data.addresses.length) this.initRounds();
-            return this.getRound();
         }
 
         getMembersCount() {

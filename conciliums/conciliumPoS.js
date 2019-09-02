@@ -41,8 +41,8 @@ module.exports = ({Constants}) =>
          * @param {Object} data - posDef see above
          * @param {Number} nSeqLength - length of sequence to be formed for each epoche
          */
-        constructor(data, nSeqLength = 20) {
-            super(data);
+        constructor(data, nSeqLength) {
+            super(data, nSeqLength);
 
             assert(data.nMinAmountToJoin, 'Specify nMinAmountToJoin');
 
@@ -59,8 +59,6 @@ module.exports = ({Constants}) =>
             // as _totalSharesAmount = Sum(amounts) / nGcd
             this._quorum = this._arrShares.length === 1 ?
                 1 : (0.5 * this._totalSharesAmount + 1) / this._totalSharesAmount;
-
-            this._nSeqLength = nSeqLength;
 
             // see _getSlot
             this._paramA = 7;
@@ -136,10 +134,8 @@ module.exports = ({Constants}) =>
         }
 
         initRounds() {
-            this._nLocalRound = 0;
+            super.initRounds();
 
-            // 2 variables, because this._nSeed could change asynchronously
-            this._nRoundBase = this._nSeed;
             this._formProposerAddressesSequence(this._nRoundBase);
         }
 
@@ -147,13 +143,6 @@ module.exports = ({Constants}) =>
             assert(this._nLocalRound !== undefined, 'InitRounds first');
 
             return this._nRoundBase + this._nLocalRound;
-        }
-
-        nextRound() {
-            assert(this._nLocalRound !== undefined, 'InitRounds first');
-
-            if (++this._nLocalRound >= this._nSeqLength) this.initRounds();
-            return this.getRound();
         }
 
         _findIdxByRound(round) {

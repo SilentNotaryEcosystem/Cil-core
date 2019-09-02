@@ -1,4 +1,5 @@
 'use strict';
+const assert = require('assert');
 
 const CONCILIUM_TYPE_RR = 0;
 const CONCILIUM_TYPE_POS = 1;
@@ -25,7 +26,7 @@ const {deepCloneObject} = require('../utils');
 //};
 
 module.exports = class BaseConciliumDefinition {
-    constructor(data) {
+    constructor(data, nSeqLength = 20) {
         if (Buffer.isBuffer(data)) throw new Error('BaseConciliumDefinition. Unexpected construction from buffer');
         if (typeof data !== 'object') {
             throw new Error(
@@ -43,6 +44,8 @@ module.exports = class BaseConciliumDefinition {
         this._data.parameters.isEnabled = true;
 
         this.changeSeed(0);
+
+        this._nSeqLength = nSeqLength;
     }
 
     getType() {
@@ -115,12 +118,15 @@ module.exports = class BaseConciliumDefinition {
      *
      * @returns {String}
      */
-    getProposerKey(roundNo) {
+    getProposerKey() {
         throw new Error('Implement!');
     }
 
     initRounds() {
-        throw new Error('Implement!');
+
+        // 2 variables, because this._nSeed could change asynchronously
+        this._nRoundBase = this._nSeed;
+        this._nLocalRound = 0;
     }
 
     getRound() {
@@ -128,7 +134,10 @@ module.exports = class BaseConciliumDefinition {
     }
 
     nextRound() {
-        throw new Error('Implement!');
+        assert(this._nLocalRound !== undefined, 'InitRounds first');
+
+        if (++this._nLocalRound >= this._nSeqLength) this.initRounds();
+        return this.getRound();
     }
 
     changeSeed(nSeed) {
@@ -141,5 +150,10 @@ module.exports = class BaseConciliumDefinition {
 
     getDocument() {
         return this._data.parameters.document;
+    }
+
+    adjustRound(nRoundNo) {
+        const nRoundDiff = Math.abs(nRoundNo - this._nRoundBase);
+        if (nRoundDiff < this._nSeqLength) this._nLocalRound = nRoundDiff;
     }
 };
