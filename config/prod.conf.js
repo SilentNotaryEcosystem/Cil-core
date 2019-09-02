@@ -15,7 +15,7 @@ module.exports = {
         strIdent: 'Prod',
 
         network: 0x12882304,
-        protocolVersion: 0x0127,
+        protocolVersion: 0x0128,
         port: 8223,
 
         rpcPort: 8222,
