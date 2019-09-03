@@ -58,6 +58,32 @@ const prepareForStringifyObject = (obj) => {
 };
 
 /**
+ * All hex strings should be transformed into buffers
+ *
+ * @param {Object} obj
+ * @returns {Buffer|*}
+ */
+const deStringifyObject = (obj) => {
+    if (typeof obj === 'string') {
+        const buff = Buffer.from(obj, 'hex');
+        if (buff.length * 2 === obj.length) return buff;
+        return obj;
+    } else if (obj instanceof Object) {
+        const resultObject = {};
+
+        if (Array.isArray(obj)) return obj.map(el => deStringifyObject(el));
+
+        for (let key of Object.keys(obj)) {
+            if (typeof obj[key] === 'function' || typeof obj[key] === 'undefined') continue;
+            resultObject[key] = deStringifyObject(obj[key]);
+        }
+        return resultObject;
+    } else {
+        return obj;
+    }
+};
+
+/**
  * Duplicates are possible!
  *
  * @param {Array} arrMaps of Maps
@@ -230,6 +256,7 @@ module.exports = {
     },
 
     prepareForStringifyObject,
+    deStringifyObject,
 
     questionAsync,
     deepCloneObject,

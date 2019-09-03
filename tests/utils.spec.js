@@ -4,7 +4,8 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
 const factory = require('./testFactory');
-const {prepareForStringifyObject, arrayIntersection, mergeSets, decryptPkFileContent} = require('../utils');
+const {deStringifyObject, prepareForStringifyObject, arrayIntersection, mergeSets, decryptPkFileContent} =
+    require('../utils');
 
 describe('Utils', () => {
     before(async () => {
@@ -49,6 +50,48 @@ describe('Utils', () => {
             };
             const result = prepareForStringifyObject(expected);
             assert.deepEqual(expected, result);
+        });
+    });
+    describe('deStringifyObject', () => {
+        it('should leave primitives unchanged', async () => {
+            assert.strictEqual(deStringifyObject(1), 1);
+            assert.strictEqual(deStringifyObject('test'), 'test');
+            assert.strictEqual(deStringifyObject(true), true);
+        });
+
+        it('should leave Array of primitives unchanged', async () => {
+            assert.deepEqual(deStringifyObject([1, 2, 'test', true]), [1, 2, 'test', true]);
+        });
+
+        it('should leave Array of hex string transformed', async () => {
+            const arr = [
+                'befbd505931f2d3058e13bef4081f538e893edaebb2f8eb658f70f6bf726d8c3',
+                '258b5564f9f539fc749a336d0ccafa3032fe16ab5564cb71b608d25bf14322bc',
+                'test'
+            ];
+
+            const result = deStringifyObject(arr);
+
+            assert.deepEqual(prepareForStringifyObject(result), arr);
+        });
+
+        it('should transform hex strings into Buffer', async () => {
+            const str = 'befbd505931f2d3058e13bef4081f538e893edaebb2f8eb658f70f6bf726d8c3';
+
+            const result = deStringifyObject(str);
+
+            assert.isOk(Buffer.isBuffer(result));
+            assert.strictEqual(result.toString('hex'), str);
+        });
+
+        it('should transform object', async () => {
+            const obj = {
+                str: 'befbd505931f2d3058e13bef4081f538e893edaebb2f8eb658f70f6bf726d8c3'
+            };
+
+            const result = deStringifyObject(obj);
+
+            assert.deepEqual(prepareForStringifyObject(result), obj);
         });
     });
     describe('array intersection', () => {
