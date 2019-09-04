@@ -52,6 +52,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
             this._server.expose('getWallets', asyncRPC(this.getWallets.bind(this)));
             this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
+            this._server.expose('countWallets', asyncRPC(this.countWallets.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -338,5 +339,13 @@ module.exports = ({Constants, Transaction}) =>
                     version: peer.version ? peer.version.toString(16) : undefined
                 });
             return objResult;
+        }
+
+        async countWallets() {
+            const objData = await this._nodeInstance.rpcHandler({
+                event: 'countWallets'
+            });
+
+            return prepareForStringifyObject(objData);
         }
     };

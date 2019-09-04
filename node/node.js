@@ -867,6 +867,8 @@ module.exports = (factory, factoryOptions) => {
 
             try {
                 switch (event) {
+                    case 'countWallets':
+                        return {count: await this._storage.countWallets()};
                     case 'tx':
                         return await this._acceptLocalTx(content);
                     case 'getContractData':
