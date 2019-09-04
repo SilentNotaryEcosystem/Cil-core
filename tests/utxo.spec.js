@@ -178,4 +178,22 @@ describe('UTXO', () => {
             assert.equal(arrResults[0][0], 2);
         }
     });
+
+    it('should get 3 receivers', async () => {
+        const utxo = new factory.UTXO({txHash: 'A'.repeat(64)});
+        const coins1 = new factory.Coins(10, generateAddress());
+        utxo.addCoins(0, coins1);
+        const coins2 = new factory.Coins(10, generateAddress());
+        utxo.addCoins(1, coins2);
+        const coins3 = new factory.Coins(10, generateAddress());
+        utxo.addCoins(2, coins3);
+        utxo.addCoins(3, coins3);
+        utxo.addCoins(4, coins3);
+
+        const arrResult = utxo.getReceivers();
+
+        assert.isOk(Array.isArray(arrResult));
+        assert.isOk(arrResult.every(e => typeof e === 'string' && e.length === 40));
+        assert.equal(arrResult.length, 3);
+    });
 });

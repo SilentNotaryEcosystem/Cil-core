@@ -763,7 +763,7 @@ module.exports = (factory, factoryOptions) => {
 
             // reindex
             const keyStart = this.constructor.createUtxoKey(Buffer.from([]));
-            const keyEnd = this.constructor.createUtxoKey(Buffer.from('FF', 'hex'));
+            const keyEnd = this.constructor.createUtxoKey(Buffer.from('F'.repeat(64), 'hex'));
 
             const arrRecords = [];
             await new Promise(resolve => {
@@ -865,6 +865,40 @@ module.exports = (factory, factoryOptions) => {
                     return;
                 }
             }
+        }
+
+        async* readUtxos() {
+
+            const keyStart = this.constructor.createUtxoKey(Buffer.from([]));
+            const keyEnd = this.constructor.createUtxoKey(Buffer.from('F'.repeat(64), 'hex'));
+
+            const it = this._db.iterator({gte: keyStart, lte: keyEnd, keyAsBuffer: true, valueAsBuffer: true});
+            const $_terminated = Symbol.for("terminated");
+
+            while (true) {
+                const next = await new Promise((resolve, reject) => {
+                    it.next(function(err, key, value) {
+                        if (arguments.length === 0) resolve(undefined);
+                        if (err === null && key === undefined && value === undefined) resolve(undefined);
+                        if (err) reject(err);
+                        resolve({key: key, value: value});
+                    });
+                });
+                if (next === undefined) { break; }
+                if ((yield next) === $_terminated) {
+                    await new Promise((resolve, reject) => it.end((e) => (e ? reject(reject) : resolve())));
+                    return;
+                }
+            }
+        }
+
+        async countWallets() {
+            const setAddresses = new Set();
+            for await (let {key, value} of this.readUtxos()) {
+                const utxo = new UTXO({txHash: key.slice(UTXO_PREFIX.length), data: value});
+                utxo.getReceivers().forEach(addr => setAddresses.add(addr));
+            }
+            return setAddresses.size;
         }
     };
 };

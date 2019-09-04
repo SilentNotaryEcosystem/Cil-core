@@ -788,4 +788,46 @@ describe('Storage tests', () => {
             assert.equal(nBlocksCount, 2);
         });
     });
+
+    describe('Count wallets', async () => {
+        let storage;
+
+        function generateUtxo() {
+            const hash = pseudoRandomBuffer();
+            const coins = new factory.Coins(1e5, generateAddress());
+            const utxo = new factory.UTXO({txHash: hash});
+            utxo.addCoins(0, coins);
+
+            return utxo;
+        }
+
+        async function storeNUtxos(storage, n) {
+            const patch = new factory.PatchDB();
+
+            await storage.applyPatch(patch);
+            for (let i = 0; i < n; i++) {
+                patch.setUtxo(generateUtxo());
+            }
+            await storage.applyPatch(patch);
+        }
+
+        beforeEach(async () => {
+            storage = new factory.Storage();
+        });
+
+        it('should count to 3', async () => {
+            await storeNUtxos(storage, 3);
+            assert.equal(await storage.countWallets(), 3);
+        });
+
+        it('should count to 0', async () => {
+            await storeNUtxos(storage, 0);
+            assert.equal(await storage.countWallets(), 0);
+        });
+
+        it('should count to 1', async () => {
+            await storeNUtxos(storage, 0);
+            assert.equal(await storage.countWallets(), 0);
+        });
+    });
 });

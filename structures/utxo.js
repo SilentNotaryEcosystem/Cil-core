@@ -181,4 +181,17 @@ module.exports = ({Coins}, {utxoProto}) =>
                 .map(idx => [idx, this.coinsAtIndex(idx)])
                 .filter(([, coin]) => coin.getReceiverAddr().equals(address));
         }
+
+        /**
+         *
+         * @returns {Array} of strAddresses
+         */
+        getReceivers() {
+            const set = new Set();
+            for (let objCoins of this._data.arrOutputs) {
+                const coins = Coins.createFromData(objCoins);
+                set.add(coins.getReceiverAddr().toString('hex'));
+            }
+            return [...set];
+        }
     };
