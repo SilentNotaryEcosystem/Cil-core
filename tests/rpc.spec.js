@@ -355,6 +355,7 @@ describe('RPC', () => {
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+
         const resp = await rpc.getBalance({
             strAddress: addr.toString('hex')
         });
@@ -363,5 +364,19 @@ describe('RPC', () => {
             confirmedBalance: 1e5,
             unconfirmedBalance: 2e5
         });
+    });
+
+    it('should getLastBlockByConciliumId', async () => {
+        const node = {
+            rpcHandler: sinon.fake.resolves(pseudoRandomBuffer().toString('hex'))
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+
+        const resp = await rpc.getLastBlockByConciliumId({
+            nConciliumId: 1
+        });
+
+        assert.isOk(resp && resp.length === 64);
     });
 });

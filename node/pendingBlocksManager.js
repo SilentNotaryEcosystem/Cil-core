@@ -92,6 +92,7 @@ module.exports = (factory) => {
 
         /**
          * @param {String} hash
+         * @returns {patch, blockHeader, bIsEmpty}
          */
         getBlock(hash) {
             typeforce(types.Str64, hash);
@@ -421,6 +422,10 @@ module.exports = (factory) => {
                 }
                 return bConciliumFound;
             }) && bFoundNonEmptyBlock;
+        }
+
+        forEach(fnCallback) {
+            this._dag.V.forEach(fnCallback);
         }
     };
 };

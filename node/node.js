@@ -867,6 +867,8 @@ module.exports = (factory, factoryOptions) => {
 
             try {
                 switch (event) {
+                    case 'getLastBlockByConciliumId':
+                        return await this.getLastBlockByConciliumId(content);
                     case 'countWallets':
                         return {count: await this._storage.countWallets()};
                     case 'tx':
@@ -2356,6 +2358,29 @@ module.exports = (factory, factoryOptions) => {
 
         async _getAllWitnesses() {
             return this._peerManager.filterPeers({service: Constants.WITNESS}, true);
+        }
+
+        async getLastBlockByConciliumId(nConciliumId) {
+            let maxHeight = 0;
+            let strBestHash;
+
+            this._pendingBlocks.forEach(hash => {
+                const {blockHeader} = this._pendingBlocks.getBlock(hash);
+                const blockInfo = new factory.BlockInfo(blockHeader);
+                if (blockInfo.getHeight() > maxHeight && blockInfo.getConciliumId() === nConciliumId) {
+                    maxHeight = blockInfo.getHeight();
+                    strBestHash = hash;
+                }
+            });
+
+            if (strBestHash) return strBestHash;
+
+            const arrLastStable = await this._storage.getLastAppliedBlockHashes();
+            const [stableBi] = arrLastStable
+                .map(hash => this._mainDag.getBlockInfo(hash))
+                .filter(bi => bi.getConciliumId() === nConciliumId);
+
+            return stableBi ? stableBi.getHash() : undefined;
         }
     };
 };

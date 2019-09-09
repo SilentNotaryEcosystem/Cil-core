@@ -53,6 +53,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getWallets', asyncRPC(this.getWallets.bind(this)));
             this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
             this._server.expose('countWallets', asyncRPC(this.countWallets.bind(this)));
+            this._server.expose('getLastBlockByConciliumId', asyncRPC(this.getLastBlockByConciliumId.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -348,4 +349,15 @@ module.exports = ({Constants, Transaction}) =>
 
             return prepareForStringifyObject(objData);
         }
+
+        async getLastBlockByConciliumId(args) {
+            let {nConciliumId} = args;
+
+            const strHash = await this._nodeInstance.rpcHandler({
+                event: 'getLastBlockByConciliumId',
+                content: nConciliumId
+            });
+            return strHash;
+        }
+
     };
