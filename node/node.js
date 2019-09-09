@@ -1215,6 +1215,11 @@ module.exports = (factory, factoryOptions) => {
             let message;
             let bNewContract;
 
+            this._app.setupVariables({
+                objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
+                coinsLimit
+            });
+
             try {
                 if (!contract) {
                     if (coinsLimit < nFeeContractCreation) {
@@ -1230,11 +1235,6 @@ module.exports = (factory, factoryOptions) => {
                     if (await this._storage.getContract(Buffer.from(addr, 'hex'))) {
                         throw new Error('Contract already exists');
                     }
-
-                    this._app.setupVariables({
-                        objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
-                        coinsLimit
-                    });
                     contract = await this._app.createContract(tx.getContractCode(), environment);
                     bNewContract = true;
                 } else {
@@ -1246,7 +1246,7 @@ module.exports = (factory, factoryOptions) => {
                     // contract invocation
                     assert(
                         contract.getConciliumId() === tx.conciliumId,
-                        `TX conciliumId: "${tx.conciliumId}" != contract conciliumId`
+                        `TX wrong conciliumId: "${tx.conciliumId}" != contract conciliumId`
                     );
 
                     const invocationCode = tx.getContractCode();
@@ -1254,11 +1254,7 @@ module.exports = (factory, factoryOptions) => {
                     environment.contractAddr = contract.getStoredAddress();
                     environment.balance = contract.getBalance();
 
-                    this._app.setupVariables({
-                        objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
-                        coinsLimit,
-                        objCallbacks: this._createCallbacksForApp(patchForBlock, patchThisTx, tx.hash())
-                    });
+                    this._app.setCallbacks(this._createCallbacksForApp(patchForBlock, patchThisTx, tx.hash()));
 
                     await this._app.runContract(
                         invocationCode && invocationCode.length ? JSON.parse(tx.getContractCode()) : {},
@@ -1280,8 +1276,8 @@ module.exports = (factory, factoryOptions) => {
                 status,
                 message
             });
-
             patchThisTx.setReceipt(tx.hash(), receipt);
+
             let fee = 0;
 
             // send change (not for Genesis)
