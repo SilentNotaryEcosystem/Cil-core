@@ -1556,13 +1556,13 @@ module.exports = (factory, factoryOptions) => {
             const mapPrevConciliumIdHash = new Map();
             arrPrevTopStableBlocks.forEach(hash => {
                 const cBlockInfo = this._mainDag.getBlockInfo(hash);
-                mapPrevConciliumIdHash.set(cBlockInfo.conciliumId(), hash);
+                mapPrevConciliumIdHash.set(cBlockInfo.getConciliumId(), hash);
             });
 
             const mapNewConciliumIdHash = new Map();
             arrTopStable.forEach(hash => {
                 const cBlockInfo = this._mainDag.getBlockInfo(hash);
-                mapNewConciliumIdHash.set(cBlockInfo.conciliumId(), hash);
+                mapNewConciliumIdHash.set(cBlockInfo.getConciliumId(), hash);
             });
 
             const arrNewLastApplied = [];

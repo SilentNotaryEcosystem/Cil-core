@@ -50,6 +50,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return this._data.header.conciliumId;
         }
 
+        getConciliumId() {
+            return this._data.header.conciliumId;
+        }
+
         get txns() {
             return this._data.txns;
         }
