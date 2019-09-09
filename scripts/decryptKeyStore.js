@@ -10,7 +10,9 @@ const {questionAsync, readPrivateKeyFromFile} = require('../utils');
     const filename = await questionAsync('Enter filename with old PK: ');
     try {
         const pk = await readPrivateKeyFromFile(factory.Crypto, path.resolve('../' + filename));
+        const kp = factory.Crypto.keyPairFromPrivate(pk);
         console.log(`Private key is: ${pk}`);
+        console.log(`Address is: ${kp.address}`);
         console.error('Password is ok!');
     } catch (e) {
         console.error('Wrong password');
