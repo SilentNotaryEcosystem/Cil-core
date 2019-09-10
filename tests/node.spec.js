@@ -2087,7 +2087,10 @@ describe('Node tests', () => {
             tx.addReceiver(nAmountSecondOutput, generateAddress());
             tx.signForContract(kp.privateKey);
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({
+                conciliumId,
+                contractCode: '{"_default": "() {}"}'
+            }, strContractAddr));
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
             node._app.getDataDelta = sinon.fake.returns(0);
@@ -2105,6 +2108,44 @@ describe('Node tests', () => {
             ;
             assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
         });
+
+        it('should send right change (second output and fee. moneys sent to change, since contract throws)',
+            async () => {
+                const node = new factory.Node();
+                const nTotalHas = 1e5;
+                const nAmountSecondOutput = 1e4;
+                const nMoneysToContract = 1e3;
+                const nFakeCoinsUsed = 1e3;
+
+                const kp = factory.Crypto.createKeyPair();
+                const {tx, strContractAddr} = createContractInvocationTx({}, true, nMoneysToContract);
+                tx.addReceiver(nAmountSecondOutput, generateAddress());
+                tx.signForContract(kp.privateKey);
+
+                node._storage.getContract =
+                    sinon.fake.returns(new factory.Contract({conciliumId, contractCode: '{}'}, strContractAddr));
+                node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+                node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
+                node._app.getDataDelta = sinon.fake.returns(0);
+                factory.Constants.forks = {HEIGHT_FORK_SERIALIZER: 1};
+                node._processedBlock = {
+                    getHash: () => pseudoRandomBuffer().toString('hex'),
+                    getHeight: () => factory.Constants.forks.HEIGHT_FORK_SERIALIZER + 1
+                };
+
+                const {patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
+
+                const cReceipt = patchThisTx.getReceipt(tx.getHash());
+                const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
+
+                const totalSpent =
+                    nAmountSecondOutput +
+                    nFakeCoinsUsed +
+                    await node._calculateSizeFee(tx, false)
+                ;
+                assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
+            }
+        );
 
         it('should invoke contract with environment', async () => {
             const node = new factory.Node();

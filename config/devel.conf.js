@@ -49,6 +49,9 @@ module.exports = {
             POS_CONCILIUM_ROUNDS: 10
         },
 
-        HEIGHT_FORK_SERIALIZER: 8970
+        forks: {
+            HEIGHT_FORK_SERIALIZER: 8970,
+            HEIGHT_FORK_CHANGE: 8992
+        }
     }
 };
