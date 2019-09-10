@@ -95,6 +95,7 @@ message Contract{
     string contractCode=2;
     uint32 conciliumId=3;
     fixed64 balance=4;
+    uint32 version=5;
 }
 
 //--------------- TX Receipt -----

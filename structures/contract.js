@@ -3,21 +3,26 @@ const Long = require('long');
 const typeforce = require('typeforce');
 const assert = require('assert');
 
+// v8.serialize undeterministic in encoded data length, so we couldn't use it to calculate storage fee!
 const v8 = require('v8');
-
-const serializeContractData = (objData) => {
+const serializeContractDataV8 = (objData) => {
     return v8.serialize(objData);
 };
-
-const deSerializeContractData = (buffData) => {
+const deSerializeContractDataV8 = (buffData) => {
     return v8.deserialize(buffData);
 };
+const nSizeOfEmptyDataV8 = serializeContractDataV8({}).length;
 
-const nSizeOfEmptyData = serializeContractData({}).length;
+// so we temporary replace with JSON.stringify
+const serializeContractDataJson = (objData) => {
+    return Buffer.from(JSON.stringify(objData));
+};
+const deSerializeContractDataJson = (buffData) => {
+    return JSON.parse(buffData.toString());
+};
+const nSizeOfEmptyDataJson = serializeContractDataJson({}).length;
 
-/**
- * First we serialize data with serializeContractData and thus we have data to be encoded with protobuff
- */
+const V_JSON = 2;
 
 module.exports = (factory, {contractProto}) =>
     class Contract {
@@ -30,13 +35,18 @@ module.exports = (factory, {contractProto}) =>
         constructor(data, strContractAddr) {
             typeforce(typeforce.oneOf('Object', 'Buffer'), data);
 
+            this.defaultSerializer();
+
             this._proxiedContract = undefined;
 
             if (Buffer.isBuffer(data)) {
                 this._data = contractProto.decode(data);
             } else {
-                if (typeof data.contractData === 'object') data.contractData = serializeContractData(data.contractData);
-                if (typeof data.contractCode === 'object') data.contractCode = JSON.stringify(data.contractData);
+                if (typeof data.contractData === 'object') {
+                    data.contractData =
+                        this._fnSerializer(data.contractData);
+                }
+                if (typeof data.contractCode === 'object') data.contractCode = JSON.stringify(data.contractCode);
                 const errMsg = contractProto.verify(data);
                 if (errMsg) throw new Error(`Contract: ${errMsg}`);
 
@@ -47,7 +57,7 @@ module.exports = (factory, {contractProto}) =>
             if (this._data.contractData && Buffer.isBuffer(this._data.contractData)) {
                 this.updateData(this._data.contractData);
             } else {
-                this._dataSize = nSizeOfEmptyData;
+                this._dataSize = this._nSizeOfEmptyData;
                 this._contractData = {};
             }
 
@@ -68,6 +78,7 @@ module.exports = (factory, {contractProto}) =>
          */
         static createFromData(data) {
             data.__proto__ = this.prototype;
+            data.defaultSerializer();
             return data;
         }
 
@@ -83,7 +94,7 @@ module.exports = (factory, {contractProto}) =>
         }
 
         getDataBuffer() {
-            return serializeContractData(this._contractData);
+            return this._fnSerializer(this._contractData);
         }
 
         getConciliumId() {
@@ -95,7 +106,9 @@ module.exports = (factory, {contractProto}) =>
         }
 
         getDataSize() {
-            const result = this._dataSize - nSizeOfEmptyData;
+            if (this._dataSize === undefined) this._dataSize = this._fnSerializer(this._contractData).length;
+
+            const result = this._dataSize - this._nSizeOfEmptyData;
             return result > 0 ? result : 0;
         }
 
@@ -106,9 +119,14 @@ module.exports = (factory, {contractProto}) =>
         updateData(data) {
             if (Buffer.isBuffer(data)) {
                 this._dataSize = data.length;
-                data = deSerializeContractData(data);
+
+                if (this.getVersion() === V_JSON) {
+                    data = deSerializeContractDataJson(data);
+                } else {
+                    data = deSerializeContractDataV8(data);
+                }
             } else {
-                this._dataSize = serializeContractData(data).length;
+                this._dataSize = this._fnSerializer(data).length;
             }
 
             this._contractData = Object.assign({}, data);
@@ -121,7 +139,10 @@ module.exports = (factory, {contractProto}) =>
         encode() {
             assert(this._data.conciliumId !== undefined, 'Contract "conciliumId" not specified!');
 
-            this._data.contractData = serializeContractData(this._contractData);
+            // undefined for default scenario
+            this._data.version = this._nVersion;
+            this._data.contractData = this._fnSerializer(this._contractData);
+
             return contractProto.encode(this._data).finish();
         }
 
@@ -178,5 +199,23 @@ module.exports = (factory, {contractProto}) =>
          */
         proxyContract(contract) {
             this._proxiedContract = contract;
+        }
+
+        getVersion() {
+            return this._data.version;
+        }
+
+        switchSerializerToJson() {
+            this._fnSerializer = serializeContractDataJson;
+            this._nSizeOfEmptyData = nSizeOfEmptyDataJson;
+            this._nVersion = V_JSON;
+
+            this._dataSize = this._fnSerializer(this._contractData).length;
+        }
+
+        defaultSerializer() {
+            this._fnSerializer = serializeContractDataV8;
+            this._nSizeOfEmptyData = nSizeOfEmptyDataV8;
+            this._nVersion = undefined;
         }
     };

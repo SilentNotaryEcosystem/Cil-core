@@ -1,3 +1,4 @@
+const v8 = require('v8');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
@@ -337,6 +338,68 @@ describe('Contract tests', () => {
                 decodedContract.updateData({a: 10, b: 100});
                 assert.isAbove(decodedContract.getDataSize(), contract.getDataSize());
             }
+        });
+    });
+
+    describe('Data encoding', () => {
+        it('Should create from Object, and store with legacy (v8) serializer', async () => {
+            const contractData = {a: 1};
+            const strContractCode = '{"add": "(a){this.value+=a;}"}';
+            const strSerializedContractV8 = '0a0aff0d6f22016149027b01121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d210000000000000000';
+
+            const contract = new factory.Contract({
+                contractCode: strContractCode,
+                contractData: contractData
+            });
+
+            assert.equal(contract.getDataSize(), v8.serialize(contractData).length - v8.serialize({}).length);
+            assert.equal(contract.encode().toString('hex'), strSerializedContractV8);
+        });
+
+        it('Should create from Object, and store with new (JSON) serializer', async () => {
+            const contractData = {a: 1};
+            const strContractCode = '{"add": "(a){this.value+=a;}"}';
+            const strSerializedContractJson = '0a077b2261223a317d121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d2100000000000000002802';
+
+            const contract = new factory.Contract({
+                contractCode: strContractCode,
+                contractData: contractData
+            });
+            contract.switchSerializerToJson();
+
+            assert.equal(contract.getDataSize(), JSON.stringify(contractData).length - JSON.stringify({}).length);
+            assert.equal(contract.encode().toString('hex'), strSerializedContractJson);
+        });
+
+        it('should load contract with legacy (v8) encoding', async () => {
+            const contractData = {a: 1};
+
+            // see test above
+            const strSerializedContractV8 = '0a0aff0d6f22016149027b01121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d210000000000000000';
+            const contract = new factory.Contract(Buffer.from(strSerializedContractV8, 'hex'));
+
+            assert.deepEqual(contract.getData(), contractData);
+        });
+
+        it('should load contract with new (JSON) encoding', async () => {
+            const contractData = {a: 1};
+
+            // see test above
+            const strSerializedContractJson = '0a077b2261223a317d121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d2100000000000000002802';
+            const contract = new factory.Contract(Buffer.from(strSerializedContractJson, 'hex'));
+
+            // new contracts stored with version
+            assert.isOk(contract.getVersion());
+            assert.deepEqual(contract.getData(), contractData);
+        });
+
+        it('should load with legacy and store with new encoding', async () => {
+            const strSerializedContractJson = '0a077b2261223a317d121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d2100000000000000002802';
+            const strSerializedContractV8 = '0a0aff0d6f22016149027b01121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d210000000000000000';
+            const contract = new factory.Contract(Buffer.from(strSerializedContractV8, 'hex'));
+            contract.switchSerializerToJson();
+
+            assert.equal(contract.encode().toString('hex'), strSerializedContractJson);
         });
     });
 

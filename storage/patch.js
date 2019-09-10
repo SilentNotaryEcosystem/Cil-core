@@ -306,7 +306,7 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
                     const thisContract = this.getContract(contractAddr);
                     const patchContract = patch.getContract(contractAddr);
 
-                    if (thisContract && thisContract &&
+                    if (thisContract && patchContract &&
                         thisContract.getDataBuffer().equals(patchContract.getDataBuffer())) {
                         this._mapContractStates.delete(contractAddr);
                     }

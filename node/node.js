@@ -1183,6 +1183,10 @@ module.exports = (factory, factoryOptions) => {
                     types.Patch, typeforce.Number, typeforce.Number
                 ), arguments);
 
+            if (this._processedBlock && this._processedBlock.getHeight() >= Constants.HEIGHT_FORK_SERIALIZER) {
+                contract.switchSerializerToJson();
+            }
+
             // contract creation/invocation has 2 types of change:
             // 1st - usual for UTXO just send exceeded coins to self
             // 2nd - not used coins (in/out diff - coinsUsed) as internal TX
@@ -1236,6 +1240,11 @@ module.exports = (factory, factoryOptions) => {
                         throw new Error('Contract already exists');
                     }
                     contract = await this._app.createContract(tx.getContractCode(), environment);
+
+                    if (this._processedBlock.getHeight() >= Constants.HEIGHT_FORK_SERIALIZER) {
+                        contract.switchSerializerToJson();
+                    }
+
                     bNewContract = true;
                 } else {
                     if (coinsLimit < nFeeContractInvocation) {
@@ -1457,14 +1466,13 @@ module.exports = (factory, factoryOptions) => {
             if (!isGenesis) this._checkHeight(block);
 
             let patchState = this._pendingBlocks.mergePatches(block.parentHashes);
+            patchState.setConciliumId(block.conciliumId);
 
             let blockFees = 0;
             const blockTxns = block.txns;
 
             // should start from 1, because coinbase tx need different processing
             for (let i = 1; i < blockTxns.length; i++) {
-                patchState.setConciliumId(block.conciliumId);
-
                 const tx = new Transaction(blockTxns[i]);
                 const {fee, patchThisTx} = await this._processTx(patchState, isGenesis, tx);
                 blockFees += fee;
