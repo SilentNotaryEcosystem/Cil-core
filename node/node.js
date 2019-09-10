@@ -1183,7 +1183,8 @@ module.exports = (factory, factoryOptions) => {
                     types.Patch, typeforce.Number, typeforce.Number
                 ), arguments);
 
-            if (this._processedBlock && this._processedBlock.getHeight() >= Constants.HEIGHT_FORK_SERIALIZER) {
+            if (contract && this._processedBlock && this._processedBlock.getHeight() >=
+                Constants.HEIGHT_FORK_SERIALIZER) {
                 contract.switchSerializerToJson();
             }
 
@@ -1241,7 +1242,8 @@ module.exports = (factory, factoryOptions) => {
                     }
                     contract = await this._app.createContract(tx.getContractCode(), environment);
 
-                    if (this._processedBlock.getHeight() >= Constants.HEIGHT_FORK_SERIALIZER) {
+                    if (contract && this._processedBlock && this._processedBlock.getHeight() >=
+                        Constants.HEIGHT_FORK_SERIALIZER) {
                         contract.switchSerializerToJson();
                     }
 
