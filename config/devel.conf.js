@@ -47,6 +47,8 @@ module.exports = {
         concilium: {
             HEIGHT_TO_RELEASE_ADD_ON: 50,
             POS_CONCILIUM_ROUNDS: 10
-        }
+        },
+
+        HEIGHT_FORK_SERIALIZER: 8970
     }
 };
