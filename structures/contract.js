@@ -98,7 +98,7 @@ module.exports = (factory, {contractProto}) =>
         }
 
         getConciliumId() {
-            return this._data.conciliumId;
+            return this._data.hasOwnProperty('conciliumId') ? this._data.conciliumId : undefined;
         }
 
         setConciliumId(nConciliumId) {
