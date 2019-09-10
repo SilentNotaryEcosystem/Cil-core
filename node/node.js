@@ -1183,8 +1183,9 @@ module.exports = (factory, factoryOptions) => {
                     types.Patch, typeforce.Number, typeforce.Number
                 ), arguments);
 
-            if (contract && this._processedBlock && this._processedBlock.getHeight() >=
-                Constants.HEIGHT_FORK_SERIALIZER) {
+            if (contract &&
+                this._processedBlock &&
+                this._processedBlock.getHeight() >= Constants.HEIGHT_FORK_SERIALIZER) {
                 contract.switchSerializerToJson();
             }
 
@@ -1300,7 +1301,7 @@ module.exports = (factory, factoryOptions) => {
             if (contract) {
                 patchThisTx.setContract(contract);
 
-                if (!contract.getConciliumId()) contract.setConciliumId(tx.conciliumId);
+                if (contract.getConciliumId() === undefined) contract.setConciliumId(tx.conciliumId);
 
                 // increase balance of contract
                 if (receipt.isSuccessful()) contract.deposit(tx.getContractSentAmount());
