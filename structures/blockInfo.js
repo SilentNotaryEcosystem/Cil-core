@@ -56,7 +56,11 @@ module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
             return this._data.header.height;
         }
 
-        conciliumId() {
+        get conciliumId() {
+            return this._data.header.conciliumId;
+        }
+
+        getConciliumId() {
             return this._data.header.conciliumId;
         }
 
