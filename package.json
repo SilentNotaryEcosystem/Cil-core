@@ -3,7 +3,7 @@
   "engines": {
     "node": ">=10.15.2"
   },
-  "version": "0.1.0",
+  "version": "0.5.0-staging",
   "main": "factory.js",
   "dependencies": {
     "command-line-args": "^5.0.2",
