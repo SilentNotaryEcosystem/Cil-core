@@ -78,6 +78,13 @@ module.exports = (factory) => {
                 return peer;
             }
 
+            const maxPeersIncome = Constants.MAX_PEERS / 2;
+            const connectedPeers = this.getConnectedPeers(undefined);
+
+            if (connectedPeers > maxPeersIncome - 1) {
+                return peer;
+            }
+
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
 
