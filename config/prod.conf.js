@@ -15,7 +15,7 @@ module.exports = {
         strIdent: 'Prod',
 
         network: 0x12882304,
-        protocolVersion: 0x0128,
+        protocolVersion: 0x0129,
         port: 8223,
 
         rpcPort: 8222,
@@ -146,6 +146,11 @@ module.exports = {
         concilium: {
             HEIGHT_TO_RELEASE_ADD_ON: 1000,
             POS_CONCILIUM_ROUNDS: 20
+        },
+
+        forks: {
+            HEIGHT_FORK_SERIALIZER: 3775,
+            HEIGHT_FORK_CHANGE: 3775
         }
     }
 };
