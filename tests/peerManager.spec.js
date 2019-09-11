@@ -438,10 +438,9 @@ describe('Peer manager', () => {
         assert.isOk(pm.addPeer.calledOnce);
     });
 
-    it('should getConnectedPeers (incoming connection)', async () => {
+    it('should getConnectedPeers (incoming connections)', async () => {
         const storage = new factory.Storage({});
         const pm = new factory.PeerManager({storage});
-
         const connection = {
             remoteAddress: () => 'edaa',
             listenerCount: () => 1
@@ -449,9 +448,37 @@ describe('Peer manager', () => {
         const peer = new factory.Peer({connection});
         pm.addPeer(peer, true);
 
-        const arrPeers = pm.getConnectedPeers(undefined);
+        setTimeout(() => {
+            const connection_2 = {
+                remoteAddress: () => factory.Transport.generateAddress(),
+                listenerCount: () => 1
+            };
+            const peer_2 = new factory.Peer({connection_2});
+            pm.addPeer(peer_2, true);
+            const arrPeers = pm.getConnectedPeers(undefined);
 
-        assert.isOk(arrPeers);
-        assert.equal(arrPeers.length, 1);
+            assert.isOk(arrPeers);
+            assert.equal(arrPeers.length, 2);
+        }, 5000);
+    });
+
+    it('should be incoming connections limit MAX_PEERS / 2', async () => {
+        const pm = new factory.PeerManager();
+        // incoming connections is 50% of all connections
+        const MAX_PEERS_INCOME = factory.Constants.MAX_PEERS / 2;
+        for (let i = 0; i < 25; i++) {
+            const peer = new factory.Peer({
+                connection: {
+                    remoteAddress: factory.Transport.generateAddress(),
+                    listenerCount: () => 0,
+                    on: () => {}
+                }
+            });
+            if (i < MAX_PEERS_INCOME) {
+                await pm.addPeer(peer);
+            }
+        }
+        const arrPeers = pm.getConnectedPeers(undefined);
+        assert.equal(arrPeers.length, MAX_PEERS_INCOME);
     });
 });
