@@ -448,25 +448,25 @@ describe('Peer manager', () => {
         const peer = new factory.Peer({connection});
         pm.addPeer(peer, true);
 
-        setTimeout(() => {
-            const connection_2 = {
-                remoteAddress: () => factory.Transport.generateAddress(),
-                listenerCount: () => 1
-            };
-            const peer_2 = new factory.Peer({connection_2});
-            pm.addPeer(peer_2, true);
-            const arrPeers = pm.getConnectedPeers(undefined);
+        await sleep(2000);
 
-            assert.isOk(arrPeers);
-            assert.equal(arrPeers.length, 2);
-        }, 5000);
+        const connection_2 = {
+            remoteAddress: () => factory.Transport.generateAddress(),
+            listenerCount: () => 1
+        };
+        const peer_2 = new factory.Peer({connection_2});
+        pm.addPeer(peer_2, true);
+        const arrPeers = pm.getConnectedPeers(undefined);
+
+        assert.isOk(arrPeers);
+        assert.equal(arrPeers.length, 2);
     });
 
-    it('should be incoming connections limit MAX_PEERS / 2', async () => {
+    it('it should be a limit of MAX_PEERS / 2 for incoming connection', async () => {
         const pm = new factory.PeerManager();
         // incoming connections is 50% of all connections
-        const MAX_PEERS_INCOME = factory.Constants.MAX_PEERS / 2;
-        for (let i = 0; i < 25; i++) {
+        const nMaxIncomingConnections = factory.Constants.MAX_PEERS / 2;
+        for (let i = 0; i < nMaxIncomingConnections + 1000; i++) {
             const peer = new factory.Peer({
                 connection: {
                     remoteAddress: factory.Transport.generateAddress(),
@@ -474,11 +474,11 @@ describe('Peer manager', () => {
                     on: () => {}
                 }
             });
-            if (i < MAX_PEERS_INCOME) {
+            if (i < nMaxIncomingConnections) {
                 await pm.addPeer(peer);
             }
         }
         const arrPeers = pm.getConnectedPeers(undefined);
-        assert.equal(arrPeers.length, MAX_PEERS_INCOME);
+        assert.equal(arrPeers.length, nMaxIncomingConnections);
     });
 });
