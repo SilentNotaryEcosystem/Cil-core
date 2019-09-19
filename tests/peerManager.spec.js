@@ -438,30 +438,6 @@ describe('Peer manager', () => {
         assert.isOk(pm.addPeer.calledOnce);
     });
 
-    it('should getConnectedPeers (incoming connections)', async () => {
-        const storage = new factory.Storage({});
-        const pm = new factory.PeerManager({storage});
-        const connection = {
-            remoteAddress: () => 'edaa',
-            listenerCount: () => 1
-        };
-        const peer = new factory.Peer({connection});
-        pm.addPeer(peer, true);
-
-        await sleep(2000);
-
-        const connection_2 = {
-            remoteAddress: () => factory.Transport.generateAddress(),
-            listenerCount: () => 1
-        };
-        const peer_2 = new factory.Peer({connection_2});
-        pm.addPeer(peer_2, true);
-        const arrPeers = pm.getConnectedPeers(undefined);
-
-        assert.isOk(arrPeers);
-        assert.equal(arrPeers.length, 2);
-    });
-
     it('it should be a limit of MAX_PEERS / 2 for incoming connection', async () => {
         const pm = new factory.PeerManager();
         // incoming connections is 50% of all connections
