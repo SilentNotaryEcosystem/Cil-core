@@ -66,13 +66,61 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             });
         }
 
+        /**
+         *
+         * @return {Boolean}
+         */
         limitConstraints() {
-            if (this._mapTxns.size < Constants.MEMPOOL_TX_QTY) return;
+            if (this._mapTxns.size < Constants.MEMPOOL_TX_QTY) {
+                return false;
+            }
             let i = Math.floor(this._mapTxns.size / 3);
             for (let [hash, tx] of this._mapTxns) {
                 this._mapTxns.delete(hash);
                 if (--i === 0) break;
             }
+            return true;
+        }
+
+        /**
+         *
+         * @return {Boolean}
+         */
+        validateTxns() {
+            if (this.limitConstraints()) {
+                debug(`Reduction memPool size according the limit MEMPOOL_TX_QTY ${Constants.MEMPOOL_TX_QTY}`);
+            }
+            this.getAllTxnHashes().forEach((hash) => {
+                if (typeof hash !== 'string') {
+                    debug(`Wrong txn hash type ${hash}`);
+                    return false;
+                }
+                if (hash.length !== 64) {
+                    debug(`Wrong txn hash length ${hash}`);
+                    return false;
+                }
+
+                const testTnx = this.getTx(hash);
+
+                if (typeof testTnx._data != 'object') {
+                    debug(`Wrong _data txn ${hash}`);
+                    return false;
+                }
+                if (typeof testTnx._data.payload != 'object') {
+                    debug(`Wrong _data.payload txn ${hash}`);
+                    return false;
+                }
+                if (typeof testTnx._data.payload.ins != 'object') {
+                    debug(`Wrong _data.payload.ins txn ${hash}`);
+                    return false;
+                }
+                if (typeof testTnx._data.payload.outs != 'object') {
+                    debug(`Wrong _data.payload.outs txn ${hash}`);
+                    return false;
+                }
+                // todo : clarify validation requiments
+                return true;
+            });
         }
 
         hasTx(txHash) {
