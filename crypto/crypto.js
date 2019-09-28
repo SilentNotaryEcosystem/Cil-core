@@ -66,7 +66,7 @@ class KeyPair {
 // algorithm used to symmtrical encryption/decryption (for storing privateKeys)
 const ALGO = 'aes256';
 const LENGTH = 16;
-const SCRYPT_OPTIONS = {N: 16384, p: 1};
+const SCRYPT_OPTIONS = {N: 131072, p: 1, r: 8};
 const PBKDF2_OPTIONS = {iterations: 1e5};
 
 class CryptoLib {
@@ -310,7 +310,15 @@ class CryptoLib {
         encrypted = Buffer.from(encrypted, 'hex');
         salt = !salt || Buffer.from(salt, 'hex');
 
-        const {key} = this.createKey(keyAlgo, password, salt, hashOptions);
+        const {key} = this.createKey(
+            keyAlgo,
+            password,
+            salt,
+            {
+                ...hashOptions,
+                maxmem: 129 * hashOptions.N * hashOptions.r
+            }
+        );
 
         const decipher = crypto.createDecipheriv(ALGO, key, iv);
         try {
