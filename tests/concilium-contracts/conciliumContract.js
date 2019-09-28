@@ -95,6 +95,11 @@ module.exports = class ContractConciliums extends Base {
             return await delegatecall(this._proxyAddress, {method: "leaveConcilium", arrArguments: [conciliumId]});
         }
 
+        conciliumId = parseInt(conciliumId);
+
+        // this will also include failure to leave conciliumId 0. it's ok!
+        if (!conciliumId) throw ('Invalid concilium');
+
         const objConcilium = this._checkConciliumId(conciliumId);
 
 //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
