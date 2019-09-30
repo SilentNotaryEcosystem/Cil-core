@@ -961,6 +961,7 @@ module.exports = (factory, factoryOptions) => {
             assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
 
+            await this._processReceivedTx(newTx);
             const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
 
             // let's check for patch conflicts with other local txns
@@ -1012,7 +1013,7 @@ module.exports = (factory, factoryOptions) => {
             let patchThisTx;
             try {
                 await this._storage.checkTxCollision([strTxHash]);
-                await this._validateTxLightTx(tx);
+                await this._validateTxLight(tx);
                 if (bStoreInMempool) this._mempool.addTx(tx);
             } catch (e) {
                 this._mempool.storeBadTxHash(strTxHash);
@@ -2398,7 +2399,7 @@ module.exports = (factory, factoryOptions) => {
             return stableBi ? stableBi.getHash() : undefined;
         }
 
-        async _validateTxLightTx(tx) {
+        async _validateTxLight(tx) {
             tx.verify();
             const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
 

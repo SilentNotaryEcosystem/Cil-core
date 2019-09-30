@@ -423,7 +423,7 @@ describe('Node tests', () => {
     it('should relay received TX to neighbors', async () => {
         const node = new factory.Node();
 
-        node._validateTxLightTx = sinon.fake.resolves();
+        node._validateTxLight = sinon.fake.resolves();
         node._mempool.addTx = sinon.fake();
         node._informNeighbors = sinon.fake();
 
@@ -450,7 +450,7 @@ describe('Node tests', () => {
         const err = 'err msg';
         const node = new factory.Node();
 
-        node._validateTxLightTx = sinon.fake.resolves();
+        node._validateTxLight = sinon.fake.resolves();
         node._mempool.addTx = sinon.fake.throws(err);
         node._informNeighbors = sinon.fake();
 
@@ -1038,8 +1038,8 @@ describe('Node tests', () => {
 
             await node._acceptLocalTx(new factory.Transaction(createDummyTx()));
 
-            assert.equal(node._processTx.callCount, 2);
-            assert.isOk(node._processReceivedTx.calledOnce);
+            // 2 from mempool + one that just received
+            assert.equal(node._processTx.callCount, 3);
 
             // existed + new
             assert.equal(node._mempool.addLocalTx.callCount, 3);
@@ -1059,11 +1059,16 @@ describe('Node tests', () => {
     });
 
     describe('RPC tests', async () => {
-        it('send TX', async function() {
-            const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
-            node._mempool.loadLocalTxnsFromDisk = sinon.fake();
+        let node;
+        beforeEach(async () => {
+            node = new factory.Node({rpcAddress: factory.Transport.generateAddress(), buildTxIndex: true});
             await node.ensureLoaded();
-            node._processReceivedTx = sinon.fake.resolves(new factory.PatchDB());
+        });
+
+        it('send TX', async function() {
+            node._mempool.loadLocalTxnsFromDisk = sinon.fake();
+            node._processReceivedTx = sinon.fake.resolves();
+            node._processTx = sinon.fake.resolves({patchThisTx: new factory.PatchDB()});
             node._mempool.addLocalTx = sinon.fake();
 
             await node.rpcHandler({
@@ -1072,12 +1077,11 @@ describe('Node tests', () => {
             });
 
             assert.isOk(node._processReceivedTx.calledOnce);
+            assert.isOk(node._processTx.calledOnce);
             assert.isOk(node._mempool.addLocalTx.calledOnce);
         });
 
         it('fails to send TX (confilct with existing)', async function() {
-            const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
-            await node.ensureLoaded();
             node._acceptLocalTx = sinon.fake.rejects('Failed');
 
             return assert.isRejected(node.rpcHandler({
@@ -1087,9 +1091,6 @@ describe('Node tests', () => {
         });
 
         it('should get TX receipt', async () => {
-            const node = new factory.Node();
-            await node.ensureLoaded();
-
             const buffContractAddr = generateAddress();
             const strUtxoHash = pseudoRandomBuffer().toString('hex');
             const coinsUsed = 1e5;
@@ -1113,9 +1114,6 @@ describe('Node tests', () => {
         });
 
         it('should get block', async () => {
-            const node = new factory.Node();
-            await node.ensureLoaded();
-
             const state = 21;
             const cBlock = createDummyBlock(factory);
 
@@ -1137,9 +1135,6 @@ describe('Node tests', () => {
 
         it('should get prev blocks', async () => {
             const state = 'stable';
-            const node = new factory.Node();
-            await node.ensureLoaded();
-
             const arrExpectedHashes = await createSimpleChain(
                 block => {
                     node._pendingBlocks.addBlock(block, new factory.PatchDB());
@@ -1164,9 +1159,6 @@ describe('Node tests', () => {
         });
 
         it('should get next blocks', async () => {
-            const node = new factory.Node();
-            await node.ensureLoaded();
-
             const arrExpectedHashes = await createSimpleChain(
                 block => {
                     node._pendingBlocks.addBlock(block, new factory.PatchDB());
@@ -1191,9 +1183,6 @@ describe('Node tests', () => {
         });
 
         it('should get TIPS', async () => {
-            const node = new factory.Node();
-            await node.ensureLoaded();
-
             const arrExpectedHashes = await createSimpleChain(
                 block => {
                     node._pendingBlocks.addBlock(block, new factory.PatchDB());
@@ -1219,9 +1208,6 @@ describe('Node tests', () => {
         });
 
         it('should get one TIP', async () => {
-            const node = new factory.Node();
-            await node.ensureLoaded();
-
             const block = createDummyBlock(factory);
             const state = 12;
             const expectedResult = {
@@ -1241,7 +1227,6 @@ describe('Node tests', () => {
         });
 
         it('should fail to get TX', async () => {
-            const node = new factory.Node();
 
             const block = createDummyBlockWithTx(factory);
             const strTxHash = block.getTxHashes()[0];
@@ -1263,7 +1248,6 @@ describe('Node tests', () => {
                 return utxo;
             };
 
-            const node = new factory.Node();
             node._storage.getUtxo = sinon.fake.resolves(createDummyUtxo([1, 5, 10]));
 
             const objResult = await node.rpcHandler({
@@ -1276,13 +1260,9 @@ describe('Node tests', () => {
         });
 
         describe('getTX', async () => {
-            let node;
             let strHash;
 
             beforeEach(async () => {
-                node = new factory.Node({buildTxIndex: true});
-                await node.ensureLoaded();
-
                 strHash = pseudoRandomBuffer().toString('hex');
             });
 
@@ -1370,11 +1350,7 @@ describe('Node tests', () => {
         });
 
         describe('constantMethodCall', async () => {
-            let node;
-
             beforeEach(async () => {
-                node = new factory.Node();
-                await node.ensureLoaded();
             });
 
             it('should prefer PENDING contract data', async () => {
@@ -1444,16 +1420,12 @@ describe('Node tests', () => {
         });
 
         describe('walletListUnspent', async () => {
-            let node;
             let utxo1;
             let utxo2;
             let addr;
             let coins;
 
             beforeEach(async () => {
-                node = new factory.Node();
-                await node.ensureLoaded();
-
                 addr = generateAddress();
                 coins = new factory.Coins(1e5, addr);
 
@@ -2436,7 +2408,7 @@ describe('Node tests', () => {
             node._objCurrentBestParents = {patchMerged: new factory.PatchDB()};
         });
 
-        describe('_validateTxLightTx', async () => {
+        describe('_validateTxLight', async () => {
             let fakeTx;
             beforeEach(async () => {
                 node._storage.getUtxosPatch = sinon.fake.resolves(new factory.PatchDB());
@@ -2449,7 +2421,7 @@ describe('Node tests', () => {
             it('should FAIL to validate inputs (already spent)', async () => {
                 node._app.processTxInputs = sinon.fake.throws('UTXO already spent fake');
 
-                assert.isRejected(node._validateTxLightTx(fakeTx), 'UTXO already spent fake');
+                assert.isRejected(node._validateTxLight(fakeTx), 'UTXO already spent fake');
             });
 
             it('should FAIL to validate inputs (fee too small)', async () => {
@@ -2458,7 +2430,7 @@ describe('Node tests', () => {
                 node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas});
                 node._calculateSizeFee = sinon.fake.resolves(1);
 
-                assert.isRejected(node._validateTxLightTx(fakeTx), /Require fee at least/);
+                assert.isRejected(node._validateTxLight(fakeTx), /Require fee at least/);
             });
 
             it('should PASS validation', async () => {
@@ -2467,7 +2439,7 @@ describe('Node tests', () => {
                 node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas + 1});
                 node._calculateSizeFee = sinon.fake.resolves(1);
 
-                await node._validateTxLightTx(fakeTx);
+                await node._validateTxLight(fakeTx);
             });
         });
 
@@ -2478,7 +2450,7 @@ describe('Node tests', () => {
         });
 
         it('should process received TX', async function() {
-            node._validateTxLightTx = sinon.fake.resolves();
+            node._validateTxLight = sinon.fake.resolves();
             node._mempool.addTx = sinon.fake();
             node._informNeighbors = sinon.fake();
 
