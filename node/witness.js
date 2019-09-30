@@ -52,6 +52,8 @@ module.exports = (factory, factoryOptions) => {
             // try early initialization of consensus engines
             const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
+            this._createPseudoRandomSeed(await this._storage.getLastAppliedBlockHashes());
+
             for (let def of arrConciliums) {
                 await this._createConsensusForConcilium(def);
             }
@@ -490,9 +492,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         _createPseudoRandomSeed(arrLastStableBlockHashes) {
-            const seed = super._createPseudoRandomSeed(arrLastStableBlockHashes);
-            this._conciliumSeed = seed;
-            this._consensuses.forEach(c => c.setRoundSeed(seed));
+            this._conciliumSeed = super._createPseudoRandomSeed(arrLastStableBlockHashes);
+            this._consensuses.forEach(c => c.setRoundSeed(this._conciliumSeed));
         };
     };
 };
