@@ -250,6 +250,7 @@ module.exports = {
             {name: "walletSupport", type: Boolean, multiple: false},
             {name: "listWallets", type: Boolean, multiple: false},
             {name: "localDevNode", type: Boolean, multiple: false},
+            {name: "addToWhiteList", type: String, multiple: true},
             {name: "rebuildDb", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});

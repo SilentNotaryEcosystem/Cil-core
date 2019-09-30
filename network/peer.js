@@ -207,6 +207,10 @@ module.exports = (factory) => {
             this._persistent = true;
         }
 
+        isPersistent() {
+            return this._persistent;
+        }
+
         addTag(tag) {
             this._tags.push(tag);
         }

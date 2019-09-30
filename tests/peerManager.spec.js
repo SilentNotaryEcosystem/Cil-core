@@ -147,6 +147,30 @@ describe('Peer manager', () => {
         assert.equal(arrPeers.length, 1);
     });
 
+    it('should check what is the new peer is whitelisted', async function() {
+        const pm = new factory.PeerManager();
+        assert.isOk(pm);
+        const peer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
+        pm.addPeerToWhiteList(peer.address);
+        const whitelisted = pm.isWhitelistedAddress(peer.address);
+        assert.isOk(whitelisted);
+        await peer.connect();
+        peer.markAsPersistent();
+        assert.isOk(peer.isPersistent());
+    });
+
+    it('should check what is the new peer is not whitelisted', async function() {
+        const pm = new factory.PeerManager();
+        const whitelisted = pm.isWhitelistedAddress(factory.Transport.generateAddress());
+        assert.isNotOk(whitelisted);
+    });
+
     it('should get connected peers', async () => {
         const pm = new factory.PeerManager();
         for (let i = 0; i < 10; i++) {

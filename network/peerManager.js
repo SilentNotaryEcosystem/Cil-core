@@ -43,6 +43,9 @@ module.exports = (factory) => {
             // keys - addresses, values - date banned till
             this._mapBannedAddresses = new Map();
 
+            // whitelisted
+            this._whitelisted = new Map();
+
             this._backupTimer = new Tick(this);
             this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
                 Constants.PEERMANAGER_BACKUP_TIMEOUT
@@ -105,6 +108,11 @@ module.exports = (factory) => {
             return peer;
         }
 
+        addPeerToWhiteList(address) {
+            const generatedKey = Date.now();
+            this._whitelisted.set(generatedKey, address);
+        }
+
         /**
          * It's a part of mechanism that will keep only "canonical" (which node listens) addresses
          * while incoming connections have random ports
@@ -148,6 +156,20 @@ module.exports = (factory) => {
         storeOutboundPeer(peer, peerInfo) {
             peer.peerInfo.port = peerInfo.port;
             peer.capabilities = peerInfo.port;
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @returns {boolean}
+         */
+        isWhitelistedAddress(strAddress) {
+            for (let [k, v] of this._whitelisted) {
+                if (v === strAddress) {
+                    return k;
+                }
+            }
+            return false;
         }
 
         /**
