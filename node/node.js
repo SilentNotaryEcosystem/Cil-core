@@ -961,10 +961,9 @@ module.exports = (factory, factoryOptions) => {
             assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
 
-            const patchNewTx = await this._processReceivedTx(newTx, false, false);
+            const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
 
             // let's check for patch conflicts with other local txns
-
             try {
                 for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
 
@@ -997,7 +996,6 @@ module.exports = (factory, factoryOptions) => {
          *
          * @param {Transaction} tx
          * @param {Boolean} bStoreInMempool - should we store it in mempool (false - only for received from RPC txns)
-         * @returns {Promise<PatchDB>}
          * @private
          */
         async _processReceivedTx(tx, bStoreInMempool = true) {
@@ -1020,8 +1018,6 @@ module.exports = (factory, factoryOptions) => {
                 this._mempool.storeBadTxHash(strTxHash);
                 throw e;
             }
-
-            return patchThisTx;
         }
 
         /**
