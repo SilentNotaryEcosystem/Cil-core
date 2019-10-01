@@ -51,6 +51,7 @@ The default options are set in file [prod.conf.js](https://github.com/SilentNota
 |watchAddress|Function used to operate with local wallets. Used for adding wallet address to Node to track all incoming and outgoing transactions|
 |reIndexWallet|Function used to operate with old wallets. Used to receive all transactions in the database by the specified wallet address|
 |walletSupport|Boolean function used by Node to support the wallet|
+|addToWhiteList|Add new peer address(es) to White List|
 |listWallets|Service function used to see the list of addresses that are added to the Node|
 
 ## Node install for development net
