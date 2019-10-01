@@ -151,6 +151,8 @@ module.exports = {
         forks: {
             HEIGHT_FORK_SERIALIZER: 3775,
             HEIGHT_FORK_CHANGE: 3775
-        }
+        },
+
+        blockCreationTimeLimit: 1500
     }
 };

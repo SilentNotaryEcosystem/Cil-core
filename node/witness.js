@@ -444,6 +444,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _createBlock(conciliumId) {
+            const nStartTime = Date.now();
             const block = new Block(conciliumId);
             block.markAsBuilding();
 
@@ -465,6 +466,10 @@ module.exports = (factory, factoryOptions) => {
                 for (let tx of this._mempool.getFinalTxns(conciliumId)) {
                     try {
                         const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
+
+                        // this tx exceeded time limit for block creations - so we don't include it
+                        if (Date.now() - nStartTime > Constants.blockCreationTimeLimit) break;
+
                         totalFee += fee;
                         patchMerged = patchMerged.merge(patchThisTx, true);
                         block.addTx(tx);
