@@ -25,6 +25,23 @@ process.on('warning', e => console.warn(e.stack));
         ...readCmdLineOptions()
     };
 
+    // Checking command line options for White List instructions
+    const objPeerParams = {
+        ...readCmdLineOptions()
+    };
+
+    if(objPeerParams.addToWhiteList){
+        const pm = new factory.PeerManager();
+        objPeerParams.addToWhiteList.forEach(addr => {
+            // todo : need add some validation
+            pm.addPeerToWhiteList(addr);
+            if(pm.isWhitelistedAddress(addr)){
+                console.log(`Address ${addr} whitelisted`);
+            }
+        });
+        process.exit(1);
+    }
+
     // override global parameters
     if (objUserParams.genesisHash) factory.Constants.GENESIS_BLOCK = objUserParams.genesisHash;
     if (objUserParams.conciliumDefContract) {
