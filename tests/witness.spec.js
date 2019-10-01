@@ -39,7 +39,7 @@ const createDummyDefinitionWallet = (conciliumId = 0) => {
 
 const createDummyWitness = () => {
     const {concilium, newWallet} = createDummyDefinitionWallet();
-    const witness = new factory.Witness({wallet: newWallet});
+    const witness = new factory.Witness({wallet: newWallet, workerSuspended: true, networkSuspended: true});
     witness._storage.getConciliumsByAddress = async () => [concilium];
     witness._storage.getConciliumById = async () => concilium;
 
@@ -143,5 +143,41 @@ describe('Witness tests', () => {
 
         const {block} = await witness._createBlock(concilium.getConciliumId());
         assert.equal(block.txns.length, 3);
+    });
+
+    describe('Create block', async () => {
+        let clock;
+        let witness;
+        let concilium;
+
+        beforeEach(async () => {
+            ({witness, concilium} = createDummyWitness());
+            await witness.ensureLoaded();
+            clock = sinon.useFakeTimers();
+        });
+
+        afterEach(async () => {
+            clock.restore();
+        });
+
+        it('should limit time for block creation of 1,5 sec', async () => {
+            const nFakeFee = 101;
+            const nFakeTimePerTx = 100;
+            witness._processTx = async () => {
+                clock.tick(nFakeTimePerTx);
+                return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
+            };
+            witness._mempool.getFinalTxns = () => new Array(200).fill(1).map(() => createDummyTx());
+            witness._calcHeight = () => 1;
+            witness._pendingBlocks.getBestParents = () => ({
+                arrParents: [pseudoRandomBuffer().toString('hex')],
+                patchMerged: new factory.PatchDB()
+            });
+
+            const {block} = await witness._createBlock(0);
+
+            // plus coinbase
+            assert.equal(block.txns.length, 1 + parseInt(factory.Constants.blockCreationTimeLimit / nFakeTimePerTx));
+        });
     });
 });
