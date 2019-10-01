@@ -1077,7 +1077,7 @@ module.exports = (factory, factoryOptions) => {
                         contract,
                         tx,
                         patchThisTx,
-                        patchForBlock,
+                        patchForBlock || new PatchDB(),
                         nRemainingCoins,
                         nFeeSize
                     );
