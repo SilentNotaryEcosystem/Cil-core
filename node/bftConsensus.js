@@ -76,6 +76,13 @@ module.exports = (factory) => {
             return this._arrAddresses.includes(address);
         }
 
+        /**
+         * It will handle only MsgWitnessNextRound & MsgWitnessBlockVote
+         * MsgWitnessBlock - processed at witness.js
+         *
+         * @param witnessMsg
+         * @return {boolean}
+         */
         processMessage(witnessMsg) {
             const senderAddr = witnessMsg.address;
 
@@ -93,6 +100,8 @@ module.exports = (factory) => {
                 witnessMsg = new Messages.MsgWitnessNextRound(msgCommon);
             } else if (msgCommon.isWitnessBlockVote()) {
                 witnessMsg = new Messages.MsgWitnessBlockVote(msgCommon);
+            } else {
+                return;
             }
 
             const state = this._stateFromMessage(witnessMsg);
