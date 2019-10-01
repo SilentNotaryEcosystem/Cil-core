@@ -287,8 +287,14 @@ class CryptoLib {
                 key = this.argon2(password, salt, 32);
                 break;
             case 'scrypt':
-                options = hashOptions || SCRYPT_OPTIONS;
-                key = this.scrypt(password, salt, 32, options);
+                options = {...SCRYPT_OPTIONS, ...hashOptions};
+                options.maxmem = 129 * options.N * options.r;
+                key = this.scrypt(
+                    password,
+                    salt,
+                    32,
+                    options
+                );
                 break;
             default:
                 throw new Error(`Hash function ${passwordHashFunction} is unknown`);
@@ -314,10 +320,7 @@ class CryptoLib {
             keyAlgo,
             password,
             salt,
-            {
-                ...hashOptions,
-                maxmem: 129 * hashOptions.N * hashOptions.r
-            }
+            hashOptions
         );
 
         const decipher = crypto.createDecipheriv(ALGO, key, iv);
