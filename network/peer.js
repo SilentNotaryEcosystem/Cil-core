@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const assert = require('assert');
 const debug = require('debug')('peer:');
-const {sleep} = require('../utils');
+const {sleep, createPeerTag} = require('../utils');
 const Tick = require('tick-tock');
 
 /**
@@ -155,10 +155,6 @@ module.exports = (factory) => {
             return witnessCap.data.toString('hex');
         }
 
-        get witnessLoadDone() {
-            return !this.disconnected && this._persistent && Array.isArray(this._tags) && this._tags.length;
-        }
-
         get offsetDelta() {
             return this._msecOffsetDelta;
         }
@@ -174,6 +170,10 @@ module.exports = (factory) => {
 
         get bannedTill() {
             return this._bannedTill;
+        }
+
+        witnessLoadDone(nConciliumId) {
+            return !this.disconnected && this._persistent && this._tags.has(createPeerTag(nConciliumId));
         }
 
         /**
@@ -193,7 +193,7 @@ module.exports = (factory) => {
          * @returns {boolean}
          */
         isRestricted() {
-            return this._restrictedTill > Date.now();
+            return !this._persistent && this._restrictedTill > Date.now();
         }
 
         isBanned() {
@@ -208,13 +208,11 @@ module.exports = (factory) => {
         }
 
         addTag(tag) {
-            this._tags.push(tag);
+            this._tags.add(tag);
         }
 
         hasTag(tag) {
-
-            // if tag === undefined - return true!
-            return tag === undefined || this._tags.includes(tag);
+            return tag === undefined || this._tags.has(tag);
         }
 
         isAlive() {
@@ -373,7 +371,7 @@ module.exports = (factory) => {
         }
 
         _cleanup() {
-            this._tags = [];
+            this._tags = new Set();
             this._connection = undefined;
 
             this._handshakeDone = false;
