@@ -961,7 +961,7 @@ module.exports = (factory, factoryOptions) => {
             assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
 
-            await this._processReceivedTx(newTx);
+            await this._processReceivedTx(newTx, false);
             const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
 
             // let's check for patch conflicts with other local txns

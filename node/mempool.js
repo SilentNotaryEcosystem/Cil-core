@@ -53,9 +53,8 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
                 } else {
                     debug(`removeTxns: no TX ${txHash} in mempool`);
                 }
-
-                if (prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
             }
+            if (prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
         }
 
         purgeOutdated() {
