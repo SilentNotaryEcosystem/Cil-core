@@ -186,8 +186,8 @@ describe('Witness integration tests', () => {
         }
         await Promise.all(arrStartPromises);
 
-        // all witnesses should call _suppressedBlockHandler
-        await Promise.all(arrSuppressedBlocksPromises);
+        // only one witness, BC round would advance only on successful block @see this._nextRound();
+        await Promise.race(arrSuppressedBlocksPromises);
 
         assert.equal(createBlockFake.callCount, 0);
     });
@@ -337,43 +337,9 @@ describe('Witness integration tests', () => {
 
         await seedNode.rpcHandler({event: 'tx', content: tx});
 
-        // all witnesses should call _suppressedBlockHandler
-        await Promise.all(arrSuppressedBlocksPromises);
+        // only one witness, BC round would advance only on successful block @see this._nextRound();
+        await Promise.race(arrSuppressedBlocksPromises);
 
         assert.equal(acceptBlockFake.callCount, 0);
     });
-
-    //    it('should DISCONNECT from FAKE Witness', async () => {
-
-    //        const kpTest = factory.Crypto.createKeyPair();
-    //        const kpGood = factory.Crypto.createKeyPair();
-    //        const kpWalletFake = factory.Crypto.createKeyPair();
-    //
-    //        const conciliumName = 'test';
-    //        const arrTestDefinition = [
-    //            [conciliumName, [kpTest.getPublic(), kpGood.getPublic()]],
-    //            ['anotherConcilium', ['pubkey3', 'pubkey4']]
-    //        ];
-    //
-    //        // create fake
-    //        const fakeAddress=factory.Transport.strToAddress(`fake witness`);
-    //        const fakeWitnessWallet = new factory.Wallet(kpWalletFake.getPrivate());
-    //        const fakeWitness=new factory.Witness({
-    //            wallet: fakeWitnessWallet, arrTestDefinition,
-    //            listenAddr: fakeAddress, delay: 10,
-    //            arrSeedAddresses: []
-    //        });
-    //
-    //        // start our witness
-    //        const wallet = new factory.Wallet(kpTest.getPrivate());
-    //        const testWitness = new factory.Witness(
-    //            {
-    //                wallet, arrTestDefinition,
-    //                listenAddr: factory.Transport.strToAddress('Test witness 2'),
-    //                delay: 10, queryTimeout: 5000, arrSeedAddresses: [fakeAddress]
-    //            });
-    //        await testWitness.bootstrap();
-    //        await testWitness.start();
-
-    //    });
 });

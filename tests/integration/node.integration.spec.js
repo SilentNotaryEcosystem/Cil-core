@@ -258,24 +258,6 @@ describe('Node integration tests', () => {
         assert.isOk(node._peerManager);
     });
 
-    it('should create LIVE NET and propagate GENESIS block over all nodes', async function() {
-        this.timeout(60000);
-        const {arrNodes} = await createLiveNet(true);
-
-        const arrBootstrapPromises = [];
-        const arrBlockPromises = [];
-
-        for (let i = 0; i < maxConnections; i++) {
-
-            arrBlockPromises.push(new Promise(resolve => {
-                arrNodes[i]._acceptBlock = resolve;
-            }));
-            arrBootstrapPromises.push(arrNodes[i].bootstrap());
-        }
-        await Promise.all(arrBootstrapPromises);
-        await Promise.all(arrBlockPromises);
-    });
-
     it('should prevent double spend in fork', async function() {
         this.timeout(60000);
 
