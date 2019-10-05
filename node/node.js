@@ -966,21 +966,10 @@ module.exports = (factory, factoryOptions) => {
 
             // let's check for patch conflicts with other local txns
             try {
-                for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
+                await this._ensureLocalTxnsPatch();
 
-                    // NO patches - means mempool just loaded, we need to exec all stored local txns
-                    if (!patchTx) {
-                        const localTx = this._mempool.getTx(strTxHash);
-
-                        // exec it. no need to validate. local txns were already validated
-                        const {patchThisTx} = await this._processTx(undefined, false, localTx);
-
-                        // store it back with patch
-                        this._mempool.addLocalTx(localTx, patchThisTx);
-                        patchTx = patchThisTx;
-                    }
-                    patchTx.merge(patchNewTx);
-                }
+                // update cache
+                this._patchLocalTxns = this._patchLocalTxns.merge(patchNewTx);
 
                 // all merges passed - accept new tx
                 this._mempool.addLocalTx(newTx, patchNewTx);
@@ -1525,6 +1514,9 @@ module.exports = (factory, factoryOptions) => {
             this._pendingBlocks.addBlock(block, patchState);
 
             const arrStrHashes = block.getTxHashes();
+
+            // invalidate cache
+            this._patchLocalTxns = undefined;
             this._mempool.removeForBlock(arrStrHashes);
 
             // check for finality
@@ -2414,6 +2406,37 @@ module.exports = (factory, factoryOptions) => {
         _ensureBestBlockValid() {
             if (this._objCurrentBestParents) return;
             this._objCurrentBestParents = this._pendingBlocks.getBestParents();
+        }
+
+        /**
+         * Get patch of all non-conflicting txns and store it as cache
+         * Invalidate when purging txns from mempool
+         *
+         * @private
+         */
+        async _ensureLocalTxnsPatch() {
+            if (this._patchLocalTxns) return this._patchLocalTxns;
+
+            let patchMerged = new PatchDB();
+
+            for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
+
+                // NO patches - means mempool just loaded, we need to exec all stored local txns
+                if (!patchTx) {
+                    const localTx = this._mempool.getTx(strTxHash);
+
+                    // exec it. no need to validate. local txns were already validated
+                    const {patchThisTx} = await this._processTx(undefined, false, localTx);
+
+                    // store it back with patch
+                    this._mempool.addLocalTx(localTx, patchThisTx);
+                    patchTx = patchThisTx;
+                }
+
+                patchMerged = patchMerged.merge(patchTx);
+            }
+
+            this._patchLocalTxns = patchMerged;
         }
     };
 };
