@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+USER=`/bin/ls -l /dev/console | /usr/bin/awk '{ print $3 }'`
+
+SCRIPTAPP="/opt/cil-start"
+DESKTOP="/Users/$USER/Desktop/cil-start"
+
+cp "$SCRIPTAPP" "$DESKTOP"

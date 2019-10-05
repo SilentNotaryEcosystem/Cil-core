@@ -9,7 +9,12 @@
     "command-line-args": "^5.0.2",
     "dagjs": "git+https://github.com/trueshura/DAG.git",
     "elliptic": "^6.4.0",
+<<<<<<< HEAD
+    "ip": "^1.1.5",
+    "ipaddr.js": "^1.8.0",
+=======
     "ipaddr.js": "^1.9.0",
+>>>>>>> github/master
     "js-sha3": "^0.8.0",
     "json-rpc2": "git+https://github.com/trueshura/node-jsonrpc2.git",
     "leveldown": "^4.0.2",

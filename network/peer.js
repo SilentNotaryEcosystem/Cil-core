@@ -155,6 +155,19 @@ module.exports = (factory) => {
             return witnessCap.data.toString('hex');
         }
 
+        get filter() {
+            return this._bloomFilter;
+        }
+
+        addFilter(value) {
+            if (!this._bloomFilter)
+                this._bloomFilter = new new BloomFilter(
+                    32 * 256, // number of bits to allocate.
+                    16        // number of hash functions.
+                );
+            this._bloomFilter.add(value);
+        }
+            
         get offsetDelta() {
             return this._msecOffsetDelta;
         }

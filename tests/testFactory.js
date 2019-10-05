@@ -53,6 +53,7 @@ const RequestCacheWrapper = require('../node/requestsCache');
 
 const TransactionWrapper = require('../structures/transaction');
 const BlockWrapper = require('../structures/block');
+const SPVBlockWrapper = require('../structures/spvBlock');
 const InventoryWrapper = require('../structures/inventory');
 const UtxoWrapper = require('../structures/utxo');
 const CoinsWrapper = require('../structures/coins');
@@ -89,6 +90,7 @@ class Factory {
                 this._coinsImplementation = CoinsWrapper(this);
                 this._transactionImplementation = TransactionWrapper(this, prototypes);
                 this._blockImplementation = BlockWrapper(this, prototypes);
+                this._spvBlockImplementation = SPVBlockWrapper(this, prototypes);
                 this._inventoryImplementation = InventoryWrapper(this, prototypes);
                 this._utxoImplementation = UtxoWrapper(this, prototypes);
 
@@ -110,7 +112,10 @@ class Factory {
                 this._transportImplemetation = TransportWrapper(this);
                 this._peerImplementation = PeerWrapper(this);
                 this._peerManagerImplemetation = PeerManagerWrapper(this);
+<<<<<<< HEAD
+=======
                 this._patchImplementation = PatchWrapper(this);
+>>>>>>> github/master
                 this._storageImplementation = StorageWrapper(this, options);
                 this._bftImplementation = BftWrapper(this);
                 this._mempoolImplementation = MempoolWrapper(this, {...options});
@@ -121,10 +126,16 @@ class Factory {
                 this._requestCacheImplementation = RequestCacheWrapper(this);
 
                 // all componenst should be declared above
+<<<<<<< HEAD
+                this._nodeImplementation = NodeWrapper(this, options);
+                this._witnessImplementation = WitnessWrapper(this, options);
+            }).catch(err => {
+=======
                 this._nodeImplementation = NodeWrapper(this, {...options, workerSuspended: true});
                 this._witnessImplementation = WitnessWrapper(this, options);
             })
             .catch(err => {
+>>>>>>> github/master
                 logger.error(err);
                 process.exit(10);
             });
@@ -278,6 +289,10 @@ class Factory {
         return this._blockInfo;
     }
 
+    get SPVBlock() {
+        return this._spvBlockImplementation;
+    }
+
     get Inventory() {
         return this._inventoryImplementation;
     }
@@ -332,6 +347,7 @@ class Factory {
 
             blockProto: protoStructures.lookupType("structures.Block"),
             blockHeaderProto: protoStructures.lookupType("structures.BlockHeader"),
+            spvBlockProto: protoStructures.lookupType("structures.SPVBlock"),
             blockInfoProto: protoStructures.lookupType("structures.BlockInfo"),
 
             inventoryProto: protoStructures.lookupType("structures.Inventory"),
