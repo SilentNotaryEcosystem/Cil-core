@@ -66,6 +66,9 @@ module.exports = (factory, factoryOptions) => {
 
             const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
+            const arrConciliumIds = arrConciliums.map(cConcilium => cConcilium.getConciliumId());
+            this._mempool.setPreferredConciliums(arrConciliumIds);
+
             // this need only at very beginning when witness start without genesis. In this case
             const wasInitialized = this._consensuses.size;
 
