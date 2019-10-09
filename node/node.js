@@ -957,6 +957,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _acceptLocalTx(newTx) {
+            newTx.verify();
+
             const strNewTxHash = newTx.getHash();
             assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
@@ -1034,9 +1036,13 @@ module.exports = (factory, factoryOptions) => {
 
                 // process moneys
                 if (!isGenesis) {
-                    tx.verify();
-                    const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
-                    const patchMerged = patchForBlock ? patchForBlock.merge(patchUtxos) : patchUtxos;
+                    const arrTxUtxos = tx.utxos;
+                    const patchUtxos = await this._storage.getUtxosPatch(arrTxUtxos);
+
+                    let patchMerged = patchUtxos;
+                    if (patchForBlock && patchForBlock.hasUtxos(arrTxUtxos)) {
+                        patchMerged = patchForBlock.merge(patchUtxos);
+                    }
                     ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
 
                     // calculate TX size fee. Calculated for every tx, not only for contracts

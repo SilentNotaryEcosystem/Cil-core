@@ -779,4 +779,27 @@ describe('PatchDB', () => {
             }
         });
     });
+
+    describe('hasUtxos', async () => {
+        it('should NOT find utxo', async () => {
+            const patch = new factory.PatchDB();
+            const utxo = createUtxo([0, 1, 2]);
+
+            assert.isNotOk(patch.hasUtxos([utxo.getTxHash()]));
+        });
+
+        it('should find utxo', async () => {
+            const patch = new factory.PatchDB();
+            const utxo = createUtxo([0, 1, 2]);
+            const utxo2 = createUtxo([0, 1, 2]);
+            patch.setUtxo(utxo);
+            patch.setUtxo(utxo2);
+
+            assert.isOk(patch.hasUtxos([utxo.getTxHash()]));
+            assert.isOk(patch.hasUtxos([utxo.getTxHash(), utxo2.getTxHash()]));
+            assert.isOk(patch.hasUtxos([utxo2.getTxHash(), utxo.getTxHash()]));
+            assert.isOk(patch.hasUtxos([utxo2.getTxHash()]));
+        });
+
+    });
 });
