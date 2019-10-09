@@ -462,7 +462,7 @@ module.exports = (factory, factoryOptions) => {
 
             const lock = await this._mutex.acquire(['blockExec', 'blockCreate']);
             try {
-                let {arrParents, patchMerged} = this._pendingBlocks.getBestParents();
+                let {arrParents, patchMerged} = this._pendingBlocks.getBestParents(conciliumId);
                 patchMerged = patchMerged ? patchMerged : new PatchDB();
                 patchMerged.setConciliumId(conciliumId);
 

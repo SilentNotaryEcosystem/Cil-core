@@ -239,6 +239,82 @@ describe('Pending block manager', async () => {
         assert.isOk(arrayEquals(arrParents, [block3.getHash(), block4.getHash()]));
     });
 
+    it('should getBestParents with ', async () => {
+
+    });
+
+    describe('getBestParents', async () => {
+        let pbm;
+        beforeEach(async () => {
+            pbm = new factory.PendingBlocksManager();
+        });
+
+        it('should pass for undefined conciliumId', async () => {
+            factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
+            pbm.getBestParents();
+        });
+
+        it('should pass for absent block of conciliumId', async () => {
+            const block = createDummyBlock(factory, 0);
+            pbm.addBlock(block, new factory.PatchDB());
+
+            const {arrParents} = pbm.getBestParents(0);
+
+            assert.strictEqual(arrParents.length, 1);
+            assert.strictEqual(arrParents[0], block.getHash());
+        });
+
+        it('should pass for block of conciliumId (middle)', async () => {
+            const block = createDummyBlock(factory, 0);
+
+            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+            pbm.addBlock(block, new factory.PatchDB());
+            pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
+
+            const {arrParents} = pbm.getBestParents(0);
+
+            assert.strictEqual(arrParents.length, 3);
+            assert.strictEqual(arrParents[0], block.getHash());
+        });
+        it('should pass for block of conciliumId (start)', async () => {
+            const block = createDummyBlock(factory, 0);
+
+            pbm.addBlock(block, new factory.PatchDB());
+            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+            pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
+
+            const {arrParents} = pbm.getBestParents(0);
+
+            assert.strictEqual(arrParents.length, 3);
+            assert.strictEqual(arrParents[0], block.getHash());
+        });
+        it('should pass for block of conciliumId (tail)', async () => {
+            const block = createDummyBlock(factory, 0);
+
+            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+            pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
+            pbm.addBlock(block, new factory.PatchDB());
+
+            const {arrParents} = pbm.getBestParents(0);
+
+            assert.strictEqual(arrParents.length, 3);
+            assert.strictEqual(arrParents[0], block.getHash());
+        });
+
+        it('should fail to merge own patch so will use stable tips', async () => {
+            pbm._topStable = ['fake'];
+            const patchNonMergable = new factory.PatchDB();
+            patchNonMergable.merge = sinon.fake.throws();
+
+            pbm.addBlock(createDummyBlock(factory, 1), patchNonMergable);
+            pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+
+            const {arrParents} = pbm.getBestParents(1);
+
+            assert.deepEqual(arrParents, ['fake']);
+        });
+    });
+
     describe('isReasonToWitness', async () => {
         let pbm;
         beforeEach(async () => {
