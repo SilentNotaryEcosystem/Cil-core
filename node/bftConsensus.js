@@ -322,12 +322,12 @@ module.exports = (factory) => {
          * @private
          */
         _stateChange(isConsensus = false, consensusValue = undefined) {
-            const prevState = this._state;
-            this._adjustTimer();
-
             if (isConsensus && consensusValue && consensusValue.state) {
                 this._state = consensusValue.state;
+                this._adjustTimer();
             }
+
+            const prevState = this._state;
 
             switch (this._state) {
                 case States.ROUND_CHANGE:
@@ -346,6 +346,7 @@ module.exports = (factory) => {
                     break;
             }
             if (prevState !== this._state) {
+                this._adjustTimer();
                 debug(
                     `BFT "${this._nonce}" STATE changed! prev: "${prevState}" new "${this._state}" Round: ${this._concilium.getRound()}`);
             }

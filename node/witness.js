@@ -359,7 +359,10 @@ module.exports = (factory, factoryOptions) => {
                 debugWitness(`Witness: "${this._debugAddress}" message "${message.message}" from CONSENSUS engine`);
                 this._broadcastConsensusInitiatedMessage(message);
             });
+
             consensus.on('createBlock', async () => {
+                if (this._mutex.isLocked('commitBlock')) return;
+
                 const lock = await this._mutex.acquire(['createBlock']);
 
                 try {
@@ -379,11 +382,20 @@ module.exports = (factory, factoryOptions) => {
                     this._mutex.release(lock);
                 }
             });
+
             consensus.on('commitBlock', async (block) => {
-                await this._handleArrivedBlock(block);
-                logger.log(
-                    `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
-                consensus.blockCommited();
+                const lock = await this._mutex.acquire(['commitBlock']);
+                try {
+                    await this._handleArrivedBlock(block);
+                    logger.log(
+                        `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
+                    consensus.blockCommited();
+
+                } catch (e) {
+                    logger.error(e);
+                } finally {
+                    this._mutex.release(lock);
+                }
             });
         }
 
