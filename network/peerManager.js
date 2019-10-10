@@ -239,11 +239,48 @@ module.exports = (factory) => {
                 .slice(0, Constants.MAX_PEERS);
         }
 
-        broadcastToConnected(tag, message) {
+        /**
+         *
+         * @param {String | undefined} tag
+         * @param {Messages} message
+         * @param {Peer | undefined} peerToExclude - received from (to exclude)
+         * @param {Number| undefined} nCount - we'll send at most to nCount neighbours
+         */
+        broadcastToConnected(tag, message, peerToExclude, nCount) {
             const arrPeers = this.getConnectedPeers(tag);
+            if (!arrPeers.length) return;
+
             debug(`Found ${arrPeers.length} connected peers for tag "${tag}"`);
-            for (let peer of arrPeers) {
-                peer.pushMessage(message).catch(err => logger.error(err));
+
+            let setIndexes = new Set();
+            const pseudorandomSource = message.payload || arrPeers.map((e, i) => i);
+
+            if (nCount) {
+
+                // if we need to send at most nCount messages && we have pseudorandom source - use it
+                for (let byte of pseudorandomSource) {
+                    const idx = byte % arrPeers.length;
+                    if (setIndexes.size >= nCount) break;
+                    if (!setIndexes.has(idx) &&
+                        !peerToExclude || peerToExclude && peerToExclude.address != arrPeers[idx].address) {
+                        setIndexes.add(idx);
+                    }
+                }
+            } else {
+
+                // just send to all except peerToExclude
+                if (peerToExclude) {
+                    setIndexes = new Set(arrPeers
+                        .map((e, i) => i)
+                        .filter(peerIdx => arrPeers[peerIdx].address !== peerToExclude.address)
+                    );
+                } else {
+                    setIndexes = new Set(arrPeers.map((e, i) => i));
+                }
+            }
+
+            for (let idx of setIndexes) {
+                arrPeers[idx].pushMessage(message).catch(err => logger.error(err));
             }
         }
 

@@ -519,4 +519,70 @@ describe('Peer manager', () => {
             assert.isOk(peer.isWhitelisted());
         });
     });
+
+    describe('broadcastToConnected', async () => {
+        let pm;
+        let storage;
+        let fakePeers;
+        beforeEach(() => {
+            storage = new factory.Storage({});
+            pm = new factory.PeerManager({storage});
+            fakePeers = [];
+
+            for (let i = 0; i < 5; i++) {
+                fakePeers.push({
+                    pushMessage: sinon.fake.resolves(),
+                    address: factory.Transport.generateAddress()
+                });
+            }
+            pm.getConnectedPeers = sinon.fake.returns(fakePeers);
+        });
+
+        it('should send to all peers (no count, no peer to exclude)', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage);
+
+            assert.isOk(fakePeers.every(p => p.pushMessage.calledOnce));
+        });
+
+        it('should send to all peers (empty message payload)', async () => {
+            const fakeMessage = {payload: []};
+            pm.broadcastToConnected(undefined, fakeMessage);
+
+            assert.isOk(fakePeers.every(p => p.pushMessage.calledOnce));
+        });
+
+        it('should send only to 2 neighbours', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, undefined, 2);
+
+            assert.equal(fakePeers.filter(p => p.pushMessage.calledOnce).length, 2);
+        });
+
+        it('should send to all peers except specified', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, fakePeers[0]);
+
+            const arrInformedPeers = fakePeers.filter(p => p.pushMessage.calledOnce);
+            assert.equal(arrInformedPeers.length, fakePeers.length - 1);
+            assert.isOk(arrInformedPeers.every(p => p.address !== fakePeers[0].address));
+        });
+
+        it('should send only to 2 except specified', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, fakePeers[0], 2);
+
+            const arrInformedPeers = fakePeers.filter(p => p.pushMessage.calledOnce);
+            assert.equal(arrInformedPeers.length, 2);
+            assert.isOk(arrInformedPeers.every(p => p.address !== fakePeers[0].address));
+        });
+
+        it('should send to all (connected peers less than needed)', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, undefined, 8);
+
+            assert.equal(fakePeers.filter(p => p.pushMessage.calledOnce).length, fakePeers.length);
+        });
+
+    });
 });

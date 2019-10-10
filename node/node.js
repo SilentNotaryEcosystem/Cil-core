@@ -365,7 +365,7 @@ module.exports = (factory, factoryOptions) => {
 
             try {
                 await this._processReceivedTx(tx);
-                await this._informNeighbors(tx, peer);
+                await this._informNeighbors(tx, peer, 4);
             } catch (e) {
                 logger.error(e, `Bad TX received. Peer ${peer.address}`);
                 peer.misbehave(5);
@@ -976,7 +976,7 @@ module.exports = (factory, factoryOptions) => {
                 // all merges passed - accept new tx
                 this._mempool.addLocalTx(newTx, patchNewTx);
 
-                // inform about new Tx
+                // inform 2 pseudorandom neighbours about new Tx
                 await this._informNeighbors(newTx);
             } catch (e) {
                 console.error(e);
@@ -1439,14 +1439,16 @@ module.exports = (factory, factoryOptions) => {
          * TODO: implement cache in _peerManager to combine multiple hashes in one inv to save bandwidth & CPU
          *
          * @param {Transaction | Block} item
+         * @param {Peer | undefined} peerReceived - received from (to exclude)
+         * @param {Number| undefined} nCount - we'll send at most to nCount neighbours
          * @private
          */
-        _informNeighbors(item) {
+        _informNeighbors(item, peerReceived, nCount) {
             const inv = new Inventory();
             item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
             debugNode(`(address: "${this._debugAddress}") Informing neighbors about new item ${item.hash()}`);
-            this._peerManager.broadcastToConnected('fullyConnected', msgInv);
+            this._peerManager.broadcastToConnected('fullyConnected', msgInv, peerReceived, nCount);
         }
 
         /**
@@ -2114,7 +2116,7 @@ module.exports = (factory, factoryOptions) => {
                 if (patchState) {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
-                    if (!this._networkSuspended) this._informNeighbors(block);
+                    if (!this._networkSuspended) this._informNeighbors(block, peer);
                 }
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);
