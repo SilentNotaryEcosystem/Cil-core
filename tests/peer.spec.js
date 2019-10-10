@@ -359,4 +359,31 @@ describe('Peer tests', () => {
         const [pingMsg] = pushMessage.args[0];
         assert.isTrue(pingMsg.isPing());
     });
+
+    describe('Whitelisted', async () => {
+        let newPeer;
+        beforeEach(async () => {
+            newPeer = new factory.Peer({peerInfo});
+        });
+
+        it('should be NON whitelisted by default', async () => {
+            assert.isNotOk(newPeer.isWhitelisted());
+        });
+
+        it('should ban NON whitelisted node', async () => {
+            newPeer.ban();
+            assert.isOk(newPeer.isBanned());
+        });
+
+        it('should whitelist', async () => {
+            newPeer.markAsWhitelisted();
+            assert.isOk(newPeer.isWhitelisted());
+        });
+
+        it('should NOT ban whitelisted peer', async () => {
+            newPeer.markAsWhitelisted();
+            newPeer.ban();
+            assert.isNotOk(newPeer.isBanned());
+        });
+    });
 });

@@ -254,7 +254,8 @@ module.exports = {
             {name: "walletSupport", type: Boolean, multiple: false},
             {name: "listWallets", type: Boolean, multiple: false},
             {name: "localDevNode", type: Boolean, multiple: false},
-            {name: "rebuildDb", type: Boolean, multiple: false}
+            {name: "rebuildDb", type: Boolean, multiple: false},
+            {name: "whitelistedAddr", type: Boolean, multiple: true}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },
