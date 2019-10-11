@@ -167,7 +167,7 @@ describe('Witness tests', () => {
                 clock.tick(nFakeTimePerTx);
                 return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
             };
-            witness._mempool.getFinalTxns = () => new Array(200).fill(1).map(() => createDummyTx());
+            witness._mempool.getFinalTxns = () => new Array(1000).fill(1).map(() => createDummyTx());
             witness._calcHeight = () => 1;
             witness._pendingBlocks.getBestParents = () => ({
                 arrParents: [pseudoRandomBuffer().toString('hex')],

@@ -176,7 +176,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             // after we connected as much witnesses as possible - reconnect to other peers if we still have slots
-            await super._reconnectPeers();
+            await super._reconnectPeers().catch(err => console.error(err));
         }
 
         /**
