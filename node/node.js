@@ -452,8 +452,14 @@ module.exports = (factory, factoryOptions) => {
                     let bShouldRequest = false;
                     if (objVector.type === Constants.INV_TX) {
 
-                        // TODO: more checks? for example search this hash in UTXOs?
                         bShouldRequest = !this._mempool.hasTx(objVector.hash);
+                        if (bShouldRequest) {
+                            try {
+                                await this._storage.getUtxo(objVector.hash, true).catch();
+                                bShouldRequest = false;
+                            } catch (e) {
+                            }
+                        }
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
                                          !await this._storage.hasBlock(objVector.hash);
@@ -630,7 +636,7 @@ module.exports = (factory, factoryOptions) => {
                 } catch (e) {
                     //                    logger.error(e.message);
                     logger.error(`GetDataMessage. Peer ${peer.address}`, e);
-                    peer.misbehave(1);
+//                    peer.misbehave(1);
 
                     // break loop
                     if (peer.isBanned()) return;
