@@ -144,14 +144,17 @@ describe('Mempool tests', () => {
     });
 
     it('should remove oldest txns with age > TX_LIFETIME(5s.)', async function() {
+        const clock = sinon.useFakeTimers();
+
         const mempool = new factory.Mempool();
         const tx1 = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
         const tx3 = new factory.Transaction(createDummyTx());
+
         mempool.addTx(tx1);
         mempool.addTx(tx2);
-        const future = Date.now() + factory.Constants.MEMPOOL_TX_LIFETIME + 1;
-        sinon.stub(Date, 'now').callsFake(_ => future);
+
+        clock.tick(factory.Constants.MEMPOOL_TX_LIFETIME + 1);
         mempool.addTx(tx3);
 
         mempool.purgeOutdated();
@@ -175,6 +178,8 @@ describe('Mempool tests', () => {
     });
 
     it('should remove oldest txns if tx qty > MEMPOOL_TX_QTY(5)', async () => {
+        factory.Constants.MEMPOOL_TX_QTY = 5;
+
         const mempool = new factory.Mempool();
         const tx1 = new factory.Transaction(createDummyTx());
         const tx2 = new factory.Transaction(createDummyTx());
@@ -191,22 +196,11 @@ describe('Mempool tests', () => {
         mempool.addTx(tx6);
 
         assert.isNotOk(mempool.hasTx(tx1.hash()));
-        assert.isOk(mempool.hasTx(tx2.hash()));
+        assert.isNotOk(mempool.hasTx(tx2.hash()));
         assert.isOk(mempool.hasTx(tx3.hash()));
         assert.isOk(mempool.hasTx(tx4.hash()));
         assert.isOk(mempool.hasTx(tx5.hash()));
         assert.isOk(mempool.hasTx(tx6.hash()));
-    });
-
-    it('should getAllTxnHashes', async () => {
-        const mempool = new factory.Mempool();
-        const tx1 = new factory.Transaction(createDummyTx());
-        const tx2 = new factory.Transaction(createDummyTx());
-
-        mempool.addTx(tx1);
-        mempool.addLocalTx(tx2);
-
-        assert.isOk(arrayEquals(mempool.getAllTxnHashes(), [tx1.getHash(), tx2.getHash()]));
     });
 
     it('should dump local TXns to disk', async () => {
@@ -231,7 +225,7 @@ describe('Mempool tests', () => {
 
         mempool.loadLocalTxnsFromDisk();
 
-        assert.isOk(Array.isArray(mempool.getAllTxnHashes()) && mempool.getAllTxnHashes().length === 1);
+        assert.isOk(Array.isArray(mempool.getLocalTxnHashes()) && mempool.getLocalTxnHashes().length === 1);
     });
 
     it('should getLocalTxnHashes', async () => {
@@ -251,5 +245,92 @@ describe('Mempool tests', () => {
 
         mempool.storeBadTxHash(strHash);
         assert.isOk(mempool.hasTx(strHash));
+    });
+
+    it('should add conciliums to preferred', async () => {
+        const mempool = new factory.Mempool({testStorage: true});
+
+        mempool.setPreferredConciliums([1, 2]);
+        mempool.setPreferredConciliums([1, 2, 2, 4]);
+
+        assert.equal(mempool._setPreferredConciliums.size, 3);
+        assert.isOk(mempool._setPreferredConciliums.has(1));
+        assert.isOk(mempool._setPreferredConciliums.has(2));
+        assert.isOk(mempool._setPreferredConciliums.has(4));
+    });
+
+    it('should _calcSize', async () => {
+        const mempool = new factory.Mempool({testStorage: true});
+
+        const tx = new factory.Transaction(createDummyTx(undefined, 0));
+        mempool.addTx(tx);
+        const tx2 = new factory.Transaction(createDummyTx(undefined, 1));
+        mempool.addTx(tx2);
+        const tx3 = new factory.Transaction(createDummyTx(undefined, 0));
+        mempool.addTx(tx3);
+
+        assert.strictEqual(mempool._calcSize(), 3);
+    });
+
+    it('should _calcPrefferedSize', async () => {
+        const mempool = new factory.Mempool({testStorage: true});
+        mempool.setPreferredConciliums([1, 2, 4]);
+
+        const tx = new factory.Transaction(createDummyTx(undefined, 0));
+        mempool.addTx(tx);
+        const tx2 = new factory.Transaction(createDummyTx(undefined, 1));
+        mempool.addTx(tx2);
+        const tx3 = new factory.Transaction(createDummyTx(undefined, 0));
+        mempool.addTx(tx3);
+
+        assert.strictEqual(mempool._calcPrefferedSize(), 1);
+    });
+
+    describe('_purgeMaps', async () => {
+        it('should pass for one map ', async () => {
+            const mempool = new factory.Mempool({testStorage: true});
+
+            {
+                const sampleMap = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                mempool._purgeMaps([sampleMap], 3);
+                assert.equal(sampleMap.size, 3);
+            }
+            {
+                const sampleMap = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                mempool._purgeMaps([sampleMap], 0);
+                assert.equal(sampleMap.size, 0);
+            }
+            {
+                const sampleMap = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                mempool._purgeMaps([sampleMap], 4);
+                assert.equal(sampleMap.size, 4);
+            }
+        });
+
+        it('should pass proportionally for two map ', async () => {
+            const mempool = new factory.Mempool({testStorage: true});
+
+            {
+                const sampleMap1 = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap2 = new Map([[1, 'a']]);
+                mempool._purgeMaps([sampleMap1, sampleMap2], 4);
+                assert.equal(sampleMap1.size, 3);
+                assert.equal(sampleMap2.size, 1);
+            }
+            {
+                const sampleMap1 = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap2 = new Map([[1, 'a']]);
+                mempool._purgeMaps([sampleMap1, sampleMap2], 3);
+                assert.equal(sampleMap1.size, 2);
+                assert.equal(sampleMap2.size, 1);
+            }
+            {
+                const sampleMap1 = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap2 = new Map([[1, 'a']]);
+                mempool._purgeMaps([sampleMap1, sampleMap2], 2);
+                assert.equal(sampleMap1.size, 2);
+                assert.equal(sampleMap2.size, 0);
+            }
+        });
     });
 });

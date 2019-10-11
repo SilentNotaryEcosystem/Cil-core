@@ -57,6 +57,8 @@ module.exports = (factory) => {
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
+
+            this._whitelisted = false;
         }
 
         get amountBytes() {
@@ -184,6 +186,14 @@ module.exports = (factory) => {
         updatePeerFromPeerInfo(peerInfo) {
             this._peerInfo.capabilities = peerInfo.capabilities;
             this._peerInfo.port = peerInfo.port;
+        }
+
+        markAsWhitelisted() {
+            this._whitelisted = true;
+        }
+
+        isWhitelisted() {
+            return this._whitelisted;
         }
 
         /**
@@ -333,6 +343,8 @@ module.exports = (factory) => {
         }
 
         ban() {
+            if (this.isWhitelisted()) return;
+
             this._updateMisbehave(Constants.BAN_PEER_SCORE);
             this._bannedTill = Date.now() + Constants.BAN_PEER_TIME;
             logger.log(`Peer banned till ${new Date(this._bannedTill)}`);

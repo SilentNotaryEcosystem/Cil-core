@@ -1,3 +1,4 @@
+const ipaddr = require('ipaddr.js');
 const EventEmitter = require('events');
 const assert = require('assert');
 const Tick = require('tick-tock');
@@ -19,7 +20,7 @@ module.exports = (factory) => {
     return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {transport, storage, isSeed, strictAddresses} = options;
+            const {transport, storage, isSeed, strictAddresses, whitelistedAddr} = options;
 
             // is this PeerManager belongs to seed node? if so - we'll return all peers, even "dead"
             this._isSeed = isSeed;
@@ -47,6 +48,9 @@ module.exports = (factory) => {
             this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
                 Constants.PEERMANAGER_BACKUP_TIMEOUT
             );
+
+            this._arrWhitelistedNets = [];
+            this._prepareWhitelisted(whitelistedAddr || []);
         }
 
         /**
@@ -92,6 +96,7 @@ module.exports = (factory) => {
 
             if (existingPeer) existingPeer.removeAllListeners();
             this.updateHandlers(peer);
+            if (this.isWhitelisted(peer.address)) peer.markAsWhitelisted();
             this.emit('newPeer', peer);
 
             this._mapAllPeers.set(key, peer);
@@ -234,11 +239,48 @@ module.exports = (factory) => {
                 .slice(0, Constants.MAX_PEERS);
         }
 
-        broadcastToConnected(tag, message) {
+        /**
+         *
+         * @param {String | undefined} tag
+         * @param {Messages} message
+         * @param {Peer | undefined} peerToExclude - received from (to exclude)
+         * @param {Number| undefined} nCount - we'll send at most to nCount neighbours
+         */
+        broadcastToConnected(tag, message, peerToExclude, nCount) {
             const arrPeers = this.getConnectedPeers(tag);
+            if (!arrPeers.length) return;
+
             debug(`Found ${arrPeers.length} connected peers for tag "${tag}"`);
-            for (let peer of arrPeers) {
-                peer.pushMessage(message).catch(err => logger.error(err));
+
+            let setIndexes = new Set();
+            const pseudorandomSource = message.payload || arrPeers.map((e, i) => i);
+
+            if (nCount) {
+
+                // if we need to send at most nCount messages && we have pseudorandom source - use it
+                for (let byte of pseudorandomSource) {
+                    const idx = byte % arrPeers.length;
+                    if (setIndexes.size >= nCount) break;
+                    if (!setIndexes.has(idx) &&
+                        !peerToExclude || peerToExclude && peerToExclude.address != arrPeers[idx].address) {
+                        setIndexes.add(idx);
+                    }
+                }
+            } else {
+
+                // just send to all except peerToExclude
+                if (peerToExclude) {
+                    setIndexes = new Set(arrPeers
+                        .map((e, i) => i)
+                        .filter(peerIdx => arrPeers[peerIdx].address !== peerToExclude.address)
+                    );
+                } else {
+                    setIndexes = new Set(arrPeers.map((e, i) => i));
+                }
+            }
+
+            for (let idx of setIndexes) {
+                arrPeers[idx].pushMessage(message).catch(err => logger.error(err));
             }
         }
 
@@ -275,6 +317,34 @@ module.exports = (factory) => {
 
         _backupTick() {
             this.saveAllPeers();
+        }
+
+        /**
+         * this._arrWhitelistedNets will contain [IPV4 or IPV6, prefix length] records
+         * ipaddr.parseCIDR - creates such 2 element arrays
+         * we need it for .match
+         *
+         * @param {Array} arrWhitelisted
+         * @param {String} arrWhitelisted[0] - ip address (172.16.1.1) or net (172.16.0.0/16)
+         * @private
+         */
+        _prepareWhitelisted(arrWhitelisted) {
+            for (let strAddrOrNet of arrWhitelisted) {
+                if (ipaddr.isValid(strAddrOrNet)) {
+                    this._arrWhitelistedNets.push([ipaddr.parse(strAddrOrNet), 32]);
+                } else {
+                    this._arrWhitelistedNets.push(ipaddr.parseCIDR(strAddrOrNet));
+                }
+            }
+        }
+
+        isWhitelisted(strIpAddress) {
+
+            // tests contain no whitelist, but non ip addresses, so next line will throw
+            if (!this._arrWhitelistedNets.length) return;
+
+            const ipAddr = ipaddr.parse(strIpAddress);
+            return this._arrWhitelistedNets.find(arrNetRecord => ipAddr.match(arrNetRecord));
         }
     };
 };

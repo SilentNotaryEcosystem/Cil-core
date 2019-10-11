@@ -25,9 +25,12 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             this._fileName = testStorage ? undefined : path.resolve(dbPath || Constants.DB_PATH_PREFIX,
                 Constants.LOCAL_TX_FILE_NAME
             );
+
+            this._mapConcilimTxns = new Map();
             this._mapLocalTxns = new Map();
 
             this._setBadTxnsHash = new Set();
+            this._setPreferredConciliums = new Set();
         }
 
         /**
@@ -46,31 +49,64 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving concilium). if so - implement queue
                 // TODO: think about: is it problem that TX isn't present in mempool, but present in block
-                if (this._mapTxns.has(txHash)) {
-                    this._mapTxns.delete(txHash);
-                } else if (this._mapLocalTxns.has(txHash)) {
+                let mapWithTx;
+                if (this._mapLocalTxns.has(txHash)) {
                     this._mapLocalTxns.delete(txHash);
+                } else if ((mapWithTx = this._searchMapByHash(txHash))) {
+                    mapWithTx.delete(txHash);
                 } else {
                     debug(`removeTxns: no TX ${txHash} in mempool`);
                 }
             }
+
             if (prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
         }
 
         purgeOutdated() {
-            this._mapTxns.forEach((tx, hash) => {
-                if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
-                    this._mapTxns.delete(hash);
-                }
+            this._mapConcilimTxns.forEach((mapTxns) => {
+                mapTxns.forEach((tx, hash) => {
+                    if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
+                        mapTxns.delete(hash);
+                    }
+                });
             });
         }
 
         limitConstraints() {
-            if (this._mapTxns.size < Constants.MEMPOOL_TX_QTY) return;
-            let i = Math.floor(this._mapTxns.size / 3);
-            for (let [hash, tx] of this._mapTxns) {
-                this._mapTxns.delete(hash);
-                if (--i === 0) break;
+            const nCurrentSize = this._calcSize();
+            if (nCurrentSize < Constants.MEMPOOL_TX_QTY) return;
+
+            const nTrimmedSize = Math.floor(2 * nCurrentSize / 3);
+
+            // we have preferred
+            if (this._setPreferredConciliums.size) {
+                const nPrefferedSize = this._calcPrefferedSize();
+
+                if (nPrefferedSize < Constants.MEMPOOL_TX_QTY) {
+
+                    // trim other, and keep maximum of preferred
+                    const arrMaps = [...this._mapConcilimTxns.keys()]
+                        .filter(nConciliumId => !this._setPreferredConciliums.has(nConciliumId))
+                        .map(nConciliumId => this._mapConcilimTxns.get(nConciliumId));
+
+                    this._purgeMaps(arrMaps, Constants.MEMPOOL_TX_QTY - nPrefferedSize);
+                } else {
+
+                    // trim preffered
+                    const arrMaps = [...this._mapConcilimTxns.keys()]
+                        .filter(nConciliumId => this._setPreferredConciliums.has(nConciliumId))
+                        .map(nConciliumId => this._mapConcilimTxns.get(nConciliumId));
+                    this._purgeMaps(arrMaps, nTrimmedSize);
+
+                    // COMPLETELY remove OTHER
+                    [...this._mapConcilimTxns.keys()]
+                        .filter(nConciliumId => !this._setPreferredConciliums.has(nConciliumId))
+                        .forEach(nConciliumId => this._mapConcilimTxns.get(nConciliumId).clear());
+                }
+            } else {
+                const arrMaps = [...this._mapConcilimTxns.keys()]
+                    .map(nConciliumId => this._mapConcilimTxns.get(nConciliumId));
+                this._purgeMaps(arrMaps, nTrimmedSize);
             }
         }
 
@@ -78,9 +114,9 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-            return this._mapTxns.has(strTxHash) ||
-                   this._mapLocalTxns.has(strTxHash) ||
-                   this._setBadTxnsHash.has(txHash);
+            return this._mapLocalTxns.has(strTxHash) ||
+                   this._setBadTxnsHash.has(strTxHash) ||
+                   !!this._searchMapByHash(strTxHash);
         }
 
         /**
@@ -90,12 +126,17 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
          * @param {Transaction} tx - transaction to add
          */
         addTx(tx) {
+            const nConciliumId = tx.conciliumId;
+            this._ensureConciliumTxns(nConciliumId);
+
             this.limitConstraints();
 
             const strHash = tx.getHash();
             if (this.hasTx(strHash)) throw new Error(`tx ${strHash} already in mempool`);
 
-            this._mapTxns.set(strHash, {tx, arrived: Date.now()});
+            const mapTxns = this._mapConcilimTxns.get(nConciliumId);
+            mapTxns.set(strHash, {tx, arrived: Date.now()});
+
             debug(`TX ${strHash} added`);
         }
 
@@ -128,26 +169,30 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             if (!this.hasTx(strTxHash)) throw new Error(`Mempool: No tx found by hash ${strTxHash}`);
-            let tx = this._mapTxns.get(strTxHash) || this._mapLocalTxns.get(strTxHash);
+
+            const mapTxns = this._searchMapByHash(strTxHash);
+            let tx = this._mapLocalTxns.get(strTxHash) || mapTxns.get(strTxHash);
             return tx.tx;
         }
 
         /**
          *
-         * @param {Number} conciliumId - witness conciliumId
+         * @param {Number} nConciliumId - witness nConciliumId
          * @returns {IterableIterator<any>} {tx, arrived ...}
          */
-        getFinalTxns(conciliumId) {
+        getFinalTxns(nConciliumId) {
 
             // TODO: implement lock_time
-            // TODO: implement cache if mempool becomes huge
             const arrResult = [];
-            for (let r of this._mapTxns.values()) {
-                if (r.tx.conciliumId === conciliumId) arrResult.push(r.tx);
+
+            this._ensureConciliumTxns(nConciliumId);
+            const mapTxns = this._mapConcilimTxns.get(nConciliumId);
+            for (let [, r] of mapTxns) {
+                arrResult.push(r.tx);
             }
 
             for (let r of this._mapLocalTxns.values()) {
-                if (r.tx.conciliumId === conciliumId) arrResult.push(r.tx);
+                if (r.tx.conciliumId === nConciliumId) arrResult.push(r.tx);
             }
             return arrResult;
         }
@@ -166,14 +211,6 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
          */
         getLocalTxnsPatches() {
             return [...this._mapLocalTxns].map(([strTxHash, {tx, patchTx}]) => ({strTxHash, patchTx}));
-        }
-
-        /**
-         *
-         * @return {Array}
-         */
-        getAllTxnHashes() {
-            return [].concat([...this._mapLocalTxns.keys()], [...this._mapTxns.keys()]);
         }
 
         _dumpToDisk() {
@@ -211,5 +248,76 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             typeforce(types.Str64, strTxHash);
 
             return this._setBadTxnsHash.has(strTxHash);
+        }
+
+        /**
+         * We'll prefer to keep txns of that conciliums on purge
+         * Used by witnesses
+         *
+         * @param arrIds
+         */
+        setPreferredConciliums(arrIds) {
+            arrIds.forEach(nConciliumId => this._setPreferredConciliums.add(nConciliumId));
+        }
+
+        _ensureConciliumTxns(nConciliumId) {
+            if (!this._mapConcilimTxns.has(nConciliumId)) this._mapConcilimTxns.set(nConciliumId, new Map());
+        }
+
+        /**
+         *
+         * @param {String} txHash
+         * @return {Map | undefined}
+         * @private
+         */
+        _searchMapByHash(txHash) {
+            for (let [, mapTxns] of this._mapConcilimTxns) {
+                if (mapTxns.has(txHash)) return mapTxns;
+            }
+            return undefined;
+        }
+
+        /**
+         * Except local TXNs
+         * @private
+         */
+        _calcSize() {
+            let nTotalSize = 0;
+            for (let [, mapTxns] of this._mapConcilimTxns) {
+                nTotalSize += mapTxns.size;
+            }
+            return nTotalSize;
+        }
+
+        _calcPrefferedSize() {
+            let nSize = 0;
+            for (let nConciliumId of this._setPreferredConciliums) {
+                const map = this._mapConcilimTxns.get(nConciliumId);
+                nSize += map ? map.size : 0;
+            }
+
+            return nSize;
+        }
+
+        /**
+         * Now it will proportionally remove most old txns in selected maps
+         * TODO: keep most profitable txns, now
+         *
+         * @param arrMaps
+         * @param nDesiredSize
+         * @private
+         */
+        _purgeMaps(arrMaps, nDesiredSize) {
+
+            const nCurrentSize = arrMaps.reduce((nSum, mapCurrent) => nSum + mapCurrent.size, 0);
+            const nToRemove = nCurrentSize - nDesiredSize;
+
+            for (let map of arrMaps) {
+                let i = 0;
+                const nThisMapRemove = Math.round(nToRemove * map.size / nCurrentSize);
+                map.forEach((val, key) => {
+                    if (i++ < nThisMapRemove) map.delete(key);
+                });
+            }
         }
     };

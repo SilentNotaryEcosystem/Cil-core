@@ -365,7 +365,7 @@ module.exports = (factory, factoryOptions) => {
 
             try {
                 await this._processReceivedTx(tx);
-                await this._informNeighbors(tx, peer);
+                await this._informNeighbors(tx, peer, 4);
             } catch (e) {
                 logger.error(e, `Bad TX received. Peer ${peer.address}`);
                 peer.misbehave(5);
@@ -452,8 +452,14 @@ module.exports = (factory, factoryOptions) => {
                     let bShouldRequest = false;
                     if (objVector.type === Constants.INV_TX) {
 
-                        // TODO: more checks? for example search this hash in UTXOs?
                         bShouldRequest = !this._mempool.hasTx(objVector.hash);
+                        if (bShouldRequest) {
+                            try {
+                                await this._storage.getUtxo(objVector.hash, true).catch();
+                                bShouldRequest = false;
+                            } catch (e) {
+                            }
+                        }
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
                                          !await this._storage.hasBlock(objVector.hash);
@@ -630,7 +636,7 @@ module.exports = (factory, factoryOptions) => {
                 } catch (e) {
                     //                    logger.error(e.message);
                     logger.error(`GetDataMessage. Peer ${peer.address}`, e);
-                    peer.misbehave(1);
+//                    peer.misbehave(1);
 
                     // break loop
                     if (peer.isBanned()) return;
@@ -957,6 +963,8 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _acceptLocalTx(newTx) {
+            newTx.verify();
+
             const strNewTxHash = newTx.getHash();
             assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
@@ -966,26 +974,15 @@ module.exports = (factory, factoryOptions) => {
 
             // let's check for patch conflicts with other local txns
             try {
-                for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
+                await this._ensureLocalTxnsPatch();
 
-                    // NO patches - means mempool just loaded, we need to exec all stored local txns
-                    if (!patchTx) {
-                        const localTx = this._mempool.getTx(strTxHash);
-
-                        // exec it. no need to validate. local txns were already validated
-                        const {patchThisTx} = await this._processTx(undefined, false, localTx);
-
-                        // store it back with patch
-                        this._mempool.addLocalTx(localTx, patchThisTx);
-                        patchTx = patchThisTx;
-                    }
-                    patchTx.merge(patchNewTx);
-                }
+                // update cache
+                this._patchLocalTxns = this._patchLocalTxns.merge(patchNewTx);
 
                 // all merges passed - accept new tx
                 this._mempool.addLocalTx(newTx, patchNewTx);
 
-                // inform about new Tx
+                // inform 2 pseudorandom neighbours about new Tx
                 await this._informNeighbors(newTx);
             } catch (e) {
                 console.error(e);
@@ -1045,9 +1042,13 @@ module.exports = (factory, factoryOptions) => {
 
                 // process moneys
                 if (!isGenesis) {
-                    tx.verify();
-                    const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
-                    const patchMerged = patchForBlock ? patchForBlock.merge(patchUtxos) : patchUtxos;
+                    const arrTxUtxos = tx.utxos;
+                    const patchUtxos = await this._storage.getUtxosPatch(arrTxUtxos);
+
+                    let patchMerged = patchUtxos;
+                    if (patchForBlock && patchForBlock.hasUtxos(arrTxUtxos)) {
+                        patchMerged = patchForBlock.merge(patchUtxos);
+                    }
                     ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
 
                     // calculate TX size fee. Calculated for every tx, not only for contracts
@@ -1444,14 +1445,16 @@ module.exports = (factory, factoryOptions) => {
          * TODO: implement cache in _peerManager to combine multiple hashes in one inv to save bandwidth & CPU
          *
          * @param {Transaction | Block} item
+         * @param {Peer | undefined} peerReceived - received from (to exclude)
+         * @param {Number| undefined} nCount - we'll send at most to nCount neighbours
          * @private
          */
-        _informNeighbors(item) {
+        _informNeighbors(item, peerReceived, nCount) {
             const inv = new Inventory();
             item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
             debugNode(`(address: "${this._debugAddress}") Informing neighbors about new item ${item.hash()}`);
-            this._peerManager.broadcastToConnected('fullyConnected', msgInv);
+            this._peerManager.broadcastToConnected('fullyConnected', msgInv, peerReceived, nCount);
         }
 
         /**
@@ -1525,6 +1528,9 @@ module.exports = (factory, factoryOptions) => {
             this._pendingBlocks.addBlock(block, patchState);
 
             const arrStrHashes = block.getTxHashes();
+
+            // invalidate cache
+            this._patchLocalTxns = undefined;
             this._mempool.removeForBlock(arrStrHashes);
 
             // check for finality
@@ -2116,7 +2122,7 @@ module.exports = (factory, factoryOptions) => {
                 if (patchState) {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
-                    if (!this._networkSuspended) this._informNeighbors(block);
+                    if (!this._networkSuspended) this._informNeighbors(block, peer);
                 }
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);
@@ -2414,6 +2420,37 @@ module.exports = (factory, factoryOptions) => {
         _ensureBestBlockValid() {
             if (this._objCurrentBestParents) return;
             this._objCurrentBestParents = this._pendingBlocks.getBestParents();
+        }
+
+        /**
+         * Get patch of all non-conflicting txns and store it as cache
+         * Invalidate when purging txns from mempool
+         *
+         * @private
+         */
+        async _ensureLocalTxnsPatch() {
+            if (this._patchLocalTxns) return this._patchLocalTxns;
+
+            let patchMerged = new PatchDB();
+
+            for (let {strTxHash, patchTx} of this._mempool.getLocalTxnsPatches()) {
+
+                // NO patches - means mempool just loaded, we need to exec all stored local txns
+                if (!patchTx) {
+                    const localTx = this._mempool.getTx(strTxHash);
+
+                    // exec it. no need to validate. local txns were already validated
+                    const {patchThisTx} = await this._processTx(undefined, false, localTx);
+
+                    // store it back with patch
+                    this._mempool.addLocalTx(localTx, patchThisTx);
+                    patchTx = patchThisTx;
+                }
+
+                patchMerged = patchMerged.merge(patchTx);
+            }
+
+            this._patchLocalTxns = patchMerged;
         }
     };
 };

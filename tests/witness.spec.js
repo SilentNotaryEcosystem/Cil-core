@@ -167,7 +167,7 @@ describe('Witness tests', () => {
                 clock.tick(nFakeTimePerTx);
                 return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
             };
-            witness._mempool.getFinalTxns = () => new Array(200).fill(1).map(() => createDummyTx());
+            witness._mempool.getFinalTxns = () => new Array(1000).fill(1).map(() => createDummyTx());
             witness._calcHeight = () => 1;
             witness._pendingBlocks.getBestParents = () => ({
                 arrParents: [pseudoRandomBuffer().toString('hex')],
@@ -176,8 +176,10 @@ describe('Witness tests', () => {
 
             const {block} = await witness._createBlock(0);
 
-            // plus coinbase
-            assert.equal(block.txns.length, 1 + parseInt(factory.Constants.blockCreationTimeLimit / nFakeTimePerTx));
+            // plus coinbase, plus that tx, which exec exceed time per block
+            assert.equal(block.txns.length,
+                1 + 1 + parseInt(factory.Constants.blockCreationTimeLimit / nFakeTimePerTx)
+            );
         });
     });
 });

@@ -454,4 +454,135 @@ describe('Peer manager', () => {
         assert.isOk(arrPeers);
         assert.equal(arrPeers.length, 1);
     });
+
+    describe('Whitelisted', async () => {
+        let pm;
+        let storage;
+        beforeEach(() => {
+            storage = new factory.Storage({});
+            pm = new factory.PeerManager({storage});
+        });
+
+        it('should prepare internal whitelist', async () => {
+            pm._prepareWhitelisted(['172.16.0.3', '172.16.0.0/16']);
+
+            assert.isOk(pm._arrWhitelistedNets.length === 2);
+            assert.isOk(pm._arrWhitelistedNets[0][1] === 32);
+            assert.isOk(pm._arrWhitelistedNets[1][1] === 16);
+        });
+
+        it('should create it at constructor', async () => {
+            pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.3', '172.16.0.0/16']});
+
+            assert.isOk(pm._arrWhitelistedNets.length === 2);
+            assert.isOk(pm._arrWhitelistedNets[0][1] === 32);
+            assert.isOk(pm._arrWhitelistedNets[1][1] === 16);
+        });
+
+        it('should NOT be whitelisted (net config)', async () => {
+            pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.0/16']});
+
+            assert.isNotOk(pm.isWhitelisted('172.17.0.3'));
+        });
+
+        it('should NOT be whitelisted (host config) ', async () => {
+            pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.3']});
+
+            assert.isNotOk(pm.isWhitelisted('172.17.0.3'));
+        });
+
+        it('should add whitelisted net', async () => {
+            pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.0/16']});
+
+            assert.isOk(pm.isWhitelisted('172.16.0.3'));
+        });
+
+        it('should add whitelisted host', async () => {
+            pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.3']});
+
+            assert.isOk(pm.isWhitelisted('172.16.0.3'));
+        });
+
+        it('should add peer and mark it as whitelisted', async () => {
+            pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.0/16']});
+            const fakeConnection = {
+                remoteAddress: '172.16.5.7',
+                remotePort: 872,
+                listenerCount: sinon.fake.returns(1)
+            };
+            const peer = new factory.Peer({connection: fakeConnection});
+
+            // fake it, because of testTransport
+            sinon.stub(peer, 'address').get(() => '172.16.5.7');
+
+            pm.addPeer(peer);
+            assert.isOk(peer.isWhitelisted());
+        });
+    });
+
+    describe('broadcastToConnected', async () => {
+        let pm;
+        let storage;
+        let fakePeers;
+        beforeEach(() => {
+            storage = new factory.Storage({});
+            pm = new factory.PeerManager({storage});
+            fakePeers = [];
+
+            for (let i = 0; i < 5; i++) {
+                fakePeers.push({
+                    pushMessage: sinon.fake.resolves(),
+                    address: factory.Transport.generateAddress()
+                });
+            }
+            pm.getConnectedPeers = sinon.fake.returns(fakePeers);
+        });
+
+        it('should send to all peers (no count, no peer to exclude)', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage);
+
+            assert.isOk(fakePeers.every(p => p.pushMessage.calledOnce));
+        });
+
+        it('should send to all peers (empty message payload)', async () => {
+            const fakeMessage = {payload: []};
+            pm.broadcastToConnected(undefined, fakeMessage);
+
+            assert.isOk(fakePeers.every(p => p.pushMessage.calledOnce));
+        });
+
+        it('should send only to 2 neighbours', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, undefined, 2);
+
+            assert.equal(fakePeers.filter(p => p.pushMessage.calledOnce).length, 2);
+        });
+
+        it('should send to all peers except specified', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, fakePeers[0]);
+
+            const arrInformedPeers = fakePeers.filter(p => p.pushMessage.calledOnce);
+            assert.equal(arrInformedPeers.length, fakePeers.length - 1);
+            assert.isOk(arrInformedPeers.every(p => p.address !== fakePeers[0].address));
+        });
+
+        it('should send only to 2 except specified', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, fakePeers[0], 2);
+
+            const arrInformedPeers = fakePeers.filter(p => p.pushMessage.calledOnce);
+            assert.equal(arrInformedPeers.length, 2);
+            assert.isOk(arrInformedPeers.every(p => p.address !== fakePeers[0].address));
+        });
+
+        it('should send to all (connected peers less than needed)', async () => {
+            const fakeMessage = {payload: Buffer.from('fakemessagecontent')};
+            pm.broadcastToConnected(undefined, fakeMessage, undefined, 8);
+
+            assert.equal(fakePeers.filter(p => p.pushMessage.calledOnce).length, fakePeers.length);
+        });
+
+    });
 });

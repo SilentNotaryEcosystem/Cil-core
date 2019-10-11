@@ -75,7 +75,7 @@ module.exports = (factory) => {
 
         /**
          *
-         * @returns {Array} of tips (free vertexes in graph)
+         * @returns {Array} of hashes (string) of tips (free vertexes in graph)
          */
         getTips() {
             return this._dag.tips;
@@ -102,31 +102,58 @@ module.exports = (factory) => {
         /**
          * It will check "compatibility" of tips (ability to merge patches)
          *
+         * @param {Number} nConciliumId
          * @returns {{arrParents, patchMerged}}
          * @private
          */
-        getBestParents() {
+        getBestParents(nConciliumId) {
             let arrTips = this.getTips();
+            const lastResort = this._topStable && this._topStable.length ? this._topStable : [Constants.GENESIS_BLOCK];
 
-            if (!arrTips || !arrTips.length) arrTips = this._topStable;
-            if (!arrTips || !arrTips.length) arrTips = [Constants.GENESIS_BLOCK];
+            if (!arrTips || !arrTips.length) arrTips = lastResort;
 
             // TODO: consider using process.nextTick() (this could be time consuming)
             // @see https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
             const arrParents = [];
 
-            const sortedDownTipIndexes = this._sortTips(arrTips);
+            const sortedDownTipIndexes = this._sortTips(arrTips, nConciliumId);
 
             // TODO: review it. this implementation (merging most witnessed vertex with other) could be non optimal
-            const patchMerged = this.mergePatches(sortedDownTipIndexes.map(i => arrTips[i]), arrParents, true);
+            let patchMerged;
+            try {
+                patchMerged = this.mergePatches(
+                    sortedDownTipIndexes.map(i => arrTips[i]),
+                    arrParents,
+                    nConciliumId === undefined
+                );
+            } catch (e) {
+            }
 
             // TODO: review it
             if (!arrParents.length) logger.debug('No pending parents found, using stable tips!');
 
             return {
-                arrParents: arrParents.length ? arrParents : arrTips,
+                arrParents: arrParents.length ? arrParents : lastResort,
                 patchMerged
             };
+        }
+
+        /**
+         *
+         * @param {Array} arrHashes
+         * @param {Number} nConciliumId
+         * @return {String | undefined}
+         * @private
+         */
+        _findByConciliumId(arrHashes, nConciliumId) {
+            if (nConciliumId === undefined) return undefined;
+
+            const [hash] = arrHashes.filter(vertex => {
+                const objResult = this._dag.readObj(vertex);
+                if (!objResult) return false;
+                return objResult.blockHeader.conciliumId === nConciliumId;
+            });
+            return hash;
         }
 
         /**
@@ -136,10 +163,18 @@ module.exports = (factory) => {
          * - if they are equal - we'll leave longest one
          *
          * @param {Array} arrTips
+         * @param {Number} nConciliumId
          * @returns {Array} sorted array of tips indexes
          * @private
          */
-        _sortTips(arrTips) {
+        _sortTips(arrTips, nConciliumId) {
+
+            // find previous block of selected concilium (if any)
+            // first of all, we should build non-conflicting path for selected concilium,
+            // so we'll include own tip, if any
+            const prevBlockHash = this._findByConciliumId(arrTips, nConciliumId);
+            let prevBlockIndex;
+            if (prevBlockHash) prevBlockIndex = arrTips.findIndex(hash => hash === prevBlockHash);
 
             // get max witnessed path for all tips
             const arrWitnessNums = arrTips.map(vertex => this.getVertexWitnessBelow(vertex));
@@ -148,6 +183,11 @@ module.exports = (factory) => {
             return arrTips
                 .map((e, i) => i)
                 .sort((i1, i2) => {
+
+                    // this will bring prevBlockHash to the head of array
+                    if (i1 === prevBlockIndex) return -1;
+                    if (i2 === prevBlockIndex) return 1;
+
                     const diff = arrWitnessNums[i2] - arrWitnessNums[i1];
 
                     // equal WitnessNum

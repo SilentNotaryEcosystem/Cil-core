@@ -66,6 +66,9 @@ module.exports = (factory, factoryOptions) => {
 
             const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
+            const arrConciliumIds = arrConciliums.map(cConcilium => cConcilium.getConciliumId());
+            this._mempool.setPreferredConciliums(arrConciliumIds);
+
             // this need only at very beginning when witness start without genesis. In this case
             const wasInitialized = this._consensuses.size;
 
@@ -173,7 +176,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             // after we connected as much witnesses as possible - reconnect to other peers if we still have slots
-            await super._reconnectPeers();
+            await super._reconnectPeers().catch(err => console.error(err));
         }
 
         /**
@@ -356,19 +359,22 @@ module.exports = (factory, factoryOptions) => {
                 debugWitness(`Witness: "${this._debugAddress}" message "${message.message}" from CONSENSUS engine`);
                 this._broadcastConsensusInitiatedMessage(message);
             });
+
             consensus.on('createBlock', async () => {
+                if (this._mutex.isLocked('commitBlock')) return;
+
                 const lock = await this._mutex.acquire(['createBlock']);
 
                 try {
                     const {conciliumId} = consensus;
-                    const {block} = await this._createBlock(conciliumId);
+                    const {block, patch} = await this._createBlock(conciliumId);
                     if (block.isEmpty() &&
                         (!consensus.timeForWitnessBlock() || !this._pendingBlocks.isReasonToWitness(block))
                     ) {
                         this._suppressedBlockHandler();
                     } else {
                         await this._broadcastBlock(conciliumId, block);
-                        consensus.processValidBlock(block);
+                        consensus.processValidBlock(block, patch);
                     }
                 } catch (e) {
                     logger.error(e);
@@ -376,11 +382,33 @@ module.exports = (factory, factoryOptions) => {
                     this._mutex.release(lock);
                 }
             });
-            consensus.on('commitBlock', async (block) => {
-                await this._handleArrivedBlock(block);
-                logger.log(
-                    `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
-                consensus.blockCommited();
+
+            consensus.on('commitBlock', async (block, patch) => {
+                const lock = await this._mutex.acquire(['commitBlock']);
+                try {
+                    const arrContracts = [...patch.getContracts()];
+                    if (arrContracts.length) {
+
+                        // we have contracts inside block - we should re-execute block to have proper variables inside block
+                        await this._handleArrivedBlock(block);
+                    } else {
+
+                        // we have only moneys transfers, so we could use patch. this will speed up processing
+                        await this._storeBlockAndInfo(block, new BlockInfo(block.header));
+                        await this._acceptBlock(block, patch);
+                        await this._postAcceptBlock(block);
+
+                        if (!this._networkSuspended) this._informNeighbors(block);
+                    }
+                    logger.log(
+                        `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
+                    consensus.blockCommited();
+
+                } catch (e) {
+                    logger.error(e);
+                } finally {
+                    this._mutex.release(lock);
+                }
             });
         }
 
@@ -457,9 +485,12 @@ module.exports = (factory, factoryOptions) => {
             const block = new Block(conciliumId);
             block.markAsBuilding();
 
+            let arrParents;
+            let patchMerged;
+
             const lock = await this._mutex.acquire(['blockExec', 'blockCreate']);
             try {
-                let {arrParents, patchMerged} = this._pendingBlocks.getBestParents();
+                ({arrParents, patchMerged} = this._pendingBlocks.getBestParents(conciliumId));
                 patchMerged = patchMerged ? patchMerged : new PatchDB();
                 patchMerged.setConciliumId(conciliumId);
 
@@ -476,12 +507,12 @@ module.exports = (factory, factoryOptions) => {
                     try {
                         const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
 
-                        // this tx exceeded time limit for block creations - so we don't include it
-                        if (Date.now() - nStartTime > Constants.blockCreationTimeLimit) break;
-
                         totalFee += fee;
                         patchMerged = patchMerged.merge(patchThisTx, true);
                         block.addTx(tx);
+
+                        // this tx exceeded time limit for block creations - so we don't include it
+                        if (Date.now() - nStartTime > Constants.blockCreationTimeLimit) break;
                     } catch (e) {
                         logger.error(e);
                         arrBadHashes.push(tx.hash());
@@ -502,7 +533,7 @@ module.exports = (factory, factoryOptions) => {
                 this._processedBlock = undefined;
             }
 
-            return {block};
+            return {block, patch: patchMerged};
         }
 
         _createPseudoRandomSeed(arrLastStableBlockHashes) {
