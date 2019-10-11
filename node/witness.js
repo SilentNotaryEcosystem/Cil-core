@@ -491,12 +491,12 @@ module.exports = (factory, factoryOptions) => {
                     try {
                         const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
 
-                        // this tx exceeded time limit for block creations - so we don't include it
-                        if (Date.now() - nStartTime > Constants.blockCreationTimeLimit) break;
-
                         totalFee += fee;
                         patchMerged = patchMerged.merge(patchThisTx, true);
                         block.addTx(tx);
+
+                        // this tx exceeded time limit for block creations - so we don't include it
+                        if (Date.now() - nStartTime > Constants.blockCreationTimeLimit) break;
                     } catch (e) {
                         logger.error(e);
                         arrBadHashes.push(tx.hash());

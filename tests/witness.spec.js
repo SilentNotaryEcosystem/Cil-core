@@ -176,8 +176,10 @@ describe('Witness tests', () => {
 
             const {block} = await witness._createBlock(0);
 
-            // plus coinbase
-            assert.equal(block.txns.length, 1 + parseInt(factory.Constants.blockCreationTimeLimit / nFakeTimePerTx));
+            // plus coinbase, plus that tx, which exec exceed time per block
+            assert.equal(block.txns.length,
+                1 + 1 + parseInt(factory.Constants.blockCreationTimeLimit / nFakeTimePerTx)
+            );
         });
     });
 });
