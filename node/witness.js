@@ -397,6 +397,8 @@ module.exports = (factory, factoryOptions) => {
                         await this._storeBlockAndInfo(block, new BlockInfo(block.header));
                         await this._acceptBlock(block, patch);
                         await this._postAcceptBlock(block);
+
+                        if (!this._networkSuspended) this._informNeighbors(block);
                     }
                     logger.log(
                         `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
