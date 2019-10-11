@@ -240,8 +240,9 @@ module.exports = (factory) => {
          * - send it to other witnesses
          *
          * @param {Block} block
+         * @param {PatchDb} patch
          */
-        processValidBlock(block) {
+        processValidBlock(block, patch) {
             typeforce(types.Block, block);
 
             debug(`BFT "${this._nonce}". Received block with hash: ${block.hash()}. State ${this._state}`);
@@ -250,6 +251,7 @@ module.exports = (factory) => {
                 return;
             }
             this._block = block;
+            this._patch = patch;
             this._lastBlockTime = Date.now();
             this._blockStateHandler(true);
 
@@ -422,7 +424,7 @@ module.exports = (factory) => {
                         }
 
                         this._block.addWitnessSignatures(arrSignatures);
-                        this.emit('commitBlock', this._block);
+                        this.emit('commitBlock', this._block, this._patch);
                     } else {
 
                         // Proposer misbehave!! sent us different block than other!

@@ -367,14 +367,14 @@ module.exports = (factory, factoryOptions) => {
 
                 try {
                     const {conciliumId} = consensus;
-                    const {block} = await this._createBlock(conciliumId);
+                    const {block, patch} = await this._createBlock(conciliumId);
                     if (block.isEmpty() &&
                         (!consensus.timeForWitnessBlock() || !this._pendingBlocks.isReasonToWitness(block))
                     ) {
                         this._suppressedBlockHandler();
                     } else {
                         await this._broadcastBlock(conciliumId, block);
-                        consensus.processValidBlock(block);
+                        consensus.processValidBlock(block, patch);
                     }
                 } catch (e) {
                     logger.error(e);
@@ -383,10 +383,21 @@ module.exports = (factory, factoryOptions) => {
                 }
             });
 
-            consensus.on('commitBlock', async (block) => {
+            consensus.on('commitBlock', async (block, patch) => {
                 const lock = await this._mutex.acquire(['commitBlock']);
                 try {
-                    await this._handleArrivedBlock(block);
+                    const arrContracts = [...patch.getContracts()];
+                    if (arrContracts.length) {
+
+                        // we have contracts inside block - we should re-execute block to have proper variables inside block
+                        await this._handleArrivedBlock(block);
+                    } else {
+
+                        // we have only moneys transfers, so we could use patch. this will speed up processing
+                        await this._storeBlockAndInfo(block, new BlockInfo(block.header));
+                        await this._acceptBlock(block, patch);
+                        await this._postAcceptBlock(block);
+                    }
                     logger.log(
                         `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
                     consensus.blockCommited();
@@ -472,9 +483,12 @@ module.exports = (factory, factoryOptions) => {
             const block = new Block(conciliumId);
             block.markAsBuilding();
 
+            let arrParents;
+            let patchMerged;
+
             const lock = await this._mutex.acquire(['blockExec', 'blockCreate']);
             try {
-                let {arrParents, patchMerged} = this._pendingBlocks.getBestParents(conciliumId);
+                ({arrParents, patchMerged} = this._pendingBlocks.getBestParents(conciliumId));
                 patchMerged = patchMerged ? patchMerged : new PatchDB();
                 patchMerged.setConciliumId(conciliumId);
 
@@ -517,7 +531,7 @@ module.exports = (factory, factoryOptions) => {
                 this._processedBlock = undefined;
             }
 
-            return {block};
+            return {block, patch: patchMerged};
         }
 
         _createPseudoRandomSeed(arrLastStableBlockHashes) {
