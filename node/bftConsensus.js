@@ -112,7 +112,7 @@ module.exports = (factory) => {
             // make sure that those guys from our concilium
             // if ok - this means message wasn't changed
             if (!this.checkAddresses(senderAddr) || !this.checkAddresses(addrI)) {
-                throw new Error(`Message ${witnessMsg.message} from wrong address`);
+                throw new Error(`Message ${witnessMsg.message} from wrong address: "${senderAddr}".`);
             }
 
             debug(

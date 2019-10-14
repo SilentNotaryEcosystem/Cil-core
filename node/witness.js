@@ -241,7 +241,7 @@ module.exports = (factory, factoryOptions) => {
                     'hex')}`);
                 consensus.processMessage(messageWitness);
             } catch (e) {
-                logger.error(e);
+                logger.error(e.message);
             }
         }
 
