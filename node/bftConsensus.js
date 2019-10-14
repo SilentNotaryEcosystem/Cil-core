@@ -46,7 +46,7 @@ module.exports = (factory) => {
             this._concilium.initRounds();
 
             this._tock = new Tick(this);
-            this._tock.setInterval(MAIN_TIMER_NAME, this._stateChange.bind(this), Timeouts.INIT);
+            this._tock.setInterval(MAIN_TIMER_NAME, this._stateChange.bind(this), Timeouts.ROUND_CHANGE);
 
             this._resetState();
 
