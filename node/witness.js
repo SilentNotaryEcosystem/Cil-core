@@ -62,21 +62,28 @@ module.exports = (factory, factoryOptions) => {
          * @return {Promise<void>}
          */
         async start() {
-            this._nMinConnections = Constants.MIN_PEERS;
+            let arrConciliums;
 
-            const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
+            try {
+                this._bReconnectInProgress = true;
+                this._nMinConnections = Constants.MIN_PEERS;
 
-            const arrConciliumIds = arrConciliums.map(cConcilium => cConcilium.getConciliumId());
-            this._mempool.setPreferredConciliums(arrConciliumIds);
+                arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
-            // this need only at very beginning when witness start without genesis. In this case
-            const wasInitialized = this._consensuses.size;
+                const arrConciliumIds = arrConciliums.map(cConcilium => cConcilium.getConciliumId());
+                this._mempool.setPreferredConciliums(arrConciliumIds);
 
-            for (let def of arrConciliums) {
-                this._nMinConnections += def.getMembersCount();
+                // this need only at very beginning when witness start without genesis. In this case
+                const wasInitialized = this._consensuses.size;
 
-                if (!wasInitialized) await this._createConsensusForConcilium(def);
-                await this.startConcilium(def);
+                for (let def of arrConciliums) {
+                    this._nMinConnections += def.getMembersCount();
+
+                    if (!wasInitialized) await this._createConsensusForConcilium(def);
+                    await this.startConcilium(def);
+                }
+            } finally {
+                this._bReconnectInProgress = false;
             }
 
             return arrConciliums.length;
@@ -101,7 +108,11 @@ module.exports = (factory, factoryOptions) => {
         async startConcilium(concilium) {
             const peers = await this._getConciliumPeers(concilium);
             for (let peer of peers) {
-                await this._connectWitness(peer, concilium);
+                try {
+                    await this._connectWitness(peer, concilium);
+                } catch (e) {
+                    console.error(e.message);
+                }
             }
         }
 
@@ -135,7 +146,7 @@ module.exports = (factory, factoryOptions) => {
                     debugWitnessMsg(
                         `(address: "${this._debugAddress}") sending SIGNED message "${handshakeMsg.message}" to "${peer.address}"`);
                     await peer.pushMessage(handshakeMsg);
-                    await Promise.race([peer.witnessLoaded(), sleep(Constants.PEER_QUERY_TIMEOUT)]);
+                    await peer.witnessLoaded(concilium.getConciliumId());
                 }
 
                 if (peer.witnessLoadDone(concilium.getConciliumId())) {
@@ -165,18 +176,10 @@ module.exports = (factory, factoryOptions) => {
         async _reconnectPeers() {
             if (this._bReconnectInProgress) return;
 
-            this._bReconnectInProgress = true;
-            try {
-                await this.start();
-
-            } catch (e) {
-                console.error(e.message);
-            } finally {
-                this._bReconnectInProgress = false;
-            }
+            await this.start();
 
             // after we connected as much witnesses as possible - reconnect to other peers if we still have slots
-            await super._reconnectPeers().catch(err => console.error(err));
+            await super._reconnectPeers();
         }
 
         /**

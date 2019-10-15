@@ -237,10 +237,10 @@ module.exports = (factory) => {
             }
         }
 
-        async witnessLoaded() {
+        async witnessLoaded(nConciliumId) {
             for (let i = 0; i < Constants.PEER_QUERY_TIMEOUT / 100; i++) {
                 await sleep(100);
-                if (this.witnessLoadDone) break;
+                if (this.witnessLoadDone(nConciliumId)) break;
             }
         }
 
