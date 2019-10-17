@@ -302,8 +302,8 @@ module.exports = (factory, factoryOptions) => {
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
                     if (await this._canExecuteBlock(block)) {
-                        await this._execBlock(block);
-                        consensus.processValidBlock(block);
+                        const patch = await this._execBlock(block);
+                        consensus.processValidBlock(block, patch);
                     } else {
                         throw new Error(`Block ${block.hash()} couldn't be executed right now!`);
                     }
@@ -387,15 +387,16 @@ module.exports = (factory, factoryOptions) => {
             });
 
             consensus.on('commitBlock', async (block, patch) => {
-                const lock = await this._mutex.acquire(['commitBlock']);
+                const lock = await this._mutex.acquire(['createBlock']);
                 try {
                     const arrContracts = [...patch.getContracts()];
                     if (arrContracts.length) {
 
                         // we have contracts inside block - we should re-execute block to have proper variables inside block
                         await this._handleArrivedBlock(block);
-                    } else {
+                    } else if (!this._isBlockExecuted(block.getHash())) {
 
+                        // block still hadn't received from more quick (that already commited & announced block) witness
                         // we have only moneys transfers, so we could use patch. this will speed up processing
                         await this._storeBlockAndInfo(block, new BlockInfo(block.header));
                         await this._acceptBlock(block, patch);
