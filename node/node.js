@@ -1396,6 +1396,11 @@ module.exports = (factory, factoryOptions) => {
             const cNestedContract = await this._getContractByAddr(strAddress, patchBlock);
             if (!cNestedContract) throw new Error('Contract not found!');
 
+            if (this._processedBlock &&
+                this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2) {
+                cNestedContract.switchSerializerToJson();
+            }
+
             // context set - it's delegatecall, proxy contract
             if (context) cNestedContract.proxyContract(contract);
 
