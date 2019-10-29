@@ -156,6 +156,8 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             typeforce.Number(totalTxnsFees);
             typeforce(types.Address, addrReceiver);
 
+            assert(totalTxnsFees >= 0, 'Coinbase amount is negative');
+
             this._hashCache = undefined;
             const buffReceiverAddr = Buffer.from(addrReceiver, 'hex');
 
