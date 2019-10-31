@@ -13,9 +13,6 @@ const BaseConciliumDefinition = require('./baseConciliumDefinition');
 //        // see base class
 //    },
 //
-//    // this means - can anybody join concilium or creator should add them
-//    isOpen: false,
-//
 //    // members information
 //    addresses: [
 //    ],

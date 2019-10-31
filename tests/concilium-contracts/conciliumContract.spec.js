@@ -425,6 +425,7 @@ describe('Concilium contract', () => {
         beforeEach(() => {
             contract.setFeeCreate(1e5);
             global.value = 1e5;
+            global.callerAddress = generateAddress().toString('hex');
 
             arrMembers = [
                 generateAddress().toString('hex'),
@@ -434,7 +435,17 @@ describe('Concilium contract', () => {
             concilium = factory.ConciliumRr.create(11, arrMembers);
         });
 
-        it('should fail: concilium is open', async () => {
+        it('should FAIL (not an owner)', async () => {
+            await contract.createConcilium(concilium.toObject());
+            global.callerAddress = generateAddress().toString('hex');
+
+            return assert.isRejected(
+                contract.inviteToConcilium(1, [generateAddress().toString('hex')]),
+                'Unauthorized call'
+            );
+        });
+
+        it('should FAIL: concilium is open', async () => {
             const concilium = new factory.ConciliumRr({
                 isOpen: true,
                 conciliumId: 1
@@ -447,21 +458,7 @@ describe('Concilium contract', () => {
             );
         });
 
-        it('should fail: concilium is not CONCILIUM_TYPE_RR', async () => {
-            const concilium = new factory.ConciliumPos({
-                isOpen: false,
-                conciliumId: 1,
-                nMinAmountToJoin: 1e5
-            });
-            await contract.createConcilium(concilium.toObject());
-
-            return assert.isRejected(
-                contract.inviteToConcilium(1, generateAddress().toString('hex')),
-                'this method only for CONCILIUM_TYPE_RR'
-            );
-        });
-
-        it('should invite', async () => {
+        it('should invite to RR concilium', async () => {
             const concilium = new factory.ConciliumRr({
                 isOpen: false,
                 conciliumId: 1
@@ -471,6 +468,34 @@ describe('Concilium contract', () => {
             contract.inviteToConcilium(1, [generateAddress().toString('hex')]);
 
             const storedConcilium = new factory.ConciliumRr(contract._checkConciliumId(1));
+            assert.strictEqual(storedConcilium.getMembersCount(), 1);
+        });
+
+        it('should FAIL to invite to PoS concilium', async () => {
+            const concilium = new factory.ConciliumPos({
+                isOpen: false,
+                conciliumId: 1,
+                nMinAmountToJoin: 1e4
+            });
+            await contract.createConcilium(concilium.toObject());
+
+            contract.inviteToConcilium(1, [generateAddress().toString('hex')]);
+
+            const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
+            assert.strictEqual(storedConcilium.getMembersCount(), 1);
+        });
+
+        it('should invite to PoS concilium', async () => {
+            const concilium = new factory.ConciliumPos({
+                isOpen: false,
+                conciliumId: 1,
+                nMinAmountToJoin: 1e4
+            });
+            await contract.createConcilium(concilium.toObject());
+
+            contract.inviteToConcilium(1, [generateAddress().toString('hex')]);
+
+            const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
             assert.strictEqual(storedConcilium.getMembersCount(), 1);
         });
     });
@@ -644,6 +669,30 @@ describe('Concilium contract', () => {
             assert.equal(storedConcilium.getFeeContractCreation(), nOldFee);
             assert.equal(storedConcilium.getFeeContractInvocation(), nOldFee);
             assert.equal(storedConcilium.getFeeStorage(), nOldFee);
+        });
+
+        it('should disable concilium', async () => {
+            const objNewParameters = {
+                isEnabled: false
+            };
+
+            const concilium = new factory.ConciliumPos({
+                isOpen: true,
+                nMinAmountToJoin: 1e5,
+                parameters: {
+                    fees: 'fakeFees',
+                    isEnabled: true
+                }
+            });
+
+            contract.setFeeCreate(1e2);
+            await contract.createConcilium(concilium.toObject());
+            contract._posConciliumMemberExists = sinon.fake.returns(true);
+
+            await contract.changeConciliumParameters(1, objNewParameters);
+
+            const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
+            assert.isNotOk(storedConcilium.isEnabled());
         });
     });
 })

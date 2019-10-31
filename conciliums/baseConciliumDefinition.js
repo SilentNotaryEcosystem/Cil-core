@@ -10,6 +10,7 @@ const {deepCloneObject} = require('../utils');
 //const def = {
 //    conciliumId: 0, //     will be set by Concilium management contract
 //    type: Constants.CONCILIUM_TYPE_POS | Constants.CONCILIUM_TYPE_RR,
+//    isOpen: false, // this means - can anybody join concilium or creator should add them
 //    parameters: {
 //        fees: {
 //            feeTxSize: 111,
