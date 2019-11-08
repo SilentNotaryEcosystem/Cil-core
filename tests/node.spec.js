@@ -2085,6 +2085,32 @@ describe('Node tests', () => {
             assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
         });
 
+        it('should use all coins as fee (exceed coinsLimit while exec, storage fee unknown beforehand)', async () => {
+            const node = new factory.Node();
+            const nTotalHas = 1e5;
+            const nMoneysToContract = 0;
+            const nFakeCoinsUsed = 1e3;
+
+            const kp = factory.Crypto.createKeyPair();
+            const {tx, strContractAddr} = createContractInvocationTx({}, true, nMoneysToContract);
+            tx.signForContract(kp.privateKey);
+
+            node._storage.getContract = sinon.fake.returns(new factory.Contract({
+                conciliumId,
+                contractCode: '{"_default": "() {}"}'
+            }, strContractAddr));
+            node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+            node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
+            node._app.getDataDelta = sinon.fake.returns(
+                1 + (nTotalHas - nFakeCoinsUsed) / factory.Constants.fees.STORAGE_PER_BYTE_FEE);
+
+            const {fee, patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
+
+            const cReceipt = patchThisTx.getReceipt(tx.getHash());
+            assert.isNotOk(cReceipt.isSuccessful());
+            assert.equal(fee, nTotalHas);
+        });
+
         it('should send right change (second output and fee. moneys sent to change, since contract throws)',
             async () => {
                 const node = new factory.Node();
@@ -2114,12 +2140,10 @@ describe('Node tests', () => {
                 const cReceipt = patchThisTx.getReceipt(tx.getHash());
                 const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
 
-                const totalSpent =
-                    nAmountSecondOutput +
-                    nFakeCoinsUsed +
-                    await node._calculateSizeFee(tx, false)
-                ;
-                assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
+                const totalSpent = nFakeCoinsUsed + await node._calculateSizeFee(tx, false);
+                const nMoneysAvailForContract = nTotalHas - nAmountSecondOutput;
+
+                assert.equal(cCoinsChange.getAmount(), nMoneysAvailForContract - totalSpent);
             }
         );
 

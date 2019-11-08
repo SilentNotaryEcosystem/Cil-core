@@ -1183,8 +1183,9 @@ module.exports = (factory, factoryOptions) => {
                 ), arguments);
 
             if (contract &&
-                this._processedBlock &&
-                this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER) {
+                ((this._processedBlock &&
+                  this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER) ||
+                 !this._processedBlock)) {
                 contract.switchSerializerToJson();
             }
 
@@ -1275,15 +1276,20 @@ module.exports = (factory, factoryOptions) => {
                     );
                 }
 
+                const nCoinsUsed = nFeeSize + this._app.coinsSpent() + this._app.getDataDelta() * nFeeStorage;
+                if (nCoinsUsed > nMaxCoins) throw new Error('Not enough coins to run contract');
+
                 status = Constants.TX_STATUS_OK;
             } catch (err) {
                 logger.error('Error in contract!', err);
                 status = Constants.TX_STATUS_FAILED;
                 message = err.message ? err.message : err.toString();
+            } finally {
+
             }
 
             receipt = new TxReceipt({
-                coinsUsed: this._app.coinsSpent() + nFeeSize + this._app.getDataDelta() * nFeeStorage,
+                coinsUsed: nFeeSize + this._app.coinsSpent() + this._app.getDataDelta() * nFeeStorage,
                 contractAddress: bNewContract ? Buffer.from(contract.getStoredAddress(), 'hex') : undefined,
                 status,
                 message
@@ -1313,7 +1319,11 @@ module.exports = (factory, factoryOptions) => {
 
             // send change (not for Genesis)
             if (!isGenesis) {
-                fee = this._createContractChange(tx, nMaxCoins, patchThisTx, receipt);
+                if (receipt.getCoinsUsed() > nMaxCoins) {
+                    fee = nMaxCoins;
+                } else {
+                    fee = this._createContractChange(tx, nMaxCoins, patchThisTx, receipt);
+                }
             }
 
             return fee;
