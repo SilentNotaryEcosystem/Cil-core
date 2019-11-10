@@ -493,10 +493,10 @@ describe('Concilium contract', () => {
             });
             await contract.createConcilium(concilium.toObject());
 
-            contract.inviteToConcilium(1, [generateAddress().toString('hex')]);
+            contract.inviteToConcilium(1, [generateAddress().toString('hex'), generateAddress().toString('hex')]);
 
             const storedConcilium = new factory.ConciliumPos(contract._checkConciliumId(1));
-            assert.strictEqual(storedConcilium.getMembersCount(), 1);
+            assert.strictEqual(storedConcilium.getMembersCount(), 2);
         });
     });
     describe('Leave concilium', async () => {
