@@ -11,7 +11,8 @@ const {sleep} = require('../utils');
 const ConnectionWrapper = require('./ipv6Connection');
 const publicAddressesRange = require('./publicAddresses');
 
-const dnsResolveDelegate = util.promisify(dns.resolve);
+const dnsResolve4 = util.promisify(dns.resolve4);
+const dnsResolve6 = util.promisify(dns.resolve6);
 
 module.exports = (factory) => {
     const {Serializer, MessageAssembler, Constants} = factory;
@@ -98,10 +99,9 @@ module.exports = (factory) => {
          */
         static async resolveName(name) {
             try {
-                const arrRecords = await dnsResolveDelegate(name, 'ANY');
-                return arrRecords
-                    .filter(record => record.type === 'A' || record.type === 'AAAA')
-                    .map(record => record.address);
+                let arrRecords = await dnsResolve4(name);
+                arrRecords.concat(await dnsResolve6(name).catch(err => debug(err)));
+                return arrRecords;
             } catch (err) {
                 debug(`dnsName: ${name}; error: ${err}`);
                 return [];
