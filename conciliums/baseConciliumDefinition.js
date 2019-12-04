@@ -41,7 +41,8 @@ module.exports = class BaseConciliumDefinition {
                 document: []
             };
         }
-        this._data.parameters.isEnabled = true;
+
+        if (!this._data.parameters.hasOwnProperty('isEnabled')) this._data.parameters.isEnabled = true;
 
         this.changeSeed(0);
 
