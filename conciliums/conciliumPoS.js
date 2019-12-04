@@ -18,9 +18,6 @@ const debug = debugLib('conciliumPoS:');
 //        // see base class
 //    },
 //
-//    // this means - can anybody join concilium or creator should add them
-//    isOpen: true,
-//
 //    // amount to use as share
 //    nMinAmountToJoin: 1e8,
 //
