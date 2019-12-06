@@ -142,6 +142,10 @@ module.exports = (factory, factoryOptions) => {
             return this._rpc;
         }
 
+        get storage() {
+            return this._storage;
+        }
+
         get nonce() {
             return this._nonce;
         }

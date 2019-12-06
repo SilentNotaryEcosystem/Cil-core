@@ -40,6 +40,7 @@ const PeerManagerWrapper = require('./network/peerManager');
 const MessagesWrapper = require('./messages/index');
 
 const WalletWrapper = require('./node/wallet');
+const StoredWalletWrapper = require('./node/storedWallets');
 const BftWrapper = require('./node/bftConsensus');
 const NodeWrapper = require('./node/node');
 const MempoolWrapper = require('./node/mempool');
@@ -143,6 +144,7 @@ class Factory {
             ...config.constants
         };
         this._walletImplementation = WalletWrapper(this.Crypto);
+        this._storedWalletImplementation = StoredWalletWrapper(this.Crypto);
     }
 
     get Mutex() {
@@ -290,6 +292,10 @@ class Factory {
 
     get Inventory() {
         return this._inventoryImplementation;
+    }
+
+    get StoredWallet() {
+        return this._storedWalletImplementation;
     }
 
     get utils() {

@@ -9,7 +9,7 @@ const types = require('../types');
 
 const debug = debugLib('RPC:');
 
-module.exports = ({Constants, Transaction}) =>
+module.exports = ({Constants, Transaction, StoredWallet}) =>
     class RPC {
         /**
          *
@@ -21,6 +21,7 @@ module.exports = ({Constants, Transaction}) =>
          */
         constructor(cNodeInstance, options) {
             this._nodeInstance = cNodeInstance;
+            this._storedWallets = new StoredWallet({storage: cNodeInstance.storage});
 
             const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
             this._server = rpc.Server.$create({
@@ -54,6 +55,9 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
             this._server.expose('countWallets', asyncRPC(this.countWallets.bind(this)));
             this._server.expose('getLastBlockByConciliumId', asyncRPC(this.getLastBlockByConciliumId.bind(this)));
+
+            this._server.expose('unlockAccount', asyncRPC(this.unlockAccount.bind(this)));
+            this._server.expose('importPrivateKey', asyncRPC(this.importPrivateKey.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -351,13 +355,23 @@ module.exports = ({Constants, Transaction}) =>
         }
 
         async getLastBlockByConciliumId(args) {
-            let {nConciliumId} = args;
+            const {nConciliumId} = args;
 
             const strHash = await this._nodeInstance.rpcHandler({
                 event: 'getLastBlockByConciliumId',
                 content: nConciliumId
             });
             return strHash;
+        }
+
+        async unlockAccount(args) {
+            const {strAccountName, strPassword, nSeconds} = args;
+            await this._storedWallets.unlockAccount(strAccountName, strPassword, nSeconds);
+        }
+
+        async importPrivateKey(args) {
+            const {strAccountName, strPrivateKey, bRescan} = args;
+            await this._storedWallets.importPrivateKey(strAccountName, strPrivateKey, bRescan);
         }
 
     };

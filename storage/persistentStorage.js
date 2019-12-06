@@ -8,8 +8,10 @@ const leveldown = require('leveldown');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const util = require('util');
+const fs = require('fs').promises;
 
 const types = require('../types');
+const {prepareForStringifyObject} = require('../utils');
 
 const debug = debugLib('storage:');
 
@@ -93,6 +95,7 @@ module.exports = (factory, factoryOptions) => {
             if (walletSupport) {
                 this._walletSupport = true;
                 this._walletStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_WALLET_DIR}`));
+                this._strAccountPath = `${this._pathPrefix}/${Constants.DB_WALLET_DIR}/accounts`;
             }
 
             this._mutex = mutex;
@@ -646,6 +649,8 @@ module.exports = (factory, factoryOptions) => {
             } finally {
                 this._mutex.release(lockInc);
             }
+
+            await this._initAccounts();
         }
 
         /**
@@ -960,6 +965,72 @@ module.exports = (factory, factoryOptions) => {
                 utxo.getReceivers().forEach(addr => setAddresses.add(addr));
             }
             return setAddresses.size;
+        }
+
+        async _initAccounts() {
+            const strPath = `${this._strAccountPath}`;
+
+            this._mapAccountAddresses = new Map();
+
+            try {
+                const stat = await fs.stat(strPath).catch(err => {});
+                if (!stat || !stat.isDirectory()) {
+                    await fs.mkdir(strPath);
+                }
+                const arrFileNames = await fs.readdir(strPath);
+
+                for (let strDirName of arrFileNames) {
+                    await this._readAccount(strDirName);
+                }
+            } catch (e) {
+                logger.error('Account initialization failed', e);
+            }
+        }
+
+        /**
+         * Set this._mapAccountAddresses with addresses in account
+         *
+         * @param {String} strAccountName
+         * @return {Promise<void>}
+         * @private
+         */
+        async _readAccount(strAccountName) {
+            const strPath = `${this._strAccountPath}/${strAccountName}`;
+            const arrAddresses = await fs.readdir(strPath);
+            this._mapAccountAddresses.set(strAccountName, arrAddresses);
+        }
+
+        async hasAccount(strAccountName) {
+            await this._ensureWalletInitialized();
+
+            return this._mapAccountAddresses.has(strAccountName);
+        }
+
+        async createAccount(strAccountName) {
+            const strPath = `${this._strAccountPath}/${strAccountName}`;
+
+            await fs.mkdir(strPath);
+            this._mapAccountAddresses.set(strAccountName, []);
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @param {String }strAccountName
+         * @param {Object} objEncryptedPk - @see Crypto.encrypt
+         * @return {Promise<void>}
+         */
+        async writeKeyStore(strAddress, strAccountName, objEncryptedPk) {
+            const strKeyStoreContent = JSON.stringify({
+                address: 'Ux' + strAddress,
+                ...prepareForStringifyObject(objEncryptedPk),
+                version: 1.1
+            });
+
+            const strPath = `${this._strAccountPath}/${strAccountName}`;
+            await fs.writeFile(`${strPath}/${strAddress}`, strKeyStoreContent);
+
+            await this._readAccount(strAccountName);
         }
     };
 };
