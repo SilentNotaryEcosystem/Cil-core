@@ -649,6 +649,9 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
+         * Get All records of strAddress
+         * Keys are: <WALLET_PREFIX><buffAddress><idx>
+         *     idx - could be discrete
          *
          * @param {String} strAddress
          * @return {Promise<Object>} {key, value: hash of utxo}
@@ -674,6 +677,18 @@ module.exports = (factory, factoryOptions) => {
             );
         }
 
+        /**
+         * We'll create a new record
+         * key - <WALLET_PREFIX><buffAddress><idx>
+         * value - Buffer from strHash
+         *
+         * And update WALLET_AUTOINCREMENT
+         *
+         * @param {String | Buffer} address - to add an UTXO
+         * @param {String} strHash - hash of UTXO
+         * @return {Promise<void>}
+         * @private
+         */
         async _walletWriteAddressUtxo(address, strHash) {
             typeforce(typeforce.tuple(types.Address, types.Hash256bit), [address, strHash]);
             await this._ensureWalletInitialized();
@@ -681,8 +696,8 @@ module.exports = (factory, factoryOptions) => {
             const currentIdx = this._nWalletAutoincrement++;
 
             // prepare incremented value
-            const buff = Buffer.allocUnsafe(4);
-            buff.writeInt32BE(this._nWalletAutoincrement, 0);
+            const buffLastIdx = Buffer.allocUnsafe(4);
+            buffLastIdx.writeInt32BE(this._nWalletAutoincrement, 0);
 
             // store hash & autoincrement
             const key = this.constructor.createKey(WALLET_PREFIX, Buffer.from(address, 'hex'), currentIdx.toString());
@@ -691,7 +706,7 @@ module.exports = (factory, factoryOptions) => {
             try {
                 await this._walletStorage
                     .batch()
-                    .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buff)
+                    .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buffLastIdx)
                     .put(key, Buffer.from(strHash, 'hex'))
                     .write();
             } finally {
@@ -699,11 +714,26 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        /**
+         * UTXO could be spent, but index will still contain it.
+         * Here we purge it
+         *
+         * @param {Array} arrBadKeys - [<WALLET_PREFIX><buffAddress><idx>]
+         * @return {Promise<void>}
+         * @private
+         */
         async _walletCleanupMissed(arrBadKeys) {
             const arrOps = arrBadKeys.map(key => ({type: 'del', key}));
             await this._walletStorage.batch(arrOps);
         }
 
+        /**
+         * Check whether any of wallet addresses present in given UTXO
+         *
+         * @param {UTXO} utxo
+         * @return {Promise<void>}
+         * @private
+         */
         async _walletUtxoCheck(utxo) {
             await this._ensureWalletInitialized();
             for (let strAddress of this._arrStrWalletAddresses) {
@@ -809,11 +839,21 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        async getWallets() {
+        async getWalletsAddresses() {
             await this._ensureWalletInitialized();
             return this._arrStrWalletAddresses;
         }
 
+        /**
+         * Key is buffTxHash
+         * Value is buffBlockHash
+         * TODO: to save space, store autoincremented idx -> blockHash, and buffTxHash ->idx
+         *
+         * @param {Buffer} buffBlockHash
+         * @param {Array} arrTxnsHashes
+         * @return {Promise<void>}
+         * @private
+         */
         async _storeTxnsIndex(buffBlockHash, arrTxnsHashes) {
             debug(`Storing TX index for ${buffBlockHash.toString('hex')}`);
 

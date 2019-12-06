@@ -50,7 +50,7 @@ module.exports = ({Constants, Transaction}) =>
             this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
             this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
             this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
-            this._server.expose('getWallets', asyncRPC(this.getWallets.bind(this)));
+            this._server.expose('getWalletsAddresses', asyncRPC(this.getWalletsAddresses.bind(this)));
             this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
             this._server.expose('countWallets', asyncRPC(this.countWallets.bind(this)));
             this._server.expose('getLastBlockByConciliumId', asyncRPC(this.getLastBlockByConciliumId.bind(this)));
@@ -311,9 +311,9 @@ module.exports = ({Constants, Transaction}) =>
             });
         }
 
-        async getWallets(args) {
+        async getWalletsAddresses(args) {
             return await this._nodeInstance.rpcHandler({
-                event: 'getWallets'
+                event: 'getWalletsAddresses'
             });
         }
 

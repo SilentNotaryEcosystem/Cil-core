@@ -947,8 +947,8 @@ module.exports = (factory, factoryOptions) => {
                         if (bReindex) this._storage.walletReIndex();
                         break;
                     }
-                    case 'getWallets':
-                        return await this._storage.getWallets();
+                    case 'getWalletsAddresses':
+                        return await this._storage.getWalletsAddresses();
                         break;
                     case 'getWitnesses':
                         return await this._getAllWitnesses();
