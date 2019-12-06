@@ -499,9 +499,12 @@ module.exports = (factory, factoryOptions) => {
          */
         async getLastAppliedBlockHashes(raw = false) {
             const key = this.constructor.createKey(LAST_APPLIED_BLOCKS);
-            const result = await this._db.get(key).catch(err => debug(err));
 
-            return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
+            return this._mutex.runExclusive(['lastAppliedBlock'], async () => {
+                const result = await this._db.get(key).catch(err => debug(err));
+
+                return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
+            });
         }
 
         /**
@@ -517,7 +520,13 @@ module.exports = (factory, factoryOptions) => {
 
             // serialize and store
             const cArr = new ArrayOfHashes(arrBlockHashes);
-            await this._db.put(key, cArr.encode());
+            const lock = await this._mutex.acquire(['lastAppliedBlock']);
+
+            try {
+                await this._db.put(key, cArr.encode());
+            } finally {
+                this._mutex.release(lock);
+            }
         }
 
         /**
@@ -617,19 +626,25 @@ module.exports = (factory, factoryOptions) => {
 
             if (Array.isArray(this._arrStrWalletAddresses)) return;
 
+            const lockAddr = await this._mutex.acquire(['walletAddresses']);
             try {
                 const buffResult = await this._walletStorage.get(this.constructor.createKey(WALLET_ADDRESSES));
                 this._arrStrWalletAddresses =
                     buffResult && Buffer.isBuffer(buffResult) ? (new ArrayOfAddresses(buffResult)).getArray() : [];
             } catch (e) {
                 this._arrStrWalletAddresses = [];
+            } finally {
+                this._mutex.release(lockAddr);
             }
 
+            const lockInc = await this._mutex.acquire(['walletIncrement']);
             try {
                 const buffResult = await this._walletStorage.get(this.constructor.createKey(WALLET_AUTOINCREMENT));
                 this._nWalletAutoincrement = buffResult.readUInt32BE();
             } catch (e) {
                 this._nWalletAutoincrement = 0;
+            } finally {
+                this._mutex.release(lockInc);
             }
         }
 
@@ -671,11 +686,17 @@ module.exports = (factory, factoryOptions) => {
 
             // store hash & autoincrement
             const key = this.constructor.createKey(WALLET_PREFIX, Buffer.from(address, 'hex'), currentIdx.toString());
-            await this._walletStorage
-                .batch()
-                .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buff)
-                .put(key, Buffer.from(strHash, 'hex'))
-                .write();
+
+            const lock = await this._mutex.acquire(['walletIncrement']);
+            try {
+                await this._walletStorage
+                    .batch()
+                    .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buff)
+                    .put(key, Buffer.from(strHash, 'hex'))
+                    .write();
+            } finally {
+                await this._mutex.release(lock);
+            }
         }
 
         async _walletCleanupMissed(arrBadKeys) {

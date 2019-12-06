@@ -399,7 +399,7 @@ describe('Node tests', () => {
         assert.isOk(false, 'Unexpected success');
     });
 
-    it('should send NOTHING and mark peer misbehaving (no tx in mempool)', async () => {
+    it('should send NOTHING (no tx in mempool)', async () => {
         const node = new factory.Node();
         node._mempool.getTx = sinon.fake.throws(new Error('No tx in mempool'));
         node._storage.getBlock = sinon.fake.returns(new factory.Block(0));
@@ -415,7 +415,6 @@ describe('Node tests', () => {
         const msgGetData = new factory.Messages.MsgGetData(inv);
 
         await node._handleGetDataMessage(peer, msgGetData);
-        assert.isOk(peer.misbehave.calledOnce);
         assert.isOk(node._mempool.getTx.calledOnce);
         assert.isNotOk(peer.pushMessage.called);
     });
