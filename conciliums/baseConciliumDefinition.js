@@ -44,6 +44,7 @@ module.exports = class BaseConciliumDefinition {
         }
 
         if (!this._data.parameters.hasOwnProperty('isEnabled')) this._data.parameters.isEnabled = true;
+        if (!this._data.hasOwnProperty('isOpen')) this._data.parameters.isOpen = false;
 
         this.changeSeed(0);
 
