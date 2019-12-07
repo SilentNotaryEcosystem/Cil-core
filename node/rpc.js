@@ -58,6 +58,7 @@ module.exports = ({Constants, Transaction, StoredWallet}) =>
 
             this._server.expose('unlockAccount', asyncRPC(this.unlockAccount.bind(this)));
             this._server.expose('importPrivateKey', asyncRPC(this.importPrivateKey.bind(this)));
+            this._server.expose('getNewAddress', asyncRPC(this.getNewAddress.bind(this)));
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -372,6 +373,11 @@ module.exports = ({Constants, Transaction, StoredWallet}) =>
         async importPrivateKey(args) {
             const {strAccountName, strPrivateKey, bRescan} = args;
             await this._storedWallets.importPrivateKey(strAccountName, strPrivateKey, bRescan);
+        }
+
+        async getNewAddress() {
+            const kp = await this._storedWallets.getNewAddress();
+            return {address: kp.address, privateKey: kp.privateKey};
         }
 
     };
