@@ -178,8 +178,11 @@ module.exports = ({Coins}, {utxoProto}) =>
             address = Buffer.from(address, 'hex');
 
             return this._data.arrIndexes
-                .map(idx => [idx, this.coinsAtIndex(idx)])
-                .filter(([, coin]) => coin.getReceiverAddr().equals(address));
+                .filter((idx) => {
+                    const coin = this.coinsAtIndex(idx);
+                    return coin.getReceiverAddr().equals(address);
+                })
+                .map(idx => [idx, this.coinsAtIndex(idx)]);
         }
 
         /**
@@ -193,5 +196,21 @@ module.exports = ({Coins}, {utxoProto}) =>
                 set.add(coins.getReceiverAddr().toString('hex'));
             }
             return [...set];
+        }
+
+        /**
+         * Return new instance that contain only outputs for address
+         *
+         * @param {String | Buffer} address
+         */
+        filterOutputsForAddress(address) {
+            const utxoFiltered = new this.constructor({txHash: this.getTxHash()});
+            const arrAddrOutputs = this.getOutputsForAddress(address);
+            if (arrAddrOutputs.length) {
+                arrAddrOutputs.forEach(([idx, coins]) => {
+                    utxoFiltered.addCoins(idx, coins);
+                });
+            }
+            return utxoFiltered;
         }
     };

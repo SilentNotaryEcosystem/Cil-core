@@ -142,6 +142,10 @@ module.exports = (factory, factoryOptions) => {
             return this._rpc;
         }
 
+        get storage() {
+            return this._storage;
+        }
+
         get nonce() {
             return this._nonce;
         }
@@ -876,8 +880,6 @@ module.exports = (factory, factoryOptions) => {
                 switch (event) {
                     case 'getLastBlockByConciliumId':
                         return await this.getLastBlockByConciliumId(content);
-                    case 'countWallets':
-                        return {count: await this._storage.countWallets()};
                     case 'tx':
                         return await this._acceptLocalTx(content);
                     case 'getContractData':
@@ -928,28 +930,6 @@ module.exports = (factory, factoryOptions) => {
                     case 'getUnspent':
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
-                    case 'walletListUnspent': {
-                        const {strAddress, bStableOnly = false} = content;
-
-                        let arrPendingUtxos = [];
-                        if (!bStableOnly) {
-                            this._ensureBestBlockValid();
-                            const {patchMerged} = this._objCurrentBestParents;
-                            arrPendingUtxos = Array.from(patchMerged.getCoins().values());
-                        }
-                        const arrStableUtxos = await this._storage.walletListUnspent(strAddress);
-
-                        return {arrStableUtxos, arrPendingUtxos};
-                    }
-                    case 'watchAddress': {
-                        const {strAddress, bReindex} = content;
-                        await this._storage.walletWatchAddress(strAddress);
-                        if (bReindex) this._storage.walletReIndex();
-                        break;
-                    }
-                    case 'getWallets':
-                        return await this._storage.getWallets();
-                        break;
                     case 'getWitnesses':
                         return await this._getAllWitnesses();
                         break;
@@ -960,6 +940,12 @@ module.exports = (factory, factoryOptions) => {
                 logger.error('RPC error.', e);
                 throw e;
             }
+        }
+
+        getPendingUtxos() {
+            this._ensureBestBlockValid();
+            const {patchMerged} = this._objCurrentBestParents;
+            return Array.from(patchMerged.getCoins().values());
         }
 
         async _acceptLocalTx(newTx) {
@@ -2466,6 +2452,17 @@ module.exports = (factory, factoryOptions) => {
             }
 
             this._patchLocalTxns = patchMerged;
+        }
+
+        /**
+         * BlockA behind BlockB ? > 0
+         *
+         * @param strHashBlockA
+         * @param strHashBlockB
+         * @return {number}
+         */
+        sortBlocks(strHashBlockA, strHashBlockB) {
+            return this._mainDag.getBlockHeight(strHashBlockA) - this._mainDag.getBlockHeight(strHashBlockB);
         }
     };
 };

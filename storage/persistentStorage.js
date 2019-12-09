@@ -8,8 +8,10 @@ const leveldown = require('leveldown');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const util = require('util');
+const fs = require('fs').promises;
 
 const types = require('../types');
+const {prepareForStringifyObject} = require('../utils');
 
 const debug = debugLib('storage:');
 
@@ -93,6 +95,7 @@ module.exports = (factory, factoryOptions) => {
             if (walletSupport) {
                 this._walletSupport = true;
                 this._walletStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_WALLET_DIR}`));
+                this._strAccountPath = `${this._pathPrefix}/${Constants.DB_WALLET_DIR}/accounts`;
             }
 
             this._mutex = mutex;
@@ -499,9 +502,12 @@ module.exports = (factory, factoryOptions) => {
          */
         async getLastAppliedBlockHashes(raw = false) {
             const key = this.constructor.createKey(LAST_APPLIED_BLOCKS);
-            const result = await this._db.get(key).catch(err => debug(err));
 
-            return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
+            return this._mutex.runExclusive(['lastAppliedBlock'], async () => {
+                const result = await this._db.get(key).catch(err => debug(err));
+
+                return raw ? result : (Buffer.isBuffer(result) ? (new ArrayOfHashes(result)).getArray() : []);
+            });
         }
 
         /**
@@ -517,7 +523,13 @@ module.exports = (factory, factoryOptions) => {
 
             // serialize and store
             const cArr = new ArrayOfHashes(arrBlockHashes);
-            await this._db.put(key, cArr.encode());
+            const lock = await this._mutex.acquire(['lastAppliedBlock']);
+
+            try {
+                await this._db.put(key, cArr.encode());
+            } finally {
+                this._mutex.release(lock);
+            }
         }
 
         /**
@@ -571,23 +583,32 @@ module.exports = (factory, factoryOptions) => {
             });
         }
 
+        async getTxBlock(buffTxHash) {
+            typeforce(types.Hash256bit, buffTxHash);
+
+            if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
+            const key = this.constructor.createTxKey(buffTxHash);
+            try {
+                return await this._txIndexStorage.get(key);
+            } catch (e) {
+                debugLib(`Index for ${buffTxHash.toString('hex')} not found!`);
+            }
+            return undefined;
+        }
+
         /**
          *
          * @param {String} strTxHash
          * @returns {Promise<Block>}
          */
         async findBlockByTxHash(strTxHash) {
-            typeforce(types.Hash256bit, strTxHash);
-
-            if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
-
-            const key = this.constructor.createTxKey(Buffer.from(strTxHash, 'hex'));
+            const buffTxHash = Buffer.from(strTxHash, 'hex');
+            const blockHash = await this.getTxBlock(strTxHash);
 
             try {
-                const blockHash = await this._txIndexStorage.get(key);
-                return await this.getBlock(blockHash);
+                return blockHash ? await this.getBlock(blockHash) : undefined;
             } catch (e) {
-                debugLib(`Index or block for ${strTxHash} not found!`);
+                debugLib(`Block for ${strTxHash} not found!`);
             }
             return undefined;
         }
@@ -595,7 +616,7 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {String} strTxHash - to find
-         * @returns {Promise<String>} - Source TX hash
+         * @returns {Promise<Buffer>} - Source TX hash
          */
         async findInternalTx(strTxHash) {
             typeforce(types.Hash256bit, strTxHash);
@@ -617,23 +638,34 @@ module.exports = (factory, factoryOptions) => {
 
             if (Array.isArray(this._arrStrWalletAddresses)) return;
 
+            const lockAddr = await this._mutex.acquire(['walletAddresses']);
             try {
                 const buffResult = await this._walletStorage.get(this.constructor.createKey(WALLET_ADDRESSES));
                 this._arrStrWalletAddresses =
                     buffResult && Buffer.isBuffer(buffResult) ? (new ArrayOfAddresses(buffResult)).getArray() : [];
             } catch (e) {
                 this._arrStrWalletAddresses = [];
+            } finally {
+                this._mutex.release(lockAddr);
             }
 
+            const lockInc = await this._mutex.acquire(['walletIncrement']);
             try {
                 const buffResult = await this._walletStorage.get(this.constructor.createKey(WALLET_AUTOINCREMENT));
                 this._nWalletAutoincrement = buffResult.readUInt32BE();
             } catch (e) {
                 this._nWalletAutoincrement = 0;
+            } finally {
+                this._mutex.release(lockInc);
             }
+
+            await this._initAccounts();
         }
 
         /**
+         * Get All records of strAddress
+         * Keys are: <WALLET_PREFIX><buffAddress><idx>
+         *     idx - could be discrete
          *
          * @param {String} strAddress
          * @return {Promise<Object>} {key, value: hash of utxo}
@@ -659,6 +691,18 @@ module.exports = (factory, factoryOptions) => {
             );
         }
 
+        /**
+         * We'll create a new record
+         * key - <WALLET_PREFIX><buffAddress><idx>
+         * value - Buffer from strHash
+         *
+         * And update WALLET_AUTOINCREMENT
+         *
+         * @param {String | Buffer} address - to add an UTXO
+         * @param {String} strHash - hash of UTXO
+         * @return {Promise<void>}
+         * @private
+         */
         async _walletWriteAddressUtxo(address, strHash) {
             typeforce(typeforce.tuple(types.Address, types.Hash256bit), [address, strHash]);
             await this._ensureWalletInitialized();
@@ -666,23 +710,44 @@ module.exports = (factory, factoryOptions) => {
             const currentIdx = this._nWalletAutoincrement++;
 
             // prepare incremented value
-            const buff = Buffer.allocUnsafe(4);
-            buff.writeInt32BE(this._nWalletAutoincrement, 0);
+            const buffLastIdx = Buffer.allocUnsafe(4);
+            buffLastIdx.writeInt32BE(this._nWalletAutoincrement, 0);
 
             // store hash & autoincrement
             const key = this.constructor.createKey(WALLET_PREFIX, Buffer.from(address, 'hex'), currentIdx.toString());
-            await this._walletStorage
-                .batch()
-                .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buff)
-                .put(key, Buffer.from(strHash, 'hex'))
-                .write();
+
+            const lock = await this._mutex.acquire(['walletIncrement']);
+            try {
+                await this._walletStorage
+                    .batch()
+                    .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buffLastIdx)
+                    .put(key, Buffer.from(strHash, 'hex'))
+                    .write();
+            } finally {
+                await this._mutex.release(lock);
+            }
         }
 
+        /**
+         * UTXO could be spent, but index will still contain it.
+         * Here we purge it
+         *
+         * @param {Array} arrBadKeys - [<WALLET_PREFIX><buffAddress><idx>]
+         * @return {Promise<void>}
+         * @private
+         */
         async _walletCleanupMissed(arrBadKeys) {
             const arrOps = arrBadKeys.map(key => ({type: 'del', key}));
             await this._walletStorage.batch(arrOps);
         }
 
+        /**
+         * Check whether any of wallet addresses present in given UTXO
+         *
+         * @param {UTXO} utxo
+         * @return {Promise<void>}
+         * @private
+         */
         async _walletUtxoCheck(utxo) {
             await this._ensureWalletInitialized();
             for (let strAddress of this._arrStrWalletAddresses) {
@@ -788,11 +853,21 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        async getWallets() {
+        async getWalletsAddresses() {
             await this._ensureWalletInitialized();
             return this._arrStrWalletAddresses;
         }
 
+        /**
+         * Key is buffTxHash
+         * Value is buffBlockHash
+         * TODO: to save space, store autoincremented idx -> blockHash, and buffTxHash ->idx
+         *
+         * @param {Buffer} buffBlockHash
+         * @param {Array} arrTxnsHashes
+         * @return {Promise<void>}
+         * @private
+         */
         async _storeTxnsIndex(buffBlockHash, arrTxnsHashes) {
             debug(`Storing TX index for ${buffBlockHash.toString('hex')}`);
 
@@ -900,5 +975,78 @@ module.exports = (factory, factoryOptions) => {
             }
             return setAddresses.size;
         }
+
+        async _initAccounts() {
+            const strPath = `${this._strAccountPath}`;
+
+            this._mapAccountAddresses = new Map();
+
+            try {
+                const stat = await fs.stat(strPath).catch(err => {});
+                if (!stat || !stat.isDirectory()) {
+                    await fs.mkdir(strPath);
+                }
+                const arrFileNames = await fs.readdir(strPath);
+
+                for (let strDirName of arrFileNames) {
+                    await this._readAccount(strDirName);
+                }
+            } catch (e) {
+                logger.error('Account initialization failed', e);
+            }
+        }
+
+        /**
+         * Set this._mapAccountAddresses with addresses in account
+         *
+         * @param {String} strAccountName
+         * @return {Promise<void>}
+         * @private
+         */
+        async _readAccount(strAccountName) {
+            const strPath = `${this._strAccountPath}/${strAccountName}`;
+            const arrAddresses = await fs.readdir(strPath);
+            this._mapAccountAddresses.set(strAccountName, arrAddresses);
+        }
+
+        async hasAccount(strAccountName) {
+            await this._ensureWalletInitialized();
+
+            return this._mapAccountAddresses.has(strAccountName);
+        }
+
+        async getAccountAddresses(strAccountName) {
+            await this._ensureWalletInitialized();
+
+            return this._mapAccountAddresses.get(strAccountName);
+        }
+
+        async createAccount(strAccountName) {
+            const strPath = `${this._strAccountPath}/${strAccountName}`;
+
+            await fs.mkdir(strPath);
+            this._mapAccountAddresses.set(strAccountName, []);
+        }
+
+        /**
+         *
+         * @param {String} strAddress
+         * @param {String }strAccountName
+         * @param {Object} objEncryptedPk - @see Crypto.encrypt
+         * @return {Promise<void>}
+         */
+        async writeKeyStore(strAddress, strAccountName, objEncryptedPk) {
+            const strKeyStoreContent = JSON.stringify({
+                address: 'Ux' + strAddress,
+                ...prepareForStringifyObject(objEncryptedPk),
+                version: 1.1
+            });
+
+            const strPath = `${this._strAccountPath}/${strAccountName}`;
+            await fs.writeFile(`${strPath}/${strAddress}`, strKeyStoreContent);
+
+            await this._readAccount(strAccountName);
+        }
+
     };
 };

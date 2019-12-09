@@ -117,12 +117,12 @@ async function walletTasks(objCmdLineParams) {
 
     // -----------------------------
     async function taskListWallets(storage) {
-        const arrAddresses = await storage.getWallets();
+        const arrAddresses = await storage.getWalletsAddresses();
         if (!arrAddresses.length) {
             console.log('No addresses found in wallet');
         } else {
             console.log('Addresses found in wallets');
-            console.dir(await storage.getWallets(), {colors: true, depth: null});
+            console.dir(await storage.getWalletsAddresses(), {colors: true, depth: null});
         }
     }
 

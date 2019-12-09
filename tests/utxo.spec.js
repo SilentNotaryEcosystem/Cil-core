@@ -196,4 +196,35 @@ describe('UTXO', () => {
         assert.isOk(arrResult.every(e => typeof e === 'string' && e.length === 40));
         assert.equal(arrResult.length, 3);
     });
+
+    it('should filterOutputsForAddress', async () => {
+        const addr = generateAddress();
+        const coins = new factory.Coins(1e5, addr);
+
+        {
+            const hash1 = pseudoRandomBuffer();
+            const coinsOther = new factory.Coins(1e5, generateAddress());
+
+            const utxo1 = new factory.UTXO({txHash: hash1});
+            utxo1.addCoins(0, coins);
+            utxo1.addCoins(3, coinsOther);
+
+            // --------
+            const utxoFiltered = utxo1.filterOutputsForAddress(addr);
+
+            assert.isOk(utxoFiltered.coinsAtIndex(0));
+            assert.throws(() => utxoFiltered.coinsAtIndex(3));
+        }
+        {
+            const hash2 = pseudoRandomBuffer();
+            const utxo2 = new factory.UTXO({txHash: hash2});
+            utxo2.addCoins(5, coins);
+            utxo2.addCoins(2, coins);
+
+            // --------
+            const utxoFiltered = utxo2.filterOutputsForAddress(addr);
+
+            assert.isOk(utxoFiltered.equals(utxo2));
+        }
+    });
 });
