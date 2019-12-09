@@ -279,16 +279,11 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
         async watchAddress(args) {
             let {strAddress, bReindex} = args;
             strAddress = stripAddressPrefix(Constants, strAddress);
-            await this._nodeInstance.rpcHandler({
-                event: 'watchAddress',
-                content: {strAddress, bReindex}
-            });
+            await this._storedWallets.walletWatchAddress(strAddress, bReindex);
         }
 
-        async getWalletsAddresses(args) {
-            return await this._nodeInstance.rpcHandler({
-                event: 'getWalletsAddresses'
-            });
+        async getWalletsAddresses() {
+            return await this._storedWallets.getWalletsAddresses();
         }
 
         async getContractData(args) {
@@ -317,11 +312,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
         }
 
         async countWallets() {
-            const objData = await this._nodeInstance.rpcHandler({
-                event: 'countWallets'
-            });
-
-            return prepareForStringifyObject(objData);
+            return prepareForStringifyObject({count: await this._storedWallets.countWallets()});
         }
 
         async getLastBlockByConciliumId(args) {

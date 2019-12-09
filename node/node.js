@@ -880,8 +880,6 @@ module.exports = (factory, factoryOptions) => {
                 switch (event) {
                     case 'getLastBlockByConciliumId':
                         return await this.getLastBlockByConciliumId(content);
-                    case 'countWallets':
-                        return {count: await this._storage.countWallets()};
                     case 'tx':
                         return await this._acceptLocalTx(content);
                     case 'getContractData':
@@ -932,15 +930,6 @@ module.exports = (factory, factoryOptions) => {
                     case 'getUnspent':
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
-                    case 'watchAddress': {
-                        const {strAddress, bReindex} = content;
-                        await this._storage.walletWatchAddress(strAddress);
-                        if (bReindex) this._storage.walletReIndex();
-                        break;
-                    }
-                    case 'getWalletsAddresses':
-                        return await this._storage.getWalletsAddresses();
-                        break;
                     case 'getWitnesses':
                         return await this._getAllWitnesses();
                         break;

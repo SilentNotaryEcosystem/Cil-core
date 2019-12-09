@@ -65,5 +65,18 @@ module.exports = (Crypto =>
             async getAccountAddresses(strAccountName) {
                 return await this._storage.getAccountAddresses(strAccountName);
             }
+
+            async countWallets() {
+                return await this._storage.countWallets();
+            }
+
+            async walletWatchAddress(strAddress, bReindex) {
+                await this._storage.walletWatchAddress(strAddress);
+                if (bReindex) await this._storage.walletReIndex();
+            }
+
+            async getWalletsAddresses() {
+                return this._storage.getWalletsAddresses();
+            }
         }
 );
