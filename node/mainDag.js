@@ -43,17 +43,26 @@ module.exports = ({Constants}) =>
             this._dag.saveObj(blockInfo.getHash(), blockInfo);
         }
 
-        getBlockInfo(hash) {
-            typeforce(types.Str64, hash);
-            return this._dag.readObj(hash);
+        getBlockInfo(strHash) {
+            typeforce(types.Str64, strHash);
+            return this._dag.readObj(strHash);
         }
 
-        getParents(hash) {
-            return this._dag.readObj(hash).parentHashes;
+        getParents(strHash) {
+            typeforce(types.Str64, strHash);
+
+            return this._dag.readObj(strHash).parentHashes;
         }
 
-        getChildren(hash) {
-            return this._dag.edgesTo(hash).tips;
+        getChildren(strHash) {
+            typeforce(types.Str64, strHash);
+
+            return this._dag.edgesTo(strHash).tips;
         }
 
+        getBlockHeight(strHash) {
+            typeforce(types.Str64, strHash);
+
+            return this._dag.readObj(strHash).getHeight();
+        }
     };

@@ -2453,6 +2453,17 @@ module.exports = (factory, factoryOptions) => {
 
             this._patchLocalTxns = patchMerged;
         }
+
+        /**
+         * BlockA behind BlockB ? > 0
+         *
+         * @param strHashBlockA
+         * @param strHashBlockB
+         * @return {number}
+         */
+        sortBlocks(strHashBlockA, strHashBlockB) {
+            return this._mainDag.getBlockHeight(strHashBlockA) - this._mainDag.getBlockHeight(strHashBlockB);
+        }
     };
 };
 

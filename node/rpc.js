@@ -350,14 +350,31 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
         }
 
         async getAccountUnspent(args) {
-            const {strAccountName, bStableOnly} = args;
+            const {strAccountName, bStableOnly, strHashSince} = args;
 
             const arrAccountAddresses = await this._storedWallets.getAccountAddresses(strAccountName);
             assert(Array.isArray(arrAccountAddresses), 'Accound doesn\'t exist');
 
-            const arrOfArrayOfStableUtxos = [];
+            let arrOfArrayOfStableUtxos = [];
             for (let strAddress of arrAccountAddresses) {
-                arrOfArrayOfStableUtxos.push(await this._storedWallets.walletListUnspent(strAddress, true));
+                arrOfArrayOfStableUtxos.push(await this._storedWallets.walletListUnspent(strAddress));
+            }
+
+            // flatten results
+            arrOfArrayOfStableUtxos = [].concat.apply([], arrOfArrayOfStableUtxos);
+
+            const storage = this._nodeInstance.storage;
+            if (strHashSince) {
+                const arrFilteredArrayOfStableUtxos = [];
+                for (let utxo of arrOfArrayOfStableUtxos) {
+                    const buffSourceTx = await storage.findInternalTx(utxo.getTxHash()) ||
+                                         Buffer.from(utxo.getTxHash(), 'hex');
+                    const strBlockHash = (await storage.getTxBlock(buffSourceTx)).toString('hex');
+                    if (this._nodeInstance.sortBlocks(strBlockHash, strHashSince) > 0) {
+                        arrFilteredArrayOfStableUtxos.push(utxo);
+                    }
+                }
+                arrOfArrayOfStableUtxos = arrFilteredArrayOfStableUtxos;
             }
 
             let arrPendingUtxos = [];
@@ -377,7 +394,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             // flatten results
             return prepareForStringifyObject(
                 [].concat(
-                    this._finePrintUtxos([].concat.apply([], arrOfArrayOfStableUtxos), true),
+                    this._finePrintUtxos(arrOfArrayOfStableUtxos, true),
                     this._finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false)
                 ));
         }

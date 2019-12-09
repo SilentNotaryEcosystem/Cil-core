@@ -64,7 +64,8 @@ describe('Crypto library', () => {
         }
     });
 
-    it('encrypt/decrypt key (scrypt)', async () => {
+    it('encrypt/decrypt key (scrypt)', async function() {
+        this.timeout(5000);
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
         const objEncryptedKey = await Crypto.encrypt(

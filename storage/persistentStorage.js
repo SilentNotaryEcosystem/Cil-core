@@ -583,23 +583,32 @@ module.exports = (factory, factoryOptions) => {
             });
         }
 
+        async getTxBlock(buffTxHash) {
+            typeforce(types.Hash256bit, buffTxHash);
+
+            if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
+            const key = this.constructor.createTxKey(buffTxHash);
+            try {
+                return await this._txIndexStorage.get(key);
+            } catch (e) {
+                debugLib(`Index for ${buffTxHash.toString('hex')} not found!`);
+            }
+            return undefined;
+        }
+
         /**
          *
          * @param {String} strTxHash
          * @returns {Promise<Block>}
          */
         async findBlockByTxHash(strTxHash) {
-            typeforce(types.Hash256bit, strTxHash);
-
-            if (!this._buildTxIndex) throw new Error('TxIndex disabled for this node');
-
-            const key = this.constructor.createTxKey(Buffer.from(strTxHash, 'hex'));
+            const buffTxHash = Buffer.from(strTxHash, 'hex');
+            const blockHash = await this.getTxBlock(strTxHash);
 
             try {
-                const blockHash = await this._txIndexStorage.get(key);
-                return await this.getBlock(blockHash);
+                return blockHash ? await this.getBlock(blockHash) : undefined;
             } catch (e) {
-                debugLib(`Index or block for ${strTxHash} not found!`);
+                debugLib(`Block for ${strTxHash} not found!`);
             }
             return undefined;
         }
@@ -607,7 +616,7 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {String} strTxHash - to find
-         * @returns {Promise<String>} - Source TX hash
+         * @returns {Promise<Buffer>} - Source TX hash
          */
         async findInternalTx(strTxHash) {
             typeforce(types.Hash256bit, strTxHash);
