@@ -58,5 +58,12 @@ module.exports = (Crypto =>
                 }
             }
 
+            async walletListUnspent(strAddress) {
+                return await this._storage.walletListUnspent(strAddress);
+            }
+
+            async getAccountAddresses(strAccountName) {
+                return await this._storage.getAccountAddresses(strAccountName);
+            }
         }
 );

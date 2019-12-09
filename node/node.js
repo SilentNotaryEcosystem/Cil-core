@@ -932,19 +932,6 @@ module.exports = (factory, factoryOptions) => {
                     case 'getUnspent':
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
-                    case 'walletListUnspent': {
-                        const {strAddress, bStableOnly = false} = content;
-
-                        let arrPendingUtxos = [];
-                        if (!bStableOnly) {
-                            this._ensureBestBlockValid();
-                            const {patchMerged} = this._objCurrentBestParents;
-                            arrPendingUtxos = Array.from(patchMerged.getCoins().values());
-                        }
-                        const arrStableUtxos = await this._storage.walletListUnspent(strAddress);
-
-                        return {arrStableUtxos, arrPendingUtxos};
-                    }
                     case 'watchAddress': {
                         const {strAddress, bReindex} = content;
                         await this._storage.walletWatchAddress(strAddress);
@@ -964,6 +951,12 @@ module.exports = (factory, factoryOptions) => {
                 logger.error('RPC error.', e);
                 throw e;
             }
+        }
+
+        getPendingUtxos() {
+            this._ensureBestBlockValid();
+            const {patchMerged} = this._objCurrentBestParents;
+            return Array.from(patchMerged.getCoins().values());
         }
 
         async _acceptLocalTx(newTx) {

@@ -29,7 +29,8 @@ describe('RPC', () => {
 
     beforeEach(() => {
         node = {
-            rpcHandler: sinon.fake.resolves(fakeResult)
+            rpcHandler: sinon.fake.resolves(fakeResult),
+            storage: {}
         };
     });
 
@@ -121,7 +122,8 @@ describe('RPC', () => {
             state
         };
         node = {
-            rpcHandler: sinon.fake.resolves(getBlockResults)
+            rpcHandler: sinon.fake.resolves(getBlockResults),
+            storage: {}
         };
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         const strBlockHash = block.getHash();
@@ -149,7 +151,8 @@ describe('RPC', () => {
             }];
 
         node = {
-            rpcHandler: sinon.fake.resolves(getBlockResults)
+            rpcHandler: sinon.fake.resolves(getBlockResults),
+            storage: {}
         };
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         const strBlockHash = pseudoRandomBuffer().toString('hex');
@@ -176,7 +179,8 @@ describe('RPC', () => {
             }];
 
         node = {
-            rpcHandler: sinon.fake.resolves(getBlockResults)
+            rpcHandler: sinon.fake.resolves(getBlockResults),
+            storage: {}
         };
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         const strBlockHash = pseudoRandomBuffer().toString('hex');
@@ -208,7 +212,8 @@ describe('RPC', () => {
             {hash: block2.getHash(), block: block2.toObject(), state}
         ];
         const node = {
-            rpcHandler: sinon.fake.resolves(fakeRpcHandler)
+            rpcHandler: sinon.fake.resolves(fakeRpcHandler),
+            storage: {}
         };
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
 
@@ -218,7 +223,8 @@ describe('RPC', () => {
 
     it('should throw error', (done) => {
         const node = {
-            rpcHandler: sinon.fake.throws('RPC error')
+            rpcHandler: sinon.fake.throws('RPC error'),
+            storage: {}
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
@@ -247,7 +253,8 @@ describe('RPC', () => {
         tx.signForContract(pk);
 
         const node = {
-            rpcHandler: sinon.fake.resolves(tx.rawData)
+            rpcHandler: sinon.fake.resolves(tx.rawData),
+            storage: {}
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
@@ -259,7 +266,8 @@ describe('RPC', () => {
 
     it('should pass constantMethodCall', async () => {
         const node = {
-            rpcHandler: sinon.fake.resolves(20)
+            rpcHandler: sinon.fake.resolves(20),
+            storage: {}
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
@@ -275,7 +283,8 @@ describe('RPC', () => {
     it('should pass getUnspent', async () => {
         const objExpected = {1: {amount: 10, receiverAddr: generateAddress().toString('hex')}};
         const node = {
-            rpcHandler: sinon.fake.resolves(objExpected)
+            rpcHandler: sinon.fake.resolves(objExpected),
+            storage: {}
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
@@ -312,23 +321,26 @@ describe('RPC', () => {
             }];
 
         const coins = new factory.Coins(1e5, addr);
+        const coinsOther = new factory.Coins(1e5, generateAddress());
         const utxo1 = new factory.UTXO({txHash: hash1});
         utxo1.addCoins(0, coins);
 
         const utxo2 = new factory.UTXO({txHash: hash2});
         utxo2.addCoins(5, coins);
         utxo2.addCoins(2, coins);
+        utxo2.addCoins(7, coinsOther);
 
         const node = {
-            rpcHandler: sinon.fake.resolves({
-                arrStableUtxos: [utxo1],
-                arrPendingUtxos: [utxo2]
-            })
+            storage: {
+                walletListUnspent: sinon.fake.resolves([utxo1])
+            },
+            getPendingUtxos: () => [utxo2]
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         const resp = await rpc.walletListUnspent({
-            strAddress: addr.toString('hex')
+            strAddress: addr.toString('hex'),
+            bStableOnly: false
         });
 
         assert.deepEqual(resp, objExpected);
@@ -348,16 +360,17 @@ describe('RPC', () => {
         utxo2.addCoins(2, coins);
 
         const node = {
-            rpcHandler: sinon.fake.resolves({
-                arrStableUtxos: [utxo1],
-                arrPendingUtxos: [utxo2]
-            })
+            storage: {
+                walletListUnspent: sinon.fake.resolves([utxo1])
+            },
+            getPendingUtxos: () => [utxo2]
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
 
         const resp = await rpc.getBalance({
-            strAddress: addr.toString('hex')
+            strAddress: addr.toString('hex'),
+            bStableOnly: false
         });
 
         assert.deepEqual(resp, {
@@ -368,15 +381,109 @@ describe('RPC', () => {
 
     it('should getLastBlockByConciliumId', async () => {
         const node = {
-            rpcHandler: sinon.fake.resolves(pseudoRandomBuffer().toString('hex'))
+            rpcHandler: sinon.fake.resolves(pseudoRandomBuffer().toString('hex')),
+            storage: {}
         };
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
 
-        const resp = await rpc.getLastBlockByConciliumId({
-            nConciliumId: 1
-        });
+        // --------
+        const resp = await rpc.getLastBlockByConciliumId({nConciliumId: 1});
 
         assert.isOk(resp && resp.length === 64);
+    });
+
+    it('should getAccountUnspent', async () => {
+        const hash1 = pseudoRandomBuffer();
+        const hash2 = pseudoRandomBuffer();
+        const addr = generateAddress();
+        const addr2 = generateAddress();
+        const coins = new factory.Coins(1e5, addr);
+        const coinsOther = new factory.Coins(1e3, addr2);
+
+        const utxo1 = new factory.UTXO({txHash: hash1});
+        utxo1.addCoins(0, coins);
+        utxo1.addCoins(3, coinsOther);
+
+        const utxo2 = new factory.UTXO({txHash: hash2});
+        utxo2.addCoins(5, coins);
+        utxo2.addCoins(2, coinsOther);
+
+        const node = {
+            storage: {},
+            getPendingUtxos: () => [utxo2]
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        rpc._storedWallets = {
+            getAccountAddresses: async () => [addr2, addr],
+            walletListUnspent: async (address) => [utxo1.filterOutputsForAddress(address)]
+        };
+
+        const arrExpected = [
+            {
+                hash: hash1.toString('hex'),
+                nOut: 3,
+                amount: 1000,
+                isStable: true
+            },
+            {
+                hash: hash1.toString('hex'),
+                nOut: 0,
+                amount: 100000,
+                isStable: true
+            },
+            {
+                hash: hash2.toString('hex'),
+                nOut: 2,
+                amount: 1000,
+                isStable: false
+            },
+            {
+                hash: hash2.toString('hex'),
+                nOut: 5,
+                amount: 100000,
+                isStable: false
+            }];
+
+        // --------
+        const arrUtxos = await rpc.getAccountUnspent('test', false);
+
+        assert.isOk(arrUtxos.length === 4);
+        assert.deepEqual(arrUtxos, arrExpected);
+    });
+
+    it('should getAccountBalance', async () => {
+        const hash1 = pseudoRandomBuffer();
+        const hash2 = pseudoRandomBuffer();
+        const addr = generateAddress();
+        const addr2 = generateAddress();
+        const coins = new factory.Coins(1e5, addr);
+        const coinsOther = new factory.Coins(1e3, addr2);
+
+        const utxo1 = new factory.UTXO({txHash: hash1});
+        utxo1.addCoins(0, coins);
+        utxo1.addCoins(3, coinsOther);
+
+        const utxo2 = new factory.UTXO({txHash: hash2});
+        utxo2.addCoins(5, coinsOther);
+
+        const node = {
+            storage: {},
+            getPendingUtxos: () => [utxo2]
+        };
+
+        const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
+        rpc._storedWallets = {
+            getAccountAddresses: async () => [addr2, addr],
+            walletListUnspent: async (address) => [utxo1.filterOutputsForAddress(address)]
+        };
+
+        const objExpected = {confirmedBalance: 1e5 + 1e3, unconfirmedBalance: 1e3};
+
+        // --------
+        const objResult = await rpc.getAccountBalance('test', false);
+
+        assert.deepEqual(objResult, objExpected);
     });
 });

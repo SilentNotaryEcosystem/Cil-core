@@ -1006,6 +1006,12 @@ module.exports = (factory, factoryOptions) => {
             return this._mapAccountAddresses.has(strAccountName);
         }
 
+        async getAccountAddresses(strAccountName) {
+            await this._ensureWalletInitialized();
+
+            return this._mapAccountAddresses.get(strAccountName);
+        }
+
         async createAccount(strAccountName) {
             const strPath = `${this._strAccountPath}/${strAccountName}`;
 
@@ -1032,5 +1038,6 @@ module.exports = (factory, factoryOptions) => {
 
             await this._readAccount(strAccountName);
         }
+
     };
 };

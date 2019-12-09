@@ -127,7 +127,7 @@ const createSimpleFork = async (callback) => {
 const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer()})
     .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
 
-describe('Node tests', () => {
+describe('Node tests', async () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -166,11 +166,7 @@ describe('Node tests', () => {
 
     });
 
-    after(async function() {
-        this.timeout(15000);
-    });
-
-    afterEach(function() {
+    afterEach(async () => {
         sinon.restore();
     });
 
@@ -1064,7 +1060,7 @@ describe('Node tests', () => {
             await node.ensureLoaded();
         });
 
-        it('send TX', async function() {
+        it('send TX', async () => {
             node._mempool.loadLocalTxnsFromDisk = sinon.fake();
             node._processReceivedTx = sinon.fake.resolves();
             node._processTx = sinon.fake.resolves({patchThisTx: new factory.PatchDB()});
@@ -1080,7 +1076,7 @@ describe('Node tests', () => {
             assert.isOk(node._mempool.addLocalTx.calledOnce);
         });
 
-        it('fails to send TX (confilct with existing)', async function() {
+        it('fails to send TX (confilct with existing)', async () => {
             node._acceptLocalTx = sinon.fake.rejects('Failed');
 
             return assert.isRejected(node.rpcHandler({
@@ -1417,71 +1413,6 @@ describe('Node tests', () => {
                 assert.deepEqual(contract.getData(), {sampleResult: stableData});
             });
         });
-
-        describe('walletListUnspent', async () => {
-            let utxo1;
-            let utxo2;
-            let addr;
-            let coins;
-
-            beforeEach(async () => {
-                addr = generateAddress();
-                coins = new factory.Coins(1e5, addr);
-
-                const arrOutputs = [0, 5, 2];
-
-                // stable TXns
-                utxo1 = new factory.UTXO({txHash: pseudoRandomBuffer()});
-                utxo1.addCoins(arrOutputs[0], coins);
-                utxo1.addCoins(arrOutputs[1], coins);
-                utxo1.addCoins(arrOutputs[2], coins);
-                node._storage.walletListUnspent = sinon.fake.resolves([utxo1]);
-
-                // pending TXns
-                utxo2 = new factory.UTXO({txHash: pseudoRandomBuffer()});
-                utxo2.addCoins(arrOutputs[0], coins);
-                utxo2.addCoins(arrOutputs[1], coins);
-                utxo2.addCoins(arrOutputs[2], coins);
-
-                const patchPending = new factory.PatchDB();
-                patchPending.setUtxo(utxo2);
-                node._pendingBlocks.getBestParents = sinon.fake.returns({patchMerged: patchPending});
-
-            });
-
-            it('should get only stable UTXOS', async () => {
-                const {arrStableUtxos, arrPendingUtxos} = await node.rpcHandler(
-                    {
-                        event: 'walletListUnspent',
-                        content: {
-                            strAddress: addr.toString('hex'),
-                            bStableOnly: true
-                        }
-                    });
-                assert.isOk(Array.isArray(arrStableUtxos));
-                assert.equal(arrStableUtxos.length, 1);
-
-                assert.isOk(Array.isArray(arrPendingUtxos));
-                assert.equal(arrPendingUtxos.length, 0);
-            });
-
-            it('should get all UTXOS (including pending)', async () => {
-                const {arrStableUtxos, arrPendingUtxos} = await node.rpcHandler(
-                    {
-                        event: 'walletListUnspent',
-                        content: {
-                            strAddress: addr.toString('hex'),
-                            bStableOnly: false
-                        }
-                    });
-
-                assert.isOk(Array.isArray(arrStableUtxos));
-                assert.equal(arrStableUtxos.length, 1);
-
-                assert.isOk(Array.isArray(arrPendingUtxos));
-                assert.equal(arrPendingUtxos.length, 1);
-            });
-        });
     });
 
     describe('BlockProcessor', async () => {
@@ -1611,7 +1542,7 @@ describe('Node tests', () => {
             const peer2 = {address: 'addr2', port: 1234, isAhead: () => false};
             const peer3 = {address: 'addr3', port: 1234, isAhead: () => false};
 
-            beforeEach(() => {
+            beforeEach(async () => {
 
                 node._mapUnknownBlocks = new Map();
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
@@ -1679,7 +1610,7 @@ describe('Node tests', () => {
             });
         });
 
-        describe('_blockProcessorProcessParents', () => {
+        describe('_blockProcessorProcessParents', async () => {
             it('should mark toExec', async () => {
                 node._isBlockKnown = sinon.fake.returns(true);
                 node._isBlockExecuted = sinon.fake.returns(false);
@@ -2249,7 +2180,7 @@ describe('Node tests', () => {
 
     describe('Node bootstrap', async () => {
         let node;
-        before(() => {
+        before(async () => {
             factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
         });
 
@@ -2258,7 +2189,7 @@ describe('Node tests', () => {
             await node.ensureLoaded();
         });
 
-        describe('Empty node', () => {
+        describe('Empty node', async () => {
             it('should return NOTHING for empty REQUEST', async () => {
                 const setResult = node._getBlocksFromLastKnown([]);
                 assert.equal(setResult.size, 0);
@@ -2272,7 +2203,7 @@ describe('Node tests', () => {
             });
 
         });
-        describe('Node with only Genesis', () => {
+        describe('Node with only Genesis', async () => {
             it('should return GENESIS for empty REQUEST', async () => {
 
                 // fake possessing Genesis
@@ -2297,7 +2228,7 @@ describe('Node tests', () => {
             });
 
         });
-        describe('Some loaded node', () => {
+        describe('Some loaded node', async () => {
 
             it('should return CHAIN for empty REQUEST', async () => {
 

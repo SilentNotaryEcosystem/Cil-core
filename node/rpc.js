@@ -1,5 +1,6 @@
 'use strict';
 const typeforce = require('typeforce');
+const assert = require('assert');
 const debugLib = require('debug');
 
 const rpc = require('json-rpc2');
@@ -9,7 +10,7 @@ const types = require('../types');
 
 const debug = debugLib('RPC:');
 
-module.exports = ({Constants, Transaction, StoredWallet}) =>
+module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
     class RPC {
         /**
          *
@@ -48,8 +49,12 @@ module.exports = ({Constants, Transaction, StoredWallet}) =>
             this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
             this._server.expose('getContractData', asyncRPC(this.getContractData.bind(this)));
             this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
+
             this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
+            this._server.expose('accountListUnspent', asyncRPC(this.getAccountUnspent.bind(this)));
             this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
+            this._server.expose('getAccountBalance', asyncRPC(this.getAccountBalance.bind(this)));
+
             this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
             this._server.expose('getWalletsAddresses', asyncRPC(this.getWalletsAddresses.bind(this)));
             this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
@@ -250,61 +255,25 @@ module.exports = ({Constants, Transaction, StoredWallet}) =>
             let {strAddress, bStableOnly} = args;
             strAddress = stripAddressPrefix(Constants, strAddress);
 
-            const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
-                event: 'walletListUnspent',
-                content: {strAddress, bStableOnly}
-            });
-
-            const representResults = (arrUtxos, isStable) => {
-                const arrResult = [];
-                arrUtxos.forEach(utxo => {
-                    utxo
-                        .getOutputsForAddress(strAddress)
-                        .forEach(([idx, coins]) => {
-                            arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount(), isStable});
-                        });
-                });
-
-                return arrResult;
-            };
+            const arrStableUtxos = await this._storedWallets.walletListUnspent(strAddress);
+            const arrPendingUtxos = bStableOnly ? []
+                : this._nodeInstance
+                    .getPendingUtxos()
+                    .map(utxo => utxo.filterOutputsForAddress(strAddress));
 
             return prepareForStringifyObject([].concat(
-                representResults(arrStableUtxos, true),
-                representResults(arrPendingUtxos, false)
+                this._finePrintUtxos(arrStableUtxos, true),
+                this._finePrintUtxos(arrPendingUtxos, false)
             ));
         }
 
         async getBalance(args) {
-            let {strAddress} = args;
-            strAddress = stripAddressPrefix(Constants, strAddress);
+            const arrResult = await this.walletListUnspent(args);
 
-            const {arrStableUtxos, arrPendingUtxos} = await this._nodeInstance.rpcHandler({
-                event: 'walletListUnspent',
-                content: {strAddress}
-            });
-
-            const getUtxoBalance = (utxo) => {
-                let balance = 0;
-                utxo
-                    .getOutputsForAddress(strAddress)
-                    .forEach(([idx, coins]) => {
-                        balance += coins.getAmount();
-                    });
-                return balance;
-            };
-
-            const confirmedBalance = arrStableUtxos.reduce((balance, utxo) => {
-                return balance + getUtxoBalance(utxo);
-            }, 0);
-
-            const unconfirmedBalance = arrPendingUtxos.reduce((balance, utxo) => {
-                return balance + getUtxoBalance(utxo);
-            }, 0);
-
-            return prepareForStringifyObject({
-                confirmedBalance,
-                unconfirmedBalance
-            });
+            return arrResult.reduce((accum, {amount, isStable}) => {
+                isStable ? accum.confirmedBalance += amount : accum.unconfirmedBalance += amount;
+                return accum;
+            }, {confirmedBalance: 0, unconfirmedBalance: 0});
         }
 
         async watchAddress(args) {
@@ -380,4 +349,81 @@ module.exports = ({Constants, Transaction, StoredWallet}) =>
             return {address: kp.address, privateKey: kp.privateKey};
         }
 
+        async getAccountBalance(args) {
+            const arrResult = await this.getAccountUnspent(args);
+
+            return arrResult.reduce((accum, {amount, isStable}) => {
+                isStable ? accum.confirmedBalance += amount : accum.unconfirmedBalance += amount;
+                return accum;
+            }, {confirmedBalance: 0, unconfirmedBalance: 0});
+        }
+
+        async getAccountUnspent(args) {
+            const {strAccountName, bStableOnly} = args;
+
+            const arrAccountAddresses = await this._storedWallets.getAccountAddresses(strAccountName);
+            assert(Array.isArray(arrAccountAddresses), 'Accound doesn\'t exist');
+
+            const arrOfArrayOfStableUtxos = [];
+            for (let strAddress of arrAccountAddresses) {
+                arrOfArrayOfStableUtxos.push(await this._storedWallets.walletListUnspent(strAddress, true));
+            }
+
+            let arrPendingUtxos = [];
+            const arrOfArrayOfPendingUtxos = [];
+
+            if (!bStableOnly) {
+                arrPendingUtxos = this._nodeInstance.getPendingUtxos();
+                for (let strAddress of arrAccountAddresses) {
+                    const arrFilteredUtxos = [];
+                    for (let utxo of arrPendingUtxos) {
+                        arrFilteredUtxos.push(utxo.filterOutputsForAddress(strAddress));
+                    }
+                    arrOfArrayOfPendingUtxos.push(arrFilteredUtxos);
+                }
+            }
+
+            // flatten results
+            return prepareForStringifyObject(
+                [].concat(
+                    this._finePrintUtxos([].concat.apply([], arrOfArrayOfStableUtxos), true),
+                    this._finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false)
+                ));
+        }
+
+        /**
+         * Will return new UTXOs containing only outputs for strAddress
+         *
+         * @param arrUtxos
+         * @param strAddress
+         * @return {[]}
+         * @private
+         */
+        _filterUtxoForAddress(arrUtxos, strAddress) {
+            const arrFilteredUtxos = [];
+            for (let utxo of arrUtxos) {
+                const arrAddrOutputs = utxo.getOutputsForAddress(strAddress);
+                if (arrAddrOutputs.length) {
+                    const utxoFiltered = new UTXO({txHash: utxo.getTxHash()});
+                    arrAddrOutputs.forEach(([idx, coins]) => {
+                        utxoFiltered.addCoins(idx, coins);
+                    });
+                    arrFilteredUtxos.push(utxoFiltered);
+                }
+            }
+            return arrFilteredUtxos;
+        }
+
+        _finePrintUtxos(arrUtxos, isStable) {
+            const arrResult = [];
+            arrUtxos.forEach(utxo => {
+                utxo.getIndexes()
+                    .map(idx => [idx, utxo.coinsAtIndex(idx)])
+                    .map(([idx, coins]) => {
+                        arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount(), isStable});
+                    });
+            });
+
+            return arrResult;
+        };
     };
