@@ -266,5 +266,99 @@ describe('Conciliums', async () => {
             });
         });
 
+        describe('fair proposer selection', async () => {
+            it('should work for 2 equal node', async () => {
+                concilium = factory.ConciliumPos.create(
+                    11, 10, 100,
+                    [
+                        {amount: 10, address: 'addr1'},
+                        {amount: 10, address: 'addr2'}
+                    ]
+                );
+
+                const objCounters = {};
+
+                concilium.initRounds();
+                const nTotalRound = 100000;
+                for (let i = 0; i < nTotalRound; i++) {
+                    const strAddr = concilium.getProposerAddress();
+                    if (!objCounters[strAddr]) {
+                        objCounters[strAddr] = 1;
+                    } else {
+                        objCounters[strAddr]++;
+                    }
+
+                    if (!(i % 20)) concilium.changeSeed(parseInt(Math.random() * nTotalRound));
+                    concilium.nextRound();
+                }
+
+                assert.isOk(objCounters['addr1'] / objCounters['addr2'] < 1.02);
+                console.dir(objCounters, {colors: true, depth: null});
+            });
+
+            it('should work for 2 of 3 equal node', async () => {
+                concilium = factory.ConciliumPos.create(
+                    11, 1, 100,
+                    [
+                        {amount: 1000, address: 'addr1'},
+                        {amount: 100, address: 'addr2'},
+                        {amount: 1000, address: 'addr3'}
+                    ]
+                );
+
+                const objCounters = {};
+
+                concilium.initRounds();
+                const nTotalRound = 100000;
+                for (let i = 0; i < nTotalRound; i++) {
+                    const strAddr = concilium.getProposerAddress();
+                    if (!objCounters[strAddr]) {
+                        objCounters[strAddr] = 1;
+                    } else {
+                        objCounters[strAddr]++;
+                    }
+
+                    if (!(i % 20)) concilium.changeSeed(parseInt(Math.random() * nTotalRound));
+                    concilium.nextRound();
+                }
+                console.dir(objCounters, {colors: true, depth: null});
+
+                assert.isOk(objCounters['addr2'] / objCounters['addr1'] < 0.12);
+                assert.isOk(objCounters['addr1'] / objCounters['addr3'] < 1.02);
+            });
+
+            it('should work for 3 unequal node', async () => {
+                concilium = factory.ConciliumPos.create(
+                    11, 1, 100,
+                    [
+                        {amount: 1, address: 'addr1'},
+                        {amount: 999, address: 'addr2'},
+                        {amount: 10000, address: 'addr3'}
+
+                    ]
+                );
+
+                const objCounters = {};
+
+                concilium.initRounds();
+                const nTotalRound = 100000;
+                for (let i = 0; i < nTotalRound; i++) {
+                    const strAddr = concilium.getProposerAddress();
+                    if (!objCounters[strAddr]) {
+                        objCounters[strAddr] = 1;
+                    } else {
+                        objCounters[strAddr]++;
+                    }
+
+                    if (!(i % 20)) concilium.changeSeed(parseInt(Math.random() * nTotalRound));
+                    concilium.nextRound();
+                }
+
+                console.dir(objCounters, {colors: true, depth: null});
+                assert.isOk(objCounters['addr1'] / objCounters['addr2'] < 0.02);
+                assert.isOk(objCounters['addr2'] / objCounters['addr3'] < 0.12);
+            });
+        });
+
     });
 });

@@ -58,8 +58,8 @@ module.exports = ({Constants}) =>
                 1 : (0.5 * this._totalSharesAmount + 1) / this._totalSharesAmount;
 
             // see _getSlot
-            this._paramA = 7;
-            this._paramB = 17;
+            this._paramA = 73;
+            this._paramB = 113;
         }
 
         static create(conciliumId, nMinAmountToJoin, currentHeight, arrMembers, nSeqLength) {
@@ -105,12 +105,11 @@ module.exports = ({Constants}) =>
          *
          * @returns {String}
          */
-        getProposerAddress(roundNo) {
+        getProposerAddress() {
+            assert(this._nLocalRound < this._nSeqLength, 'this._nLocalRound exceeded this._nSeqLength');
+            const nAddrIdx = this._arrProposers[this._nLocalRound];
 
-            // TODO: REPLACE THIS STUB!!
-            const arrAddresses = this.getAddresses();
-            const idx = roundNo % arrAddresses.length;
-            return arrAddresses[idx].toString('hex');
+            return this._data.arrMembers[nAddrIdx].address;
         }
 
         /**
@@ -160,7 +159,7 @@ module.exports = ({Constants}) =>
 
             for (let i = 0; i < this._nSeqLength; i++) {
                 const proposerIdx = this._findIdxByRound(this._getSlot(seed + i));
-                this._arrProposers.push(this._data.arrMembers[proposerIdx].address);
+                this._arrProposers.push(proposerIdx);
             }
         }
 
