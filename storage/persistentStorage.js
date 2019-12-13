@@ -369,16 +369,22 @@ module.exports = (factory, factoryOptions) => {
         async getUtxosPatch(arrUtxoHashes) {
             const patch = new PatchDB();
 
-            // TODO: test it against batch read performance
-            for (let hash of arrUtxoHashes) {
-                try {
-                    const utxo = await this.getUtxo(hash);
-                    patch.setUtxo(utxo);
-                } catch (e) {
-                    debug(e);
-                }
-            }
+            const lock = await this._mutex.acquire(['utxo']);
 
+            try {
+
+                // TODO: test it against batch read performance
+                for (let hash of arrUtxoHashes) {
+                    try {
+                        const utxo = await this.getUtxo(hash);
+                        patch.setUtxo(utxo);
+                    } catch (e) {
+                        debug(e);
+                    }
+                }
+            } finally {
+                this._mutex.release(lock);
+            }
             return patch;
         }
 
@@ -388,17 +394,15 @@ module.exports = (factory, factoryOptions) => {
          * @param {Boolean} raw
          * @returns {Promise<Buffer | UTXO>}
          */
-        getUtxo(hash, raw = false) {
+        async getUtxo(hash, raw = false) {
             typeforce(types.Hash256bit, hash);
 
-            return this._mutex.runExclusive(['utxo'], async () => {
-                const key = this.constructor.createUtxoKey(hash);
+            const key = this.constructor.createUtxoKey(hash);
 
-                const buffUtxo = await this._db.get(key).catch(err => debug(err));
-                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${hash.toString('hex')} not found !`);
+            const buffUtxo = await this._db.get(key).catch(err => debug(err));
+            if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${hash.toString('hex')} not found !`);
 
-                return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
-            });
+            return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
         }
 
         /**
