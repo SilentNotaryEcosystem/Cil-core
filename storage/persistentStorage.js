@@ -784,7 +784,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (arrKeysToCleanup.length) await this._walletCleanupMissed(arrKeysToCleanup);
 
-            return arrResult;
+            return arrResult.map(utxo => utxo.filterOutputsForAddress(strAddress));
         }
 
         async walletWatchAddress(address) {
