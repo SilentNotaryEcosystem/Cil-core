@@ -66,13 +66,13 @@ module.exports = ({Constants}) =>
          *
          * @returns {String}
          */
-        getProposerAddress(roundNo) {
+        getProposerAddress() {
             const arrAddresses = this.getAddresses();
-            const idx = roundNo % arrAddresses.length;
+            const idx = this.getRound() % arrAddresses.length;
             return arrAddresses[idx].toString('hex');
         }
 
-        getWitnessWeight(strAddress) {
+        getWitnessWeight() {
             return 1;
         }
 

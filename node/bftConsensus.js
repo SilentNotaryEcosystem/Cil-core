@@ -472,7 +472,7 @@ module.exports = (factory) => {
          * @return {boolean}
          */
         shouldPublish(proposer = this._wallet.address) {
-            return this._concilium.getProposerAddress(this._concilium.getRound()) === proposer;
+            return this._concilium.getProposerAddress() === proposer;
         }
 
         timeForWitnessBlock() {
