@@ -257,7 +257,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
 
             const arrStableUtxos = await this._storedWallets.walletListUnspent(strAddress);
             const arrPendingUtxos = bStableOnly ? []
-                : this._nodeInstance
+                : await this._nodeInstance
                     .getPendingUtxos()
                     .map(utxo => utxo.filterOutputsForAddress(strAddress));
 
@@ -381,7 +381,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             const arrOfArrayOfPendingUtxos = [];
 
             if (!bStableOnly) {
-                arrPendingUtxos = this._nodeInstance.getPendingUtxos();
+                arrPendingUtxos = await this._nodeInstance.getPendingUtxos();
                 for (let strAddress of arrAccountAddresses) {
                     const arrFilteredUtxos = [];
                     for (let utxo of arrPendingUtxos) {

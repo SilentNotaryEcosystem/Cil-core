@@ -13,17 +13,26 @@ const debug = debugLib('pendingBlocksManager:');
 // IMPORTANT: how many witnesses should include it in graph to make it stable
 const majority = (nConcilium) => parseInt(nConcilium / 2) + 1;
 
-module.exports = (factory) => {
+module.exports = (factory, factoryOptions) => {
     const {Constants, PatchDB} = factory;
     assert(Constants);
     assert(PatchDB);
 
     return class PendingBlocksManager {
-        constructor(arrTopStable) {
+        constructor(options) {
+            options = {
+                ...factoryOptions,
+                ...options
+            };
+
+            const {mutex, arrTopStable} = options;
+
             this._dag = new Dag();
             this._dag.testForCyclic = false;
 
             this._topStable = arrTopStable;
+
+            this._mutex = mutex;
 
             // see node.rebuildPending
         }
@@ -41,14 +50,16 @@ module.exports = (factory) => {
         addBlock(block, patchState) {
             typeforce(typeforce.tuple(types.Block, types.Patch), arguments);
 
-            this._dag.addVertex(block.getHash());
-            for (let strHash of block.parentHashes) {
-                if (this._dag.hasVertex(strHash)) this._dag.add(block.getHash(), strHash);
-            }
-            this._dag.saveObj(
-                block.getHash(),
-                {patch: patchState, blockHeader: block.header, bIsEmpty: block.isEmpty()}
-            );
+            return this._mutex.runExclusive('pbm', async () => {
+                this._dag.addVertex(block.getHash());
+                for (let strHash of block.parentHashes) {
+                    if (this._dag.hasVertex(strHash)) this._dag.add(block.getHash(), strHash);
+                }
+                this._dag.saveObj(
+                    block.getHash(),
+                    {patch: patchState, blockHeader: block.header, bIsEmpty: block.isEmpty()}
+                );
+            });
         }
 
         /**
@@ -106,7 +117,7 @@ module.exports = (factory) => {
          * @returns {{arrParents, patchMerged}}
          * @private
          */
-        getBestParents(nConciliumId) {
+        async getBestParents(nConciliumId) {
             let arrTips = this.getTips();
             const lastResort = this._topStable && this._topStable.length ? this._topStable : [Constants.GENESIS_BLOCK];
 
@@ -121,7 +132,7 @@ module.exports = (factory) => {
             // TODO: review it. this implementation (merging most witnessed vertex with other) could be non optimal
             let patchMerged;
             try {
-                patchMerged = this.mergePatches(
+                patchMerged = await this.mergePatches(
                     sortedDownTipIndexes.map(i => arrTips[i]),
                     arrParents,
                     nConciliumId === undefined
@@ -210,23 +221,25 @@ module.exports = (factory) => {
          *                      - this means it's final and applyed to storage
          */
         mergePatches(arrHashes, arrSuccessfullyMergedBlocksHashes, bMergeAsMuchAsPossible = false) {
-            let patchMerged = new PatchDB();
-            for (let vertex of arrHashes) {
-                const {patch} = this._dag.readObj(vertex) || {};
+            return this._mutex.runExclusive('pbm', async () => {
+                let patchMerged = new PatchDB();
+                for (let vertex of arrHashes) {
+                    const {patch} = this._dag.readObj(vertex) || {};
 
-                // this patch (block) already finial applied to storage, and removed from DAG
-                if (!patch) continue;
-                try {
-                    patchMerged = patch.merge(patchMerged);
-                    if (Array.isArray(arrSuccessfullyMergedBlocksHashes)) {
-                        arrSuccessfullyMergedBlocksHashes.push(vertex);
+                    // this patch (block) already finial applied to storage, and removed from DAG
+                    if (!patch) continue;
+                    try {
+                        patchMerged = patch.merge(patchMerged);
+                        if (Array.isArray(arrSuccessfullyMergedBlocksHashes)) {
+                            arrSuccessfullyMergedBlocksHashes.push(vertex);
+                        }
+                    } catch (e) {
+                        if (!bMergeAsMuchAsPossible) throw e;
                     }
-                } catch (e) {
-                    if (!bMergeAsMuchAsPossible) throw e;
                 }
-            }
 
-            return patchMerged;
+                return patchMerged;
+            });
         }
 
         /**
@@ -236,7 +249,7 @@ module.exports = (factory) => {
          * @param {Number} nConciliumCount - how many conciliums definition existed now
          * @return {undefined | {patchToApply: PatchDB, setStableBlocks: Set, setBlocksToRollback: Set, arrTopStable: Array}}
          */
-        checkFinality(strHashNewVertex, nConciliumCount) {
+        async checkFinality(strHashNewVertex, nConciliumCount) {
             typeforce(typeforce.tuple(types.Str64, 'Number'), arguments);
 
             // find all path from this vertex
@@ -247,30 +260,38 @@ module.exports = (factory) => {
 
             debug(`Found ${arrTopStable.length} top stables`);
 
-            // merge all "new stable blocks" patches
-            // WE CHOOSE ONLY TOP PATCH BECAUSE IT'S MOST CONSISTENT
-            const patchToApply = this.mergePatches(arrTopStable);
-
             // form set of all vertices that become stable and just remove them
             const setAlsoStableVertices = this._findAlsoStable(arrTopStable);
-            this._removeBlocks(setAlsoStableVertices);
 
-            debug(`Removed total ${setAlsoStableVertices.size} stable`);
+            // merge all "new stable blocks" patches
+            // WE CHOOSE ONLY TOP PATCH BECAUSE IT'S MOST CONSISTENT
+            const patchToApply = await this.mergePatches(arrTopStable);
 
-            // remove bad chains (their tips will conflict with patchToApply)
-            const setBlocksToRollback = this._removeConflictingBranches(strHashNewVertex, patchToApply);
+            const lock = await this._mutex.acquire('pbm');
+            let setBlocksToRollback;
 
-            if (setBlocksToRollback.size) debug(`Removed ${setBlocksToRollback.size} blocks from conflicting branches`);
-            debug(`Remaining DAG order ${this._dag.order}.`);
+            try {
+                this._removeBlocks(setAlsoStableVertices);
+                debug(`Removed total ${setAlsoStableVertices.size} stable`);
 
-            // purge pending patches to save memory
-            for (let vertex of this._dag.V) {
-                const {patch} = this._dag.readObj(vertex);
-                patch.purge(patchToApply);
+                // remove bad chains (their tips will conflict with patchToApply)
+                setBlocksToRollback = this._removeConflictingBranches(strHashNewVertex, patchToApply);
+
+                if (setBlocksToRollback.size) {
+                    debug(`Removed ${setBlocksToRollback.size} blocks from conflicting branches`);
+                }
+                debug(`Remaining DAG order ${this._dag.order}.`);
+
+                // purge pending patches to save memory
+                for (let vertex of this._dag.V) {
+                    const {patch} = this._dag.readObj(vertex);
+                    patch.purge(patchToApply);
+                }
+            } finally {
+                this._mutex.release(lock);
             }
 
             // apply patchToApply to storage, undo all setBlocksToRollback
-
             this._topStable = arrTopStable;
 
             return {

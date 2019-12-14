@@ -287,6 +287,8 @@ describe('Node tests', async () => {
     // TODO: add message handlers test
     it('should send GET_DATA message', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         node._mempool.hasTx = sinon.fake.returns(false);
         node._storage.hasBlock = sinon.fake.returns(false);
 
@@ -316,6 +318,8 @@ describe('Node tests', async () => {
 
     it('should NOT send GET_DATA message (that hashes are known to node)', async () => {
         const node = new factory.Node();
+        await node.ensureLoaded();
+
         node._mempool.hasTx = sinon.fake.returns(true);
         node._storage.hasBlock = sinon.fake.returns(true);
 

@@ -102,7 +102,7 @@ class BaseFactory {
                     this._mempoolImplementation = MempoolWrapper(this, options);
                     this._rpcImplementation = RpcWrapper(this);
                     this._appImplementation = AppWrapper(this);
-                    this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this);
+                    this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this, options);
                     this._mainDagImplementation = MainDagWrapper(this);
                     this._requestCacheImplementation = RequestCacheWrapper(this);
 
