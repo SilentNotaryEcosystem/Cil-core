@@ -398,7 +398,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             // since we building DAG, it's faster than check storage
-            if (this._mainDag.getBlockInfo(block.hash())) {
+            if (await this._isBlockKnown(block.hash())) {
                 logger.error(`Block ${block.hash()} already known!`);
                 return;
             }
@@ -466,7 +466,7 @@ module.exports = (factory, factoryOptions) => {
                         }
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
-                                         !await this._storage.hasBlock(objVector.hash);
+                                         !await this._isBlockKnown(objVector.hash.toString('hex'));
                         if (bShouldRequest) nBlockToRequest++;
                     }
 
@@ -942,8 +942,8 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        getPendingUtxos() {
-            this._ensureBestBlockValid();
+        async getPendingUtxos() {
+            await this._ensureBestBlockValid();
             const {patchMerged} = this._objCurrentBestParents;
             return Array.from(patchMerged.getCoins().values());
         }
@@ -1480,7 +1480,7 @@ module.exports = (factory, factoryOptions) => {
             // check for correct block height
             if (!isGenesis) this._checkHeight(block);
 
-            let patchState = this._pendingBlocks.mergePatches(block.parentHashes);
+            let patchState = await this._pendingBlocks.mergePatches(block.parentHashes);
             patchState.setConciliumId(block.conciliumId);
 
             let blockFees = 0;
@@ -1526,7 +1526,7 @@ module.exports = (factory, factoryOptions) => {
             debugNode(`Block ${block.getHash()} accepted`);
 
             // save block to graph of pending blocks
-            this._pendingBlocks.addBlock(block, patchState);
+            await this._pendingBlocks.addBlock(block, patchState);
 
             const arrStrHashes = block.getTxHashes();
 
@@ -1748,7 +1748,10 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<void>}
          */
         async _rebuildPending(arrLastStableHashes, arrPendingBlocksHashes) {
-            this._pendingBlocks = new PendingBlocksManager(arrLastStableHashes);
+            this._pendingBlocks = new PendingBlocksManager({
+                mutex: this._mutex,
+                arrTopStable: arrLastStableHashes
+            });
 
             const mapBlocks = new Map();
             const setPatches = new Set();
@@ -1773,7 +1776,7 @@ module.exports = (factory, factoryOptions) => {
                 this._processedBlock = block;
                 const patchBlock = await this._execBlock(block);
 
-                this._pendingBlocks.addBlock(block, patchBlock);
+                await this._pendingBlocks.addBlock(block, patchBlock);
 
                 setPatches.add(hash);
                 this._processedBlock = undefined;
@@ -1798,16 +1801,11 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _blockInFlight(block, bOnlyDag = false) {
-            const lock = await this._mutex.acquire(['blockStore']);
-            try {
-                debugNode(`Block "${block.getHash()}" stored`);
+            debugNode(`Block "${block.getHash()}" stored`);
 
-                const blockInfo = new BlockInfo(block.header);
-                blockInfo.markAsInFlight();
-                await this._storeBlockAndInfo(block, blockInfo, bOnlyDag);
-            } finally {
-                this._mutex.release(lock);
-            }
+            const blockInfo = new BlockInfo(block.header);
+            blockInfo.markAsInFlight();
+            await this._storeBlockAndInfo(block, blockInfo, bOnlyDag);
         }
 
         _isBlockExecuted(hash) {
@@ -1871,8 +1869,7 @@ module.exports = (factory, factoryOptions) => {
 
                 // parent is bad
                 if (blockInfo && blockInfo.isBad()) {
-                    throw new Error(
-                        `Block ${block.getHash()} refer to bad parent ${hash}`);
+                    throw new Error(`Block ${block.getHash()} refer to bad parent ${hash}`);
                 }
 
                 // parent is good!
@@ -2116,7 +2113,7 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Executing block "${block.getHash()}"`);
 
-            const lock = await this._mutex.acquire(['blockStore', 'blockExec']);
+            const lock = await this._mutex.acquire(['blockExec']);
             this._processedBlock = block;
             try {
                 const patchState = await this._execBlock(block);
@@ -2410,7 +2407,7 @@ module.exports = (factory, factoryOptions) => {
             tx.verify();
             const patchUtxos = await this._storage.getUtxosPatch(tx.utxos);
 
-            this._ensureBestBlockValid();
+            await this._ensureBestBlockValid();
             let {patchMerged} = this._objCurrentBestParents;
 
             const {totalHas} = this._app.processTxInputs(tx, patchMerged.merge(patchUtxos));
@@ -2418,9 +2415,9 @@ module.exports = (factory, factoryOptions) => {
             assert(totalHas >= tx.amountOut() + sizeFee, `Require fee at least ${sizeFee}`);
         }
 
-        _ensureBestBlockValid() {
+        async _ensureBestBlockValid() {
             if (this._objCurrentBestParents) return;
-            this._objCurrentBestParents = this._pendingBlocks.getBestParents();
+            this._objCurrentBestParents = await this._pendingBlocks.getBestParents();
         }
 
         /**

@@ -345,7 +345,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await donePromise;
 
         assert.equal(nodeThree._pendingBlocks.getAllHashes().length, 1);
-        assert.equal(nodeThree._mainDag.order, 4);
+        assert.isAtLeast(nodeThree._mainDag.order, 4);
 
         stepDone = true;
     });

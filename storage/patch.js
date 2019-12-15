@@ -7,8 +7,6 @@ const v8 = require('v8');
 const types = require('../types');
 const {arrayIntersection, getMapsKeysUnique} = require('../utils');
 
-const debug = debugLib('patch:');
-
 // Could be used for undo blocks
 
 module.exports = ({UTXO, Contract, TxReceipt}) =>
@@ -278,22 +276,23 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
          */
         purge(patch) {
             const arrAnotherCoinsHashes = Array.from(patch._data.coins.keys());
-
-            // TODO: use intersection of UTXOs to make it faster
             for (let hash of arrAnotherCoinsHashes) {
-
-                // keep UTXO if it was changed
                 const utxo = this.getUtxo(hash);
-                if (!utxo ||
-                    !utxo.equals(patch.getUtxo(hash)) ||
-                    !this._spendingTnxsEqual(this._getSpentOutputs(hash), patch._getSpentOutputs(hash))
-                ) {
-                    continue;
-                }
+                if (utxo) {
+                    if (utxo.equals(patch.getUtxo(hash)) &&
+                        this._spendingTnxsEqual(this._getSpentOutputs(hash), patch._getSpentOutputs(hash))) {
 
-                // remove it, if unchanged since (patch)
-                this._data.coins.delete(utxo.getTxHash());
-                this._mapSpentUtxos.delete(utxo.getTxHash());
+                        // remove it, if unchanged since (patch)
+                        this.removeUtxo(utxo.getTxHash());
+                    } else {
+
+                        // remove indexes from UTXO
+                        const setUnspentIndexes = new Set(utxo.getIndexes());
+                        for (let [idx, buffHashSpent] of patch._getSpentOutputs(utxo.getTxHash())) {
+                            if (setUnspentIndexes.has(idx)) this.spendCoins(utxo, idx, buffHashSpent);
+                        }
+                    }
+                }
             }
 
             // remove contracts
@@ -511,5 +510,11 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
 //            return !!arrUtxos.filter(strHash => this._data.coins.has(strHash)).length;
             const res = arrUtxos.filter(strHash => this._data.coins.has(strHash)).length;
             return res;
+        }
+
+        removeUtxo(strHash) {
+            this._data.coins.delete(strHash);
+            this._mapSpentUtxos.delete(strHash);
+
         }
     };

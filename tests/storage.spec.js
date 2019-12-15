@@ -648,7 +648,7 @@ describe('Storage tests', () => {
             const addr = generateAddress().toString('hex');
             const hash1 = pseudoRandomBuffer();
             const hash2 = pseudoRandomBuffer();
-            const fakeUtxo = 'fakeUtxo';
+            const fakeUtxo = {filterOutputsForAddress: () => {}};
             storage.getUtxo = sinon.fake.returns(fakeUtxo);
             storage._arrStrWalletAddresses = [addr];
             storage._nWalletAutoincrement = 0;
@@ -659,14 +659,13 @@ describe('Storage tests', () => {
             const arrResults = await storage.walletListUnspent(addr);
 
             assert.equal(arrResults.length, 2);
-            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
         });
 
         it('should walletListUnspent (purge missed)', async () => {
             const addr = generateAddress().toString('hex');
             const hash1 = pseudoRandomBuffer();
             const hash2 = pseudoRandomBuffer();
-            const fakeUtxo = 'fakeUtxo';
+            const fakeUtxo = {filterOutputsForAddress: () => {}};
             storage.getUtxo = async (hash) => {
                 if (hash.equals(hash1)) return fakeUtxo;
                 throw 'not found';
@@ -681,7 +680,6 @@ describe('Storage tests', () => {
             const arrResults = await storage.walletListUnspent(addr);
 
             assert.equal(arrResults.length, 1);
-            assert.isOk(arrResults.every(utxo => utxo === fakeUtxo));
 
             assert.isOk(storage._walletCleanupMissed.calledOnce);
             assert.equal(storage._walletCleanupMissed.args[0][0].length, 1);

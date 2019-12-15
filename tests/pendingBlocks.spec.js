@@ -16,7 +16,7 @@ const createNonEmptyBlock = (nConciliumId) => {
     return block;
 };
 
-const createRhombus = (pbm, bNonEmpty = false) => {
+const createRhombus = async (pbm, bNonEmpty = false) => {
     const createBlockFunction = bNonEmpty ? createNonEmptyBlock : createDummyBlock.bind(createDummyBlock, factory);
 
     const block1 = createBlockFunction(1);
@@ -30,10 +30,10 @@ const createRhombus = (pbm, bNonEmpty = false) => {
     block3.parentHashes = [block1.getHash()];
     block4.parentHashes = [block2.getHash(), block3.getHash()];
 
-    pbm.addBlock(block1, patch);
-    pbm.addBlock(block2, patch);
-    pbm.addBlock(block3, patch);
-    pbm.addBlock(block4, patch);
+    await pbm.addBlock(block1, patch);
+    await pbm.addBlock(block2, patch);
+    await pbm.addBlock(block3, patch);
+    await pbm.addBlock(block4, patch);
 
     return block4;
 };
@@ -52,7 +52,7 @@ const makeDoubleSpend = (block, newConciliumId) => {
     return newBlock;
 };
 
-const createSample = (pbm, isContractFound = false) => {
+const createSample = async (pbm, isContractFound = false) => {
     const block1 = createDummyBlock(factory, 0);
     const patch1 = new factory.PatchDB(0);
 
@@ -88,36 +88,42 @@ const createSample = (pbm, isContractFound = false) => {
     const patch6 = patch4.merge(new factory.PatchDB());
     patch6.setConciliumId(2);
 
-    pbm.addBlock(block1, patch1);
-    pbm.addBlock(block2, patch2);
-    pbm.addBlock(block3, patch3);
-    pbm.addBlock(block4, patch4);
-    pbm.addBlock(block5, patch5);
-    pbm.addBlock(block6, patch6);
+    await pbm.addBlock(block1, patch1);
+    await pbm.addBlock(block2, patch2);
+    await pbm.addBlock(block3, patch3);
+    await pbm.addBlock(block4, patch4);
+    await pbm.addBlock(block5, patch5);
+    await pbm.addBlock(block6, patch6);
 
     return [block1, block2, block3, block4, block5, block6].map(b => b.getHash());
 };
 
 describe('Pending block manager', async () => {
+    let pbm;
+
     before(async function() {
         await factory.asyncLoad();
     });
 
+    beforeEach(async () => {
+        pbm = new factory.PendingBlocksManager({});
+    });
+
     it('should add block', async () => {
-        const pbm = new factory.PendingBlocksManager();
+
         const block = createDummyBlock(factory);
         block.parentHashes = [
             pseudoRandomBuffer().toString('hex'),
             pseudoRandomBuffer().toString('hex'),
             pseudoRandomBuffer().toString('hex')
         ];
-        pbm.addBlock(block, new factory.PatchDB(0));
+        await pbm.addBlock(block, new factory.PatchDB(0));
 
         assert.equal(pbm.getDag().order, 1);
     });
 
     it('should test "getVertexWitnessBelow"', async () => {
-        const pbm = new factory.PendingBlocksManager();
+
 
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 2);
@@ -128,10 +134,10 @@ describe('Pending block manager', async () => {
         block3.parentHashes = [block1.getHash()];
         block4.parentHashes = [block2.getHash()];
 
-        pbm.addBlock(block1, new factory.PatchDB(0));
-        pbm.addBlock(block2, new factory.PatchDB(0));
-        pbm.addBlock(block3, new factory.PatchDB(0));
-        pbm.addBlock(block4, new factory.PatchDB(0));
+        await pbm.addBlock(block1, new factory.PatchDB(0));
+        await pbm.addBlock(block2, new factory.PatchDB(0));
+        await pbm.addBlock(block3, new factory.PatchDB(0));
+        await pbm.addBlock(block4, new factory.PatchDB(0));
 
         assert.equal(pbm.getVertexWitnessBelow(block1.getHash()), 1);
         assert.equal(pbm.getVertexWitnessBelow(block3.getHash()), 1);
@@ -140,23 +146,21 @@ describe('Pending block manager', async () => {
     });
 
     it('should select all 3 parents (no conflicts)', async () => {
-        const pbm = new factory.PendingBlocksManager();
-
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
         const block3 = createDummyBlock(factory, 3);
 
-        pbm.addBlock(block1, new factory.PatchDB(0));
-        pbm.addBlock(block2, new factory.PatchDB(1));
-        pbm.addBlock(block3, new factory.PatchDB(2));
+        await pbm.addBlock(block1, new factory.PatchDB(0));
+        await pbm.addBlock(block2, new factory.PatchDB(1));
+        await pbm.addBlock(block3, new factory.PatchDB(2));
 
-        const {arrParents} = pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 3);
         assert.isOk(arrayEquals(arrParents, [block1.getHash(), block2.getHash(), block3.getHash()]));
     });
 
     it('should select only 1 parent (conflict)', async () => {
-        const pbm = new factory.PendingBlocksManager();
+
 
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
@@ -164,16 +168,16 @@ describe('Pending block manager', async () => {
         const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.throws();
 
-        pbm.addBlock(block1, new factory.PatchDB(0));
-        pbm.addBlock(block2, patch);
+        await pbm.addBlock(block1, new factory.PatchDB(0));
+        await pbm.addBlock(block2, patch);
 
-        const {arrParents} = pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 1);
         assert.isOk(arrayEquals(arrParents, [block1.getHash()]));
     });
 
     it('should select longest chain 3->2 (3 & 1 conflicts)', async () => {
-        const pbm = new factory.PendingBlocksManager();
+
 
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
@@ -184,32 +188,32 @@ describe('Pending block manager', async () => {
         const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.throws();
 
-        pbm.addBlock(block1, patch);
-        pbm.addBlock(block2, patch);
-        pbm.addBlock(block3, new factory.PatchDB(0));
+        await pbm.addBlock(block1, patch);
+        await pbm.addBlock(block2, patch);
+        await pbm.addBlock(block3, new factory.PatchDB(0));
 
-        const {arrParents} = pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
         assert.isOk(arrParents.length, 1);
         assert.isOk(arrayEquals(arrParents, [block3.getHash()]));
     });
 
     it('should call merge 10 times', async () => {
 
-        const pbm = new factory.PendingBlocksManager();
+
 
         const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.returns(patch);
 
         for (let i = 1; i < 11; i++) {
             const block = createDummyBlock(factory, i, i + 1);
-            pbm.addBlock(block, patch);
+            await pbm.addBlock(block, patch);
         }
-        pbm.getBestParents();
+        await pbm.getBestParents();
         assert.isOk(patch.merge.callCount === 10);
     });
 
     it('should select 2 from 3  (has conflicts)', async () => {
-        const pbm = new factory.PendingBlocksManager();
+
 
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
@@ -226,12 +230,12 @@ describe('Pending block manager', async () => {
             }
         };
 
-        pbm.addBlock(block1, patch);
-        pbm.addBlock(block2, patch);
-        pbm.addBlock(block3, patch);
-        pbm.addBlock(block4, patch);
+        await pbm.addBlock(block1, patch);
+        await pbm.addBlock(block2, patch);
+        await pbm.addBlock(block3, patch);
+        await pbm.addBlock(block4, patch);
 
-        const {arrParents} = pbm.getBestParents();
+        const {arrParents} = await pbm.getBestParents();
 
         assert.isOk(arrParents.length === 2);
 
@@ -251,14 +255,14 @@ describe('Pending block manager', async () => {
 
         it('should pass for undefined conciliumId', async () => {
             factory.Constants.GENESIS_BLOCK = pseudoRandomBuffer().toString('hex');
-            pbm.getBestParents();
+            await pbm.getBestParents();
         });
 
         it('should pass for absent block of conciliumId', async () => {
             const block = createDummyBlock(factory, 0);
-            pbm.addBlock(block, new factory.PatchDB());
+            await pbm.addBlock(block, new factory.PatchDB());
 
-            const {arrParents} = pbm.getBestParents(0);
+            const {arrParents} = await pbm.getBestParents(0);
 
             assert.strictEqual(arrParents.length, 1);
             assert.strictEqual(arrParents[0], block.getHash());
@@ -267,11 +271,11 @@ describe('Pending block manager', async () => {
         it('should pass for block of conciliumId (middle)', async () => {
             const block = createDummyBlock(factory, 0);
 
-            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
-            pbm.addBlock(block, new factory.PatchDB());
-            pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
+            await pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+            await pbm.addBlock(block, new factory.PatchDB());
+            await pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
 
-            const {arrParents} = pbm.getBestParents(0);
+            const {arrParents} = await pbm.getBestParents(0);
 
             assert.strictEqual(arrParents.length, 3);
             assert.strictEqual(arrParents[0], block.getHash());
@@ -279,11 +283,11 @@ describe('Pending block manager', async () => {
         it('should pass for block of conciliumId (start)', async () => {
             const block = createDummyBlock(factory, 0);
 
-            pbm.addBlock(block, new factory.PatchDB());
-            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
-            pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
+            await pbm.addBlock(block, new factory.PatchDB());
+            await pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+            await pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
 
-            const {arrParents} = pbm.getBestParents(0);
+            const {arrParents} = await pbm.getBestParents(0);
 
             assert.strictEqual(arrParents.length, 3);
             assert.strictEqual(arrParents[0], block.getHash());
@@ -291,11 +295,11 @@ describe('Pending block manager', async () => {
         it('should pass for block of conciliumId (tail)', async () => {
             const block = createDummyBlock(factory, 0);
 
-            pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
-            pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
-            pbm.addBlock(block, new factory.PatchDB());
+            await pbm.addBlock(createDummyBlock(factory, 1), new factory.PatchDB());
+            await pbm.addBlock(createDummyBlock(factory, 2), new factory.PatchDB());
+            await pbm.addBlock(block, new factory.PatchDB());
 
-            const {arrParents} = pbm.getBestParents(0);
+            const {arrParents} = await pbm.getBestParents(0);
 
             assert.strictEqual(arrParents.length, 3);
             assert.strictEqual(arrParents[0], block.getHash());
@@ -306,10 +310,10 @@ describe('Pending block manager', async () => {
             const patchNonMergable = new factory.PatchDB();
             patchNonMergable.merge = sinon.fake.throws();
 
-            pbm.addBlock(createDummyBlock(factory, 1), patchNonMergable);
-            pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
+            await pbm.addBlock(createDummyBlock(factory, 1), patchNonMergable);
+            await pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
 
-            const {arrParents} = pbm.getBestParents(1);
+            const {arrParents} = await pbm.getBestParents(1);
 
             assert.deepEqual(arrParents, ['fake']);
         });
@@ -318,7 +322,7 @@ describe('Pending block manager', async () => {
     describe('isReasonToWitness', async () => {
         let pbm;
         beforeEach(async () => {
-            pbm = new factory.PendingBlocksManager();
+            pbm = new factory.PendingBlocksManager({});
         });
 
         it('should be NO reason for empty PBM', async () => {
@@ -330,7 +334,7 @@ describe('Pending block manager', async () => {
 
         it('should be a reason for single tip of other concilium', async () => {
             const block = createNonEmptyBlock(1);
-            pbm.addBlock(block, new factory.PatchDB());
+            await pbm.addBlock(block, new factory.PatchDB());
             const blockChild = createNonEmptyBlock(0);
             blockChild.parentHashes = [block.getHash()];
 
@@ -339,7 +343,7 @@ describe('Pending block manager', async () => {
 
         it('should be NO reason for single non-empty tip of same concilium', async () => {
             const block = createNonEmptyBlock(1);
-            pbm.addBlock(block, new factory.PatchDB());
+            await pbm.addBlock(block, new factory.PatchDB());
             const blockChild = createNonEmptyBlock(1);
             blockChild.parentHashes = [block.getHash()];
 
@@ -349,8 +353,8 @@ describe('Pending block manager', async () => {
         it('should be NO reason for 2 empty tips', async () => {
             const block1 = createDummyBlock(factory, 1);
             const block2 = createDummyBlock(factory, 2);
-            pbm.addBlock(block1, new factory.PatchDB());
-            pbm.addBlock(block2, new factory.PatchDB());
+            await pbm.addBlock(block1, new factory.PatchDB());
+            await pbm.addBlock(block2, new factory.PatchDB());
 
             {
                 const blockChild = createNonEmptyBlock(1);
@@ -367,8 +371,8 @@ describe('Pending block manager', async () => {
         it('should be reason for 2 non-empty tips', async () => {
             const block1 = createNonEmptyBlock(1);
             const block2 = createNonEmptyBlock(2);
-            pbm.addBlock(block1, new factory.PatchDB());
-            pbm.addBlock(block2, new factory.PatchDB());
+            await pbm.addBlock(block1, new factory.PatchDB());
+            await pbm.addBlock(block2, new factory.PatchDB());
 
             {
                 const blockChild = createNonEmptyBlock(1);
@@ -383,12 +387,12 @@ describe('Pending block manager', async () => {
         });
 
         it('should be NO reason for rhombus (existed inside rhombus)', async () => {
-            const blockTip = createRhombus(pbm);
+            const blockTip = await createRhombus(pbm);
             assert.isNotOk(pbm.isReasonToWitness(blockTip));
         });
 
         it('should be NO reason for rhombus (not existed inside rhombus, but empty blocks)', async () => {
-            const blockTip = createRhombus(pbm);
+            const blockTip = await createRhombus(pbm);
             const block = createNonEmptyBlock(0);
             block.parentHashes = [blockTip.getHash()];
 
@@ -396,7 +400,7 @@ describe('Pending block manager', async () => {
         });
 
         it('should be a reason for rhombus (new concilium and non empty blocks)', async () => {
-            const blockTip = createRhombus(pbm, true);
+            const blockTip = await createRhombus(pbm, true);
             const block = createNonEmptyBlock(0);
             block.parentHashes = [blockTip.getHash()];
 
@@ -405,9 +409,9 @@ describe('Pending block manager', async () => {
 
         it('should be a reason for rhombus (existed inside rhombus of empty blocks, but has single non empty tip)',
             async () => {
-                const blockTip1 = createRhombus(pbm);
+                const blockTip1 = await createRhombus(pbm);
                 const blockTip2 = createNonEmptyBlock(0);
-                pbm.addBlock(blockTip2, new factory.PatchDB());
+                await pbm.addBlock(blockTip2, new factory.PatchDB());
 
                 const block = createNonEmptyBlock(2);
                 block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
@@ -418,9 +422,9 @@ describe('Pending block manager', async () => {
 
         it('should be a reason for rhombus (existed inside rhombus of non-empty blocks, but has single yet empty tip)',
             async () => {
-                const blockTip1 = createRhombus(pbm, true);
+                const blockTip1 = await createRhombus(pbm, true);
                 const blockTip2 = createDummyBlock(factory, 0);
-                pbm.addBlock(blockTip2, new factory.PatchDB());
+                await pbm.addBlock(blockTip2, new factory.PatchDB());
 
                 const block = createNonEmptyBlock(2);
                 block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
@@ -433,16 +437,16 @@ describe('Pending block manager', async () => {
     describe('FINALITY', async () => {
         let pbm;
         beforeEach(async () => {
-            pbm = new factory.PendingBlocksManager();
+            pbm = new factory.PendingBlocksManager({});
         });
 
         it('should fail to reach the FINALITY (no majority of 2)', async function() {
             this.timeout(15000);
 
             const block1 = createDummyBlock(factory, 1, 10);
-            pbm.addBlock(block1, new factory.PatchDB(0));
+            await pbm.addBlock(block1, new factory.PatchDB(0));
 
-            const result = pbm.checkFinality(block1.getHash(), 2);
+            const result = await pbm.checkFinality(block1.getHash(), 2);
             assert.isNotOk(result);
         });
 
@@ -450,9 +454,9 @@ describe('Pending block manager', async () => {
             this.timeout(15000);
 
             const block1 = createDummyBlock(factory, 1);
-            pbm.addBlock(block1, new factory.PatchDB(0));
+            await pbm.addBlock(block1, new factory.PatchDB(0));
 
-            const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block1.getHash(), 1);
+            const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(block1.getHash(), 1);
             assert.equal(setBlocksToRollback.size, 0);
             assert.equal(setStableBlocks.size, 1);
 
@@ -467,10 +471,10 @@ describe('Pending block manager', async () => {
                 block1.getHash()
             ];
 
-            pbm.addBlock(block1, new factory.PatchDB(0));
-            pbm.addBlock(block2, new factory.PatchDB(0));
+            await pbm.addBlock(block1, new factory.PatchDB(0));
+            await pbm.addBlock(block2, new factory.PatchDB(0));
 
-            const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block2.getHash(), 2);
+            const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(block2.getHash(), 2);
             assert.equal(setBlocksToRollback.size, 0);
             assert.equal(setStableBlocks.size, 1);
 
@@ -488,12 +492,12 @@ describe('Pending block manager', async () => {
             block3.parentHashes = [block2.getHash()];
             block4.parentHashes = [block3.getHash()];
 
-            pbm.addBlock(block1, new factory.PatchDB(0));
-            pbm.addBlock(block2, new factory.PatchDB(0));
-            pbm.addBlock(block3, new factory.PatchDB(0));
-            pbm.addBlock(block4, new factory.PatchDB(0));
+            await pbm.addBlock(block1, new factory.PatchDB(0));
+            await pbm.addBlock(block2, new factory.PatchDB(0));
+            await pbm.addBlock(block3, new factory.PatchDB(0));
+            await pbm.addBlock(block4, new factory.PatchDB(0));
 
-            const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block4.getHash(), 2);
+            const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(block4.getHash(), 2);
             assert.equal(setBlocksToRollback.size, 0);
             assert.equal(setStableBlocks.size, 3);
 
@@ -510,44 +514,44 @@ describe('Pending block manager', async () => {
             const block2 = createDummyBlock(factory, 1);
             const block3 = createDummyBlock(factory, 2);
 
-            pbm.addBlock(block2, new factory.PatchDB(0));
+            await pbm.addBlock(block2, new factory.PatchDB(0));
 
             const patchThatWouldntMerge = createNonMergeablePatch(factory);
 
             // this will cause an exception if we try to merge it
             patchThatWouldntMerge._data = undefined;
-            pbm.addBlock(block3, patchThatWouldntMerge);
+            await pbm.addBlock(block3, patchThatWouldntMerge);
 
             let block5;
             {
-                const {arrParents} = pbm.getBestParents();
+                const {arrParents} = await pbm.getBestParents();
 
                 // block 3 (or 2) will fail to merge
                 assert.equal(arrParents.length, 1);
 
                 block5 = createDummyBlock(factory, 1);
                 block5.parentHashes = arrParents;
-                pbm.addBlock(block5, new factory.PatchDB(0));
+                await pbm.addBlock(block5, new factory.PatchDB(0));
             }
 
             let block6;
             {
-                const {arrParents} = pbm.getBestParents();
+                const {arrParents} = await pbm.getBestParents();
                 assert.equal(arrParents.length, 1);
 
                 block6 = createDummyBlock(factory, 1);
                 block6.parentHashes = arrParents;
-                pbm.addBlock(block6, new factory.PatchDB(0));
-                const result = pbm.checkFinality(block6.getHash(), numOfConcilium);
+                await pbm.addBlock(block6, new factory.PatchDB(0));
+                const result = await pbm.checkFinality(block6.getHash(), numOfConcilium);
 
                 // no finality
                 assert.notOk(result);
             }
 
             // connection to concilium0 restored
-            pbm.addBlock(block1, new factory.PatchDB(0));
+            await pbm.addBlock(block1, new factory.PatchDB(0));
             {
-                const result = pbm.checkFinality(block1.getHash(), numOfConcilium);
+                const result = await pbm.checkFinality(block1.getHash(), numOfConcilium);
 
                 // no finality
                 assert.notOk(result);
@@ -556,10 +560,12 @@ describe('Pending block manager', async () => {
             const block7 = createDummyBlock(factory, 0);
             {
                 block7.parentHashes = [block1.getHash(), block5.getHash()];
-                pbm.addBlock(block7, new factory.PatchDB(0));
+                await pbm.addBlock(block7, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block7.getHash(), numOfConcilium);
+                const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(block7.getHash(),
+                    numOfConcilium
+                );
 
                 assert.equal(setBlocksToRollback.size, 1);
                 assert.isOk(setBlocksToRollback.has(block3.getHash()));
@@ -571,7 +577,7 @@ describe('Pending block manager', async () => {
             // from now test not connected to page "rejected block consensus"
             const block8 = createDummyBlock(factory, 1);
             {
-                const {arrParents} = pbm.getBestParents();
+                const {arrParents} = await pbm.getBestParents();
                 assert.equal(arrParents.length, 2);
 
                 // chain through 7->1 and through 6 have same witness numbers (1) but first chain is longer
@@ -579,10 +585,12 @@ describe('Pending block manager', async () => {
                 assert.equal(arrParents[1], block6.getHash());
 
                 block8.parentHashes = arrParents;
-                pbm.addBlock(block8, new factory.PatchDB(0));
+                await pbm.addBlock(block8, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = pbm.checkFinality(block8.getHash(), numOfConcilium);
+                const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(block8.getHash(),
+                    numOfConcilium
+                );
 
                 // block 3 is already deleted
                 assert.equal(setBlocksToRollback.size, 0);
@@ -597,7 +605,7 @@ describe('Pending block manager', async () => {
     describe('getContract', () => {
         let pbm;
         beforeEach(async () => {
-            pbm = new factory.PendingBlocksManager();
+            pbm = new factory.PendingBlocksManager({});
         });
         it('should return undefined for EMPTY', async () => {
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
@@ -605,7 +613,7 @@ describe('Pending block manager', async () => {
 
         it('should find tip candidate (single)', async () => {
             const block1 = createDummyBlock(factory, 0);
-            pbm.addBlock(block1, new factory.PatchDB(0));
+            await pbm.addBlock(block1, new factory.PatchDB(0));
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
@@ -618,8 +626,8 @@ describe('Pending block manager', async () => {
         it('should find tip candidate (two)', async () => {
             const block1 = createDummyBlock(factory, 0);
             const block2 = createDummyBlock(factory, 2);
-            pbm.addBlock(block1, new factory.PatchDB(0));
-            pbm.addBlock(block2, new factory.PatchDB(2));
+            await pbm.addBlock(block1, new factory.PatchDB(0));
+            await pbm.addBlock(block2, new factory.PatchDB(2));
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
@@ -630,7 +638,7 @@ describe('Pending block manager', async () => {
         });
 
         it('should pick longest path in chain for concilium 0', async () => {
-            const arrBlockHashes = createSample(pbm);
+            const arrBlockHashes = await createSample(pbm);
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
@@ -643,7 +651,7 @@ describe('Pending block manager', async () => {
         });
 
         it('should pick longest path in chain for concilium 1', async () => {
-            const arrBlockHashes = createSample(pbm);
+            const arrBlockHashes = await createSample(pbm);
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 1));
@@ -656,7 +664,7 @@ describe('Pending block manager', async () => {
         });
 
         it('should pick longest path in chain for concilium 2', async () => {
-            const arrBlockHashes = createSample(pbm);
+            const arrBlockHashes = await createSample(pbm);
             pbm._dag.findPathsDown = sinon.fake.returns([]);
 
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 2));
@@ -669,7 +677,7 @@ describe('Pending block manager', async () => {
         });
 
         it('should return undefined. Patch found. No contract found', async () => {
-            const arrHashes = createSample(pbm);
+            const arrHashes = await createSample(pbm);
             assert.isNotOk(pbm.getContract(generateAddress().toString('hex'), 0));
 
             // block4 is winner (don't confuse with winner tip, which is block5) as latest for concilium 0
@@ -679,7 +687,7 @@ describe('Pending block manager', async () => {
         });
 
         it('should return true. Patch found. Contract found', async () => {
-            createSample(pbm, true);
+            await createSample(pbm, true);
             assert.isOk(pbm.getContract(generateAddress().toString('hex'), 0));
         });
     });

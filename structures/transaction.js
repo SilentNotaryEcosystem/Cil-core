@@ -60,6 +60,10 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return this._data;
         }
 
+        /**
+         *
+         * @return {Array} [{txHash, nTxOutput}]
+         */
         get inputs() {
             const checkPath = this._data &&
                               this._data.payload &&
@@ -85,7 +89,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         /**
          *
-         * @return {Array} utxos (Buffer!) this tx tries to spend
+         * @return {Array} of Buffers this tx tries to spend
          */
         get utxos() {
             const inputs = this.inputs;

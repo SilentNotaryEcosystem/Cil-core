@@ -208,26 +208,29 @@ module.exports = (factory, factoryOptions) => {
             return this._arrConciliumDefinition.filter(def => def.isEnabled()).length;
         }
 
-        async saveBlock(block, blockInfo) {
-            const hash = block.hash();
+        saveBlock(block, blockInfo) {
+            return this._mutex.runExclusive('blockStore', async () => {
 
-            const buffHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
+                const hash = block.hash();
 
-            // save entire block
-            // no prefix needed (because we using separate DB)
-            const key = this.constructor.createKey('', buffHash);
-            if (await this.hasBlock(hash)) {
-                throw new Error(`Storage: Block ${buffHash.toString('hex')} already saved!`);
-            }
-            await this._blockStorage.put(key, block.encode());
+                const buffHash = Buffer.isBuffer(hash) ? hash : Buffer.from(hash, 'hex');
 
-            // save blockInfo
-            if (!blockInfo) blockInfo = new BlockInfo(block.header);
-            await this.saveBlockInfo(blockInfo);
+                // save entire block
+                // no prefix needed (because we using separate DB)
+                const key = this.constructor.createKey('', buffHash);
+                if (await this.hasBlock(hash)) {
+                    throw new Error(`Storage: Block ${buffHash.toString('hex')} already saved!`);
+                }
+                await this._blockStorage.put(key, block.encode());
 
-            if (this._buildTxIndex) {
-                await this._storeTxnsIndex(Buffer.from(block.getHash(), 'hex'), block.getTxHashes());
-            }
+                // save blockInfo
+                if (!blockInfo) blockInfo = new BlockInfo(block.header);
+                await this.saveBlockInfo(blockInfo);
+
+                if (this._buildTxIndex) {
+                    await this._storeTxnsIndex(Buffer.from(block.getHash(), 'hex'), block.getTxHashes());
+                }
+            });
         }
 
         /**
@@ -269,17 +272,19 @@ module.exports = (factory, factoryOptions) => {
          * @param {Boolean} raw
          * @return {Promise<Block | Buffer>}
          */
-        async getBlock(blockHash, raw = false) {
-            typeforce(types.Hash256bit, blockHash);
+        getBlock(blockHash, raw = false) {
+            return this._mutex.runExclusive('blockStore', async () => {
+                typeforce(types.Hash256bit, blockHash);
 
-            const buffHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
+                const buffHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
 
-            // no prefix needed (because we using separate DB)
-            const key = this.constructor.createKey('', buffHash);
-            const buffBlock = await this._blockStorage.get(key).catch(err => debug(err));
-            if (!buffBlock) throw new Error(`Storage: No block found by hash ${buffHash.toString('hex')}`);
+                // no prefix needed (because we using separate DB)
+                const key = this.constructor.createKey('', buffHash);
+                const buffBlock = await this._blockStorage.get(key).catch(err => debug(err));
+                if (!buffBlock) throw new Error(`Storage: No block found by hash ${buffHash.toString('hex')}`);
 
-            return raw ? buffBlock : new Block(buffBlock);
+                return raw ? buffBlock : new Block(buffBlock);
+            });
         }
 
         /**
@@ -289,16 +294,19 @@ module.exports = (factory, factoryOptions) => {
          * @param {Boolean} raw
          * @return {Promise<BlockInfo | Buffer>}
          */
-        async getBlockInfo(blockHash, raw = false) {
+        getBlockInfo(blockHash, raw = false) {
             typeforce(types.Hash256bit, blockHash);
 
-            const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
-            const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, bufHash);
+            return this._mutex.runExclusive('blockInfoStore', async () => {
 
-            const buffInfo = await this._db.get(blockInfoKey).catch(err => debug(err));
-            if (!buffInfo) throw new Error(`Storage: No blockInfo found by hash ${bufHash.toString('hex')}`);
+                const bufHash = Buffer.isBuffer(blockHash) ? blockHash : Buffer.from(blockHash, 'hex');
+                const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, bufHash);
 
-            return raw ? buffInfo : new BlockInfo(buffInfo);
+                const buffInfo = await this._db.get(blockInfoKey).catch(err => debug(err));
+                if (!buffInfo) throw new Error(`Storage: No blockInfo found by hash ${bufHash.toString('hex')}`);
+
+                return raw ? buffInfo : new BlockInfo(buffInfo);
+            });
         }
 
         /**
@@ -306,11 +314,15 @@ module.exports = (factory, factoryOptions) => {
 
          * @param {BlockInfo} blockInfo
          */
-        async saveBlockInfo(blockInfo) {
+        saveBlockInfo(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
 
-            const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, Buffer.from(blockInfo.getHash(), 'hex'));
-            await this._db.put(blockInfoKey, blockInfo.encode());
+            return this._mutex.runExclusive('blockInfoStore', async () => {
+                const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX,
+                    Buffer.from(blockInfo.getHash(), 'hex')
+                );
+                await this._db.put(blockInfoKey, blockInfo.encode());
+            });
         }
 
         /**
@@ -369,16 +381,22 @@ module.exports = (factory, factoryOptions) => {
         async getUtxosPatch(arrUtxoHashes) {
             const patch = new PatchDB();
 
-            // TODO: test it against batch read performance
-            for (let hash of arrUtxoHashes) {
-                try {
-                    const utxo = await this.getUtxo(hash);
-                    patch.setUtxo(utxo);
-                } catch (e) {
-                    debug(e);
-                }
-            }
+            const lock = await this._mutex.acquire(['utxo']);
 
+            try {
+
+                // TODO: test it against batch read performance
+                for (let hash of arrUtxoHashes) {
+                    try {
+                        const utxo = await this.getUtxo(hash);
+                        patch.setUtxo(utxo);
+                    } catch (e) {
+                        debug(e);
+                    }
+                }
+            } finally {
+                this._mutex.release(lock);
+            }
             return patch;
         }
 
@@ -388,17 +406,15 @@ module.exports = (factory, factoryOptions) => {
          * @param {Boolean} raw
          * @returns {Promise<Buffer | UTXO>}
          */
-        getUtxo(hash, raw = false) {
+        async getUtxo(hash, raw = false) {
             typeforce(types.Hash256bit, hash);
 
-            return this._mutex.runExclusive(['utxo'], async () => {
-                const key = this.constructor.createUtxoKey(hash);
+            const key = this.constructor.createUtxoKey(hash);
 
-                const buffUtxo = await this._db.get(key).catch(err => debug(err));
-                if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${hash.toString('hex')} not found !`);
+            const buffUtxo = await this._db.get(key).catch(err => debug(err));
+            if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${hash.toString('hex')} not found !`);
 
-                return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
-            });
+            return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
         }
 
         /**
