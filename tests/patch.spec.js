@@ -333,15 +333,27 @@ describe('PatchDB', () => {
         const patch2 = new factory.PatchDB(12);
         const utxo = createUtxo([12, 0, 431]);
 
+        patch.getLevel = () => 3;
+        patch.getLevel = () => 5;
         patch.spendCoins(utxo.clone(), 12, pseudoRandomBuffer());
         patch2.spendCoins(utxo.clone(), 12, pseudoRandomBuffer());
 
-        try {
-            patch.merge(patch2);
-        } catch (e) {
-            return;
-        }
-        throw ('Unexpected success');
+        assert.throws(() => patch.merge(patch2), /Conflict on .{64} idx 12/);
+        assert.throws(() => patch2.merge(patch), /Conflict on .{64} idx 12/);
+    });
+
+    it('should fail MERGE patches (same outputs same spending TX)', async () => {
+        const patch = new factory.PatchDB(0);
+        const patch2 = new factory.PatchDB(0);
+        const utxo = createUtxo([12, 0, 431]);
+        const buffTxHash = pseudoRandomBuffer();
+
+        patch.spendCoins(utxo.clone(), 12, buffTxHash);
+        patch2.spendCoins(utxo.clone(), 12, buffTxHash);
+
+        assert.throws(() => patch.merge(patch2), /It seems we have unexpected fork!/);
+        assert.throws(() => patch2.merge(patch), /It seems we have unexpected fork!/);
+
     });
 
     it('should PURGE patch (complete removal, since equal)', async () => {
