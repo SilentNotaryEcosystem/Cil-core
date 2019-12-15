@@ -344,80 +344,6 @@ describe('PatchDB', () => {
         throw ('Unexpected success');
     });
 
-    it('should PURGE patch (complete removal, since equal)', async () => {
-        const patch = new factory.PatchDB(0);
-
-        const utxo = createUtxo([12, 0, 431]);
-        const creatingTx = pseudoRandomBuffer().toString('hex');
-        patch.createCoins(creatingTx, 17, utxo.coinsAtIndex(12));
-        const spendingTx = pseudoRandomBuffer().toString('hex');
-        patch.spendCoins(utxo, 12, spendingTx);
-
-        const mergedPatch = patch.merge(new factory.PatchDB(1));
-        mergedPatch.purge(patch);
-
-        assert.isNotOk(mergedPatch.getUtxo(utxo.getTxHash()));
-        assert.isNotOk(mergedPatch.getUtxo(creatingTx));
-        assert.isNotOk(mergedPatch.getCoins().size);
-    });
-
-    it('should PURGE patch (no changes, since UTXO modified)', async () => {
-        const patch = new factory.PatchDB(0);
-
-        const utxo = createUtxo([12, 0, 431]);
-        const spendingTx = pseudoRandomBuffer().toString('hex');
-        patch.spendCoins(utxo, 12, spendingTx);
-
-        const mergedPatch = patch.merge(new factory.PatchDB(1));
-        mergedPatch.setConciliumId(1);
-        mergedPatch.spendCoins(utxo, 0, spendingTx);
-
-        const level3Patch = mergedPatch.merge(new factory.PatchDB(0));
-        const level3PatchSize = level3Patch.getCoins().size;
-        level3Patch.purge(patch);
-
-        assert.isOk(level3Patch.getCoins().size === level3PatchSize);
-    });
-
-    it('should NOT PURGE UTXO from patch (UTXO was spent in different TXns)', async () => {
-        const utxo = createUtxo([12, 0, 431]);
-        const spendingTx = pseudoRandomBuffer().toString('hex');
-        const spendingTx2 = pseudoRandomBuffer().toString('hex');
-
-        const patch = new factory.PatchDB(0);
-        patch.spendCoins(utxo, 12, spendingTx);
-
-        const patch2 = new factory.PatchDB(0);
-        patch2.spendCoins(utxo, 12, spendingTx2);
-
-        const patchDerived = patch.merge(new factory.PatchDB());
-
-        // purge patch from FORK!
-        patch2.purge(patch);
-
-        assert.isOk(patch2.getUtxo(utxo.getTxHash()));
-
-        patch2.purge(patchDerived);
-
-        assert.isOk(patch2.getUtxo(utxo.getTxHash()));
-    });
-
-    it('should PURGE UTXO from patch (UTXO was spent in same TXns)', async () => {
-        const utxo = createUtxo([12, 0, 431]);
-        const spendingTx = pseudoRandomBuffer().toString('hex');
-
-        const patch = new factory.PatchDB(0);
-        patch.spendCoins(utxo, 12, spendingTx);
-
-        const patch2 = new factory.PatchDB(0);
-        patch2.spendCoins(utxo, 12, spendingTx);
-
-        // purge patch from FORK!
-        patch2.purge(patch);
-
-        assert.isNotOk(patch2.getUtxo(utxo.getTxHash()));
-    });
-
     it('should get patch COMPLEXITY', async () => {
         const patch = new factory.PatchDB(0);
         const utxo = createUtxo([12, 0, 431]);
@@ -593,21 +519,6 @@ describe('PatchDB', () => {
         }
     });
 
-    it('should PURGE contract data (unchanged between blocks)', async () => {
-        const contractAddr = generateAddress().toString('hex');
-
-        const patch = new factory.PatchDB(0);
-        const contract = new factory.Contract({contractData: {value: 1}, conciliumId: 0});
-        contract.storeAddress(contractAddr);
-        patch.setContract(contract);
-
-        const patchDerived = patch.merge(new factory.PatchDB());
-        patchDerived.setConciliumId(1);
-        patchDerived.purge(patch);
-
-        assert.isNotOk(patchDerived.getContract(contractAddr));
-    });
-
     it('should KEEP contract data (since data was changed)', async () => {
         const contractAddr = generateAddress().toString('hex');
 
@@ -687,6 +598,97 @@ describe('PatchDB', () => {
         assert.equal(patch.getNonce(), 0);
         assert.equal(patch.getNonce(), 1);
         assert.equal(patch.getNonce(), 2);
+    });
+
+    describe('purge', async () => {
+        it('should remove UTXO (complete removal, since equal)', async () => {
+            const patch = new factory.PatchDB(0);
+
+            const utxo = createUtxo([12, 0, 431]);
+            const creatingTx = pseudoRandomBuffer().toString('hex');
+            patch.createCoins(creatingTx, 17, utxo.coinsAtIndex(12));
+            const spendingTx = pseudoRandomBuffer().toString('hex');
+            patch.spendCoins(utxo, 12, spendingTx);
+
+            const mergedPatch = patch.merge(new factory.PatchDB(1));
+            mergedPatch.purge(patch);
+
+            assert.isNotOk(mergedPatch.getUtxo(utxo.getTxHash()));
+            assert.isNotOk(mergedPatch.getUtxo(creatingTx));
+            assert.isNotOk(mergedPatch.getCoins().size);
+        });
+
+        it('should keep UTXO (no changes, since UTXO modified)', async () => {
+            const patch = new factory.PatchDB(0);
+
+            const utxo = createUtxo([12, 0, 431]);
+            const spendingTx = pseudoRandomBuffer().toString('hex');
+            patch.spendCoins(utxo, 12, spendingTx);
+
+            const mergedPatch = patch.merge(new factory.PatchDB(1));
+            mergedPatch.setConciliumId(1);
+            mergedPatch.spendCoins(utxo, 0, spendingTx);
+
+            const level3Patch = mergedPatch.merge(new factory.PatchDB(0));
+            const level3PatchSize = level3Patch.getCoins().size;
+            level3Patch.purge(patch);
+
+            assert.isOk(level3Patch.getCoins().size === level3PatchSize);
+        });
+
+        it('should keep UTXO (UTXO was spent in different TXns)', async () => {
+            const utxo = createUtxo([12, 0, 431]);
+            const spendingTx = pseudoRandomBuffer().toString('hex');
+            const spendingTx2 = pseudoRandomBuffer().toString('hex');
+
+            const patch = new factory.PatchDB(0);
+            patch.spendCoins(utxo, 12, spendingTx);
+
+            const patch2 = new factory.PatchDB(0);
+            patch2.spendCoins(utxo, 12, spendingTx2);
+
+            const patchDerived = patch.merge(new factory.PatchDB());
+
+            // purge patch from FORK!
+            patch2.purge(patch);
+
+            assert.isOk(patch2.getUtxo(utxo.getTxHash()));
+
+            patch2.purge(patchDerived);
+
+            assert.isOk(patch2.getUtxo(utxo.getTxHash()));
+        });
+
+        it('should remove UTXO from patch (UTXO was spent in same TXns)', async () => {
+            const utxo = createUtxo([12, 0, 431]);
+            const spendingTx = pseudoRandomBuffer().toString('hex');
+
+            const patch = new factory.PatchDB(0);
+            patch.spendCoins(utxo, 12, spendingTx);
+
+            const patch2 = new factory.PatchDB(0);
+            patch2.spendCoins(utxo, 12, spendingTx);
+
+            // purge patch from FORK!
+            patch2.purge(patch);
+
+            assert.isNotOk(patch2.getUtxo(utxo.getTxHash()));
+        });
+
+        it('should PURGE contract data (unchanged between blocks)', async () => {
+            const contractAddr = generateAddress().toString('hex');
+
+            const patch = new factory.PatchDB(0);
+            const contract = new factory.Contract({contractData: {value: 1}, conciliumId: 0});
+            contract.storeAddress(contractAddr);
+            patch.setContract(contract);
+
+            const patchDerived = patch.merge(new factory.PatchDB());
+            patchDerived.setConciliumId(1);
+            patchDerived.purge(patch);
+
+            assert.isNotOk(patchDerived.getContract(contractAddr));
+        });
     });
 
     describe('setReceipt', () => {

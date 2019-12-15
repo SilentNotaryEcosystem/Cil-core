@@ -8,8 +8,6 @@ const rpc = require('json-rpc2');
 const {asyncRPC, prepareForStringifyObject, stripAddressPrefix} = require('../utils');
 const types = require('../types');
 
-const debug = debugLib('RPC:');
-
 module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
     class RPC {
         /**
@@ -257,8 +255,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
 
             const arrStableUtxos = await this._storedWallets.walletListUnspent(strAddress);
             const arrPendingUtxos = bStableOnly ? []
-                : await this._nodeInstance
-                    .getPendingUtxos()
+                : (await this._nodeInstance
+                    .getPendingUtxos())
                     .map(utxo => utxo.filterOutputsForAddress(strAddress));
 
             return prepareForStringifyObject([].concat(
