@@ -6,7 +6,7 @@ WORKDIR /app/
 COPY . /app/
 RUN npm install
 
-CMD node index.js
+CMD bash runScripts/auto.restart.sh
 
 EXPOSE 8222
 EXPOSE 18222
