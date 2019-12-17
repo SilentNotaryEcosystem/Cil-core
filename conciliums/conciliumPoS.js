@@ -47,10 +47,16 @@ module.exports = ({Constants}) =>
 
             if (!Array.isArray(this._data.arrMembers)) this._data.arrMembers = [];
 
-            const nGcd = GCD(this._data.arrMembers.map(m => m.amount));
+            this._totalSharesAmount = this._data.arrMembers.reduce((accum, m) => accum + m.amount, 0);
+
+            let nGcd = GCD(this._data.arrMembers.map(m => m.amount));
+            if (this._totalSharesAmount >= 1e9 && nGcd < 1e6) {
+                nGcd = 1e6;
+            } else if (this._totalSharesAmount >= 1e6 && nGcd < 1e3) nGcd = 1000;
+
+            this._totalSharesAmount /= nGcd;
             this._arrShares = this._data.arrMembers.map(m => m.amount / nGcd);
 
-            this._totalSharesAmount = this._arrShares.reduce((accum, share) => accum + share, 0);
 
             // we need 50% +1
             // as _totalSharesAmount = Sum(amounts) / nGcd

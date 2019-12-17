@@ -6,6 +6,9 @@ const sinon = require('sinon');
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const {GCD} = require('../utils');
+
+const generateSeed = (nTotalRound) => (Math.random() * nTotalRound) % 8192;
 
 describe('Conciliums', async () => {
     before(async function() {
@@ -288,7 +291,7 @@ describe('Conciliums', async () => {
                         objCounters[strAddr]++;
                     }
 
-                    if (!(i % 20)) concilium.changeSeed(parseInt(Math.random() * nTotalRound));
+                    if (!(i % 20)) concilium.changeSeed(parseInt(generateSeed(nTotalRound)));
                     concilium.nextRound();
                 }
 
@@ -318,7 +321,7 @@ describe('Conciliums', async () => {
                         objCounters[strAddr]++;
                     }
 
-                    if (!(i % 20)) concilium.changeSeed(parseInt(Math.random() * nTotalRound));
+                    if (!(i % 20)) concilium.changeSeed(parseInt(generateSeed(nTotalRound)));
                     concilium.nextRound();
                 }
                 console.dir(objCounters, {colors: true, depth: null});
@@ -350,13 +353,80 @@ describe('Conciliums', async () => {
                         objCounters[strAddr]++;
                     }
 
-                    if (!(i % 20)) concilium.changeSeed(parseInt(Math.random() * nTotalRound));
+                    if (!(i % 20)) concilium.changeSeed(parseInt(generateSeed(nTotalRound)));
                     concilium.nextRound();
                 }
 
                 console.dir(objCounters, {colors: true, depth: null});
                 assert.isOk(objCounters['addr1'] / objCounters['addr2'] < 0.02);
                 assert.isOk(objCounters['addr2'] / objCounters['addr3'] < 0.12);
+            });
+
+            it('should work for 2 very big amount', async () => {
+                concilium = factory.ConciliumPos.create(
+                    11, 1, 100,
+                    [
+                        {amount: 1180049356, address: 'addr1'},
+                        {amount: 1201634894, address: 'addr2'}
+                    ]
+                );
+
+                const objCounters = {};
+
+                concilium.initRounds();
+                const nTotalRound = 100000;
+                for (let i = 0; i < nTotalRound; i++) {
+                    if (!(i % 20)) concilium.changeSeed(parseInt(generateSeed(nTotalRound)));
+                    concilium.nextRound();
+
+                    const strAddr = concilium.getProposerAddress();
+                    if (!objCounters[strAddr]) {
+                        objCounters[strAddr] = 1;
+                    } else {
+                        objCounters[strAddr]++;
+                    }
+                }
+
+                console.dir(objCounters, {colors: true, depth: null});
+                const nRatio = objCounters['addr1'] / objCounters['addr2'];
+
+                // shares already are differ by 0.02
+                assert.isOk(nRatio < 1.01 && nRatio > 0.96);
+            });
+
+            it('should work for 3 very big amount', async () => {
+                concilium = factory.ConciliumPos.create(
+                    11, 1, 100,
+                    [
+                        {amount: 1180049356, address: 'addr1'},
+                        {amount: 1201634894, address: 'addr2'},
+                        {amount: 100000000, address: 'addr3'}
+                    ]
+                );
+
+                const objCounters = {};
+
+                concilium.initRounds();
+                const nTotalRound = 100000;
+                for (let i = 0; i < nTotalRound; i++) {
+                    if (!(i % 20)) concilium.changeSeed(parseInt(generateSeed(nTotalRound)));
+                    concilium.nextRound();
+
+                    const strAddr = concilium.getProposerAddress();
+                    if (!objCounters[strAddr]) {
+                        objCounters[strAddr] = 1;
+                    } else {
+                        objCounters[strAddr]++;
+                    }
+                }
+
+                console.dir(objCounters, {colors: true, depth: null});
+                const nRatio1 = objCounters['addr1'] / objCounters['addr2'];
+                const nRatio2 = objCounters['addr2'] / objCounters['addr3'];
+
+                // shares already are differ by 0.02
+                assert.isOk(nRatio1 < 1.01 && nRatio1 > 0.96);
+                assert.isOk(nRatio2 < 13 && nRatio2 > 11);
             });
         });
 
