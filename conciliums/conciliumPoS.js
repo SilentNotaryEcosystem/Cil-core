@@ -64,8 +64,8 @@ module.exports = ({Constants}) =>
                 1 : (0.5 * this._totalSharesAmount + 1) / this._totalSharesAmount;
 
             // see _getSlot
-            this._paramA = 73;
-            this._paramB = 113;
+            this._paramA = 1289;
+            this._paramB = 3559;
         }
 
         static create(conciliumId, nMinAmountToJoin, currentHeight, arrMembers, nSeqLength) {

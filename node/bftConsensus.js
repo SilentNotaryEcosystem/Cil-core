@@ -373,9 +373,9 @@ module.exports = (factory) => {
             } else {
                 this._concilium.adjustRound(consensusValue.roundNo);
                 this._state = States.BLOCK;
+                debug(`Proposer: ${this._concilium.getProposerAddress()}`);
                 if (this.shouldPublish()) {
-                    debug(
-                        `BFT "${this._nonce}" will create block! RoundNo: ${this._concilium.getRound()}`);
+                    debug(`We'll  create block! RoundNo: ${this._concilium.getRound()}`);
                     this.emit('createBlock');
                 }
             }
