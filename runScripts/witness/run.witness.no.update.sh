@@ -11,7 +11,7 @@ sudo PK_PASSWORD=`cat temp.pk.password` docker run \
 -p 8223:8223 \
 -d \
 -v $(pwd)/sample.pk:/app/private \
---env-file sample.witness.env -e PK_PASSWORD -e AUTO_UPDATE false\
+--env-file sample.witness.env -e PK_PASSWORD -e AUTO_UPDATE=false\
 --name $CONTAINER_NAME \
 trueshura/cil-core-prod:latest
 
