@@ -297,11 +297,14 @@ module.exports = (factory, factoryOptions) => {
                     logger.error(`Block ${block.hash()} already known!`);
                     return;
                 }
+
+                const lock = await this._mutex.acquire(['blockExec']);
                 try {
 
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
                     if (await this._canExecuteBlock(block)) {
+                        this._processedBlock = block;
                         const patch = await this._execBlock(block);
                         consensus.processValidBlock(block, patch);
                     } else {
@@ -312,6 +315,8 @@ module.exports = (factory, factoryOptions) => {
                 } catch (e) {
                     logger.error(e);
                     consensus.invalidBlock();
+                } finally {
+                    this._mutex.release(lock);
                 }
             } else {
 
@@ -366,7 +371,7 @@ module.exports = (factory, factoryOptions) => {
             consensus.on('createBlock', async () => {
                 if (this._mutex.isLocked('commitBlock')) return;
 
-                const lock = await this._mutex.acquire(['createBlock']);
+                const lock = await this._mutex.acquire(['createBlock', 'blockExec']);
 
                 try {
                     const {conciliumId} = consensus;
@@ -492,7 +497,6 @@ module.exports = (factory, factoryOptions) => {
             let arrParents;
             let patchMerged;
 
-            const lock = await this._mutex.acquire(['blockExec', 'blockCreate']);
             try {
                 ({arrParents, patchMerged} = await this._pendingBlocks.getBestParents(conciliumId));
                 patchMerged = patchMerged ? patchMerged : new PatchDB();
@@ -533,7 +537,6 @@ module.exports = (factory, factoryOptions) => {
             } catch (e) {
                 logger.error(`Failed to create block!`, e);
             } finally {
-                this._mutex.release(lock);
                 this._processedBlock = undefined;
             }
 
