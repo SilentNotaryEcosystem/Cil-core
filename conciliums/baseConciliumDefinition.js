@@ -156,6 +156,8 @@ module.exports = class BaseConciliumDefinition {
     }
 
     adjustRound(nRoundNo) {
+        if (this._nRoundBase === 0 && this._nSeed !== 0) this.initRounds();
+
         const nRoundDiff = Math.abs(nRoundNo - this._nRoundBase);
         if (nRoundDiff < this._nSeqLength) this._nLocalRound = nRoundDiff;
     }
