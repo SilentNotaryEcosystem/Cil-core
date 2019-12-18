@@ -371,7 +371,7 @@ module.exports = (factory, factoryOptions) => {
             consensus.on('createBlock', async () => {
                 if (this._mutex.isLocked('commitBlock')) return;
 
-                const lock = await this._mutex.acquire(['createBlock', 'blockExec']);
+                const lock = await this._mutex.acquire(['createBlock']);
 
                 try {
                     const {conciliumId} = consensus;
@@ -392,7 +392,7 @@ module.exports = (factory, factoryOptions) => {
             });
 
             consensus.on('commitBlock', async (block, patch) => {
-                const lock = await this._mutex.acquire(['createBlock']);
+                const lock = await this._mutex.acquire(['commitBlock']);
                 try {
                     const arrContracts = [...patch.getContracts()];
                     if (arrContracts.length) {

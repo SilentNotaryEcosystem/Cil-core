@@ -371,6 +371,8 @@ module.exports = (factory) => {
                 debug(`BFT "${this._nonce}" round failed`);
                 this._nextRound(false);
             } else {
+                if (this._state === States.BLOCK) return;
+
                 this._concilium.adjustRound(consensusValue.roundNo);
                 this._state = States.BLOCK;
                 debug(`Proposer: ${this._concilium.getProposerAddress()}`);
