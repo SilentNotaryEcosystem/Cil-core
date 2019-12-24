@@ -1392,8 +1392,10 @@ module.exports = (factory, factoryOptions) => {
             const cNestedContract = await this._getContractByAddr(strAddress, patchBlock);
             if (!cNestedContract) throw new Error('Contract not found!');
 
-            if (this._processedBlock &&
-                this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2) {
+            // if we processing PRC TX || block with height > HEIGHT_FORK_SERIALIZER_FIX2
+            if (!this._processedBlock && Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2 ||
+                this._processedBlock && this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2
+            ) {
                 cNestedContract.switchSerializerToJson();
             }
 
