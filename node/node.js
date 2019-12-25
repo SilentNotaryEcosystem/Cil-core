@@ -885,7 +885,7 @@ module.exports = (factory, factoryOptions) => {
                     case 'getContractData':
                         return await this._getContractData(content);
                     case 'txReceipt':
-                        return await this._storage.getTxReceipt(content);
+                        return await this._getTxReceipt(content);
                     case 'getBlock':
 
                         // content is hash
@@ -2462,6 +2462,25 @@ module.exports = (factory, factoryOptions) => {
          */
         sortBlocks(strHashBlockA, strHashBlockB) {
             return this._mainDag.getBlockHeight(strHashBlockA) - this._mainDag.getBlockHeight(strHashBlockB);
+        }
+
+        /**
+         * Will search receipt in patch of local txns or pending blocks
+         *
+         * @param {String} strTxHash
+         * @return {TxReceipt}
+         * @private
+         */
+        async _getTxReceipt(strTxHash) {
+            await this._ensureLocalTxnsPatch();
+            let receipt = this._patchLocalTxns ? this._patchLocalTxns.getReceipt(strTxHash) : undefined;
+            if (receipt) return receipt;
+
+            await this._ensureBestBlockValid();
+            const patch = this._objCurrentBestParents ? this._objCurrentBestParents.patchMerged : undefined;
+            if (patch) return patch.getReceipt(strTxHash);
+
+            return await this._storage.getTxReceipt(strTxHash);
         }
     };
 };

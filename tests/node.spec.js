@@ -1057,6 +1057,66 @@ describe('Node tests', async () => {
         });
     });
 
+    describe('_getTxReceipt', async () => {
+        let node;
+        let txHash;
+        let patch;
+        beforeEach(async () => {
+            node = new factory.Node({buildTxIndex: true});
+            await node.ensureLoaded();
+
+            txHash = pseudoRandomBuffer().toString('hex');
+            const receipt = new factory.TxReceipt({});
+
+            patch = new factory.PatchDB();
+            patch.setReceipt(txHash, receipt);
+        });
+
+        it('should be found among local txns', async () => {
+            node._ensureLocalTxnsPatch = () => {node._patchLocalTxns = patch;};
+
+            assert.isOk(await node._getTxReceipt(txHash));
+        });
+
+        it('should be found among pending blocks (no local txns)', async () => {
+            node._ensureLocalTxnsPatch = () => {node._patchLocalTxns = undefined;};
+            node._ensureBestBlockValid = () => {node._objCurrentBestParents = {patchMerged: patch};};
+
+            assert.isOk(await node._getTxReceipt(txHash));
+        });
+
+        it('should be found among pending blocks (not found in local txns)', async () => {
+            node._ensureLocalTxnsPatch = () => {node._patchLocalTxns = new factory.PatchDB();};
+            node._ensureBestBlockValid = () => {node._objCurrentBestParents = {patchMerged: patch};};
+
+            assert.isOk(await node._getTxReceipt(txHash));
+        });
+
+        it('should be found among stable blocks (no pending)', async () => {
+            node._ensureLocalTxnsPatch = async () => {node._patchLocalTxns = undefined;};
+            node._ensureBestBlockValid = async () => {node._objCurrentBestParents = {patchMerged: undefined};};
+            node._storage.getTxReceipt = async () => patch;
+
+            assert.isOk(await node._getTxReceipt(txHash));
+        });
+
+        it('should be found among stable blocks (pending patch doesnt contain)', async () => {
+            node._ensureLocalTxnsPatch = async () => {node._patchLocalTxns = undefined;};
+            node._ensureBestBlockValid = async () => {node._objCurrentBestParents = {patchMerged: undefined};};
+            node._storage.getTxReceipt = async () => patch;
+
+            assert.isOk(await node._getTxReceipt(txHash));
+        });
+
+        it('should not be found', async () => {
+            node._ensureLocalTxnsPatch = async () => {node._patchLocalTxns = undefined;};
+            node._ensureBestBlockValid = async () => {node._objCurrentBestParents = {patchMerged: undefined};};
+            node._storage.getTxReceipt = async () => undefined;
+
+            assert.isNotOk(await node._getTxReceipt(txHash));
+        });
+    });
+
     describe('RPC tests', async () => {
         let node;
         beforeEach(async () => {
@@ -1098,7 +1158,7 @@ describe('Node tests', async () => {
                 contractAddress: buffContractAddr,
                 coinsUsed
             });
-            node._storage.getTxReceipt = sinon.fake.resolves(rcpt);
+            node._getTxReceipt = sinon.fake.resolves(rcpt);
 
             const cTxReceipt = await node.rpcHandler({
                 event: 'txReceipt',
