@@ -2478,7 +2478,7 @@ module.exports = (factory, factoryOptions) => {
 
             await this._ensureBestBlockValid();
             const patch = this._objCurrentBestParents ? this._objCurrentBestParents.patchMerged : undefined;
-            if (patch) return patch.getReceipt(strTxHash);
+            if (patch && patch.getReceipt(strTxHash)) return patch.getReceipt(strTxHash);
 
             return await this._storage.getTxReceipt(strTxHash);
         }

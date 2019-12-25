@@ -1102,7 +1102,8 @@ describe('Node tests', async () => {
 
         it('should be found among stable blocks (pending patch doesnt contain)', async () => {
             node._ensureLocalTxnsPatch = async () => {node._patchLocalTxns = undefined;};
-            node._ensureBestBlockValid = async () => {node._objCurrentBestParents = {patchMerged: undefined};};
+            node._ensureBestBlockValid =
+                async () => {node._objCurrentBestParents = {patchMerged: new factory.PatchDB()};};
             node._storage.getTxReceipt = async () => patch;
 
             assert.isOk(await node._getTxReceipt(txHash));
