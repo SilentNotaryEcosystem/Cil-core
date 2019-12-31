@@ -154,6 +154,8 @@ module.exports = {
             HEIGHT_FORK_SERIALIZER_FIX2: 6100
         },
 
-        blockCreationTimeLimit: 1500
+        blockCreationTimeLimit: 1500,
+
+        WITNESS_UTXOS_JOIN: 100
     }
 };

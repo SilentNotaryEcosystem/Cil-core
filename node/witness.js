@@ -1,9 +1,7 @@
 const assert = require('assert');
-const typeforce = require('typeforce');
 const debugLib = require('debug');
 
-const {sleep, createPeerTag} = require('../utils');
-const types = require('../types');
+const {createPeerTag} = require('../utils');
 
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
@@ -18,7 +16,8 @@ module.exports = (factory, factoryOptions) => {
             // mix in factory (common for all instance) options
             options = {
                 ...factoryOptions,
-                ...options
+                ...options,
+                walletSupport: true
             };
 
             super(options);
@@ -28,6 +27,8 @@ module.exports = (factory, factoryOptions) => {
             const {wallet, networkSuspended} = options;
             this._wallet = wallet;
             if (!this._wallet) throw new Error('Pass wallet into witness');
+
+            this._walletPromise = this._ensureWalletIndex();
 
             if (!networkSuspended) {
 
@@ -54,6 +55,11 @@ module.exports = (factory, factoryOptions) => {
                 await this._createConsensusForConcilium(def);
             }
             await super.bootstrap();
+        }
+
+        ensureLoaded() {
+            const promiseParent = super.ensureLoaded();
+            return Promise.all([promiseParent, this._walletPromise]).catch(err => console.error(err));
         }
 
         /**
@@ -511,7 +517,19 @@ module.exports = (factory, factoryOptions) => {
 
                 const arrBadHashes = [];
                 let totalFee = 0;
-                for (let tx of this._mempool.getFinalTxns(conciliumId)) {
+
+                let arrTxToProcess;
+                const arrUtxos = await this._storage.walletListUnspent(this._wallet.address);
+                if (arrUtxos.length > Constants.WITNESS_UTXOS_JOIN) {
+                    arrTxToProcess = [
+                        this._createJoinTx(arrUtxos, conciliumId),
+                        ...this._mempool.getFinalTxns(conciliumId)
+                    ];
+                } else {
+                    arrTxToProcess = this._mempool.getFinalTxns(conciliumId);
+                }
+
+                for (let tx of arrTxToProcess) {
                     try {
                         const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
 
@@ -547,5 +565,43 @@ module.exports = (factory, factoryOptions) => {
             this._conciliumSeed = super._createPseudoRandomSeed(arrLastStableBlockHashes);
             this._consensuses.forEach(c => c.setRoundSeed(this._conciliumSeed));
         };
+
+        /**
+         *
+         * @param {Array} arrUtxos
+         * @param {Number} nConciliumId
+         * @return {*}
+         * @private
+         */
+        _createJoinTx(arrUtxos, nConciliumId) {
+            const tx = new Transaction();
+            tx.conciliumId = nConciliumId;
+            let nInputs = 0;
+            let nTotalAmount = 0;
+
+            for (let utxo of arrUtxos) {
+                nTotalAmount += utxo.amountOut();
+                for (let idx of utxo.getIndexes()) {
+                    tx.addInput(utxo.getTxHash(), idx);
+                    nInputs++;
+                }
+            }
+
+            const fee = (1 + nInputs) * Math.round(Constants.fees.TX_FEE * 0.12);
+            tx.addReceiver(nTotalAmount - fee, Buffer.from(this._wallet.address, 'hex'));
+
+            for (let i in tx.inputs) {
+                tx.claim(parseInt(i), this._wallet.privateKey);
+            }
+
+            return tx;
+        }
+
+        async _ensureWalletIndex() {
+            try {
+                await this._storage.walletWatchAddress(this._wallet.address);
+                await this._storage.walletReIndex();
+            } catch (e) {}
+        }
     };
 };
