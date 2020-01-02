@@ -103,6 +103,8 @@ async function clearDb(objCmdLineParams) {
         if (await storage.hasBlock('5cd32a04238a61a29d95ed48ce6b08ba2973b6fb0858446b76bb20c93e5492b4')) {
             await storage.dropAllForReIndex(true);
         }
+        await storage.close();
+        console.log('Db cleared');
     } catch (e) {
         console.error(e);
         process.exit(1);

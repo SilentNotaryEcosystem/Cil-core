@@ -8,5 +8,6 @@ sudo docker run \
 -d \
 -p 8222:8222 -p 8223:8223 \
 --env-file sample.node.env \
+-e AUTO_UPDATE=true \
 --name $CONTAINER_NAME \
 trueshura/cil-core-prod:latest

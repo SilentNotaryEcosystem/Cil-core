@@ -920,11 +920,7 @@ module.exports = (factory, factoryOptions) => {
         async dropAllForReIndex(bEraseBlockStorage = false) {
             if (typeof this._downAdapter.destroy === 'function') {
 
-                await this._blockStorage.close();
-                await this._db.close();
-                await this._peerStorage.close();
-                if (this._txIndexStorage) await this._txIndexStorage.close();
-                if (this._walletStorage) await this._walletStorage.close();
+                await this.close();
 
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`);
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`);
@@ -935,6 +931,14 @@ module.exports = (factory, factoryOptions) => {
                     await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`);
                 }
             }
+        }
+
+        async close() {
+            await this._blockStorage.close();
+            await this._db.close();
+            await this._peerStorage.close();
+            if (this._txIndexStorage) await this._txIndexStorage.close();
+            if (this._walletStorage) await this._walletStorage.close();
         }
 
         async* readBlocks() {
