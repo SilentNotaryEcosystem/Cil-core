@@ -1,9 +1,7 @@
 const assert = require('assert');
-const typeforce = require('typeforce');
 const debugLib = require('debug');
 
-const {sleep, createPeerTag} = require('../utils');
-const types = require('../types');
+const {createPeerTag} = require('../utils');
 
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
@@ -480,7 +478,7 @@ module.exports = (factory, factoryOptions) => {
             const consensusInstance = this._consensuses.get(conciliumId);
 
             // set my own view
-            consensusInstance.processMessage(msg);
+            if (consensusInstance) consensusInstance.processMessage(msg);
         }
 
         /**

@@ -749,7 +749,7 @@ module.exports = (factory, factoryOptions) => {
                 await peer.pushMessage(msgVerack);
 
             } else {
-                const reason = `Has incompatible protocol version ${message.protocolVersion}`;
+                const reason = `Has incompatible protocol version ${message.protocolVersion.toString(16)}`;
                 debugNode(reason);
                 peer.disconnect(reason);
             }
