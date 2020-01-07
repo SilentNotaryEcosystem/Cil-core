@@ -29,8 +29,7 @@ async function main() {
     const privateKey = await readPrivateKeyFromFile(factory.Crypto, './private');
     const wallet = new factory.Wallet(privateKey);
 
-
-    const fees = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.STORAGE_PER_BYTE_FEE * 100;
+    const fees = 4e4;
     const arrUtxos = await getUtxos(wallet.address);
     const {arrCoins} = gatherInputsForAmount(arrUtxos, fees);
 
