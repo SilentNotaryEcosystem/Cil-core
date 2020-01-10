@@ -2270,7 +2270,7 @@ module.exports = (factory, factoryOptions) => {
             );
 
             // allow use pending blocks data
-            completed = completed !== undefined;
+            completed = completed === undefined ? true : completed;
 
             let contract = await this._storage.getContract(contractAddress);
 
@@ -2287,10 +2287,10 @@ module.exports = (factory, factoryOptions) => {
             };
 
             const nCoinsDummy = Number.MAX_SAFE_INTEGER;
+            this._app.setCallbacks(this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64)));
             this._app.setupVariables({
                 objFees: {nFeeContractInvocation: nCoinsDummy},
-                nCoinsDummy,
-                objCallbacks: this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64))
+                nCoinsDummy
             });
 
             return await this._app.runContract(
