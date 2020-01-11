@@ -1,4 +1,4 @@
-const http = require('http');
+const {queryRpc} = require('../utils');
 
 let urlRpc;
 if (process.env.NODE_ENV === 'Devel') {
@@ -17,7 +17,7 @@ main()
     });
 
 async function main() {
-    const arrResult = await requestTips();
+    const arrResult = await queryRpc(urlRpc, 'getTips');
     const objMostRecentTipHeader = arrResult.reduce((objLastBlockHeader, {block}) =>
         !objLastBlockHeader || (objLastBlockHeader && objLastBlockHeader.timestamp < block.header.timestamp) ?
             block.header : objLastBlockHeader, undefined);
@@ -25,39 +25,8 @@ async function main() {
     const nSecDiff = parseInt(Date.now() / 1000) - objMostRecentTipHeader.timestamp;
     console.log(`Last block received ${nSecDiff} seconds ago.`);
 
-    const strStatus = nSecDiff < 600 ? 'Alive' : 'Syncing (or dead)';
+    const strStatus = nSecDiff < 600 ? 'Alive' : 'Syncing (or DEAD)';
     console.log(`Status: ${strStatus}`);
 }
 
-async function requestTips() {
-    const options = {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        }
-    };
-
-    const chunks = [];
-    const {result} = await new Promise((resolve, reject) => {
-        const req = http.request(urlRpc, options, res => {
-            res.on("data", (chunk) => {
-                chunks.push(chunk);
-            });
-
-            res.on("end", () => {
-                const buffBody = Buffer.concat(chunks);
-                resolve(JSON.parse(buffBody.toString()));
-            });
-
-            req.on('error', (e) => {
-                reject(e);
-            });
-        });
-
-        req.write(JSON.stringify({jsonrpc: '2.0', method: 'getTips', params: [], id: 67}));
-        req.end();
-    });
-
-    return result;
-}
 
