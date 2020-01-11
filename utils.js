@@ -4,6 +4,7 @@ const readline = require('readline');
 const fs = require('fs');
 const commandLineArgs = require('command-line-args');
 const v8 = require('v8');
+const http = require('http');
 
 /**
  *
@@ -33,6 +34,47 @@ const arrayIntersection = (array1, array2) => {
     const cache = new Set(array1);
     const result = [];
     for (let elem of array2) if (cache.has(elem)) result.push(elem);
+    return result;
+};
+
+const queryRpc = async (url, strMethod, objParams = {}) => {
+
+    const options = {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    };
+
+    const objBody = {
+        jsonrpc: '2.0',
+        method: strMethod,
+        params: objParams,
+        id: 67
+    };
+
+    const chunks = [];
+    const {result} = await new Promise((resolve, reject) => {
+        const req = http.request(url, options, res => {
+            res.on("data", (chunk) => {
+                chunks.push(chunk);
+            });
+
+            res.on("end", () => {
+                const buffBody = Buffer.concat(chunks);
+                const result = buffBody.length ? JSON.parse(buffBody.toString()) : {result: null};
+                resolve(result);
+            });
+
+            req.on('error', (e) => {
+                reject(e);
+            });
+        });
+
+        req.write(JSON.stringify(objBody));
+        req.end();
+    });
+
     return result;
 };
 
@@ -265,6 +307,8 @@ module.exports = {
 
     questionAsync,
     deepCloneObject,
+
+    queryRpc,
 
     pick(obj, keys) {
         return keys.map(k => k in obj ? {[k]: obj[k]} : {})

@@ -2,9 +2,10 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const nock = require('nock');
 
 const factory = require('./testFactory');
-const {deStringifyObject, prepareForStringifyObject, arrayIntersection, mergeSets, decryptPkFileContent} =
+const {deStringifyObject, prepareForStringifyObject, arrayIntersection, mergeSets, decryptPkFileContent, queryRpc} =
     require('../utils');
 
 describe('Utils', () => {
@@ -164,6 +165,34 @@ describe('Utils', () => {
 
             const strPk = decryptPkFileContent(factory.Crypto, JSON.stringify(encryptedFileContent), password);
             assert.equal(strPk, 'ee56a32dc79322c94fd832ce7c4309298beda8d7c28f7e35f3e3e47e89562c90');
+        });
+    });
+
+    describe('queryRpc', () => {
+        it('should send transaction (empty response)', async () => {
+            const strTx = '0a440a240a20b3982f49472e41021d96090cd0579da23317cf865f4f5f75e8c783955df4897d1000120b0901000000000000001200120b090f3d3ba40b0000001200180120001241d19ffda43e6121f902e60a0b35a5b97de38000cac9f016e5f21c857026ebdf8978c1c9a081c26fcbdbc54dda564b94f427d26d642b0ce4a0eef8ca8b39a3dafa00';
+            const strUrlRpc = 'http://localhost:8222/';
+            nock(strUrlRpc)
+                .post('/', body => body.method === 'sendRawTx' && body.params.strTx === strTx)
+                .reply(200);
+
+            const result = await queryRpc(strUrlRpc, 'sendRawTx', {strTx});
+
+            assert.isNull(result);
+        });
+
+        it('should send transaction (obj response)', async () => {
+            const strTx = '0a440a240a20b3982f49472e41021d96090cd0579da23317cf865f4f5f75e8c783955df4897d1000120b0901000000000000001200120b090f3d3ba40b0000001200180120001241d19ffda43e6121f902e60a0b35a5b97de38000cac9f016e5f21c857026ebdf8978c1c9a081c26fcbdbc54dda564b94f427d26d642b0ce4a0eef8ca8b39a3dafa00';
+            const strUrlRpc = 'http://localhost:8222/';
+            const response = {result: {test: 1}};
+
+            nock(strUrlRpc)
+                .post('/', body => body.method === 'sendRawTx' && body.params.strTx === strTx)
+                .reply(200, response);
+
+            const result = await queryRpc(strUrlRpc, 'sendRawTx', {strTx});
+
+            assert.deepEqual(result, response.result);
         });
     });
 });
