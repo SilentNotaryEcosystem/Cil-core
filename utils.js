@@ -5,6 +5,8 @@ const fs = require('fs');
 const commandLineArgs = require('command-line-args');
 const v8 = require('v8');
 const http = require('http');
+const https = require('https');
+
 
 /**
  *
@@ -72,6 +74,43 @@ const queryRpc = async (url, strMethod, objParams = {}) => {
         });
 
         req.write(JSON.stringify(objBody));
+        req.end();
+    });
+
+    return result;
+};
+
+const getHttpData = async (url) => {
+    const options = {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json"
+        },
+
+        // test-explorer has an issue with cert
+        rejectUnauthorized: false
+    };
+
+    const transport = url.match(/^https/) ? https : http;
+
+    const chunks = [];
+    const result = await new Promise((resolve, reject) => {
+        const req = transport.request(url, options, res => {
+            res.on("data", (chunk) => {
+                chunks.push(chunk);
+            });
+
+            res.on("end", () => {
+                const buffBody = Buffer.concat(chunks);
+                const result = buffBody.length ? JSON.parse(buffBody.toString()) : {};
+                resolve(result);
+            });
+
+            req.on('error', (e) => {
+                reject(e);
+            });
+        });
+
         req.end();
     });
 
@@ -309,6 +348,7 @@ module.exports = {
     deepCloneObject,
 
     queryRpc,
+    getHttpData,
 
     pick(obj, keys) {
         return keys.map(k => k in obj ? {[k]: obj[k]} : {})

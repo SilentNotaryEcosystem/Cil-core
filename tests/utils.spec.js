@@ -5,7 +5,7 @@ const {assert} = require('chai');
 const nock = require('nock');
 
 const factory = require('./testFactory');
-const {deStringifyObject, prepareForStringifyObject, arrayIntersection, mergeSets, decryptPkFileContent, queryRpc} =
+const {deStringifyObject, prepareForStringifyObject, arrayIntersection, mergeSets, decryptPkFileContent, queryRpc, getHttpData} =
     require('../utils');
 
 describe('Utils', () => {
@@ -193,6 +193,32 @@ describe('Utils', () => {
             const result = await queryRpc(strUrlRpc, 'sendRawTx', {strTx});
 
             assert.deepEqual(result, response.result);
+        });
+    });
+
+    describe('getHttpData', () => {
+        it('should query (empty response)', async () => {
+            const strUrlApi = 'http://localhost/path?query=1';
+            nock('http://localhost/')
+                .get('/path?query=1')
+                .reply(200);
+
+            const result = await getHttpData(strUrlApi);
+
+            assert.deepEqual(result, {});
+        });
+
+        it('should send transaction (obj response)', async () => {
+            const strUrlApi = 'https://explorer.ubikiri.com/api/Balance/Ux27598a817806a3715e0fbb7c418f45ac337bb111';
+            const response = {result: {test: 1}};
+
+            nock('https://explorer.ubikiri.com/')
+                .get('/api/Balance/Ux27598a817806a3715e0fbb7c418f45ac337bb111')
+                .reply(200, response);
+
+            const result = await getHttpData(strUrlApi);
+
+            assert.deepEqual(result, response);
         });
     });
 });
