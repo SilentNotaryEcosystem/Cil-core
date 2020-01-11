@@ -2269,9 +2269,6 @@ module.exports = (factory, factoryOptions) => {
                 [method, arrArguments, contractAddress]
             );
 
-            // allow use pending blocks data
-            completed = completed === undefined ? true : completed;
-
             let contract = await this._storage.getContract(contractAddress);
 
             if (!completed) {

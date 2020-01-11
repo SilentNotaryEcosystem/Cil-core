@@ -18,14 +18,20 @@ main()
 
 async function main() {
     const arrResult = await queryRpc(urlRpc, 'getTips');
-    const objMostRecentTipHeader = arrResult.reduce((objLastBlockHeader, {block}) =>
-        !objLastBlockHeader || (objLastBlockHeader && objLastBlockHeader.timestamp < block.header.timestamp) ?
-            block.header : objLastBlockHeader, undefined);
 
-    const nSecDiff = parseInt(Date.now() / 1000) - objMostRecentTipHeader.timestamp;
-    console.log(`Last block received ${nSecDiff} seconds ago.`);
+    let objLastBlock = undefined;
+    let strLastHash = undefined;
+    arrResult.forEach(({hash, block}) => {
+        if (!objLastBlock || (objLastBlock && objLastBlock.header.timestamp < block.header.timestamp)) {
+            objLastBlock = block;
+            strLastHash = hash;
+        }
+    });
 
-    const strStatus = nSecDiff < 600 ? 'Alive' : 'Syncing (or DEAD)';
+    const nSecDiff = parseInt(Date.now() / 1000) - objLastBlock.header.timestamp;
+    console.log(`Last block "${strLastHash}" received ${nSecDiff} seconds ago.`);
+
+    const strStatus = nSecDiff < 600 ? 'Alive' : 'Syncing or DEAD';
     console.log(`Status: ${strStatus}`);
 }
 
