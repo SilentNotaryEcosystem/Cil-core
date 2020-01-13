@@ -190,24 +190,35 @@ module.exports = class ContractConciliums extends Base {
     }
 
     // PoS concilium
-    _posConciliumMemberExists(objConcilium, callerAddress) {
+    _getPosConciliumMember(objConcilium, callerAddress) {
         if (!Array.isArray(objConcilium.arrMembers)) objConcilium.arrMembers = [];
-        return !objConcilium.arrMembers.every(objExistedMember => objExistedMember.address !== callerAddress);
+        return objConcilium.arrMembers.find(objExistedMember => objExistedMember.address === callerAddress);
     }
 
     _addPosConciliumMember(objConcilium, strAddress = callerAddress, nAmount = value) {
         if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
 
-        if (this._posConciliumMemberExists(objConcilium, strAddress)) throw ('already joined');
+        if (!nAmount) throw (`Have no sense to join with zero amount`);
 
-        this._checkDepositJoin(objConcilium, nAmount);
+        const objMemberRecord = this._getPosConciliumMember(objConcilium, strAddress);
+        if (objMemberRecord) {
 
-        objConcilium.arrMembers.push({
-            address: strAddress,
-            amount: nAmount,
+            // no _checkDepositJoin, since it's already joined, and amount >=0 (you can't send negative amount)
+            // value (objMemberRecord) returned by ref, so no need to manipulate array
+            objMemberRecord.amount += nAmount;
+//            objMemberRecord.nHeightToRelease = block.height + ${factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON}
+            objMemberRecord.nHeightToRelease = block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON;
+        } else {
+            this._checkDepositJoin(objConcilium, nAmount);
+
+            objConcilium.arrMembers.push({
+                address: strAddress,
+                amount: nAmount,
 //            nHeightToRelease: block.height + ${factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON}
-            nHeightToRelease: block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON
-        });
+                nHeightToRelease: block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON
+            });
+
+        }
     }
 
     _retirePosConciliumMember(objConcilium, callerAddress) {
