@@ -326,6 +326,9 @@ module.exports = (factory, factoryOptions) => {
                 if (message.isGetBlocks()) {
                     return await this._handleGetBlocksMessage(peer, message);
                 }
+                if (message.isGetMempool()) {
+                    return await this._handleGetMempool(peer);
+                }
                 if (message.isInv()) {
                     return await this._handleInvMessage(peer, message);
                 }

@@ -741,6 +741,23 @@ describe('Node tests', async () => {
         assert.equal(vector.length, 2);
     });
 
+    it('should process MSG_GET_MEMPOOL', async () => {
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._mempool.getContent = sinon.fake.returns([pseudoRandomBuffer()]);
+
+        const peer = createDummyPeer(factory);
+        peer.pushMessage = sinon.fake();
+
+        await node._handleGetMempool(peer);
+
+        assert.isOk(peer.pushMessage.calledOnce);
+        const [msg] = peer.pushMessage.args[0];
+        assert.isOk(msg.isInv());
+        const vector = msg.inventory.vector;
+        assert.equal(vector.length, 1);
+    });
+
     it('should send Reject message if time offset very large', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
