@@ -640,7 +640,6 @@ module.exports = (factory, factoryOptions) => {
                             'hex')}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 } catch (e) {
-                    //                    logger.error(e.message);
                     logger.error(`GetDataMessage. Peer ${peer.address}`, e);
 //                    peer.misbehave(1);
 
@@ -954,7 +953,6 @@ module.exports = (factory, factoryOptions) => {
             newTx.verify();
 
             const strNewTxHash = newTx.getHash();
-            assert(!this._mempool.isBadTx(strNewTxHash), 'Tx already marked as bad');
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
 
             await this._processReceivedTx(newTx, false);
@@ -2438,8 +2436,13 @@ module.exports = (factory, factoryOptions) => {
                 if (!patchTx) {
                     const localTx = this._mempool.getTx(strTxHash);
 
-                    // exec it. no need to validate. local txns were already validated
-                    const {patchThisTx} = await this._processTx(undefined, false, localTx);
+                    let patchThisTx;
+                    try {
+                        const objResult = await this._processTx(undefined, false, localTx);
+                        patchThisTx = objResult.patchThisTx;
+                    } catch (e) {
+                        this._mempool.removeTxns(strTxHash);
+                    }
 
                     // store it back with patch
                     this._mempool.addLocalTx(localTx, patchThisTx);
