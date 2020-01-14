@@ -482,32 +482,35 @@ module.exports = (factory, factoryOptions) => {
                     }
                 }
 
+                // inventory could contain TXns
                 if (invToRequest.vector.length) {
                     const msgGetData = new MsgGetData();
                     msgGetData.inventory = invToRequest;
                     debugMsg(
                         `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
                     await peer.pushMessage(msgGetData);
-                } else if (peer.isGetBlocksSent()) {
-
-                    // we request blocks from equal peer and receive nothing, now we can request his mempool
-                    const msgGetMempool = new MsgCommon();
-                    msgGetMempool.getMempoolMessage = true;
-                    debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_MEMPOOL}" to "${peer.address}"`);
-                    await peer.pushMessage(msgGetMempool);
                 }
 
+                // was it reponse to MSG_GET_BLOCKS ?
                 if (peer.isGetBlocksSent()) {
-
-                    // so we should resend MSG_GET_BLOCKS later
                     if (nBlockToRequest > 1) {
-                        peer.markAsPossiblyAhead();
 
-                        // we think it was a response to MSG_GET_BLOCKS, so let's mark it as done
-                        peer.doneGetBlocks();
+                        // so we should resend MSG_GET_BLOCKS later
+                        peer.markAsPossiblyAhead();
                     } else {
+                        if (nBlockToRequest === 1) {
+                            peer.singleBlockRequested();
+                        } else {
+
+                            // we requested blocks from equal peer and receive NOTHING new, now we can request his mempool
+                            const msgGetMempool = new MsgCommon();
+                            msgGetMempool.getMempoolMessage = true;
+                            debugMsg(
+                                `(address: "${this._debugAddress}") sending "${MSG_GET_MEMPOOL}" to "${peer.address}"`);
+                            await peer.pushMessage(msgGetMempool);
+                        }
+                        peer.doneGetBlocks();
                         peer.markAsEven();
-                        peer.singleBlockRequested();
                     }
                 }
             } catch (e) {
