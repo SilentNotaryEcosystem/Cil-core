@@ -109,7 +109,7 @@ module.exports = (factory, factoryOptions) => {
                 try {
                     await this._connectWitness(peer, concilium);
                 } catch (e) {
-                    console.error(e.message);
+                    logger.error(e.message);
                 }
             }
         }

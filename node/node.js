@@ -157,7 +157,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         ensureLoaded() {
-            return Promise.all([this._listenPromise, this._rebuildPromise]).catch(err => console.error(err));
+            return Promise.all([this._listenPromise, this._rebuildPromise]).catch(err => logger.error(err));
         }
 
         async bootstrap() {
@@ -195,7 +195,7 @@ module.exports = (factory, factoryOptions) => {
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
-                    logger.error(e.message);
+                    debugNode(e.message);
                 }
             }
         }
@@ -254,7 +254,7 @@ module.exports = (factory, factoryOptions) => {
                 // TODO: disconnect this peer if we already have Constant.MAX_PEERS (CIL-124)
                 this._peerManager.addCandidateConnection(connection);
             } catch (err) {
-                logger.error(err);
+                debugNode(err);
                 connection.close();
             }
         }
@@ -272,7 +272,7 @@ module.exports = (factory, factoryOptions) => {
                 let peers = bestPeers.splice(0, this._nMinConnections - this._peerManager.getConnectedPeers().length);
                 await this._connectToPeers(peers);
             } catch (e) {
-                console.error(e.message);
+                debugNode(e.message);
             } finally {
                 this._bReconnectInProgress = false;
             }
@@ -344,7 +344,7 @@ module.exports = (factory, factoryOptions) => {
 
                 throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
-                logger.error(err, `Incoming message. Peer ${peer.address}`);
+                logger.error(`Incoming message. Peer ${peer.address}`, err);
 
                 // TODO: implement state (like bitcoin) to keep misbehave score or penalize on each handler?
                 peer.misbehave(1);
@@ -404,7 +404,7 @@ module.exports = (factory, factoryOptions) => {
 
             // since we building DAG, it's faster than check storage
             if (await this._isBlockKnown(block.hash())) {
-                logger.error(`Block ${block.hash()} already known!`);
+                debugNode(`Block ${block.hash()} already known!`);
                 return;
             }
             try {
@@ -554,7 +554,7 @@ module.exports = (factory, factoryOptions) => {
             const arrLocalTxHashes = this._mempool.getContent();
             arrLocalTxHashes.forEach(hash => inventory.addTxHash(hash));
             debugMsg(
-                `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} local TXns to "${peer.address}"`);
+                `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} mempool TXns to "${peer.address}"`);
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
@@ -992,7 +992,7 @@ module.exports = (factory, factoryOptions) => {
                 // inform 2 pseudorandom neighbours about new Tx
                 await this._informNeighbors(newTx);
             } catch (e) {
-                console.error(e);
+                logger.error(e);
                 throw new Error(`Tx is not accepted: ${e.message}`);
             }
         }
@@ -1496,7 +1496,7 @@ module.exports = (factory, factoryOptions) => {
 
             // double check: whether we already processed this block?
             if (this._isBlockExecuted(block.getHash())) {
-                logger.error(`Trying to process ${block.getHash()} more than one time!`);
+                debugNode(`Trying to process ${block.getHash()} more than one time!`);
                 return null;
             }
 
@@ -1924,8 +1924,8 @@ module.exports = (factory, factoryOptions) => {
 
             // TODO: implement flushing all in memory data to disk
             this._peerManager.saveAllPeers().then(_ => {
-                console.log('Shutting down');
-                process.exit(1);
+                logger.log('Shutting down');
+                process.exit(0);
             });
         }
 
@@ -2014,7 +2014,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _nodeWorker() {
-            await this._blockProcessor().catch(err => console.error(err));
+            await this._blockProcessor().catch(err => logger.error(err));
             await sleep(1000);
             return setImmediate(this._nodeWorker.bind(this));
         }
@@ -2376,7 +2376,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             this._queryPeerForRestOfBlocks = this._requestUnknownBlocks = () => {
-                console.error('we have unresolved dependencies! will possibly fail to rebuild DB');
+                logger.error('we have unresolved dependencies! will possibly fail to rebuild DB');
             };
 
             const originalQueueBlockExec = this._queueBlockExec.bind(this);
@@ -2385,7 +2385,7 @@ module.exports = (factory, factoryOptions) => {
                 if (bStop) return;
                 if (hash === strHashToStop) bStop = true;
                 const blockInfo = this._mainDag.getBlockInfo(hash);
-                this._storage.saveBlockInfo(blockInfo).catch(err => console.error(err));
+                this._storage.saveBlockInfo(blockInfo).catch(err => logger.error(err));
                 originalQueueBlockExec(hash, peer);
             };
 

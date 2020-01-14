@@ -14,7 +14,7 @@ process.on('warning', e => console.warn(e.stack));
 (async () => {
     await factory.asyncLoad();
 
-    console.log(`Using ${factory.Constants.strIdent} config`);
+    logger.log(`Using ${factory.Constants.strIdent} config`);
 
     // Read user-defined parameters
     const objUserParams = {
