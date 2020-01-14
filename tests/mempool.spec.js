@@ -333,4 +333,46 @@ describe('Mempool tests', () => {
             }
         });
     });
+
+    describe('getContent', async () => {
+        it('should get only local TXns hashes', async () => {
+            const mempool = new factory.Mempool({testStorage: true});
+
+            const tx = new factory.Transaction(createDummyTx(undefined, 0));
+            mempool.addLocalTx(tx);
+
+            const arrHashes = mempool.getContent();
+
+            assert.isOk(Array.isArray(arrHashes) && arrHashes.length === 1);
+            assert.equal(tx.getHash(), arrHashes[0]);
+        });
+
+        it('should get only non local hashes', async () => {
+            const mempool = new factory.Mempool({testStorage: true});
+
+            const tx = new factory.Transaction(createDummyTx(undefined, 0));
+            mempool.addTx(tx);
+
+            const arrHashes = mempool.getContent();
+
+            assert.isOk(Array.isArray(arrHashes) && arrHashes.length === 1);
+            assert.equal(tx.getHash(), arrHashes[0]);
+        });
+
+        it('should get both TXns hashes', async () => {
+            const mempool = new factory.Mempool({testStorage: true});
+
+            const tx1 = new factory.Transaction(createDummyTx(undefined, 0));
+            mempool.addTx(tx1);
+
+            const tx2 = new factory.Transaction(createDummyTx(undefined, 1));
+            mempool.addLocalTx(tx2);
+
+            const arrHashes = mempool.getContent();
+
+            assert.isOk(Array.isArray(arrHashes) && arrHashes.length === 2);
+            assert.equal(tx1.getHash(), arrHashes[0]);
+            assert.equal(tx2.getHash(), arrHashes[1]);
+        });
+    });
 });

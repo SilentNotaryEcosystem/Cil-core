@@ -199,7 +199,7 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
         /**
          *
-         * @return {string[]}
+         * @return {[String]}
          */
         getLocalTxnHashes() {
             return [...this._mapLocalTxns.keys()];
@@ -207,10 +207,10 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
         /**
          *
-         * @return {Array[{strTxHash, patchTx}]}
+         * @return {[{}]} - [{strTxHash, patchTx}]
          */
         getLocalTxnsPatches() {
-            return [...this._mapLocalTxns].map(([strTxHash, {tx, patchTx}]) => ({strTxHash, patchTx}));
+            return [...this._mapLocalTxns].map(([strTxHash, {patchTx}]) => ({strTxHash, patchTx}));
         }
 
         _dumpToDisk() {
@@ -319,5 +319,19 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
                     if (i++ < nThisMapRemove) map.delete(key);
                 });
             }
+        }
+
+        /**
+         *
+         * @return {[String]} of all hashes contained in mempool
+         */
+        getContent() {
+            const arrOfArrHashes = [];
+            for (let [, mapTxns] of this._mapConcilimTxns) {
+                arrOfArrHashes.push(Array.from(mapTxns.keys()));
+            }
+            arrOfArrHashes.push(Array.from(this._mapLocalTxns.keys()));
+
+            return [].concat.apply([], arrOfArrHashes);
         }
     };
