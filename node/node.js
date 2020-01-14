@@ -57,7 +57,7 @@ module.exports = (factory, factoryOptions) => {
         MsgGetData,
         MsgGetBlocks
     } = Messages;
-    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT} = Constants.messageTypes;
+    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT, MSG_GET_MEMPOOL} = Constants.messageTypes;
 
     return class Node {
         constructor(options) {
@@ -485,18 +485,27 @@ module.exports = (factory, factoryOptions) => {
                     debugMsg(
                         `(address: "${this._debugAddress}") requesting ${invToRequest.vector.length} hashes from "${peer.address}"`);
                     await peer.pushMessage(msgGetData);
+                } else if (peer.isGetBlocksSent()) {
+
+                    // we request blocks from equal peer and receive nothing, now we can request his mempool
+                    const msgGetMempool = new MsgCommon();
+                    msgGetMempool.getMempoolMessage = true;
+                    debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_MEMPOOL}" to "${peer.address}"`);
+                    await peer.pushMessage(msgGetMempool);
                 }
 
-                // if peer expose us more than MAX_BLOCKS_INV - it seems it is ahead
-                // so we should resend MSG_GET_BLOCKS later
-                if (nBlockToRequest > 1) {
-                    peer.markAsPossiblyAhead();
+                if (peer.isGetBlocksSent()) {
 
-                    // we think it was a response to MSG_GET_BLOCKS, so let's mark it as done
-                    peer.doneGetBlocks();
-                } else {
-                    peer.markAsEven();
-                    peer.singleBlockRequested();
+                    // so we should resend MSG_GET_BLOCKS later
+                    if (nBlockToRequest > 1) {
+                        peer.markAsPossiblyAhead();
+
+                        // we think it was a response to MSG_GET_BLOCKS, so let's mark it as done
+                        peer.doneGetBlocks();
+                    } else {
+                        peer.markAsEven();
+                        peer.singleBlockRequested();
+                    }
                 }
             } catch (e) {
                 throw e;
@@ -528,9 +537,18 @@ module.exports = (factory, factoryOptions) => {
             debugMsg(
                 `(address: "${this._debugAddress}") sending ${inventory.vector.length} blocks to "${peer.address}"`);
 
-            // TODO: find a better place to inform peer about our local TXNS
-            // append local TXns to this inv
-            const arrLocalTxHashes = this._mempool.getLocalTxnHashes();
+            const msgInv = new MsgInv();
+            msgInv.inventory = inventory;
+            if (inventory.vector.length) {
+                debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+                await peer.pushMessage(msgInv);
+            }
+        }
+
+        async _handleGetMempool(peer) {
+            const inventory = new Inventory();
+
+            const arrLocalTxHashes = this._mempool.getContent();
             arrLocalTxHashes.forEach(hash => inventory.addTxHash(hash));
             debugMsg(
                 `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} local TXns to "${peer.address}"`);

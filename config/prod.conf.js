@@ -73,6 +73,7 @@ module.exports = {
             MSG_INV: 'inv',
             MSG_GET_DATA: 'getdata',
             MSG_GET_BLOCKS: 'getblocks',
+            MSG_GET_MEMPOOL: 'getmempool',
             MSG_PING: 'ping',
             MSG_PONG: 'pong',
 

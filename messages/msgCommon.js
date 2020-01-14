@@ -17,6 +17,7 @@ module.exports = (Constants, Crypto, MessageProto) => {
         MSG_INV,
         MSG_GET_DATA,
         MSG_GET_BLOCKS,
+        MSG_GET_MEMPOOL,
         MSG_PING,
         MSG_PONG
     } = Constants.messageTypes;
@@ -92,12 +93,25 @@ module.exports = (Constants, Crypto, MessageProto) => {
             this.message = MSG_GET_ADDR;
         }
 
+        /**
+         * MSG_PING just message w/o payload
+         */
         set pingMessage(unused) {
             this.message = MSG_PING;
         }
 
+        /**
+         * MSG_PONG just message w/o payload
+         */
         set pongMessage(unused) {
             this.message = MSG_PONG;
+        }
+
+        /**
+         * MSG_GET_MEMPOOL just message w/o payload
+         */
+        set getMempoolMessage(unused) {
+            this.message = MSG_GET_MEMPOOL;
         }
 
         /**
@@ -180,6 +194,10 @@ module.exports = (Constants, Crypto, MessageProto) => {
 
         isGetBlocks() {
             return this.message === MSG_GET_BLOCKS;
+        }
+
+        isGetMempool() {
+            return this.message === MSG_GET_MEMPOOL;
         }
 
         isPing() {

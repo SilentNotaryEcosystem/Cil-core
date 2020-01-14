@@ -736,7 +736,9 @@ describe('Node tests', async () => {
         const [msg] = peer.pushMessage.args[0];
         assert.isOk(msg.isInv());
         const vector = msg.inventory.vector;
-        assert.equal(vector.length, 3);
+
+        // we send only blocks
+        assert.equal(vector.length, 2);
     });
 
     it('should send Reject message if time offset very large', async () => {
@@ -951,8 +953,8 @@ describe('Node tests', async () => {
         const fakePeer = {
             pushMessage: sinon.fake(),
             markAsEven: sinon.fake(),
-            isGetBlocksSent: sinon.fake(),
-            singleBlockRequested: sinon.fake()
+            singleBlockRequested: sinon.fake(),
+            isGetBlocksSent: sinon.fake.returns(false)
         };
         const msgInv = new factory.Messages.MsgInv();
 
@@ -977,10 +979,10 @@ describe('Node tests', async () => {
         const fakePeer = {
             pushMessage: sinon.fake(),
             markAsEven: sinon.fake(),
-            isGetBlocksSent: sinon.fake(),
             singleBlockRequested: sinon.fake(),
             markAsPossiblyAhead: sinon.fake(),
-            doneGetBlocks: sinon.fake()
+            doneGetBlocks: sinon.fake(),
+            isGetBlocksSent: sinon.fake.returns(false)
         };
         const msgInv = new factory.Messages.MsgInv();
 
