@@ -2530,7 +2530,7 @@ describe('Node tests', async () => {
         });
     });
 
-    describe('rebuildDb', async => {
+    describe('rebuildDb', async () => {
         it('should rebuild simple fork', async () => {
             const node = new factory.Node();
             await node.ensureLoaded();
@@ -2541,6 +2541,147 @@ describe('Node tests', async () => {
             await node.rebuildDb();
             assert.equal(node._mainDag.order, 4);
             assert.equal(node._mainDag.size, 4);
+        });
+    });
+
+    describe('_handleInvMessage', async () => {
+        it('should just request items (one block, no MSG_GET_BLOCKS)', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const fakePeer = {
+                pushMessage: sinon.fake(),
+                markAsEven: sinon.fake(),
+                singleBlockRequested: sinon.fake(),
+                isGetBlocksSent: sinon.fake.returns(false)
+            };
+
+            const invToRequest = new factory.Inventory();
+            invToRequest.addTxHash(pseudoRandomBuffer());
+            invToRequest.addTxHash(pseudoRandomBuffer());
+            invToRequest.addBlockHash(pseudoRandomBuffer());
+            const invMsg = new factory.Messages.MsgInv();
+            invMsg.inventory = invToRequest;
+
+            await node._handleInvMessage(fakePeer, invMsg);
+
+            assert.isOk(fakePeer.pushMessage.calledOnce);
+            const [msg] = fakePeer.pushMessage.args[0];
+            assert.isOk(msg.isGetData());
+            assert.equal(msg.inventory.vector.length, 3);
+
+            assert.isNotOk(fakePeer.markAsEven.calledOnce);
+        });
+
+        it('should just request items (no blocks, no MSG_GET_BLOCKS)', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const fakePeer = {
+                pushMessage: sinon.fake(),
+                markAsEven: sinon.fake(),
+                singleBlockRequested: sinon.fake(),
+                isGetBlocksSent: sinon.fake.returns(false)
+            };
+
+            const invToRequest = new factory.Inventory();
+            invToRequest.addTxHash(pseudoRandomBuffer());
+            invToRequest.addTxHash(pseudoRandomBuffer());
+            const invMsg = new factory.Messages.MsgInv();
+            invMsg.inventory = invToRequest;
+
+            await node._handleInvMessage(fakePeer, invMsg);
+
+            assert.isOk(fakePeer.pushMessage.calledOnce);
+            const [msg] = fakePeer.pushMessage.args[0];
+            assert.isOk(msg.isGetData());
+            assert.equal(msg.inventory.vector.length, 2);
+
+            assert.isNotOk(fakePeer.markAsEven.calledOnce);
+        });
+
+        it('should request 2 blocks, and markAsPossiblyAhead', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const fakePeer = {
+                pushMessage: sinon.fake(),
+                markAsPossiblyAhead: sinon.fake(),
+                singleBlockRequested: sinon.fake(),
+                isGetBlocksSent: sinon.fake.returns(true)
+            };
+
+            const invToRequest = new factory.Inventory();
+            invToRequest.addBlockHash(pseudoRandomBuffer());
+            invToRequest.addBlockHash(pseudoRandomBuffer());
+            const invMsg = new factory.Messages.MsgInv();
+            invMsg.inventory = invToRequest;
+
+            await node._handleInvMessage(fakePeer, invMsg);
+
+            assert.isOk(fakePeer.pushMessage.calledOnce);
+            const [msg] = fakePeer.pushMessage.args[0];
+            assert.isOk(msg.isGetData());
+            assert.equal(msg.inventory.vector.length, 2);
+
+            assert.isOk(fakePeer.markAsPossiblyAhead.calledOnce);
+
+        });
+
+        it('should request 1 block and markAsEven', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const fakePeer = {
+                pushMessage: sinon.fake(),
+                markAsEven: sinon.fake(),
+                doneGetBlocks: sinon.fake(),
+                singleBlockRequested: sinon.fake(),
+                isGetBlocksSent: sinon.fake.returns(true)
+            };
+
+            const invToRequest = new factory.Inventory();
+            invToRequest.addBlockHash(pseudoRandomBuffer());
+            const invMsg = new factory.Messages.MsgInv();
+            invMsg.inventory = invToRequest;
+
+            await node._handleInvMessage(fakePeer, invMsg);
+
+            assert.isOk(fakePeer.pushMessage.calledOnce);
+            const [msg] = fakePeer.pushMessage.args[0];
+            assert.isOk(msg.isGetData());
+            assert.equal(msg.inventory.vector.length, 1);
+
+            assert.isOk(fakePeer.markAsEven.calledOnce);
+            assert.isOk(fakePeer.doneGetBlocks.calledOnce);
+
+        });
+
+        it('should request 0 block and request mempool', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const fakePeer = {
+                pushMessage: sinon.fake(),
+                markAsEven: sinon.fake(),
+                doneGetBlocks: sinon.fake(),
+                singleBlockRequested: sinon.fake(),
+                isGetBlocksSent: sinon.fake.returns(true)
+            };
+
+            const invToRequest = new factory.Inventory();
+            const invMsg = new factory.Messages.MsgInv();
+            invMsg.inventory = invToRequest;
+
+            await node._handleInvMessage(fakePeer, invMsg);
+
+            assert.isOk(fakePeer.pushMessage.calledOnce);
+            const [msg] = fakePeer.pushMessage.args[0];
+            assert.isOk(msg.isGetMempool());
+
+            assert.isOk(fakePeer.markAsEven.calledOnce);
+            assert.isOk(fakePeer.doneGetBlocks.calledOnce);
+
         });
     });
 });
