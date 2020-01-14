@@ -13,6 +13,8 @@ const debugBlock = debugLib('node:block');
 const debugMsg = debugLib('node:messages');
 const debugMsgFull = debugLib('node:messages:full');
 
+const PEER_RECONNECT_TIMER_NAME = 'peerReconnectTimer';
+
 function createPeerKey(peer) {
     return peer.address + peer.port;
 }
@@ -180,7 +182,7 @@ module.exports = (factory, factoryOptions) => {
             await this._connectToPeers(arrSeedPeers);
 
             this._reconnectTimer.setInterval(
-                Constants.PEER_RECONNECT_TIMER,
+                PEER_RECONNECT_TIMER_NAME,
                 this._reconnectPeers,
                 Constants.PEER_RECONNECT_INTERVAL
             );

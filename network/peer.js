@@ -4,6 +4,8 @@ const debug = require('debug')('peer:');
 const {sleep, createPeerTag} = require('../utils');
 const Tick = require('tick-tock');
 
+const PEER_HEARTBEAT_TIMER_NAME = 'peerHeartbeatTimer';
+
 /**
  * Хранит информацию о Peer'е
  * - для хранения состояния peer'а при обработке сообщений
@@ -35,7 +37,7 @@ module.exports = (factory) => {
             this._cleanup();
 
             this._heartBeatTimer = new Tick(this);
-            this._timerName = Constants.PEER_HEARTBEAT_TIMER_NAME + this._nonce;
+            this._timerName = PEER_HEARTBEAT_TIMER_NAME + this._nonce;
 
             this._randomMsecDelta = parseInt(Math.random() * 100000);
 

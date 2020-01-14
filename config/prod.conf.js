@@ -49,14 +49,11 @@ module.exports = {
         // time to restrict reconnection with peer
         PEER_RESTRICT_TIME: 2 * 60 * 1000,
 
-        PEER_HEARTBEAT_TIMER_NAME: 'peerHeartbeatTimer',
         PEER_HEARTBEAT_TIMEOUT: 2 * 60 * 1000,
         PEER_DEAD_TIME: 6 * 60 * 1000,
 
-        PEER_RECONNECT_TIMER: 'peerReconnectTimer',
         PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
 
-        PEERMANAGER_BACKUP_TIMER_NAME: 'peerManagerBackupTimer',
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 
         // maximum block hashes in MSG_INV

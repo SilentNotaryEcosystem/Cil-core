@@ -5,6 +5,8 @@ const Tick = require('tick-tock');
 
 const debug = require('debug')('peerManager:');
 
+const PEERMANAGER_BACKUP_TIMER_NAME = 'peerManagerBackupTimer';
+
 /**
  *
  * @param {Factory} factory
@@ -45,7 +47,7 @@ module.exports = (factory) => {
             this._mapBannedAddresses = new Map();
 
             this._backupTimer = new Tick(this);
-            this._backupTimer.setInterval(Constants.PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
+            this._backupTimer.setInterval(PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
                 Constants.PEERMANAGER_BACKUP_TIMEOUT
             );
 
