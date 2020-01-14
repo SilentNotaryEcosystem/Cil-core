@@ -201,16 +201,17 @@ module.exports = class ContractConciliums extends Base {
         if (!nAmount) throw (`Have no sense to join with zero amount`);
 
         const objMemberRecord = this._getPosConciliumMember(objConcilium, strAddress);
+
+        // we allow rejoin with no less than minimum
+        this._checkDepositJoin(objConcilium, nAmount);
+
         if (objMemberRecord) {
 
-            // no _checkDepositJoin, since it's already joined, and amount >=0 (you can't send negative amount)
             // value (objMemberRecord) returned by ref, so no need to manipulate array
             objMemberRecord.amount += nAmount;
 //            objMemberRecord.nHeightToRelease = block.height + ${factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON}
             objMemberRecord.nHeightToRelease = block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON;
         } else {
-            this._checkDepositJoin(objConcilium, nAmount);
-
             objConcilium.arrMembers.push({
                 address: strAddress,
                 amount: nAmount,
