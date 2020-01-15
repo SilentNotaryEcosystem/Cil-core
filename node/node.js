@@ -1477,6 +1477,8 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         _informNeighbors(item, peerReceived, nCount) {
+            if (this._isInitialBlockLoading()) return;
+
             const inv = new Inventory();
             item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
@@ -2030,6 +2032,8 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _blockProcessor() {
+            if (this._isBusyWithExec()) return;
+
             if (this._mapBlocksToExec.size) {
                 debugBlock(`Block processor started. ${this._mapBlocksToExec.size} blocks awaiting to exec`);
 
@@ -2057,12 +2061,7 @@ module.exports = (factory, factoryOptions) => {
                     }
                 }
             } else if (this._requestCache.isEmpty()) {
-                const arrConnectedPeers = this._peerManager.getConnectedPeers();
-
-                // request rest of blocks
-                for (let peer of arrConnectedPeers) {
-                    await this._queryPeerForRestOfBlocks(peer);
-                }
+                await this._queryPeerForRestOfBlocks();
             }
 
             if (this._mapUnknownBlocks.size) {
@@ -2158,14 +2157,16 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        async _queryPeerForRestOfBlocks(peer) {
+        async _queryPeerForRestOfBlocks() {
+            if (!this._isInitialBlockLoading()) return;
+            const msg = await this._createGetBlocksMsg();
 
-            // if peer is ahead (last time reply with MAX blocks) and we got everything already
-            // here we could request next portion of blocks
-            if (peer.isAhead() && !peer.isGetBlocksSent()) {
-                const msg = await this._createGetBlocksMsg();
-                debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
-                await peer.pushMessage(msg);
+            const arrConnectedPeers = this._peerManager.getConnectedPeers();
+            for (let peer of arrConnectedPeers) {
+                if (peer.isAhead() && !peer.isGetBlocksSent()) {
+                    debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+                    await peer.pushMessage(msg);
+                }
             }
         }
 
@@ -2507,6 +2508,15 @@ module.exports = (factory, factoryOptions) => {
             if (patch && patch.getReceipt(strTxHash)) return patch.getReceipt(strTxHash);
 
             return await this._storage.getTxReceipt(strTxHash);
+        }
+
+        _isBusyWithExec() {
+            return this._mutex.isLocked('blockExec');
+        }
+
+        _isInitialBlockLoading() {
+            const arrConnectedPeers = this._peerManager.getConnectedPeers();
+            return arrConnectedPeers.find(peer => peer.isAhead());
         }
     };
 };
