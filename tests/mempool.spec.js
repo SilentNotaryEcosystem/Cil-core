@@ -164,6 +164,24 @@ describe('Mempool tests', () => {
         assert.isOk(mempool.hasTx(tx3.hash()));
     });
 
+    it('should remove outdated bad TXns', async function() {
+        const clock = sinon.useFakeTimers();
+
+        const mempool = new factory.Mempool();
+        const hashTx1 = pseudoRandomBuffer().toString('hex');
+        const hashTx2 = pseudoRandomBuffer().toString('hex');
+
+        mempool.storeBadTxHash(hashTx1);
+        mempool.storeBadTxHash(hashTx2);
+
+        clock.tick(factory.Constants.MEMPOOL_BAD_TX_CACHE + 1);
+
+        mempool.purgeOutdated();
+
+        assert.isNotOk(mempool.isBadTx(hashTx1));
+        assert.isNotOk(mempool.isBadTx(hashTx1));
+    });
+
     it('should not remove  txns if tx age <= 5s. ', async () => {
         const mempool = new factory.Mempool();
         const tx1 = new factory.Transaction(createDummyTx());
