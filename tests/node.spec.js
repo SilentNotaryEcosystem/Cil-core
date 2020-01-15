@@ -2608,6 +2608,7 @@ describe('Node tests', async () => {
                 pushMessage: sinon.fake(),
                 markAsPossiblyAhead: sinon.fake(),
                 singleBlockRequested: sinon.fake(),
+                doneGetBlocks: sinon.fake(),
                 isGetBlocksSent: sinon.fake.returns(true)
             };
 

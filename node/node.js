@@ -509,9 +509,9 @@ module.exports = (factory, factoryOptions) => {
                                 `(address: "${this._debugAddress}") sending "${MSG_GET_MEMPOOL}" to "${peer.address}"`);
                             await peer.pushMessage(msgGetMempool);
                         }
-                        peer.doneGetBlocks();
                         peer.markAsEven();
                     }
+                    peer.doneGetBlocks();
                 }
             } catch (e) {
                 throw e;
