@@ -11,14 +11,15 @@ const types = require('../types');
 
 const debug = debugLib('mempool:');
 
-// TODO: add tx expiration (14 days?)
+const MEMPOOL_TIMER_NAME = 'mempoolTimer';
+const MEMPOOL_TIMER_INTERVAL = 5 * 60 * 1000;
 
 module.exports = ({Constants, Transaction}, factoryOptions) =>
     class Mempool {
         constructor(options = {}) {
             this._mapTxns = new Map();
             this._tock = new Tick(this);
-            this._tock.setInterval('outdatedTimer', this.purgeOutdated.bind(this), Constants.MEMPOOL_OUTDATED_INTERVAL);
+            this._tock.setInterval(MEMPOOL_TIMER_NAME, this.purgeOutdated.bind(this), MEMPOOL_TIMER_INTERVAL);
 
             const {dbPath, testStorage} = {...factoryOptions, ...options};
 
@@ -29,7 +30,7 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             this._mapConcilimTxns = new Map();
             this._mapLocalTxns = new Map();
 
-            this._setBadTxnsHash = new Set();
+            this._mapBadTxnsHash = new Map();
             this._setPreferredConciliums = new Set();
         }
 
@@ -69,6 +70,10 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
                         mapTxns.delete(hash);
                     }
                 });
+            });
+
+            this._mapBadTxnsHash.forEach((msecAdded, strHash) => {
+                if (msecAdded < Date.now() - Constants.MEMPOOL_BAD_TX_CACHE) this._mapBadTxnsHash.delete(strHash);
             });
         }
 
@@ -115,7 +120,7 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             return this._mapLocalTxns.has(strTxHash) ||
-                   this._setBadTxnsHash.has(strTxHash) ||
+                   this._mapBadTxnsHash.has(strTxHash) ||
                    !!this._searchMapByHash(strTxHash);
         }
 
@@ -241,13 +246,13 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
         storeBadTxHash(strTxHash) {
             typeforce(types.Str64, strTxHash);
 
-            this._setBadTxnsHash.add(strTxHash);
+            this._mapBadTxnsHash.set(strTxHash, Date.now());
         }
 
         isBadTx(strTxHash) {
             typeforce(types.Str64, strTxHash);
 
-            return this._setBadTxnsHash.has(strTxHash);
+            return this._mapBadTxnsHash.has(strTxHash);
         }
 
         /**

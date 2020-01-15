@@ -125,7 +125,7 @@ module.exports = {
 
         MEMPOOL_TX_QTY: 500,
         MEMPOOL_TX_LIFETIME: 24 * 60 * 60 * 1000,
-        MEMPOOL_OUTDATED_INTERVAL: 24 * 60 * 60 * 1000,
+        MEMPOOL_BAD_TX_CACHE: 10 * 60 * 1000,
 
         // TODO: review it. Heavy code will be terminated on slow nodes. And node become unsynced
         TIMEOUT_CODE: 10000,
