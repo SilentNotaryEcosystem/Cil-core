@@ -498,9 +498,11 @@ module.exports = (factory, factoryOptions) => {
                         // so we should resend MSG_GET_BLOCKS later
                         peer.markAsPossiblyAhead();
                     } else {
+                        peer.markAsEven();
+
                         if (nBlockToRequest === 1) {
                             peer.singleBlockRequested();
-                        } else {
+                        } else if (!this._isInitialBlockLoading()) {
 
                             // we requested blocks from equal peer and receive NOTHING new, now we can request his mempool
                             const msgGetMempool = new MsgCommon();
@@ -509,7 +511,6 @@ module.exports = (factory, factoryOptions) => {
                                 `(address: "${this._debugAddress}") sending "${MSG_GET_MEMPOOL}" to "${peer.address}"`);
                             await peer.pushMessage(msgGetMempool);
                         }
-                        peer.markAsEven();
                     }
                     peer.doneGetBlocks();
                 }

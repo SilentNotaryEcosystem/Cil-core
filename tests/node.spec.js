@@ -2555,6 +2555,7 @@ describe('Node tests', async () => {
                 singleBlockRequested: sinon.fake(),
                 isGetBlocksSent: sinon.fake.returns(false)
             };
+            node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
 
             const invToRequest = new factory.Inventory();
             invToRequest.addTxHash(pseudoRandomBuffer());
@@ -2583,6 +2584,7 @@ describe('Node tests', async () => {
                 singleBlockRequested: sinon.fake(),
                 isGetBlocksSent: sinon.fake.returns(false)
             };
+            node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
 
             const invToRequest = new factory.Inventory();
             invToRequest.addTxHash(pseudoRandomBuffer());
@@ -2611,6 +2613,7 @@ describe('Node tests', async () => {
                 doneGetBlocks: sinon.fake(),
                 isGetBlocksSent: sinon.fake.returns(true)
             };
+            node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
 
             const invToRequest = new factory.Inventory();
             invToRequest.addBlockHash(pseudoRandomBuffer());
@@ -2640,6 +2643,7 @@ describe('Node tests', async () => {
                 singleBlockRequested: sinon.fake(),
                 isGetBlocksSent: sinon.fake.returns(true)
             };
+            node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
 
             const invToRequest = new factory.Inventory();
             invToRequest.addBlockHash(pseudoRandomBuffer());
@@ -2667,8 +2671,10 @@ describe('Node tests', async () => {
                 markAsEven: sinon.fake(),
                 doneGetBlocks: sinon.fake(),
                 singleBlockRequested: sinon.fake(),
-                isGetBlocksSent: sinon.fake.returns(true)
+                isGetBlocksSent: sinon.fake.returns(true),
+                isAhead: sinon.fake.returns(false)
             };
+            node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
 
             const invToRequest = new factory.Inventory();
             const invMsg = new factory.Messages.MsgInv();
