@@ -64,7 +64,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 const coins = utxo.coinsAtIndex(input.nTxOutput);
 
                 // Verify coins possession
-                this._verifyPayToAddr(coins.getReceiverAddr(), claimProofs[i], buffInputHash);
+                const claimProof = Array.isArray(claimProofs) && claimProofs.length
+                    ? claimProofs[i]
+                    : tx.getTxSignature();
+                this._verifyPayToAddr(coins.getReceiverAddr(), claimProof, buffInputHash);
 
                 // spend it
                 patch.spendCoins(utxo, input.nTxOutput, txHash);

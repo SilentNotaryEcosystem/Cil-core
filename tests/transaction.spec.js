@@ -161,35 +161,36 @@ describe('Transaction tests', () => {
         assert.isNotOk(factory.Crypto.verify(tx.hash(), tx._data.claimProofs[0], keyPair.publicKey));
     });
 
-    it('should fail to verify: no claimProof for input0', async () => {
+    it('should fail to verify: no claimProof for input0 or txSignature', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), 15);
 
-        assert.throws(() => tx.verify());
+        assert.throws(() => tx.verify(), 'Errors in clamProofs');
     });
 
     it('should fail to verify: zero tx', async () => {
         const tx = new factory.Transaction();
         tx.addInput(Buffer.alloc(32), 15);
 
-        assert.throws(() => tx.verify());
+        assert.throws(() => tx.verify(), 'Errors in input');
     });
 
     it('should fail to verify: negative tx index', async () => {
         const tx = new factory.Transaction();
         tx.addInput(pseudoRandomBuffer(), -1);
 
-        assert.throws(() => tx.verify());
+        assert.throws(() => tx.verify(), 'Errors in input');
     });
 
     it('should fail to verify: zero amount', async () => {
         const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 0);
         tx.addReceiver(0, Buffer.allocUnsafe(20));
 
-        assert.throws(() => tx.verify());
+        assert.throws(() => tx.verify(), 'Errors in outputs');
     });
 
-    it('should verify', async () => {
+    it('should VERIFY', async () => {
         const tx = new factory.Transaction();
         tx.conciliumId = 0;
         tx.addInput(pseudoRandomBuffer(), 0);
@@ -197,6 +198,23 @@ describe('Transaction tests', () => {
         tx.claim(0, keyPair.privateKey);
 
         assert.doesNotThrow(() => tx.verify());
+    });
+
+    it('should VERIFY (no claimProof for input0 but txSignature)', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 15);
+        tx.signAllInputs(keyPair.privateKey);
+
+        assert.doesNotThrow(() => tx.verify());
+    });
+
+    it('should throw in mixed scenario signAllInputs + claims', async () => {
+        const tx = new factory.Transaction();
+        tx.addInput(pseudoRandomBuffer(), 15);
+        tx.addReceiver(1, Buffer.allocUnsafe(20));
+        tx.claim(0, keyPair.privateKey);
+
+        assert.throws(() => tx.signAllInputs(keyPair.privateKey));
     });
 
     it('should FAIL to verify tx: verification failed during decoding from buffer', async () => {
@@ -405,4 +423,5 @@ describe('Transaction tests', () => {
             assert.doesNotThrow(() => coinbase.verifyCoinbase(coinbase.amountOut()));
         });
     });
+
 });

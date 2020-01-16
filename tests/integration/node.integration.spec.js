@@ -264,7 +264,7 @@ describe('Node integration tests', () => {
         const amount = 1e6;
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._storage.getConciliumsCount = () => 3;
+        node._storage.getConciliumsCount = () => 1;
         node._unwindBlock = sinon.fake();
 
         const kpReceiver = factory.Crypto.createKeyPair();
@@ -292,6 +292,10 @@ describe('Node integration tests', () => {
         }
         const gPatch = await processBlock(node, gBlock);
         assert.isOk(gPatch);
+
+        // Genesis is stable now
+        node._storage.getConciliumsCount = () => 3;
+
         {
             const utxo = gPatch.getUtxo(txHash);
             assert.isOk(utxo);
@@ -396,6 +400,78 @@ describe('Node integration tests', () => {
             assert.isOk(node._unwindBlock.calledOnce);
             const [block] = node._unwindBlock.args[0];
             assert.equal(block.getHash(), block10.getHash());
+        }
+    });
+
+    it('should test one signature for multiple inputs', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._storage.getConciliumsCount = () => 1;
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+
+        // "create" G
+        let gBlock;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.finish(0, generateAddress());
+
+            gBlock.setHeight(0);
+
+            txHash = tx.hash();
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+        }
+        const gPatch = await processBlock(node, gBlock);
+        assert.isOk(gPatch);
+
+        // create child block
+        let block2;
+        let txHash2;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+            tx.addInput(txHash, 0);
+            tx.addInput(txHash, 1);
+            tx.addInput(txHash, 2);
+            tx.addInput(txHash, 3);
+            tx.addReceiver(2e6, generateAddress());
+            tx.addReceiver(1e6, kpReceiver.getAddress(true));
+            tx.signAllInputs(kpReceiver.privateKey);
+
+            block2 = new factory.Block(1);
+            block2.parentHashes = [gBlock.getHash()];
+            block2.addTx(tx);
+            block2.finish(4e6 - 3e6, generateAddress());
+
+            block2.setHeight(node._calcHeight(block2.parentHashes));
+            txHash2 = tx.getHash();
+        }
+        const patch21 = await processBlock(node, block2);
+
+        assert.isOk(patch21);
+        {
+
+            // check the change
+            const utxo = patch21.getUtxo(txHash2);
+            assert.isOk(utxo);
+            const coins = utxo.coinsAtIndex(1);
+            assert.isOk(coins);
+            assert.equal(coins.getAmount(), 1e6);
         }
     });
 });

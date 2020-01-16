@@ -93,7 +93,7 @@ describe('Application layer', () => {
         await app.processTxInputs(tx, patch);
     });
 
-    it('should process TX', async () => {
+    it('should processPayments', async () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
@@ -112,8 +112,8 @@ describe('Application layer', () => {
 
         // get utxos from storage, and form object for app.processTx
         const patchUtxos = await storage.getUtxosPatch(tx.utxos);
-
         const {patch} = app.processTxInputs(tx, patchUtxos);
+
         app.processPayments(tx, patch);
     });
 
@@ -424,5 +424,27 @@ describe('Application layer', () => {
 
         assert.isOk(result);
         assert.deepEqual(result, sampleResult);
+    });
+
+    it('should process TX with single claim in txSignature', async () => {
+        const app = new factory.Application();
+
+        const utxoHash = pseudoRandomBuffer().toString('hex');
+        const {storage, keyPair} = await createGenesis(factory, utxoHash);
+        const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
+
+        // create tx
+        const tx = new factory.Transaction();
+        tx.addInput(utxoHash, 12);
+        tx.addInput(utxoHash, 0);
+        tx.addInput(utxoHash, 80);
+        tx.addReceiver(1000, buffAddress);
+        tx.signAllInputs(keyPair.privateKey);
+
+        // get utxos from storage, and form object for app.processTx
+        const patchUtxos = await storage.getUtxosPatch(tx.utxos);
+        const {patch} = app.processTxInputs(tx, patchUtxos);
+
+        app.processPayments(tx, patch);
     });
 });

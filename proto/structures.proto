@@ -31,6 +31,16 @@ message TransactionPayload {
     repeated output outs=2;
 }
 
+// implement it
+enum ClaimHashMethod{
+
+    // SIGHASH_ALL is default now
+    SIGHASH_ALL = 0;
+    SIGHASH_NONE = 100;
+    SIGHASH_SINGLE = 101;
+    SIGHASH_ANYONECANPAY = 102;
+}
+
 message Transaction {
 
     // place here non hashed fields

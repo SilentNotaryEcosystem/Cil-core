@@ -256,6 +256,11 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             this._data.txSignature = Crypto.sign(hash, key, enc);
         }
 
+        signAllInputs(key, enc = 'hex') {
+            if (this._data.claimProofs.length) throw('You should choose: "signAllInputs" or claim per input');
+            this.signForContract(key, enc);
+        }
+
         getTxSignature() {
             return Buffer.isBuffer(this._data.txSignature) ||
                    (Array.isArray(this._data.txSignature) && this._data.txSignature.length) ?
@@ -312,7 +317,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
             assert(outsValid, 'Errors in outputs');
 
-            assert(this.claimProofs.length === inputs.length, 'Errors in clamProofs');
+            assert(this.claimProofs.length === inputs.length || this.getTxSignature(), 'Errors in clamProofs');
         }
 
         /**
