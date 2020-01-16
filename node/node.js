@@ -374,7 +374,7 @@ module.exports = (factory, factoryOptions) => {
 
             try {
                 await this._processReceivedTx(tx);
-                await this._informNeighbors(tx, peer, 4);
+                await this._informNeighbors(tx, peer);
             } catch (e) {
                 logger.error(e, `Bad TX received. Peer ${peer.address}`);
                 peer.misbehave(5);
@@ -1478,8 +1478,6 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         _informNeighbors(item, peerReceived, nCount) {
-            if (this._isInitialBlockLoading()) return;
-
             const inv = new Inventory();
             item instanceof Transaction ? inv.addTx(item) : inv.addBlock(item);
             const msgInv = new MsgInv(inv);
@@ -2146,7 +2144,7 @@ module.exports = (factory, factoryOptions) => {
                 if (patchState) {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
-                    if (!this._networkSuspended) this._informNeighbors(block, peer);
+                    if (!this._networkSuspended && !this._isInitialBlockLoading()) this._informNeighbors(block, peer);
                 }
             } catch (e) {
                 logger.error(`Failed to execute "${block.hash()}"`, e);

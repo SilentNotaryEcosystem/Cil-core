@@ -367,7 +367,7 @@ module.exports = (factory, factoryOptions) => {
             });
 
             consensus.on('createBlock', async () => {
-                if (this._mutex.isLocked('commitBlock')) return;
+                if (this._mutex.isLocked('commitBlock') || this._isInitialBlockLoading()) return;
 
                 const lock = await this._mutex.acquire(['createBlock']);
 
