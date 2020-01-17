@@ -460,6 +460,7 @@ describe('Node tests', async () => {
         const msg = new factory.Messages.MsgTx(tx);
 
         node._requestCache.request(tx.hash());
+        node._isInitialBlockLoading = sinon.fake.returns(false);
 
         try {
             await node._handleTxMessage(peer, msg);

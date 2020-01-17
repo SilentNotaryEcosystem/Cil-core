@@ -7,7 +7,7 @@ const debug = require('debug')('witness:');
 
 const factory = require('./testFactory');
 
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 
 let wallet;
@@ -178,8 +178,46 @@ describe('Witness tests', () => {
 
             // plus coinbase, plus that tx, which exec exceed time per block
             assert.equal(block.txns.length,
-                1 + 1 + parseInt(factory.Constants.blockCreationTimeLimit / nFakeTimePerTx)
+                1 + 1 + parseInt(factory.Constants.BLOCK_CREATION_TIME_LIMIT / nFakeTimePerTx)
             );
+        });
+    });
+    describe('_isBigTimeDiff', async () => {
+        let witness;
+        let concilium;
+
+        beforeEach(async () => {
+            ({witness, concilium} = createDummyWitness());
+            await witness.ensureLoaded();
+        });
+
+        it('should be false', async () => {
+            const block = createDummyBlock(factory);
+            witness._pendingBlocks.getBlock = sinon.fake.returns({
+                blockHeader: {
+                    timestamp: block.timestamp - factory.Constants.BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF + 1
+                }
+            });
+
+            assert.isNotOk(witness._isBigTimeDiff(block));
+        });
+
+        it('should be true (child not found)', async () => {
+            const block = createDummyBlock(factory);
+            witness._pendingBlocks.getBlock = sinon.fake.returns({});
+
+            assert.isOk(witness._isBigTimeDiff(block));
+        });
+
+        it('should be true', async () => {
+            const block = createDummyBlock(factory);
+            witness._pendingBlocks.getBlock = sinon.fake.returns({
+                blockHeader: {
+                    timestamp: block.timestamp - factory.Constants.BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF - 1
+                }
+            });
+
+            assert.isOk(witness._isBigTimeDiff(block));
         });
     });
 });

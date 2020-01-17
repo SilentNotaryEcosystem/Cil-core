@@ -374,8 +374,8 @@ module.exports = (factory, factoryOptions) => {
                 try {
                     const {conciliumId} = consensus;
                     const {block, patch} = await this._createBlock(conciliumId);
-                    if (block.isEmpty() &&
-                        (!consensus.timeForWitnessBlock() || !this._pendingBlocks.isReasonToWitness(block))
+                    if (block.isEmpty() && (!consensus.timeForWitnessBlock() ||
+                                            !this._pendingBlocks.isReasonToWitness(block) || this._isBigTimeDiff(block))
                     ) {
                         this._suppressedBlockHandler();
                     } else {
@@ -518,7 +518,7 @@ module.exports = (factory, factoryOptions) => {
                         block.addTx(tx);
 
                         // this tx exceeded time limit for block creations - so we don't include it
-                        if (Date.now() - nStartTime > Constants.blockCreationTimeLimit) break;
+                        if (Date.now() - nStartTime > Constants.BLOCK_CREATION_TIME_LIMIT) break;
                     } catch (e) {
                         logger.error(e);
                         arrBadHashes.push(tx.hash());
@@ -545,5 +545,24 @@ module.exports = (factory, factoryOptions) => {
             this._conciliumSeed = super._createPseudoRandomSeed(arrLastStableBlockHashes);
             this._consensuses.forEach(c => c.setRoundSeed(this._conciliumSeed));
         };
+
+        /**
+         *
+         * @param {Block} block
+         * @return {boolean} - true, if at least one of a child is quite old.
+         * @private
+         */
+        _isBigTimeDiff(block) {
+            try {
+                const arrTimeStamps = block.parentHashes.map(
+                    strParentHash => this._pendingBlocks.getBlock(strParentHash).blockHeader.timestamp);
+
+                return !arrTimeStamps.every(timestamp =>
+                    block.timestamp - timestamp < Constants.BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF);
+            } catch (e) {
+                logger.error(e);
+                return true;
+            }
+        }
     };
 };

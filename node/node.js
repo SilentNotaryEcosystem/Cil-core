@@ -208,7 +208,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _connectToPeer(peer) {
             debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
-            await peer.connect();
+            if (!peer.isBanned()) await peer.connect();
             debugNode(`(address: "${this._debugAddress}") CONNECTED to "${peer.address}"`);
         }
 
@@ -377,7 +377,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._informNeighbors(tx, peer);
             } catch (e) {
                 logger.error(e, `Bad TX received. Peer ${peer.address}`);
-                peer.misbehave(5);
+                if (!this._isInitialBlockLoading()) peer.misbehave(5);
                 throw e;
             }
         }
