@@ -95,6 +95,7 @@ async function sendTx(strTx) {
 }
 
 /**
+ * Well use big inputs first
  *
  * @param {Array} arrUtxos of {hash, nOut, amount}
  * @param {Number} amount TO SEND (not including fees)
@@ -104,7 +105,8 @@ function gatherInputsForAmount(arrUtxos, amount) {
     const nFeePerInput = factory.Constants.fees.TX_FEE * 0.12;
     const arrCoins = [];
     let gathered = 0;
-    for (let coins of arrUtxos) {
+
+    for (let coins of arrUtxos.sort((a, b) => b.amount - a.amount)) {
         if (!coins.amount) continue;
         gathered += coins.amount;
         arrCoins.push(coins);
