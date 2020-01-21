@@ -546,10 +546,8 @@ module.exports = (factory, factoryOptions) => {
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
-            if (inventory.vector.length) {
-                debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
-                await peer.pushMessage(msgInv);
-            }
+            debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+            await peer.pushMessage(msgInv);
         }
 
         async _handleGetMempool(peer) {
