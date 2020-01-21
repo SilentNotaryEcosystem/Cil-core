@@ -1295,8 +1295,6 @@ module.exports = (factory, factoryOptions) => {
                 logger.error('Error in contract!', err);
                 status = Constants.TX_STATUS_FAILED;
                 message = err.message ? err.message : err.toString();
-            } finally {
-
             }
 
             receipt = new TxReceipt({
@@ -1311,12 +1309,11 @@ module.exports = (factory, factoryOptions) => {
 
             // contract could throw, so it could be undefined
             if (contract) {
-                patchThisTx.setContract(contract);
-
-                if (contract.getConciliumId() === undefined) contract.setConciliumId(tx.conciliumId);
-
-                // increase balance of contract
                 if (receipt.isSuccessful()) {
+                    if (contract.getConciliumId() === undefined) contract.setConciliumId(tx.conciliumId);
+                    patchThisTx.setContract(contract);
+
+                    // increase balance of contract
                     contract.deposit(tx.getContractSentAmount());
                 } else if (tx.getContractSentAmount() > 0 &&
                            this._processedBlock &&
