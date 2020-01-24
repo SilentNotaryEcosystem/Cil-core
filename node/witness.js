@@ -391,13 +391,16 @@ module.exports = (factory, factoryOptions) => {
 
             consensus.on('commitBlock', async (block, patch) => {
                 const lock = await this._mutex.acquire(['commitBlock']);
+                let lockBlock;
+
                 try {
                     const arrContracts = [...patch.getContracts()];
                     if (arrContracts.length) {
 
                         // we have contracts inside block - we should re-execute block to have proper variables inside block
                         await this._handleArrivedBlock(block);
-                    } else if (!this._isBlockExecuted(block.getHash())) {
+                    } else if (!this._mutex.isLocked('blockReceived') && !this._isBlockExecuted(block.getHash())) {
+                        lockBlock = await this._mutex.acquire(['blockReceived']);
 
                         // block still hadn't received from more quick (that already commited & announced block) witness
                         // we have only moneys transfers, so we could use patch. this will speed up processing
@@ -415,6 +418,7 @@ module.exports = (factory, factoryOptions) => {
                     logger.error(e);
                 } finally {
                     this._mutex.release(lock);
+                    if (lockBlock) this._mutex.release(lockBlock);
                 }
             });
         }
