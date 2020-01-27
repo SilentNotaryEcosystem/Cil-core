@@ -968,4 +968,94 @@ describe('Contract integration tests', () => {
 
         });
     });
+
+    describe('Encode data on demand', () => {
+        it('should serialize only once', async () => {
+            const buffFakeSerializedData = Buffer.from('fake');
+
+            const contract = new factory.Contract({
+                contractData: {a: 1},
+                contractCode: '{"add": "(a){this.value+=a;}"}',
+                conciliumId: 1
+            });
+            contract._serialize = sinon.fake.returns(buffFakeSerializedData);
+            contract._deserialize = sinon.fake();
+
+            contract.getDataSize();
+            contract.getData();
+            contract.encode();
+            contract.getData();
+
+            assert.isOk(contract._serialize.calledOnce);
+            assert.equal(contract._deserialize.callCount, 0);
+        });
+
+        it('should invalidate cache (serialize again after updateData)', async () => {
+            const buffFakeSerializedData = Buffer.from('fake');
+
+            const contract = new factory.Contract({
+                contractData: {a: 1},
+                contractCode: '{"add": "(a){this.value+=a;}"}',
+                conciliumId: 1
+            });
+            contract._serialize = sinon.fake.returns(buffFakeSerializedData);
+            contract._deserialize = sinon.fake();
+            contract.getDataSize();
+
+            contract.updateData({a: 'new data'});
+
+            contract.getDataSize();
+            contract.getData();
+            contract.encode();
+            contract.getData();
+
+            assert.equal(contract._serialize.callCount, 2);
+            assert.equal(contract._deserialize.callCount, 0);
+        });
+
+        it('should cache (created from Buffer)', async () => {
+            const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
+            const buffFakeSerializedData = Buffer.from('fake');
+
+            const contract = new factory.Contract(Buffer.from(encodedContractSample, 'hex'));
+
+            contract._serialize = sinon.fake();
+            contract._deserialize = sinon.fake.returns(buffFakeSerializedData);
+
+            contract.getDataSize();
+            assert.equal(contract._deserialize.callCount, 0);
+
+            contract.getData();
+            contract.encode();
+            contract.getData();
+            contract.getDataSize();
+
+            assert.equal(contract._serialize.callCount, 0);
+            assert.equal(contract._deserialize.callCount, 1);
+        });
+
+        it('should invalidate cache (created from Buffer)', async () => {
+            const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
+            const buffFakeSerializedData = Buffer.from('fake');
+            const objFakeDeSerializedData = {a: 17};
+
+            const contract = new factory.Contract(Buffer.from(encodedContractSample, 'hex'));
+
+            contract._serialize = sinon.fake.returns(buffFakeSerializedData);
+            contract._deserialize = sinon.fake.returns(objFakeDeSerializedData);
+
+            contract.getData();
+            assert.equal(contract._deserialize.callCount, 1);
+
+            contract.updateData({a: 'new data'});
+            contract.getData();
+            assert.equal(contract._serialize.callCount, 0);
+
+            contract.encode();
+            contract.getDataSize();
+
+            assert.equal(contract._serialize.callCount, 1);
+            assert.equal(contract._deserialize.callCount, 1);
+        });
+    });
 });
