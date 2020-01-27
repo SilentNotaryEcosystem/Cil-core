@@ -52,7 +52,8 @@ module.exports = {
         forks: {
             HEIGHT_FORK_SERIALIZER: 8970,
             HEIGHT_FORK_CHANGE: 8992,
-            HEIGHT_FORK_SERIALIZER_FIX2: 9145
+            HEIGHT_FORK_SERIALIZER_FIX2: 9145,
+            HEIGHT_FORK_SERIALIZER_FIX3: 55700
         }
     }
 };

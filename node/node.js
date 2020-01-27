@@ -1252,12 +1252,6 @@ module.exports = (factory, factoryOptions) => {
                     }
                     contract = await this._app.createContract(tx.getContractCode(), environment);
 
-                    if (contract &&
-                        this._processedBlock &&
-                        this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER) {
-                        contract.switchSerializerToJson();
-                    }
-
                     bNewContract = true;
                 } else {
                     if (coinsLimit < nFeeContractInvocation) {
@@ -1576,7 +1570,6 @@ module.exports = (factory, factoryOptions) => {
 
             logger.log(`Blocks ${Array.from(setStableBlocks.keys())} are stable now`);
 
-            await this._storage.applyPatch(patchToApply);
             await this._updateLastAppliedBlocks(arrTopStable);
 
             for (let blockHash of setBlocksToRollback) {
@@ -1584,12 +1577,17 @@ module.exports = (factory, factoryOptions) => {
             }
             await this._storage.removeBadBlocks(setBlocksToRollback);
 
+            let nHeightMax = 0;
             for (let hash of setStableBlocks) {
                 const bi = this._mainDag.getBlockInfo(hash);
+                if (bi.getHeight() > nHeightMax) nHeightMax = bi.getHeight();
                 bi.markAsFinal();
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
             }
+
+            await this._storage.applyPatch(patchToApply, nHeightMax);
+
             if (this._rpc) {
                 this._rpc.informWsSubscribersStableBlocks(Array.from(setStableBlocks.keys()));
             }

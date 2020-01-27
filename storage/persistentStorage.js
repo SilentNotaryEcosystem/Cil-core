@@ -420,9 +420,10 @@ module.exports = (factory, factoryOptions) => {
         /**
          *
          * @param {PatchDB} statePatch
+         * @param {Number} nHeightMax - max height among stable blocks
          * @returns {Promise<void>}
          */
-        async applyPatch(statePatch) {
+        async applyPatch(statePatch, nHeightMax) {
 
             const arrOps = [];
             const lock = await this._mutex.acquire(['utxo', 'contract', 'receipt', 'conciliums']);
@@ -440,6 +441,7 @@ module.exports = (factory, factoryOptions) => {
 
                 // save contracts
                 for (let [strContractAddr, contract] of statePatch.getContracts()) {
+                    if (nHeightMax < Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3) contract.switchSerializerToOld();
 
                     // if we change concilium contract - invalidate cache
                     if (Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {
