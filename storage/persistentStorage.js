@@ -441,7 +441,7 @@ module.exports = (factory, factoryOptions) => {
 
                 // save contracts
                 for (let [strContractAddr, contract] of statePatch.getContracts()) {
-                    if (nHeightMax < Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3) contract.switchSerializerToOld();
+                    if (nHeightMax < Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3) contract.dirtyWorkaround();
 
                     // if we change concilium contract - invalidate cache
                     if (Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS === strContractAddr) {

@@ -107,9 +107,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          *
          * @param {String} strCode - contract code
          * @param {Object} environment - global variables for contract (like contractAddr)
+         * @param {Number} nContractVersion - @see contract constructor
          * @returns {contract}
          */
-        createContract(strCode, environment) {
+        createContract(strCode, environment, nContractVersion) {
             typeforce(typeforce.tuple(typeforce.String, typeforce.Object), arguments);
 
             this._execStarted();
@@ -143,7 +144,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 // strigify code
                 const strCodeExportedFunctions = JSON.stringify(retVal.objCode);
 
-                contract = this._newContract(environment.contractAddr, objData, strCodeExportedFunctions);
+                contract =
+                    this._newContract(environment.contractAddr, objData, strCodeExportedFunctions, nContractVersion);
 
             } finally {
                 this._execDone(contract);
@@ -211,7 +213,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 this._nCoinsLimit = _spendCoins(this._nCoinsLimit, nFeeContractInvocation);
 
                 // this will bind code to data (assign 'this' variable)
-                const objMethods = JSON.parse(contract.getCode());
+                const objMethods = contract.getCode();
 
                 // if code it empty - call default function.
                 // No "default" - throws error
@@ -330,9 +332,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {String | Buffer} contractAddr - address of newly created contract
          * @param {Object | Buffer} data - contract data
          * @param {String} strCodeExportedFunctions - code of contract
+         * @param {Number} nContractVersion - @see contract constructor
          * @returns {Contract}
          */
-        _newContract(contractAddr, data, strCodeExportedFunctions) {
+        _newContract(contractAddr, data, strCodeExportedFunctions, nContractVersion) {
             typeforce(typeforce.oneOf('String', types.Address), contractAddr);
             typeforce(typeforce.oneOf('Buffer', 'Object'), data);
 
@@ -341,8 +344,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             const contract = new Contract({
                 contractCode: strCodeExportedFunctions,
                 contractData: data
-            });
-            contract.storeAddress(contractAddr);
+            }, contractAddr, nContractVersion);
 
             return contract;
         }

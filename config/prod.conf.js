@@ -150,12 +150,15 @@ module.exports = {
             HEIGHT_FORK_SERIALIZER: 3775,
             HEIGHT_FORK_CHANGE: 3775,
             HEIGHT_FORK_SERIALIZER_FIX2: 6100,
-            HEIGHT_FORK_SERIALIZER_FIX3: 43000
+            HEIGHT_FORK_SERIALIZER_FIX3: 45000
         },
 
         BLOCK_CREATION_TIME_LIMIT: 1500,
 
         // if block older than it's parent (any) more than X second - prevent auto witnessing
-        BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF: 30 * 60
+        BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF: 30 * 60,
+
+        CONTRACT_V_JSON: 2,
+        CONTRACT_V_V8: 0
     }
 };

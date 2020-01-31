@@ -1191,12 +1191,7 @@ module.exports = (factory, factoryOptions) => {
                     types.Patch, typeforce.Number, typeforce.Number
                 ), arguments);
 
-            if (contract &&
-                ((this._processedBlock &&
-                  this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER) ||
-                 !this._processedBlock)) {
-                contract.switchSerializerToJson();
-            }
+            if (contract && this._isTimeToForkSerializer1()) contract.switchSerializerToJson();
 
             // contract creation/invocation has 2 types of change:
             // 1st - usual for UTXO just send exceeded coins to self
@@ -1250,7 +1245,9 @@ module.exports = (factory, factoryOptions) => {
                     if (await this._storage.getContract(Buffer.from(addr, 'hex'))) {
                         throw new Error('Contract already exists');
                     }
-                    contract = await this._app.createContract(tx.getContractCode(), environment);
+
+                    contract =
+                        await this._app.createContract(tx.getContractCode(), environment, Constants.CONTRACT_V_V8);
 
                     bNewContract = true;
                 } else {
@@ -1301,16 +1298,16 @@ module.exports = (factory, factoryOptions) => {
 
             // contract could throw, so it could be undefined
             if (contract) {
+
+                if (this._isTimeToForkSerializer3()) contract.dirtyWorkaround();
+
                 if (receipt.isSuccessful()) {
                     if (contract.getConciliumId() === undefined) contract.setConciliumId(tx.conciliumId);
                     patchThisTx.setContract(contract);
 
                     // increase balance of contract
                     contract.deposit(tx.getContractSentAmount());
-                } else if (tx.getContractSentAmount() > 0 &&
-                           this._processedBlock &&
-                           this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER
-                ) {
+                } else if (tx.getContractSentAmount() > 0 && this._isTimeToForkSerializer1()) {
 
                     // return moneys to change receiver
                     nMaxCoins += tx.getContractSentAmount();
@@ -1406,10 +1403,7 @@ module.exports = (factory, factoryOptions) => {
             const cNestedContract = await this._getContractByAddr(strAddress, patchBlock);
             if (!cNestedContract) throw new Error('Contract not found!');
 
-            // if we processing PRC TX || block with height > HEIGHT_FORK_SERIALIZER_FIX2
-            if (!this._processedBlock && Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2 ||
-                this._processedBlock && this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2
-            ) {
+            if (this._isTimeToForkSerializer2()) {
                 cNestedContract.switchSerializerToJson();
             }
 
@@ -1428,6 +1422,10 @@ module.exports = (factory, factoryOptions) => {
                 newEnv,
                 context
             );
+
+            if (this._isTimeToForkSerializer3()) {
+                cNestedContract.dirtyWorkaround();
+            }
 
             patchTx.setContract(cNestedContract);
 
@@ -2509,6 +2507,23 @@ module.exports = (factory, factoryOptions) => {
         _isInitialBlockLoading() {
             const arrConnectedPeers = this._peerManager.getConnectedPeers();
             return arrConnectedPeers.find(peer => peer.isAhead());
+        }
+
+        _isTimeToForkSerializer1() {
+            return !this._processedBlock ||
+                   (this._processedBlock && this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_SERIALIZER);
+        }
+
+        _isTimeToForkSerializer2() {
+            return !this._processedBlock ||
+                   (this._processedBlock && this._processedBlock.getHeight() >=
+                    Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2);
+        }
+
+        _isTimeToForkSerializer3() {
+            return !this._processedBlock ||
+                   (this._processedBlock && this._processedBlock.getHeight() <
+                    Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3);
         }
     };
 };

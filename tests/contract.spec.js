@@ -34,6 +34,24 @@ describe('Contract tests', () => {
         ));
     });
 
+    describe('Set version upon constructing', function() {
+        it('should be V_JSON', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            }, 'asdasd', factory.Constants.CONTRACT_V_JSON);
+
+            assert.equal(contract.getVersion(), factory.Constants.CONTRACT_V_JSON);
+        });
+
+        it('should be V_V8', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            }, 'asdasd', factory.Constants.CONTRACT_V_V8);
+
+            assert.equal(contract.getVersion(), factory.Constants.CONTRACT_V_V8);
+        });
+    });
+
     describe('Get data', async () => {
         it('should get empty', async () => {
             const contract = new factory.Contract({});
@@ -89,7 +107,7 @@ describe('Contract tests', () => {
             const contract = new factory.Contract({
                 contractCode: code
             });
-            assert.strictEqual(contract.getCode(), code);
+            assert.deepEqual(contract.getCode(), JSON.parse(code));
         });
 
         it('should get (from Buffer)', async () => {
@@ -470,6 +488,62 @@ describe('Contract tests', () => {
                 decodedContract.updateData({a: 10, b: 100});
                 assert.isAbove(decodedContract.getDataSize(), contract.getDataSize());
             }
+        });
+    });
+
+    describe('Dirty workaround', function() {
+        let data;
+        let contract;
+
+        beforeEach(async () => {
+            data = {
+                key: 'value',
+                arrValue: [1, 2, 3, 4],
+                objValue: {
+                    nestedKey: 'value'
+                }
+            };
+
+            contract = new factory.Contract({contractData: data});
+        });
+
+        it('should leave unchanged (no data was changed)', async () => {
+            contract.switchSerializerToOld();
+
+            const oldVerContract = new factory.Contract(contract.encode());
+
+            oldVerContract.dirtyWorkaround();
+            oldVerContract.getDataBuffer();
+
+            assert.deepEqual(oldVerContract.getData(), data);
+            assert.equal(oldVerContract.getDataBuffer().length, contract.getDataBuffer().length);
+        });
+
+        it('should do workaround (data changed)', async () => {
+            contract.switchSerializerToOld();
+
+            const oldVerContract = new factory.Contract(contract.encode());
+            oldVerContract.updateData(data);
+
+            oldVerContract.dirtyWorkaround();
+
+            assert.deepEqual(oldVerContract.getData(), data);
+            assert.notEqual(oldVerContract.getDataBuffer().length, contract.getDataBuffer().length);
+        });
+
+        it('should do workaround for new contract without data', async () => {
+            contract = new factory.Contract({contractData: {}});
+            contract.switchSerializerToOld();
+
+            contract.dirtyWorkaround();
+            assert.isOk(contract._bPatched);
+        });
+
+        it('should do workaround for new contract with data', async () => {
+            contract.switchSerializerToOld();
+
+            contract.dirtyWorkaround();
+            assert.isOk(contract._bPatched);
         });
     });
 });

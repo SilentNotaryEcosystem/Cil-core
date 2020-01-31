@@ -305,17 +305,13 @@ describe('Application layer', () => {
         assert.isOk(contract);
         assert.deepEqual(contract.getData(), {_data: 10, _ownerAddress: callerAddress});
 
-        const strContractCode = contract.getCode();
-        assert.isOk(strContractCode);
-        const objCode = JSON.parse(strContractCode);
+        const objCode = contract.getCode();
         assert.isOk(objCode);
         assert.isOk(arrayEquals(Object.keys(objCode),
             [
                 'changeDefinition', 'addDefinition', 'noArguments', '_validateDefinition', '_checkOwner',
                 '_transferOwnership', '_validateAddress']
         ));
-        console.log(strContractCode);
-
     });
 
     it('should prepare code for exec (just shouldn\'t throw)', async () => {
