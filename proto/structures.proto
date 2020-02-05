@@ -17,7 +17,7 @@ message output{
     // payment receiver
     bytes receiverAddr=2;
 
-    // if receiverAddr is AddrContractCreation or function call (not user otherwise)
+    // if receiverAddr is AddrContractCreation or function call (not used otherwise)
     string contractCode=3;
     bytes addrChangeReceiver=4;
 }

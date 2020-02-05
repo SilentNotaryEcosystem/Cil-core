@@ -1062,7 +1062,7 @@ module.exports = (factory, factoryOptions) => {
          * @param {Object} objEncryptedPk - @see Crypto.encrypt
          * @return {Promise<void>}
          */
-        async writeKeyStore(strAddress, strAccountName, objEncryptedPk) {
+        async writeKeystore(strAddress, strAccountName, objEncryptedPk) {
             const strKeyStoreContent = JSON.stringify({
                 address: 'Ux' + strAddress,
                 ...prepareForStringifyObject(objEncryptedPk),
@@ -1075,5 +1075,21 @@ module.exports = (factory, factoryOptions) => {
             await this._readAccount(strAccountName);
         }
 
+        /**
+         *
+         * @param {String} strAccountName
+         * @return {Promise<Map<any, any>>}
+         */
+        async getKeystoresForAccount(strAccountName) {
+            const mapResult = new Map();
+
+            const strPath = `${this._strAccountPath}/${strAccountName}`;
+
+            for (let strAddress of await this.getAccountAddresses(strAccountName)) {
+                mapResult.set(strAddress, JSON.parse(await fs.readFile(`${strPath}/${strAddress}`, 'utf8')));
+            }
+
+            return mapResult;
+        }
     };
 };
