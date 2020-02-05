@@ -790,9 +790,14 @@ module.exports = (factory, factoryOptions) => {
             const arrAddrRecords = await this._walletReadAddressRecords(strAddress);
             const arrKeysToCleanup = [];
             const arrResult = [];
+            const setHashes = new Set();
 
             for (let {key, value: hash} of arrAddrRecords) {
                 try {
+                    const strHash = hash.toString('hex');
+                    if (setHashes.has(strHash)) throw ('duplicate. marked for cleanup');
+                    setHashes.add(strHash);
+
                     const utxo = await this.getUtxo(hash);
                     arrResult.push(utxo);
                 } catch (e) {
