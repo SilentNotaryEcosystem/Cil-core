@@ -22,51 +22,43 @@ const deSerializeContractDataJson = (buffData) => {
 };
 const nSizeOfEmptyDataJson = serializeContractDataJson({}).length;
 
-const V_JSON = 2;
-
-module.exports = (factory, {contractProto}) =>
+module.exports = ({Constants}, {contractProto}) =>
     class Contract {
 
         /**
          *
          * @param {Object | Buffer} data
          * @param {String | undefined} strContractAddr
+         * @param {Number | undefined} nContractVersion
          */
-        constructor(data, strContractAddr) {
+        constructor(data, strContractAddr, nContractVersion = Constants.CONTRACT_V_JSON) {
             typeforce(typeforce.oneOf('Object', 'Buffer'), data);
-
-            this.defaultSerializer();
 
             this._proxiedContract = undefined;
 
             if (Buffer.isBuffer(data)) {
                 this._data = contractProto.decode(data);
             } else {
-                if (typeof data.contractData === 'object') {
-                    data.contractData =
-                        this._fnSerializer(data.contractData);
-                }
-                if (typeof data.contractCode === 'object') data.contractCode = JSON.stringify(data.contractCode);
+                if (!data.contractData) data.contractData = {};
+                this._cacheData = data.contractData;
+                data.contractData = undefined;
+
+                this._cacheCode = typeof data.contractCode === 'string' && data.contractCode.length ?
+                    JSON.parse(data.contractCode) : data.contractCode;
+                data.contractCode = undefined;
+
+                data.version = nContractVersion;
+
                 const errMsg = contractProto.verify(data);
                 if (errMsg) throw new Error(`Contract: ${errMsg}`);
 
                 this._data = contractProto.create(data);
-            }
-
-            // we'll keep only deserialized data. serialize only for cloning & encode
-            if (this._data.contractData && Buffer.isBuffer(this._data.contractData)) {
-                this.updateData(this._data.contractData);
-            } else {
-                this._dataSize = this._nSizeOfEmptyData;
-                this._contractData = {};
+                this._bDataModified = true;
             }
 
             // deal with LONG https://github.com/dcodeIO/long.js
             // convert it toNumber
             if (Long.isLong(this._data.balance)) this._data.balance = this._data.balance.toNumber();
-
-            // just to show that we'll not use it after decode
-            this._data.contractData = undefined;
 
             this._strAddress = strContractAddr;
         }
@@ -78,7 +70,6 @@ module.exports = (factory, {contractProto}) =>
          */
         static createFromData(data) {
             data.__proto__ = this.prototype;
-            data.defaultSerializer();
             return data;
         }
 
@@ -86,15 +77,24 @@ module.exports = (factory, {contractProto}) =>
          * @return {String}
          */
         getCode() {
-            return this._data.contractCode;
+            if (this._cacheCode) return this._cacheCode;
+            this._cacheCode = this._data.contractCode ? JSON.parse(this._data.contractCode) : undefined;
+            return this._cacheCode;
         }
 
         getData() {
-            return this._contractData;
+            if (this._cacheData) return this._cacheData;
+            this._cacheData = this._deserialize();
+            return this._cacheData;
         }
 
         getDataBuffer() {
-            return this._fnSerializer(this._contractData);
+            if (!this.isDataModified() && this._data.contractData && this._data.contractData.length) {
+                return this._data.contractData;
+            }
+            if (this._cacheData) return this._serialize(this._cacheData);
+
+            throw ('Unexpected situation');
         }
 
         getConciliumId() {
@@ -106,42 +106,42 @@ module.exports = (factory, {contractProto}) =>
         }
 
         getDataSize() {
-            if (this._dataSize === undefined) this._dataSize = this._fnSerializer(this._contractData).length;
+            this._ensureData();
+            const nDataSize = this._data.contractData.length;
 
-            const result = this._dataSize - this._nSizeOfEmptyData;
+            const result = nDataSize - this.getSizeOfEmptyData();
             return result > 0 ? result : 0;
         }
 
         /**
+         * It used in 2 places, so i see no reason to duplicate it
+         * Invalidate stored data
          *
-         * @param {Object | Buffer} data - contract data
+         * @param {Object} data - contract data
          */
         updateData(data) {
-            if (Buffer.isBuffer(data)) {
-                this._dataSize = data.length;
-
-                if (this.getVersion() === V_JSON) {
-                    data = deSerializeContractDataJson(data);
-                } else {
-                    data = deSerializeContractDataV8(data);
-                }
+            this._bDataModified = true;
+            if (!Buffer.isBuffer(data)) {
+                this._cacheData = data;
+                this._invalidateEncodedData();
             } else {
-                this._dataSize = this._fnSerializer(data).length;
+                throw('Unexpected update with buffer data');
             }
-
-            this._contractData = Object.assign({}, data);
         }
 
         /**
+         * Data will be encoded only if invalid and cache is good
          *
          * @return {Buffer}
          */
         encode() {
             assert(this._data.conciliumId !== undefined, 'Contract "conciliumId" not specified!');
 
-            // undefined for default scenario
-            this._data.version = this._nVersion;
-            this._data.contractData = this._fnSerializer(this._contractData);
+            this._ensureData();
+
+            if (!this._data.hasOwnProperty('contractCode') && this._cacheCode) {
+                this._data.contractCode = JSON.stringify(this._cacheCode);
+            }
 
             return contractProto.encode(this._data).finish();
         }
@@ -205,17 +205,81 @@ module.exports = (factory, {contractProto}) =>
             return this._data.version;
         }
 
-        switchSerializerToJson() {
-            this._fnSerializer = serializeContractDataJson;
-            this._nSizeOfEmptyData = nSizeOfEmptyDataJson;
-            this._nVersion = V_JSON;
-
-            this._dataSize = this._fnSerializer(this._contractData).length;
+        setVersion(nVersion) {
+            this._data.version = nVersion;
         }
 
-        defaultSerializer() {
-            this._fnSerializer = serializeContractDataV8;
-            this._nSizeOfEmptyData = nSizeOfEmptyDataV8;
-            this._nVersion = undefined;
+        switchSerializerToJson() {
+            this.getData();
+            this.setVersion(Constants.CONTRACT_V_JSON);
+            this._invalidateEncodedData();
+        }
+
+        switchSerializerToOld() {
+            this.getData();
+            this.setVersion(Constants.CONTRACT_V_V8);
+            this._invalidateEncodedData();
+        }
+
+        /**
+         * this is related to this issue https://github.com/nodejs/help/issues/2448
+         * i realized it on HEIGHT_FORK_SERIALIZER block
+         * quick (but not good fixed it)
+         *
+         * So this function should help to process old blocks until we finally move to JSON serializer
+         *
+         */
+        dirtyWorkaround() {
+            if (!this._bPatched && this.getVersion() !== Constants.CONTRACT_V_JSON && !this.isDataModified()) return;
+
+            this.getData();
+            this.setVersion(Constants.CONTRACT_V_V8);
+
+            const buffData = serializeContractDataV8(this._cacheData);
+            const objData = deSerializeContractDataV8(buffData);
+
+            this._data.contractData = serializeContractDataV8(objData);
+            delete this._cacheData;
+
+            this._bPatched = true;
+        }
+
+        getSizeOfEmptyData() {
+            if (this.getVersion() === Constants.CONTRACT_V_JSON) {
+                return nSizeOfEmptyDataJson;
+            } else {
+                return nSizeOfEmptyDataV8;
+            }
+        }
+
+        _serialize(objData) {
+            if (this.getVersion() === Constants.CONTRACT_V_JSON) return serializeContractDataJson(objData);
+            return serializeContractDataV8(objData);
+        }
+
+        _deserialize() {
+            if (this.getVersion() === Constants.CONTRACT_V_JSON) {
+                return deSerializeContractDataJson(
+                    this._data.contractData);
+            }
+            return deSerializeContractDataV8(this._data.contractData);
+        }
+
+        _ensureData() {
+            if (!this._data.hasOwnProperty('contractData') && this._cacheData) {
+                this._data.contractData = this._serialize(this._cacheData);
+            }
+        }
+
+        _invalidateEncodedData() {
+            delete this._data.contractData;
+        }
+
+        /**
+         * Data was updated or object was created from Object
+         * @return {boolean}
+         */
+        isDataModified() {
+            return !!this._bDataModified;
         }
     };

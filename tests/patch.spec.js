@@ -404,7 +404,7 @@ describe('PatchDB', () => {
     it('should set/get contract', async () => {
         const patch = new factory.PatchDB(0);
         const contractAddr = generateAddress().toString('hex');
-        const strCode = 'let a=10;';
+        const strCode = '{"add": "(a){this.value+=a;}"}';
         const objData = {a: 10};
 
         {
@@ -419,7 +419,7 @@ describe('PatchDB', () => {
 
         const contract = patch.getContract(contractAddr);
         assert.isOk(contract);
-        assert.equal(contract.getCode(), strCode);
+        assert.deepEqual(contract.getCode(), JSON.parse(strCode));
         assert.deepEqual(contract.getData(), objData);
     });
 

@@ -90,6 +90,8 @@ class BaseFactory {
                     this._serializerImplementation = SerializerWrapper(this.Messages);
                     this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
 
+                    this._storedWalletImplementation = StoredWalletWrapper(this);
+
                     return prototypes;
                 })
                 .then(() => this.initSpecific())
@@ -127,7 +129,6 @@ class BaseFactory {
             ...objConstants
         };
         this._walletImplementation = WalletWrapper(this.Crypto);
-        this._storedWalletImplementation = StoredWalletWrapper(this.Crypto);
     }
 
     initSpecific() {

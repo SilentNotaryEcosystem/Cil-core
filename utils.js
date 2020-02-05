@@ -7,7 +7,6 @@ const v8 = require('v8');
 const http = require('http');
 const https = require('https');
 
-
 /**
  *
  * @param {Array} arrNumbers
@@ -140,6 +139,24 @@ const prepareForStringifyObject = (obj) => {
         }
     }
     return resultObject;
+};
+
+/**
+ *
+ * @param arrUtxos
+ * @param bStable
+ * @return {[{hash, nOut, amount, isStable}]}
+ */
+const finePrintUtxos = (arrUtxos, bStable) => {
+    const arrResult = [];
+    arrUtxos.forEach(utxo => {
+        utxo.getIndexes()
+            .map(idx => [idx, utxo.coinsAtIndex(idx)])
+            .forEach(([idx, coins]) => {
+                arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount(), isStable: bStable});
+            });
+    });
+    return arrResult;
 };
 
 /**
@@ -376,9 +393,17 @@ module.exports = {
         return decryptPkFileContent(Crypto, encodedContent, password);
     },
 
+    createObjInvocationCode(strMethod, arrArguments) {
+        return {
+            method: strMethod,
+            arrArguments
+        };
+    },
+
     decryptPkFileContent,
     mapEnvToOptions,
     mapOptionsToNodeParameters,
     GCD,
-    createPeerTag
+    createPeerTag,
+    finePrintUtxos
 };

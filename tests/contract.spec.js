@@ -4,6 +4,8 @@ const {assert} = require('chai');
 
 factory = require('./testFactory');
 
+const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
+
 describe('Contract tests', () => {
     before(async function() {
         this.timeout(15000);
@@ -13,7 +15,6 @@ describe('Contract tests', () => {
     after(async function() {
         this.timeout(15000);
     });
-
     it('should create contract', async () => {
         new factory.Contract({
             contractData: {a: 1},
@@ -26,25 +27,185 @@ describe('Contract tests', () => {
         });
 
         new factory.Contract({});
+
+        new factory.Contract(Buffer.from(
+            encodedContractSample,
+            'hex'
+        ));
     });
 
-    it('should get data', async () => {
-        const data = {a: 1};
-        const contract = new factory.Contract({
-            contractData: data,
-            contractCode: '{"add": "(a){this.value+=a;}"}',
-            conciliumId: 1
+    describe('Set version upon constructing', function() {
+        it('should be V_JSON', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            }, 'asdasd', factory.Constants.CONTRACT_V_JSON);
+
+            assert.equal(contract.getVersion(), factory.Constants.CONTRACT_V_JSON);
         });
-        assert.deepEqual(data, contract.getData());
+
+        it('should be V_V8', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            }, 'asdasd', factory.Constants.CONTRACT_V_V8);
+
+            assert.equal(contract.getVersion(), factory.Constants.CONTRACT_V_V8);
+        });
     });
 
-    it('should get code', async () => {
-        const code = '{"add": "(a){this.value+=a;}"}';
-        const contract = new factory.Contract({
-            contractCode: code,
-            conciliumId: 1
+    describe('Get data', async () => {
+        it('should get empty', async () => {
+            const contract = new factory.Contract({});
+            assert.deepEqual(contract.getData(), {});
         });
-        assert.deepEqual(code, contract.getCode());
+
+        it('should get (from Object)', async () => {
+            const data = {a: 1};
+            const contract = new factory.Contract({contractData: data});
+            assert.deepEqual(contract.getData(), data);
+        });
+
+        it('should get (from Buffer)', async () => {
+            const data = {a: 1};
+            const contract = new factory.Contract(Buffer.from(
+                encodedContractSample,
+                'hex'
+            ));
+            assert.deepEqual(contract.getData(), data);
+        });
+    });
+
+    describe('getDataBuffer', async () => {
+        it('should get empty', async () => {
+            const contract = new factory.Contract({});
+            assert.deepEqual(contract.getDataBuffer(), Buffer.from('{}'));
+        });
+
+        it('should get (from Object)', async () => {
+            const data = {a: 1};
+            const contract = new factory.Contract({contractData: data});
+            assert.deepEqual(contract.getDataBuffer(), Buffer.from(JSON.stringify(data)));
+        });
+
+        it('should get (from Buffer)', async () => {
+            const data = {a: 1};
+            const contract = new factory.Contract(Buffer.from(
+                encodedContractSample,
+                'hex'
+            ));
+            assert.deepEqual(contract.getDataBuffer(), Buffer.from(JSON.stringify(data)));
+        });
+    });
+
+    describe('Get code', async () => {
+        it('should get empty', async () => {
+            const contract = new factory.Contract({});
+            assert.isNotOk(contract.getCode());
+        });
+
+        it('should get (from Object)', async () => {
+            const code = '{"add": "(a){this.value+=a;}"}';
+            const contract = new factory.Contract({
+                contractCode: code
+            });
+            assert.deepEqual(contract.getCode(), JSON.parse(code));
+        });
+
+        it('should get (from Buffer)', async () => {
+            const code = '{"add": "(a){this.value+=a;}"}';
+            const contract = new factory.Contract(Buffer.from(
+                encodedContractSample,
+                'hex'
+            ));
+            assert.strictEqual(contract.getCode(), code);
+        });
+    });
+
+    describe('Encode contract', async () => {
+        it('should encode empty contract', async () => {
+            const contract = new factory.Contract({});
+            assert.isOk(contract.encode());
+        });
+
+        it('should encode contract only with code', async () => {
+            const contract = new factory.Contract({
+                contractCode: '{"add": "(a){this.value+=a;}"}'
+            });
+            assert.isOk(contract.encode());
+        });
+
+        it('should encode contract only with data', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            });
+            assert.isOk(contract.encode());
+        });
+
+        it('should encode contract with both', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1},
+                contractCode: '{"add": "(a){this.value+=a;}"}',
+                conciliumId: 1
+            });
+            assert.isOk(contract.encode());
+            console.log(contract.encode().toString('hex'));
+        });
+    });
+
+    describe('Version', async () => {
+        it('should be v2 for created from Object', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            });
+
+            assert.equal(contract.getVersion(), 2);
+        });
+
+        it('should be still v2 after encode/recreate', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            });
+            const buffContract = contract.encode();
+
+            const decodedContract = new factory.Contract(buffContract);
+
+            assert.equal(decodedContract.getVersion(), 2);
+        });
+
+        it('should be still v2 after clone', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            });
+            const clonedContract = contract.clone();
+
+            assert.equal(clonedContract.getVersion(), 2);
+        });
+
+        it('should be still v0 after encode/recreate', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            });
+            contract.switchSerializerToOld();
+            const buffContract = contract.encode();
+
+            const decodedContract = new factory.Contract(buffContract);
+
+            assert.equal(decodedContract.getVersion(), 0);
+        });
+
+        it('should be still v0 after clone', async () => {
+            const contract = new factory.Contract({
+                contractData: {a: 1}
+            });
+            contract.switchSerializerToOld();
+
+            const clonedContract = contract.clone();
+
+            assert.equal(clonedContract.getVersion(), 0);
+        });
+    });
+
+    describe('Update data', async () => {
+
     });
 
     it('should update data', async () => {
@@ -59,7 +220,7 @@ describe('Contract tests', () => {
     });
 
     it('should encode/decode contract', async () => {
-        const data = {a: 1, m: new Map([[1, 1]]), s: new Set([1, 2, 3])};
+        const data = {a: 1, m: {key: 'value'}, str: 'bla-bla'};
         const contract = new factory.Contract({
             contractData: data,
             conciliumId: 10,
@@ -70,17 +231,6 @@ describe('Contract tests', () => {
         const decodedContract = new factory.Contract(buffer);
 
         assert.deepEqual(data, decodedContract.getData());
-    });
-
-    it('should clone Contract', async () => {
-        const contract = new factory.Contract({
-            contractData: {a: 10},
-            conciliumId: 10
-        });
-
-        const clone = contract.clone();
-
-        assert.isOk(contract.encode().equals(clone.encode()));
     });
 
     describe('Balance', () => {
@@ -341,66 +491,59 @@ describe('Contract tests', () => {
         });
     });
 
-    describe('Data encoding', () => {
-        it('Should create from Object, and store with legacy (v8) serializer', async () => {
-            const contractData = {a: 1};
-            const strContractCode = '{"add": "(a){this.value+=a;}"}';
-            const strSerializedContractV8 = '0a0aff0d6f22016149027b01121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d210000000000000000';
+    describe('Dirty workaround', function() {
+        let data;
+        let contract;
 
-            const contract = new factory.Contract({
-                contractCode: strContractCode,
-                contractData: contractData
-            });
+        beforeEach(async () => {
+            data = {
+                key: 'value',
+                arrValue: [1, 2, 3, 4],
+                objValue: {
+                    nestedKey: 'value'
+                }
+            };
 
-            assert.equal(contract.getDataSize(), v8.serialize(contractData).length - v8.serialize({}).length);
-            assert.equal(contract.encode().toString('hex'), strSerializedContractV8);
+            contract = new factory.Contract({contractData: data});
         });
 
-        it('Should create from Object, and store with new (JSON) serializer', async () => {
-            const contractData = {a: 1};
-            const strContractCode = '{"add": "(a){this.value+=a;}"}';
-            const strSerializedContractJson = '0a077b2261223a317d121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d2100000000000000002802';
+        it('should leave unchanged (no data was changed)', async () => {
+            contract.switchSerializerToOld();
 
-            const contract = new factory.Contract({
-                contractCode: strContractCode,
-                contractData: contractData
-            });
-            contract.switchSerializerToJson();
+            const oldVerContract = new factory.Contract(contract.encode());
 
-            assert.equal(contract.getDataSize(), JSON.stringify(contractData).length - JSON.stringify({}).length);
-            assert.equal(contract.encode().toString('hex'), strSerializedContractJson);
+            oldVerContract.dirtyWorkaround();
+            oldVerContract.getDataBuffer();
+
+            assert.deepEqual(oldVerContract.getData(), data);
+            assert.equal(oldVerContract.getDataBuffer().length, contract.getDataBuffer().length);
         });
 
-        it('should load contract with legacy (v8) encoding', async () => {
-            const contractData = {a: 1};
+        it('should do workaround (data changed)', async () => {
+            contract.switchSerializerToOld();
 
-            // see test above
-            const strSerializedContractV8 = '0a0aff0d6f22016149027b01121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d210000000000000000';
-            const contract = new factory.Contract(Buffer.from(strSerializedContractV8, 'hex'));
+            const oldVerContract = new factory.Contract(contract.encode());
+            oldVerContract.updateData(data);
 
-            assert.deepEqual(contract.getData(), contractData);
+            oldVerContract.dirtyWorkaround();
+
+            assert.deepEqual(oldVerContract.getData(), data);
+            assert.notEqual(oldVerContract.getDataBuffer().length, contract.getDataBuffer().length);
         });
 
-        it('should load contract with new (JSON) encoding', async () => {
-            const contractData = {a: 1};
+        it('should do workaround for new contract without data', async () => {
+            contract = new factory.Contract({contractData: {}});
+            contract.switchSerializerToOld();
 
-            // see test above
-            const strSerializedContractJson = '0a077b2261223a317d121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d2100000000000000002802';
-            const contract = new factory.Contract(Buffer.from(strSerializedContractJson, 'hex'));
-
-            // new contracts stored with version
-            assert.isOk(contract.getVersion());
-            assert.deepEqual(contract.getData(), contractData);
+            contract.dirtyWorkaround();
+            assert.isOk(contract._bPatched);
         });
 
-        it('should load with legacy and store with new encoding', async () => {
-            const strSerializedContractJson = '0a077b2261223a317d121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d2100000000000000002802';
-            const strSerializedContractV8 = '0a0aff0d6f22016149027b01121e7b22616464223a20222861297b746869732e76616c75652b3d613b7d227d210000000000000000';
-            const contract = new factory.Contract(Buffer.from(strSerializedContractV8, 'hex'));
-            contract.switchSerializerToJson();
+        it('should do workaround for new contract with data', async () => {
+            contract.switchSerializerToOld();
 
-            assert.equal(contract.encode().toString('hex'), strSerializedContractJson);
+            contract.dirtyWorkaround();
+            assert.isOk(contract._bPatched);
         });
     });
-
 });

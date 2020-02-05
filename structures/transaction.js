@@ -167,15 +167,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
 
         /**
          *
-         * @param {Buffer | String} utxo - unspent tx output
+         * @param {Buffer | String} strHash - unspent tx output
          * @param {Number} index - index in tx
          */
-        addInput(utxo, index) {
+        addInput(strHash, index) {
             typeforce(typeforce.tuple(types.Hash256bit, 'Number'), arguments);
-            if (typeof utxo === 'string') utxo = Buffer.from(utxo, 'hex');
+            if (typeof strHash === 'string') strHash = Buffer.from(strHash, 'hex');
 
             this._checkDone();
-            this._data.payload.ins.push({txHash: utxo, nTxOutput: index});
+            this._data.payload.ins.push({txHash: strHash, nTxOutput: index});
         }
 
         /**

@@ -5,7 +5,7 @@ const debugLib = require('debug');
 
 const rpc = require('json-rpc2');
 
-const {asyncRPC, prepareForStringifyObject, stripAddressPrefix} = require('../utils');
+const {asyncRPC, prepareForStringifyObject, stripAddressPrefix, finePrintUtxos} = require('../utils');
 const types = require('../types');
 
 module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
@@ -62,6 +62,10 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             this._server.expose('unlockAccount', asyncRPC(this.unlockAccount.bind(this)));
             this._server.expose('importPrivateKey', asyncRPC(this.importPrivateKey.bind(this)));
             this._server.expose('getNewAddress', asyncRPC(this.getNewAddress.bind(this)));
+
+            this._server.expose('sendToAddress', asyncRPC(this.sendToAddress.bind(this)));
+            this._server.expose('callContract', asyncRPC(this.callContract.bind(this)));
+
             this._server.listen(rpcPort, rpcAddress);
         }
 
@@ -260,8 +264,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
                     .map(utxo => utxo.filterOutputsForAddress(strAddress));
 
             return prepareForStringifyObject([].concat(
-                this._finePrintUtxos(arrStableUtxos, true),
-                this._finePrintUtxos(arrPendingUtxos, false)
+                finePrintUtxos(arrStableUtxos, true),
+                finePrintUtxos(arrPendingUtxos, false)
             ));
         }
 
@@ -338,6 +342,28 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             return {address: kp.address, privateKey: kp.privateKey};
         }
 
+        async sendToAddress(args) {
+            const tx = await this._storedWallets.sendToAddress(args);
+
+            await this._nodeInstance.rpcHandler({
+                event: 'tx',
+                content: tx
+            });
+
+            return tx.getHash();
+        }
+
+        async callContract(args) {
+            const tx = await this._storedWallets.callContract(args);
+
+            await this._nodeInstance.rpcHandler({
+                event: 'tx',
+                content: tx
+            });
+
+            return tx.getHash();
+        }
+
         async getAccountBalance(args) {
             const arrResult = await this.getAccountUnspent(args);
 
@@ -392,44 +418,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             // flatten results
             return prepareForStringifyObject(
                 [].concat(
-                    this._finePrintUtxos(arrOfArrayOfStableUtxos, true),
-                    this._finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false)
+                    finePrintUtxos(arrOfArrayOfStableUtxos, true),
+                    finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false)
                 ));
         }
-
-        /**
-         * Will return new UTXOs containing only outputs for strAddress
-         *
-         * @param arrUtxos
-         * @param strAddress
-         * @return {[]}
-         * @private
-         */
-        _filterUtxoForAddress(arrUtxos, strAddress) {
-            const arrFilteredUtxos = [];
-            for (let utxo of arrUtxos) {
-                const arrAddrOutputs = utxo.getOutputsForAddress(strAddress);
-                if (arrAddrOutputs.length) {
-                    const utxoFiltered = new UTXO({txHash: utxo.getTxHash()});
-                    arrAddrOutputs.forEach(([idx, coins]) => {
-                        utxoFiltered.addCoins(idx, coins);
-                    });
-                    arrFilteredUtxos.push(utxoFiltered);
-                }
-            }
-            return arrFilteredUtxos;
-        }
-
-        _finePrintUtxos(arrUtxos, isStable) {
-            const arrResult = [];
-            arrUtxos.forEach(utxo => {
-                utxo.getIndexes()
-                    .map(idx => [idx, utxo.coinsAtIndex(idx)])
-                    .map(([idx, coins]) => {
-                        arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount(), isStable});
-                    });
-            });
-
-            return arrResult;
-        };
     };
