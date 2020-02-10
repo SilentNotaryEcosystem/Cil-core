@@ -124,7 +124,7 @@ const createSimpleFork = async (callback) => {
     return [genesis, block1, block2, block3].map(block => block.getHash());
 };
 
-const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer()})
+const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')})
     .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
 
 describe('Node tests', async () => {
@@ -1747,7 +1747,7 @@ describe('Node tests', async () => {
             const strTxHash = pseudoRandomBuffer().toString('hex');
 
             node._createInternalTx = sinon.fake.returns(
-                new factory.UTXO({txHash: pseudoRandomBuffer()})
+                new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')})
                     .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}))
             );
             const {sendCoins} = node._createCallbacksForApp(

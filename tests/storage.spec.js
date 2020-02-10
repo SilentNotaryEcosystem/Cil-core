@@ -441,7 +441,7 @@ describe('Storage tests', () => {
     it('should get UTXO', async () => {
         const storage = new factory.Storage();
 
-        const hash = pseudoRandomBuffer();
+        const hash = pseudoRandomBuffer().toString('hex');
         const coins = new factory.Coins(1e5, generateAddress());
         const utxo = new factory.UTXO({txHash: hash});
         utxo.addCoins(0, coins);
@@ -719,20 +719,20 @@ describe('Storage tests', () => {
             const coins2 = new factory.Coins(1e5, buffAddr2);
 
             // this utxo contains only coins of addr1
-            const hash1 = pseudoRandomBuffer();
+            const hash1 = pseudoRandomBuffer().toString('hex');
             const utxo1 = new factory.UTXO({txHash: hash1});
             utxo1.addCoins(0, coins1);
             utxo1.addCoins(1, coins1);
             utxo1.addCoins(2, coins1);
 
             // this utxo contains only coins of addr2
-            const hash2 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer().toString('hex');
             const utxo2 = new factory.UTXO({txHash: hash2});
             utxo2.addCoins(0, coins2);
             utxo2.addCoins(2, coins2);
 
             // this utxo contains coins for both addresses
-            const hash3 = pseudoRandomBuffer();
+            const hash3 = pseudoRandomBuffer().toString('hex');
             const utxo3 = new factory.UTXO({txHash: hash3});
             utxo3.addCoins(0, coins1);
             utxo3.addCoins(10, coins2);
@@ -791,7 +791,7 @@ describe('Storage tests', () => {
         let storage;
 
         function generateUtxo() {
-            const hash = pseudoRandomBuffer();
+            const hash = pseudoRandomBuffer().toString('hex');
             const coins = new factory.Coins(1e5, generateAddress());
             const utxo = new factory.UTXO({txHash: hash});
             utxo.addCoins(0, coins);

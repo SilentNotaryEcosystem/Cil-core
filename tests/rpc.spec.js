@@ -296,8 +296,8 @@ describe('RPC', () => {
     });
 
     it('should pass walletListUnspent', async () => {
-        const hash1 = pseudoRandomBuffer();
-        const hash2 = pseudoRandomBuffer();
+        const hash1 = pseudoRandomBuffer().toString('hex');
+        const hash2 = pseudoRandomBuffer().toString('hex');
         const addr = generateAddress();
 
         const objExpected = [
@@ -347,8 +347,8 @@ describe('RPC', () => {
     });
 
     it('should get Balance', async () => {
-        const hash1 = pseudoRandomBuffer();
-        const hash2 = pseudoRandomBuffer();
+        const hash1 = pseudoRandomBuffer().toString('hex');
+        const hash2 = pseudoRandomBuffer().toString('hex');
         const addr = generateAddress();
 
         const coins = new factory.Coins(1e5, addr);
@@ -394,8 +394,8 @@ describe('RPC', () => {
     });
 
     it('should getAccountUnspent', async () => {
-        const hash1 = pseudoRandomBuffer();
-        const hash2 = pseudoRandomBuffer();
+        const hash1 = pseudoRandomBuffer().toString('hex');
+        const hash2 = pseudoRandomBuffer().toString('hex');
         const addr = generateAddress();
         const addr2 = generateAddress();
         const coins = new factory.Coins(1e5, addr);
@@ -416,7 +416,7 @@ describe('RPC', () => {
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         rpc._storedWallets = {
-            getAccountAddresses: async () => [addr2, addr],
+            getAccountAddresses: async () => [addr2.toString('hex'), addr.toString('hex')],
             walletListUnspent: async (address) => [utxo1.filterOutputsForAddress(address)]
         };
 
@@ -425,25 +425,29 @@ describe('RPC', () => {
                 hash: hash1.toString('hex'),
                 nOut: 3,
                 amount: 1000,
-                isStable: true
+                isStable: true,
+                receiver: addr2.toString('hex')
             },
             {
                 hash: hash1.toString('hex'),
                 nOut: 0,
                 amount: 100000,
-                isStable: true
+                isStable: true,
+                receiver: addr.toString('hex')
             },
             {
                 hash: hash2.toString('hex'),
                 nOut: 2,
                 amount: 1000,
-                isStable: false
+                isStable: false,
+                receiver: addr2.toString('hex')
             },
             {
                 hash: hash2.toString('hex'),
                 nOut: 5,
                 amount: 100000,
-                isStable: false
+                isStable: false,
+                receiver: addr.toString('hex')
             }];
 
         // --------
@@ -454,8 +458,8 @@ describe('RPC', () => {
     });
 
     it('should getAccountBalance', async () => {
-        const hash1 = pseudoRandomBuffer();
-        const hash2 = pseudoRandomBuffer();
+        const hash1 = pseudoRandomBuffer().toString('hex');
+        const hash2 = pseudoRandomBuffer().toString('hex');
         const addr = generateAddress();
         const addr2 = generateAddress();
         const coins = new factory.Coins(1e5, addr);

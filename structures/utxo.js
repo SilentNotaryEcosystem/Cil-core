@@ -12,7 +12,7 @@ module.exports = ({Coins}, {utxoProto}) =>
          */
         constructor({txHash, data}) {
             if (txHash) {
-                typeforce(types.Hash256bit, txHash);
+                typeforce(types.Str64, txHash);
 
                 this._txHash = txHash;
                 this._data = {

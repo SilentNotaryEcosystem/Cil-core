@@ -379,18 +379,19 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             const arrAccountAddresses = await this._storedWallets.getAccountAddresses(strAccountName);
             assert(Array.isArray(arrAccountAddresses), 'Accound doesn\'t exist');
 
-            let arrOfArrayOfStableUtxos = [];
+            const mapUtxoAddr = new Map();
             for (let strAddress of arrAccountAddresses) {
-                arrOfArrayOfStableUtxos.push(await this._storedWallets.walletListUnspent(strAddress));
+                const arrUtxos = await this._storedWallets.walletListUnspent(strAddress);
+                for (let utxo of arrUtxos) {
+                    mapUtxoAddr.set(utxo, strAddress);
+                }
             }
 
-            // flatten results
-            arrOfArrayOfStableUtxos = [].concat.apply([], arrOfArrayOfStableUtxos);
-
             const storage = this._nodeInstance.storage;
+            let arrFilteredArrayOfStableUtxos = [];
+
             if (strHashSince) {
-                const arrFilteredArrayOfStableUtxos = [];
-                for (let utxo of arrOfArrayOfStableUtxos) {
+                for (let [utxo] of mapUtxoAddr) {
                     const buffSourceTx = await storage.findInternalTx(utxo.getTxHash()) ||
                                          Buffer.from(utxo.getTxHash(), 'hex');
                     const strBlockHash = (await storage.getTxBlock(buffSourceTx)).toString('hex');
@@ -398,8 +399,10 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
                         arrFilteredArrayOfStableUtxos.push(utxo);
                     }
                 }
-                arrOfArrayOfStableUtxos = arrFilteredArrayOfStableUtxos;
+            } else {
+                arrFilteredArrayOfStableUtxos = Array.from(mapUtxoAddr.keys());
             }
+
 
             let arrPendingUtxos = [];
             const arrOfArrayOfPendingUtxos = [];
@@ -409,7 +412,9 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
                 for (let strAddress of arrAccountAddresses) {
                     const arrFilteredUtxos = [];
                     for (let utxo of arrPendingUtxos) {
-                        arrFilteredUtxos.push(utxo.filterOutputsForAddress(strAddress));
+                        const utxoFiltered = utxo.filterOutputsForAddress(strAddress);
+                        arrFilteredUtxos.push(utxoFiltered);
+                        mapUtxoAddr.set(utxoFiltered, strAddress);
                     }
                     arrOfArrayOfPendingUtxos.push(arrFilteredUtxos);
                 }
@@ -418,8 +423,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             // flatten results
             return prepareForStringifyObject(
                 [].concat(
-                    finePrintUtxos(arrOfArrayOfStableUtxos, true),
-                    finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false)
+                    finePrintUtxos(arrFilteredArrayOfStableUtxos, true, mapUtxoAddr),
+                    finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false, mapUtxoAddr)
                 ));
         }
     };

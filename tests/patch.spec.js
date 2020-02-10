@@ -17,7 +17,7 @@ const createUtxo = (arrIndexes) => {
     return utxo;
 };
 
-const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer()})
+const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')})
     .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
 
 describe('PatchDB', () => {
@@ -86,7 +86,7 @@ describe('PatchDB', () => {
     });
 
     it('should SET/GET UTXO', async () => {
-        const txHash = pseudoRandomBuffer(32);
+        const txHash = pseudoRandomBuffer().toString('hex');
 
         const utxo = new factory.UTXO({txHash});
         const coins = new factory.Coins(10, generateAddress());

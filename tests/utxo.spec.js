@@ -159,7 +159,7 @@ describe('UTXO', () => {
         const addr1 = generateAddress();
         const addr2 = generateAddress();
 
-        const utxo = new factory.UTXO({txHash: pseudoRandomBuffer()});
+        const utxo = new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')});
         utxo.addCoins(0, new factory.Coins(10, addr1));
         utxo.addCoins(2, new factory.Coins(10, addr2));
         utxo.addCoins(3, new factory.Coins(10, addr1));
@@ -202,7 +202,7 @@ describe('UTXO', () => {
         const coins = new factory.Coins(1e5, addr);
 
         {
-            const hash1 = pseudoRandomBuffer();
+            const hash1 = pseudoRandomBuffer().toString('hex');
             const coinsOther = new factory.Coins(1e5, generateAddress());
 
             const utxo1 = new factory.UTXO({txHash: hash1});
@@ -216,7 +216,7 @@ describe('UTXO', () => {
             assert.throws(() => utxoFiltered.coinsAtIndex(3));
         }
         {
-            const hash2 = pseudoRandomBuffer();
+            const hash2 = pseudoRandomBuffer().toString('hex');
             const utxo2 = new factory.UTXO({txHash: hash2});
             utxo2.addCoins(5, coins);
             utxo2.addCoins(2, coins);

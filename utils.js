@@ -145,15 +145,23 @@ const prepareForStringifyObject = (obj) => {
  *
  * @param arrUtxos
  * @param bStable
+ * @param mapUtxoAddr
  * @return {[{hash, nOut, amount, isStable}]}
  */
-const finePrintUtxos = (arrUtxos, bStable) => {
+const finePrintUtxos = (arrUtxos, bStable, mapUtxoAddr) => {
     const arrResult = [];
     arrUtxos.forEach(utxo => {
         utxo.getIndexes()
             .map(idx => [idx, utxo.coinsAtIndex(idx)])
             .forEach(([idx, coins]) => {
-                arrResult.push({hash: utxo.getTxHash(), nOut: idx, amount: coins.getAmount(), isStable: bStable});
+                const strReceiver = mapUtxoAddr ? mapUtxoAddr.get(utxo) : undefined;
+                arrResult.push({
+                    hash: utxo.getTxHash(),
+                    nOut: idx,
+                    amount: coins.getAmount(),
+                    isStable: bStable,
+                    receiver: strReceiver
+                });
             });
     });
     return arrResult;

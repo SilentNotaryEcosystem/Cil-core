@@ -414,7 +414,7 @@ module.exports = (factory, factoryOptions) => {
             const buffUtxo = await this._db.get(key).catch(err => debug(err));
             if (!buffUtxo) throw new Error(`Storage: UTXO with hash ${hash.toString('hex')} not found !`);
 
-            return raw ? buffUtxo : new UTXO({txHash: hash, data: buffUtxo});
+            return raw ? buffUtxo : new UTXO({txHash: hash.toString('hex'), data: buffUtxo});
         }
 
         /**
@@ -861,7 +861,7 @@ module.exports = (factory, factoryOptions) => {
 
                             // get hash from key (slice PREFIX)
                             const hash = data.key.slice(1);
-                            const utxo = new UTXO({txHash: hash, data: data.value});
+                            const utxo = new UTXO({txHash: hash.toString('hex'), data: data.value});
                             for (let strAddr of this._arrStrWalletAddresses) {
                                 const arrIndexes = utxo.getOutputsForAddress(strAddr);
 //                                if (arrIndexes.length) await this._walletWriteAddressUtxo(strAddr, hash);
@@ -997,7 +997,7 @@ module.exports = (factory, factoryOptions) => {
         async countWallets() {
             const setAddresses = new Set();
             for await (let {key, value} of this.readUtxos()) {
-                const utxo = new UTXO({txHash: key.slice(UTXO_PREFIX.length), data: value});
+                const utxo = new UTXO({txHash: key.slice(UTXO_PREFIX.length).toString('hex'), data: value});
                 utxo.getReceivers().forEach(addr => setAddresses.add(addr));
             }
             return setAddresses.size;
