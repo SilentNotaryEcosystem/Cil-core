@@ -36,7 +36,7 @@ async function main() {
     console.error(
         `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
 //    console.log(tx.encode().toString('hex'));
-    await sendTx(tx.encode().toString('hex'));
+//    await sendTx(tx.encode().toString('hex'));
 }
 
 /**
@@ -63,9 +63,6 @@ function leaveConcilium(conciliumId, wallet, arrUtxos) {
     for (let utxo of arrUtxos) {
         console.log(`Using UTXo ${utxo.hash} idx ${utxo.nOut}`);
         tx.addInput(utxo.hash, utxo.nOut);
-    }
-    for (let i in arrUtxos) {
-        tx.claim(parseInt(i), wallet.privateKey);
     }
 
     tx.signForContract(wallet.privateKey);

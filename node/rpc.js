@@ -2,6 +2,7 @@
 const typeforce = require('typeforce');
 const assert = require('assert');
 const debugLib = require('debug');
+const {version} = require('../package');
 
 const rpc = require('json-rpc2');
 
@@ -65,6 +66,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
 
             this._server.expose('sendToAddress', asyncRPC(this.sendToAddress.bind(this)));
             this._server.expose('callContract', asyncRPC(this.callContract.bind(this)));
+
+            this._server.expose('nodeStatus', asyncRPC(this.nodeStatus.bind(this)));
 
             this._server.listen(rpcPort, rpcAddress);
         }
@@ -403,7 +406,6 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
                 arrFilteredArrayOfStableUtxos = Array.from(mapUtxoAddr.keys());
             }
 
-
             let arrPendingUtxos = [];
             const arrOfArrayOfPendingUtxos = [];
 
@@ -426,5 +428,46 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
                     finePrintUtxos(arrFilteredArrayOfStableUtxos, true, mapUtxoAddr),
                     finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false, mapUtxoAddr)
                 ));
+        }
+
+        async nodeStatus() {
+            const arrResult = await this.getTips();
+
+            let objLastBlock = undefined;
+            let strLastHash = undefined;
+            arrResult.forEach(({hash, block}) => {
+                if (!objLastBlock || (objLastBlock && objLastBlock.header.timestamp < block.header.timestamp)) {
+                    objLastBlock = block;
+                    strLastHash = hash;
+                }
+            });
+
+            const arrPeers = await this._nodeInstance.rpcHandler({
+                event: 'getConnectedPeers'
+            });
+
+            const arrBannedPeers = await this._nodeInstance.rpcHandler({
+                event: 'getBannedPeers'
+            });
+
+            const arrHashesTxns = await this._nodeInstance.rpcHandler({
+                event: 'getMempoolContent'
+            });
+
+            return {
+                version,
+                protocolVersion: '0x' + Constants.protocolVersion.toString(16),
+                network: '0x' + Constants.network.toString(16),
+                lastBlock: {
+                    time: new Date(objLastBlock.header.timestamp * 1000),
+                    hash: strLastHash
+                },
+                connectedPeers: arrPeers.map(peer => ({
+                    address: peer.address,
+                    version: '0x' + peer.version.toString(16)
+                })),
+                bannedPeers: arrBannedPeers,
+                mempool: arrHashesTxns
+            };
         }
     };

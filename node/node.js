@@ -956,7 +956,12 @@ module.exports = (factory, factoryOptions) => {
                         return utxo.toObject();
                     case 'getWitnesses':
                         return await this._getAllWitnesses();
-                        break;
+                    case 'getConnectedPeers':
+                        return this._peerManager.getConnectedPeers();
+                    case 'getBannedPeers':
+                        return this._peerManager.getBannedPeers();
+                    case 'getMempoolContent':
+                        return this._mempool.getContent();
                     default:
                         throw new Error(`Unsupported method ${event}`);
                 }

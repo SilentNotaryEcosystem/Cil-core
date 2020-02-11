@@ -64,10 +64,13 @@ module.exports = (factory) => {
         getConnectedPeers(tag) {
             return Array
                 .from(this._mapAllPeers.values())
-                .reduce((arrPeers, peer) => {
-                    if (!peer.disconnected && peer.hasTag(tag)) arrPeers.push(peer);
-                    return arrPeers;
-                }, []);
+                .filter(peer => !peer.disconnected && peer.hasTag(tag));
+        }
+
+        getBannedPeers() {
+            return Array
+                .from(this._mapAllPeers.values())
+                .filter(peer => peer.isBanned());
         }
 
         /**
