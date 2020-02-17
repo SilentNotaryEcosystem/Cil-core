@@ -14,7 +14,7 @@ if (process.env.NODE_ENV === 'Devel') {
 }
 
 const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_ID) : 1;
-const nMinAmount = process.env.MIN_AMOUNT ? parseFloat(process.env.MIN_AMOUNT) : 1e8;
+const nMinAmount = process.env.MIN_AMOUNT ? parseFloat(process.env.MIN_AMOUNT) : 2e7;
 
 main()
     .then(_ => {

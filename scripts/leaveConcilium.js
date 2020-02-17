@@ -36,7 +36,7 @@ async function main() {
     console.error(
         `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
 //    console.log(tx.encode().toString('hex'));
-//    await sendTx(tx.encode().toString('hex'));
+    await sendTx(tx.encode().toString('hex'));
 }
 
 /**
