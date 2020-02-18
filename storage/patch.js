@@ -507,8 +507,7 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
         }
 
         hasUtxos(arrUtxos) {
-//            return !!arrUtxos.filter(strHash => this._data.coins.has(strHash)).length;
-            const res = arrUtxos.filter(strHash => this._data.coins.has(strHash)).length;
+            const res = arrUtxos.filter(hash => this._data.coins.has(hash.toString('hex'))).length;
             return res;
         }
 
