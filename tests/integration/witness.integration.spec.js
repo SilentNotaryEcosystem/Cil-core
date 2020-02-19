@@ -5,8 +5,8 @@ const debugLib = require('debug');
 const sinon = require('sinon');
 
 const factory = require('../testFactory');
-const {generateAddress, createDummyTx, processBlock} = require('../testUtil');
-const {sleep} = require('../../utils');
+const {generateAddress, createDummyTx, processBlock, pseudoRandomBuffer} = require('../testUtil');
+const {sleep, arrayIntersection} = require('../../utils');
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -342,4 +342,140 @@ describe('Witness integration tests', () => {
 
         assert.equal(acceptBlockFake.callCount, 0);
     });
+
+    describe('Join TX', async () => {
+        let witness;
+        let txHash;
+        let txHash2;
+        let coinbaseTxHash;
+
+        beforeEach(async function() {
+            this.timeout(60000);
+
+            const amount = 1e6;
+            const {arrKeyPairs, concilium} = createDummyDefinition();
+            const kpReceiver = arrKeyPairs[0];
+            const wallet = new factory.Wallet(kpReceiver.privateKey);
+
+            witness = new factory.Witness({walletSupport: true, wallet});
+            await witness.ensureLoaded();
+
+            patchNodeForWitnesses(witness, concilium);
+
+            factory.Constants.WITNESS_UTXOS_JOIN = 2;
+
+            // "create" G
+            let gBlock;
+            {
+                const tx = new factory.Transaction();
+                tx.conciliumId = 0;
+
+                // spend idx 0
+                tx.addInput(pseudoRandomBuffer(), 0);
+                tx.addReceiver(amount, kpReceiver.getAddress(true));
+                tx.addReceiver(amount, kpReceiver.getAddress(true));
+                gBlock = new factory.Block(0);
+                gBlock.addTx(tx);
+                gBlock.setHeight(0);
+                gBlock.finish(0, generateAddress());
+
+                txHash = tx.hash();
+
+                factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+            }
+            await processBlock(witness, gBlock);
+
+            // create child block2
+            let block2;
+
+            {
+
+                // create Tx
+                const tx = new factory.Transaction();
+                tx.conciliumId = 0;
+                tx.addInput(txHash, 0);
+                tx.addReceiver(1e3, generateAddress());
+                tx.addReceiver(1e3, kpReceiver.getAddress(true));
+                tx.claim(0, kpReceiver.privateKey);
+                txHash2 = tx.getHash();
+
+                block2 = new factory.Block(0);
+                block2.parentHashes = [gBlock.getHash()];
+                block2.addTx(tx);
+                block2.setHeight(witness._calcHeight(block2.parentHashes));
+                block2.finish(1e6 - 2e3, kpReceiver.getAddress());
+
+                coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
+            }
+            await processBlock(witness, block2);
+
+            // create empty block3
+            let block3;
+            {
+                block3 = new factory.Block(0);
+                block3.parentHashes = [block2.getHash()];
+                block3.setHeight(witness._calcHeight(block3.parentHashes));
+                block3.finish(0, generateAddress());
+            }
+            await processBlock(witness, block3);
+        });
+
+        it('should create one block with join TX (immediate stabilization)', async function() {
+
+            const {block: block4} = await witness._createBlock(0);
+
+            assert.equal(block4.txns.length, 2);
+            const txJoin = new factory.Transaction(block4.txns[1]);
+
+            // it should contain 3 inputs
+            assert.equal(txJoin.inputs.length, 3);
+            const arrHashesInputs = txJoin.inputs.map(input => input.txHash.toString('hex'));
+            assert.deepEqual(arrayIntersection([txHash, txHash2, coinbaseTxHash], arrHashesInputs), arrHashesInputs);
+            await processBlock(witness, block4);
+
+            // create next block
+            const {block: block5} = await witness._createBlock(0);
+
+            // it should contain only coinbase
+            assert.equal(block5.txns.length, 1);
+            await processBlock(witness, block5);
+
+            // create next block
+            const {block: block6} = await witness._createBlock(0);
+
+            // it should contain only coinbase
+            assert.equal(block6.txns.length, 1);
+            await processBlock(witness, block6);
+        });
+
+        it('should create one block with join TX (non immediate stabilization)', async function() {
+            witness._storage.getConciliumsCount = () => 3;
+
+            const {block: block4} = await witness._createBlock(0);
+
+            assert.equal(block4.txns.length, 2);
+            const txJoin = new factory.Transaction(block4.txns[1]);
+
+            // it should contain 3 inputs
+            assert.equal(txJoin.inputs.length, 3);
+            const arrHashesInputs = txJoin.inputs.map(input => input.txHash.toString('hex'));
+            assert.deepEqual(arrayIntersection([txHash, txHash2, coinbaseTxHash], arrHashesInputs), arrHashesInputs);
+            await processBlock(witness, block4);
+
+            // create next block
+            const {block: block5} = await witness._createBlock(0);
+
+            // it should contain only coinbase (new joinTx will conflict with patch for block 4)
+            assert.equal(block5.txns.length, 1);
+            await processBlock(witness, block5);
+
+            // create next block
+            const {block: block6} = await witness._createBlock(0);
+
+            // it should contain only coinbase (new joinTx will conflict with patch for block 4)
+            assert.equal(block6.txns.length, 1);
+            await processBlock(witness, block6);
+        });
+    });
+
 });

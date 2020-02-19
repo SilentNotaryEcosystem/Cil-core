@@ -1,7 +1,7 @@
 'use strict';
 
 const {describe, it} = require('mocha');
-const {assert} = require('chai');
+const chai = require('chai');
 const os = require('os');
 const sinon = require('sinon');
 const debugLib = require('debug');
@@ -9,6 +9,9 @@ const debugLib = require('debug');
 const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
 const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress} = require('../testUtil');
+
+chai.use(require('chai-as-promised'));
+const {assert} = chai;
 
 process.on('warning', e => console.warn(e.stack));
 
@@ -397,5 +400,333 @@ describe('Node integration tests', () => {
             const [block] = node._unwindBlock.args[0];
             assert.equal(block.getHash(), block10.getHash());
         }
+    });
+
+    it('should test one signature for multiple inputs', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._storage.getConciliumsCount = () => 1;
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+
+        // "create" G
+        let gBlock;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.finish(0, generateAddress());
+
+            gBlock.setHeight(0);
+
+            txHash = tx.hash();
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+        }
+        const gPatch = await processBlock(node, gBlock);
+        assert.isOk(gPatch);
+
+        // create child block
+        let block2;
+        let txHash2;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+            tx.addInput(txHash, 0);
+            tx.addInput(txHash, 1);
+            tx.addInput(txHash, 2);
+            tx.addInput(txHash, 3);
+            tx.addReceiver(2e6, generateAddress());
+            tx.addReceiver(1e6, kpReceiver.getAddress(true));
+            tx.signAllInputs(kpReceiver.privateKey);
+
+            block2 = new factory.Block(1);
+            block2.parentHashes = [gBlock.getHash()];
+            block2.addTx(tx);
+            block2.finish(4e6 - 3e6, generateAddress());
+
+            block2.setHeight(node._calcHeight(block2.parentHashes));
+            txHash2 = tx.getHash();
+        }
+        const patch21 = await processBlock(node, block2);
+
+        assert.isOk(patch21);
+        {
+
+            // check the change
+            const utxo = patch21.getUtxo(txHash2);
+            assert.isOk(utxo);
+            const coins = utxo.coinsAtIndex(1);
+            assert.isOk(coins);
+            assert.equal(coins.getAmount(), 1e6);
+        }
+    });
+
+    it('should test one signature for multiple inputs (contract call)', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._storage.getConciliumsCount = () => 1;
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+        let txContractHash;
+        let strContractAddr;
+
+        // "create" G
+        let gBlock;
+        {
+
+            const contractCode = `
+class TestClass extends Base{
+    async testFunc() {
+    }
+}
+exports=new TestClass();
+`;
+            const tx = new factory.Transaction();
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+
+            const contractDeployTx = factory.Transaction.createContract(contractCode);
+
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.addTx(contractDeployTx);
+            gBlock.finish(0, generateAddress());
+
+            gBlock.setHeight(0);
+
+            txHash = tx.hash();
+            txContractHash = contractDeployTx.hash();
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+        }
+        const gPatch = await processBlock(node, gBlock);
+        assert.isOk(gPatch);
+
+        const receipt = gPatch.getReceipt(txContractHash);
+        strContractAddr = receipt.getContractAddress().toString('hex');
+
+        // create child block
+        let block2;
+        let txHash2;
+        {
+
+            const tx = factory.Transaction.invokeContract(
+                strContractAddr,
+                createObjInvocationCode('testFunc', []),
+                amount
+            );
+
+            tx.addInput(txHash, 0);
+            tx.addInput(txHash, 1);
+            tx.addInput(txHash, 2);
+            tx.addInput(txHash, 3);
+
+            tx.addReceiver(1e3, kpReceiver.getAddress(true));
+
+            tx.signAllInputs(kpReceiver.privateKey);
+
+            block2 = new factory.Block(1);
+            block2.parentHashes = [gBlock.getHash()];
+            block2.addTx(tx);
+
+            // block fee was cheated, but this test not intended to verify it
+            block2.finish(2987700, generateAddress());
+
+            block2.setHeight(node._calcHeight(block2.parentHashes));
+            txHash2 = tx.getHash();
+        }
+        const patch21 = await processBlock(node, block2);
+
+        assert.isOk(patch21);
+        {
+
+            // check the change
+            const utxo = patch21.getUtxo(txHash2);
+            assert.isOk(utxo);
+            const coins = utxo.coinsAtIndex(1);
+            assert.isOk(coins);
+            assert.equal(coins.getAmount(), 1e3);
+
+            //
+        }
+    });
+
+    it('should fail to exec same tx (blocks one by one)', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._storage.getConciliumsCount = () => 1;
+        node._unwindBlock = sinon.fake();
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+
+        // "create" G
+        let gBlock;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.finish(0, generateAddress());
+
+            gBlock.setHeight(0);
+
+            txHash = tx.hash();
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+        }
+        await processBlock(node, gBlock);
+
+        // Genesis is stable now
+        node._storage.getConciliumsCount = () => 4;
+
+        // create Tx
+        const tx = new factory.Transaction();
+        tx.conciliumId = 0;
+        tx.addInput(txHash, 0);
+        tx.addReceiver(1e3, generateAddress());
+        tx.addReceiver(1e3, kpReceiver.getAddress(true));
+        tx.claim(0, kpReceiver.privateKey);
+
+        // create child block2
+        let block2;
+        {
+            block2 = new factory.Block(0);
+            block2.parentHashes = [gBlock.getHash()];
+            block2.addTx(tx);
+            block2.finish(1e6 - 2e3, generateAddress());
+
+            block2.setHeight(node._calcHeight(block2.parentHashes));
+        }
+        await processBlock(node, block2);
+
+        // create child block3
+        let block3;
+        {
+            block3 = new factory.Block(0);
+            block3.parentHashes = [block2.getHash()];
+            block3.addTx(tx);
+            block3.finish(1e6 - 2e3, generateAddress());
+
+            block3.setHeight(node._calcHeight(block3.parentHashes));
+        }
+
+        const strError = `Output #0 of Tx ${txHash} already spent!`;
+        return assert.isRejected(processBlock(node, block3), new RegExp(strError));
+
+    });
+
+    it('should fail to exec same tx (blocks with interleave)', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node();
+        await node.ensureLoaded();
+        node._storage.getConciliumsCount = () => 1;
+        node._unwindBlock = sinon.fake();
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+
+        // "create" G
+        let gBlock;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.finish(0, generateAddress());
+
+            gBlock.setHeight(0);
+
+            txHash = tx.hash();
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+        }
+        await processBlock(node, gBlock);
+
+        // Genesis is stable now
+        node._storage.getConciliumsCount = () => 4;
+
+        // create Tx
+        const tx = new factory.Transaction();
+        tx.conciliumId = 0;
+        tx.addInput(txHash, 0);
+        tx.addReceiver(1e3, generateAddress());
+        tx.addReceiver(1e3, kpReceiver.getAddress(true));
+        tx.claim(0, kpReceiver.privateKey);
+
+        // create child block2
+        let block2;
+        {
+            block2 = new factory.Block(0);
+            block2.parentHashes = [gBlock.getHash()];
+            block2.addTx(tx);
+            block2.finish(1e6 - 2e3, generateAddress());
+
+            block2.setHeight(node._calcHeight(block2.parentHashes));
+        }
+        await processBlock(node, block2);
+
+        // create empty block3
+        let block3;
+        {
+            block3 = new factory.Block(1);
+            block3.parentHashes = [block2.getHash()];
+            block3.finish(0, generateAddress());
+
+            block3.setHeight(node._calcHeight(block3.parentHashes));
+        }
+        await processBlock(node, block3);
+
+        // create child block4
+        let block4;
+        {
+            block4 = new factory.Block(0);
+            block4.parentHashes = [block3.getHash()];
+            block4.addTx(tx);
+            block4.finish(1e6 - 2e3, generateAddress());
+
+            block4.setHeight(node._calcHeight(block4.parentHashes));
+        }
+
+        const strError = `Output #0 of Tx ${txHash} already spent!`;
+        return assert.isRejected(processBlock(node, block4), new RegExp(strError));
+
     });
 });

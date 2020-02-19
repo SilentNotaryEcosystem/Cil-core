@@ -648,7 +648,7 @@ describe('Storage tests', () => {
             const addr = generateAddress().toString('hex');
             const hash1 = pseudoRandomBuffer();
             const hash2 = pseudoRandomBuffer();
-            const fakeUtxo = {filterOutputsForAddress: () => {}};
+            const fakeUtxo = {filterOutputsForAddress: () => ({isEmpty: () => false})};
             storage.getUtxo = sinon.fake.returns(fakeUtxo);
             storage._arrStrWalletAddresses = [addr];
             storage._nWalletAutoincrement = 0;
@@ -665,7 +665,7 @@ describe('Storage tests', () => {
             const addr = generateAddress().toString('hex');
             const hash1 = pseudoRandomBuffer();
             const hash2 = pseudoRandomBuffer();
-            const fakeUtxo = {filterOutputsForAddress: () => {}};
+            const fakeUtxo = {filterOutputsForAddress: () => ({isEmpty: () => false})};
             storage.getUtxo = async (hash) => {
                 if (hash.equals(hash1)) return fakeUtxo;
                 throw 'not found';
