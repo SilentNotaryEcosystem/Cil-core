@@ -10,6 +10,7 @@ const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
 const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress, createObjInvocationCode} = require(
     '../testUtil');
+const {arrayIntersection} = require('../../utils');
 
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
@@ -733,5 +734,169 @@ exports=new TestClass();
         const strError = `Output #0 of Tx ${txHash} already spent!`;
         return assert.isRejected(processBlock(node, block4), new RegExp(strError));
 
+    });
+
+    it('should write wallet index (for new address)', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node({walletSupport: true});
+        await node.ensureLoaded();
+
+        node._storage.getConciliumsCount = () => 1;
+        node._unwindBlock = sinon.fake();
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+
+        // "create" G
+        let gBlock;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.setHeight(0);
+            gBlock.finish(0, generateAddress());
+
+            txHash = tx.hash();
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+        }
+        await processBlock(node, gBlock);
+
+        node._storage.getConciliumsCount = () => 3;
+
+        await node._storage.walletWatchAddress(kpReceiver.address);
+        await node._storage.walletReIndex();
+
+        // create child block2
+        let block2;
+        let txHash2;
+        let coinbaseTxHash;
+        {
+
+            // create Tx
+            const tx = new factory.Transaction();
+            tx.conciliumId = 0;
+            tx.addInput(txHash, 0);
+            tx.addReceiver(1e3, generateAddress());
+            tx.addReceiver(1e3, kpReceiver.getAddress(true));
+            tx.claim(0, kpReceiver.privateKey);
+            txHash2 = tx.getHash();
+
+            block2 = new factory.Block(0);
+            block2.parentHashes = [gBlock.getHash()];
+            block2.addTx(tx);
+            block2.setHeight(node._calcHeight(block2.parentHashes));
+            block2.finish(1e6 - 2e3, kpReceiver.getAddress());
+
+            coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
+        }
+        await processBlock(node, block2);
+
+        // create empty block3
+        let block3;
+        {
+            block3 = new factory.Block(1);
+            block3.parentHashes = [block2.getHash()];
+            block3.setHeight(node._calcHeight(block3.parentHashes));
+            block3.finish(0, generateAddress());
+        }
+        await processBlock(node, block3);
+
+        const arrUtxos = await node._storage.walletListUnspent(kpReceiver.address);
+
+        assert.equal(arrUtxos.length, 3);
+        assert.equal(arrUtxos[0].getTxHash(), txHash);
+        assert.equal(arrUtxos[1].getTxHash(), txHash2);
+        assert.equal(arrUtxos[2].getTxHash(), coinbaseTxHash);
+    });
+
+    it('should rebuild wallet index (existed UTXOs)', async function() {
+        this.timeout(60000);
+
+        const amount = 1e6;
+        const node = new factory.Node({walletSupport: true});
+        await node.ensureLoaded();
+
+        node._storage.getConciliumsCount = () => 1;
+        node._unwindBlock = sinon.fake();
+
+        const kpReceiver = factory.Crypto.createKeyPair();
+        let txHash;
+
+        // "create" G
+        let gBlock;
+        {
+            const tx = new factory.Transaction();
+            tx.conciliumId = 1;
+
+            // spend idx 0
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            tx.addReceiver(amount, kpReceiver.getAddress(true));
+            gBlock = new factory.Block(0);
+            gBlock.addTx(tx);
+            gBlock.setHeight(0);
+            gBlock.finish(0, generateAddress());
+
+            txHash = tx.hash();
+
+            factory.Constants.GENESIS_BLOCK = gBlock.getHash();
+        }
+        await processBlock(node, gBlock);
+
+        node._storage.getConciliumsCount = () => 3;
+
+        // create child block2
+        let block2;
+        let txHash2;
+        let coinbaseTxHash;
+        {
+
+            // create Tx
+            const tx = new factory.Transaction();
+            tx.conciliumId = 0;
+            tx.addInput(txHash, 0);
+            tx.addReceiver(1e3, generateAddress());
+            tx.addReceiver(1e3, kpReceiver.getAddress(true));
+            tx.claim(0, kpReceiver.privateKey);
+            txHash2 = tx.getHash();
+
+            block2 = new factory.Block(0);
+            block2.parentHashes = [gBlock.getHash()];
+            block2.addTx(tx);
+            block2.setHeight(node._calcHeight(block2.parentHashes));
+            block2.finish(1e6 - 2e3, kpReceiver.getAddress());
+
+            coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
+        }
+        await processBlock(node, block2);
+
+        // create empty block3
+        let block3;
+        {
+            block3 = new factory.Block(1);
+            block3.parentHashes = [block2.getHash()];
+            block3.setHeight(node._calcHeight(block3.parentHashes));
+            block3.finish(0, generateAddress());
+        }
+        await processBlock(node, block3);
+
+        await node._storage.walletWatchAddress(kpReceiver.address);
+        await node._storage.walletReIndex();
+
+        const arrUtxos = await node._storage.walletListUnspent(kpReceiver.address);
+
+        assert.equal(arrUtxos.length, 3);
+
+        const arrHashesUtxo = arrUtxos.map(utxo => utxo.getTxHash());
+        assert.deepEqual(arrayIntersection([txHash, txHash2, coinbaseTxHash], arrHashesUtxo), arrHashesUtxo);
     });
 });
