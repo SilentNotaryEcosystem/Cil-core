@@ -7,10 +7,20 @@ const debug = require('debug')('witness:');
 
 const factory = require('./testFactory');
 
-const {createDummyTx, createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 
 let wallet;
+
+const createDummyUtxo = (arrIndexes, amount = 10, receiver = generateAddress()) => {
+    const txHash = pseudoRandomBuffer().toString('hex');
+    const utxo = new factory.UTXO({txHash});
+    const coins = new factory.Coins(amount, receiver);
+
+    arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
+
+    return utxo;
+};
 
 const createDummyPeer = (pubkey = '0a0b0c0d', address = factory.Transport.generateAddress()) =>
     new factory.Peer({
@@ -22,8 +32,6 @@ const createDummyPeer = (pubkey = '0a0b0c0d', address = factory.Transport.genera
             address: factory.Transport.strToAddress(address)
         }
     });
-
-const createDummyPeerInfo = (pubkey, address) => createDummyPeer(pubkey, address).peerInfo;
 
 const createDummyDefinitionWallet = (conciliumId = 0) => {
     const keyPair1 = factory.Crypto.createKeyPair();
@@ -145,6 +153,23 @@ describe('Witness tests', () => {
         assert.equal(block.txns.length, 3);
     });
 
+    it('should _createJoinTx', async () => {
+        const {witness, concilium} = createDummyWitness();
+        await witness.ensureLoaded();
+        const addr = generateAddress();
+        const amount = 1e4;
+        const arrUtxos = [
+            createDummyUtxo([1, 2, 5], amount, addr),
+            createDummyUtxo([0], amount, addr)
+        ];
+
+        const tx = witness._createJoinTx(arrUtxos, concilium);
+
+        assert.equal(tx.inputs.length, 4);
+        assert.equal(tx.outputs.length, 1);
+        assert.equal(tx.amountOut(), 4 * amount - 5 * Math.round(factory.Constants.fees.TX_FEE * 0.12));
+    });
+
     describe('Create block', async () => {
         let clock;
         let witness;
@@ -218,6 +243,26 @@ describe('Witness tests', () => {
             });
 
             assert.isOk(witness._isBigTimeDiff(block));
+        });
+
+        it('should join outputs into single one', async () => {
+            const nFakeFee = 101;
+            witness._processTx = async () => {
+                return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
+            };
+            witness._mempool.getFinalTxns = () => new Array(10).fill(1).map(() => createDummyTx());
+            witness._calcHeight = () => 1;
+            witness._createJoinTx = sinon.fake.returns(createDummyTx());
+            witness._storage.walletListUnspent = async () => new Array(factory.Constants.WITNESS_UTXOS_JOIN + 1);
+            witness._pendingBlocks.getBestParents = () => ({
+                arrParents: [pseudoRandomBuffer().toString('hex')],
+                patchMerged: new factory.PatchDB()
+            });
+
+            const {block} = await witness._createBlock(0);
+
+            // coinbase + joinTx + 10 txns in mempool
+            assert.equal(block.txns.length, 1 + 1 + 10);
         });
     });
 });

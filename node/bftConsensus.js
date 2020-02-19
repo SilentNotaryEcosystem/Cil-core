@@ -115,8 +115,12 @@ module.exports = (factory) => {
                 throw new Error(`Message ${witnessMsg.message} from wrong address: "${senderAddr}".`);
             }
 
-            debug(
-                `BFT "${this._nonce}" added "${senderAddr}--${addrI}" data ${JSON.stringify(witnessMsg.content)}`);
+            if (senderAddr === addrI) {
+                debug(`BFT "${this._nonce}" Own data: ${JSON.stringify(witnessMsg.content)}`);
+            } else {
+                debug(
+                    `BFT "${this._nonce}" "${addrI}" send us ${senderAddr} data ${JSON.stringify(witnessMsg.content)}`);
+            }
             this._addViewOfNodeWithAddr(senderAddr, addrI, {state, ...witnessMsg.content});
             const value = this.runConsensus();
             if (!value) return false;
