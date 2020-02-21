@@ -304,19 +304,6 @@ describe('Pending block manager', async () => {
             assert.strictEqual(arrParents.length, 3);
             assert.strictEqual(arrParents[0], block.getHash());
         });
-
-        it('should fail to merge own patch so will use stable tips', async () => {
-            pbm._topStable = ['fake'];
-            const patchNonMergable = new factory.PatchDB();
-            patchNonMergable.merge = sinon.fake.throws();
-
-            await pbm.addBlock(createDummyBlock(factory, 1), patchNonMergable);
-            await pbm.addBlock(createDummyBlock(factory, 0), new factory.PatchDB());
-
-            const {arrParents} = await pbm.getBestParents(1);
-
-            assert.deepEqual(arrParents, ['fake']);
-        });
     });
 
     describe('isReasonToWitness', async () => {

@@ -134,8 +134,7 @@ module.exports = (factory, factoryOptions) => {
             try {
                 patchMerged = await this.mergePatches(
                     sortedDownTipIndexes.map(i => arrTips[i]),
-                    arrParents,
-                    nConciliumId === undefined
+                    arrParents
                 );
             } catch (e) {
             }
@@ -216,11 +215,14 @@ module.exports = (factory, factoryOptions) => {
          *
          * @param {Array} arrHashes - @see block.parentHashes
          * @param {Array} arrSuccessfullyMergedBlocksHashes - we'll fill it with hashes of successfully merged blocks
-         * @param {Boolean} bMergeAsMuchAsPossible - whether to fail on first failed merge or try as much as possible
          * @returns {PatchDB} merged patches for pending parent blocks. If there is no patch for parent
          *                      - this means it's final and applyed to storage
          */
-        mergePatches(arrHashes, arrSuccessfullyMergedBlocksHashes, bMergeAsMuchAsPossible = false) {
+        mergePatches(arrHashes, arrSuccessfullyMergedBlocksHashes) {
+
+            // no arrSuccessfullyMergedBlocksHashes, then we'r trying to validate block
+            // has - we'r trying to getBestParents, merge as much as possible
+            const bThrowOnFail = !arrSuccessfullyMergedBlocksHashes;
             return this._mutex.runExclusive('pbm', async () => {
                 let patchMerged = new PatchDB();
                 for (let vertex of arrHashes) {
@@ -234,7 +236,7 @@ module.exports = (factory, factoryOptions) => {
                             arrSuccessfullyMergedBlocksHashes.push(vertex);
                         }
                     } catch (e) {
-                        if (!bMergeAsMuchAsPossible) throw e;
+                        if (bThrowOnFail) throw e;
                     }
                 }
 

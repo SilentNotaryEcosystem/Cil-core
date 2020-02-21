@@ -387,7 +387,6 @@ describe('Witness integration tests', () => {
 
             // create child block2
             let block2;
-
             {
 
                 // create Tx
