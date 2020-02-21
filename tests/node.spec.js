@@ -745,7 +745,7 @@ describe('Node tests', async () => {
     it('should process MSG_GET_MEMPOOL', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._mempool.getContent = sinon.fake.returns([pseudoRandomBuffer()]);
+        node._mempool.getLocalTxnHashes = sinon.fake.returns([pseudoRandomBuffer()]);
 
         const peer = createDummyPeer(factory);
         peer.pushMessage = sinon.fake();

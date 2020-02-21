@@ -553,7 +553,7 @@ module.exports = (factory, factoryOptions) => {
         async _handleGetMempool(peer) {
             const inventory = new Inventory();
 
-            const arrLocalTxHashes = this._mempool.getContent();
+            const arrLocalTxHashes = this._mempool.getLocalTxnHashes();
             arrLocalTxHashes.forEach(hash => inventory.addTxHash(hash));
             debugMsg(
                 `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} mempool TXns to "${peer.address}"`);
