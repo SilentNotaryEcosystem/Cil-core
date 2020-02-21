@@ -1587,6 +1587,11 @@ module.exports = (factory, factoryOptions) => {
 
             await this._storage.applyPatch(patchToApply, nHeightMax);
 
+            // revalidate local TXns. it affects only local TXns, so it doesn't duplicate
+            // validation in _unwindBlock
+            this._patchLocalTxns = undefined;
+            await this._ensureLocalTxnsPatch();
+
             for (let blockHash of setBlocksToRollback) {
                 await this._unwindBlock(await this._storage.getBlock(blockHash));
             }
