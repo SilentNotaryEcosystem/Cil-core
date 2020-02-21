@@ -771,7 +771,6 @@ exports=new TestClass();
             node = new factory.Node();
             await node.ensureLoaded();
             node._storage.getConciliumsCount = () => 1;
-            node._unwindBlock = sinon.fake();
 
             kpReceiver = factory.Crypto.createKeyPair();
 

@@ -21,9 +21,12 @@ const createDummyTx = (hash, conciliumId) => {
     };
 };
 
-const createDummyBlock = (factory, nConciliumId = 0) => {
+const createDummyBlock = (factory, nConciliumId = 0, nTxCount = 0) => {
     const block = new factory.Block(nConciliumId);
     block.parentHashes = [pseudoRandomBuffer().toString('hex')];
+
+    for (let i = 0; i < nTxCount; i++) block.addTx(new factory.Transaction(createDummyTx(undefined, nConciliumId)));
+
     block.finish(factory.Constants.fees.TX_FEE, generateAddress());
     return block;
 };

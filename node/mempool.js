@@ -39,7 +39,7 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
          * @param {Array} arrTxHashes
          */
         removeForBlock(arrTxHashes) {
-            debug(`Block arrived: removed TXns ${arrTxHashes}`);
+            debug(`Removed block TXns ${arrTxHashes}`);
             this.removeTxns(arrTxHashes);
         }
 

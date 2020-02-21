@@ -1576,11 +1576,6 @@ module.exports = (factory, factoryOptions) => {
 
             await this._updateLastAppliedBlocks(arrTopStable);
 
-            for (let blockHash of setBlocksToRollback) {
-                await this._unwindBlock(await this._storage.getBlock(blockHash));
-            }
-            await this._storage.removeBadBlocks(setBlocksToRollback);
-
             let nHeightMax = 0;
             for (let hash of setStableBlocks) {
                 const bi = this._mainDag.getBlockInfo(hash);
@@ -1591,6 +1586,11 @@ module.exports = (factory, factoryOptions) => {
             }
 
             await this._storage.applyPatch(patchToApply, nHeightMax);
+
+            for (let blockHash of setBlocksToRollback) {
+                await this._unwindBlock(await this._storage.getBlock(blockHash));
+            }
+            await this._storage.removeBadBlocks(setBlocksToRollback);
 
             if (this._rpc) {
                 this._rpc.informWsSubscribersStableBlocks(Array.from(setStableBlocks.keys()));
@@ -1912,8 +1912,10 @@ module.exports = (factory, factoryOptions) => {
          */
         async _unwindBlock(block) {
             logger.log(`(address: "${this._debugAddress}") Unwinding txns from block: "${block.getHash()}"`);
-            for (let objTx of block.txns) {
-                this._mempool.addTx(new Transaction(objTx));
+
+            // skip coinbase
+            for (let i = 1; i < block.txns.length; i++) {
+                await this._processReceivedTx(new Transaction(block.txns[i]), true).catch(err => {});
             }
         }
 
