@@ -168,6 +168,8 @@ describe('Witness tests', () => {
         assert.equal(tx.inputs.length, 4);
         assert.equal(tx.outputs.length, 1);
         assert.equal(tx.amountOut(), 4 * amount - 5 * Math.round(factory.Constants.fees.TX_FEE * 0.12));
+        assert.equal(tx.claimProofs.length, 0);
+        assert.isOk(tx.getTxSignature());
     });
 
     describe('Create block', async () => {

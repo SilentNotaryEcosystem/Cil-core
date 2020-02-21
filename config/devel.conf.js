@@ -56,6 +56,6 @@ module.exports = {
             HEIGHT_FORK_SERIALIZER_FIX3: 55700
         },
 
-        WITNESS_UTXOS_JOIN: 10
+        WITNESS_UTXOS_JOIN: 5
     }
 };

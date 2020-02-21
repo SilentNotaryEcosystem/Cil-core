@@ -613,8 +613,12 @@ module.exports = (factory, factoryOptions) => {
             const fee = (1 + nInputs) * Math.round(Constants.fees.TX_FEE * 0.12);
             tx.addReceiver(nTotalAmount - fee, Buffer.from(this._wallet.address, 'hex'));
 
-            for (let i in tx.inputs) {
-                tx.claim(parseInt(i), this._wallet.privateKey);
+            if (tx.inputs.length > 1) {
+                tx.signForContract(this._wallet.privateKey);
+            } else {
+                for (let i in tx.inputs) {
+                    tx.claim(parseInt(i), this._wallet.privateKey);
+                }
             }
 
             return tx;
