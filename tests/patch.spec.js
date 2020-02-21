@@ -338,8 +338,8 @@ describe('PatchDB', () => {
         patch.spendCoins(utxo.clone(), 12, pseudoRandomBuffer());
         patch2.spendCoins(utxo.clone(), 12, pseudoRandomBuffer());
 
-        assert.throws(() => patch.merge(patch2), /Conflict on .{64} idx 12/);
-        assert.throws(() => patch2.merge(patch), /Conflict on .{64} idx 12/);
+        assert.throws(() => patch.merge(patch2), /Patch merge: conflict on .{64} idx 12/);
+        assert.throws(() => patch2.merge(patch), /Patch merge: conflict on .{64} idx 12/);
     });
 
     it('should fail MERGE patches (same outputs same spending TX)', async () => {

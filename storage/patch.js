@@ -209,7 +209,7 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
                     for (let idx of arrSpentIndexes) {
                         assert(
                             mapMySpentOutputs.get(idx).equals(mapHisSpentOutputs.get(idx)),
-                            `Conflict on ${coinHash} idx ${idx}`
+                            `Patch merge: conflict on ${coinHash} idx ${idx}`
                         );
                     }
 
