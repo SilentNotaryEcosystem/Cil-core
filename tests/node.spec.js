@@ -803,10 +803,14 @@ describe('Node tests', async () => {
         const block = createDummyBlock(factory, 0, 1);
         const tx = new factory.Transaction(block.txns[1]);
         node._validateTxLight = sinon.fake();
+        node._pendingBlocks.removeBlock = sinon.fake();
+        node._mainDag.removeBlock = sinon.fake();
 
         await node._unwindBlock(block);
 
         assert.isOk(node._mempool.hasTx(tx.hash()));
+        assert.isOk(node._pendingBlocks.removeBlock.calledOnce);
+        assert.isOk(node._mainDag.removeBlock.calledOnce);
     });
 
     it('should unwind block, but TX is bad, so it miss the mempool', async () => {
@@ -815,10 +819,14 @@ describe('Node tests', async () => {
 
         const block = createDummyBlock(factory, 0, 1);
         const tx = new factory.Transaction(block.txns[1]);
+        node._pendingBlocks.removeBlock = sinon.fake();
+        node._mainDag.removeBlock = sinon.fake();
 
         await node._unwindBlock(block);
 
         assert.isOk(node._mempool.isBadTx(tx.hash()));
+        assert.isOk(node._pendingBlocks.removeBlock.calledOnce);
+        assert.isOk(node._mainDag.removeBlock.calledOnce);
     });
 
     it('should reconnect peers', async function() {
@@ -930,9 +938,9 @@ describe('Node tests', async () => {
         const block3 = createDummyBlock(factory, 10);
 
         // add them to dag
-        node._mainDag.addBlock(new factory.BlockInfo(block1.header));
-        node._mainDag.addBlock(new factory.BlockInfo(block2.header));
-        node._mainDag.addBlock(new factory.BlockInfo(block3.header));
+        await node._mainDag.addBlock(new factory.BlockInfo(block1.header));
+        await node._mainDag.addBlock(new factory.BlockInfo(block2.header));
+        await node._mainDag.addBlock(new factory.BlockInfo(block3.header));
 
         const arrLastBlocks = [block2.getHash(), block1.getHash(), block3.getHash()];
         await node._updateLastAppliedBlocks(arrLastBlocks);
@@ -945,9 +953,9 @@ describe('Node tests', async () => {
         const block6 = createDummyBlock(factory, 5);
 
         // add them to dag
-        node._mainDag.addBlock(new factory.BlockInfo(block4.header));
-        node._mainDag.addBlock(new factory.BlockInfo(block5.header));
-        node._mainDag.addBlock(new factory.BlockInfo(block6.header));
+        await node._mainDag.addBlock(new factory.BlockInfo(block4.header));
+        await node._mainDag.addBlock(new factory.BlockInfo(block5.header));
+        await node._mainDag.addBlock(new factory.BlockInfo(block6.header));
 
         await node._updateLastAppliedBlocks([block4.getHash(), block5.getHash(), block6.getHash()]);
 
@@ -1231,11 +1239,11 @@ describe('Node tests', async () => {
         it('should get prev blocks', async () => {
             const state = 'stable';
             const arrExpectedHashes = await createSimpleChain(
-                block => {
-                    node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                async block => {
+                    await node._pendingBlocks.addBlock(block, new factory.PatchDB());
                     const bi = new factory.BlockInfo(block.header);
                     bi.markAsFinal();
-                    node._mainDag.addBlock(bi);
+                    await node._mainDag.addBlock(bi);
                 }
             );
             const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[8]);
@@ -1255,11 +1263,11 @@ describe('Node tests', async () => {
 
         it('should get next blocks', async () => {
             const arrExpectedHashes = await createSimpleChain(
-                block => {
-                    node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                async block => {
+                    await node._pendingBlocks.addBlock(block, new factory.PatchDB());
                     const bi = new factory.BlockInfo(block.header);
                     bi.markAsFinal();
-                    node._mainDag.addBlock(bi);
+                    await node._mainDag.addBlock(bi);
                 }
             );
             const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[9]);
@@ -1279,11 +1287,11 @@ describe('Node tests', async () => {
 
         it('should get TIPS', async () => {
             const arrExpectedHashes = await createSimpleChain(
-                block => {
-                    node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                async block => {
+                    await node._pendingBlocks.addBlock(block, new factory.PatchDB());
                     const bi = new factory.BlockInfo(block.header);
                     bi.markAsFinal();
-                    node._mainDag.addBlock(bi);
+                    await node._mainDag.addBlock(bi);
                 }
             );
             node._storage.getBlock = sinon.fake.resolves(node._mainDag.getBlockInfo(arrExpectedHashes[9]));

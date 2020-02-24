@@ -490,5 +490,13 @@ module.exports = (factory, factoryOptions) => {
         forEach(fnCallback) {
             this._dag.V.forEach(fnCallback);
         }
+
+        removeBlock(strHash) {
+            typeforce(types.Str64, strHash);
+
+            return this._mutex.runExclusive('pbm', async () => {
+                this._dag.removeVertex(strHash);
+            });
+        }
     };
 };

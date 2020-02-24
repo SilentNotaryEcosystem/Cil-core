@@ -48,9 +48,9 @@ describe('Main Dag', () => {
         assert.equal(dag.order, 2);
         assert.equal(dag.size, 1);
 
-        dag.addBlock(bi);
-        dag.addBlock(bi);
-        dag.addBlock(bi);
+        await dag.addBlock(bi);
+        await dag.addBlock(bi);
+        await dag.addBlock(bi);
 
         // this block & parent
         assert.equal(dag.order, 2);

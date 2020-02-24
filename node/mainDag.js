@@ -65,4 +65,10 @@ module.exports = ({Constants}) =>
 
             return this._dag.readObj(strHash).getHeight();
         }
+
+        removeBlock(strHash) {
+            typeforce(types.Str64, strHash);
+
+            this._dag.removeVertex(strHash);
+        }
     };
