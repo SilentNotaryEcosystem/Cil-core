@@ -1923,8 +1923,10 @@ module.exports = (factory, factoryOptions) => {
                 await this._processReceivedTx(new Transaction(block.txns[i]), true).catch(err => {});
             }
 
-            await this._pendingBlocks.removeBlock(block.getHash());
-            await this._mainDag.removeBlock(block.getHash());
+            try {
+                await this._pendingBlocks.removeBlock(block.getHash());
+                await this._mainDag.removeBlock(block.getHash());
+            } catch (e) {}
         }
 
         /**
