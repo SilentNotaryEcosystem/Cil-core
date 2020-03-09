@@ -435,8 +435,11 @@ module.exports = (factory, factoryOptions) => {
                     } else {
                         arrOps.push({type: 'put', key, value: utxo.encode()});
                     }
+                }
 
-                    if (this._walletSupport) await this._walletUtxoCheck(utxo);
+                // maintain wallet
+                if (this._walletSupport) {
+                    await this._walletCheckUtxos(statePatch.getCoins());
                 }
 
                 // save contracts
@@ -710,37 +713,33 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
-         * We'll create a new record
-         * key - <WALLET_PREFIX><buffAddress><idx>
-         * value - Buffer from strHash
          *
-         * And update WALLET_AUTOINCREMENT
-         *
-         * @param {String | Buffer} address - to add an UTXO
-         * @param {String} strHash - hash of UTXO
-         * @return {Promise<void>}
+         * @param {[strHash, strAddress]} arrAddrHash - @see patch.getCoins()
          * @private
          */
-        async _walletWriteAddressUtxo(address, strHash) {
-            typeforce(typeforce.tuple(types.Address, types.Hash256bit), [address, strHash]);
+        async _walletWriteNewUtxosBatch(arrAddrHash) {
             await this._ensureWalletInitialized();
-
-            const currentIdx = this._nWalletAutoincrement++;
-
-            // prepare incremented value
-            const buffLastIdx = Buffer.allocUnsafe(4);
-            buffLastIdx.writeInt32BE(this._nWalletAutoincrement, 0);
-
-            // store hash & autoincrement
-            const key = this.constructor.createKey(WALLET_PREFIX, Buffer.from(address, 'hex'), currentIdx.toString());
+            const arrOps = [];
 
             const lock = await this._mutex.acquire(['walletIncrement']);
             try {
-                await this._walletStorage
-                    .batch()
-                    .put(this.constructor.createKey(WALLET_AUTOINCREMENT), buffLastIdx)
-                    .put(key, Buffer.from(strHash, 'hex'))
-                    .write();
+                for (let [strHash, strAddress] of arrAddrHash) {
+                    const key = this.constructor.createKey(
+                        WALLET_PREFIX,
+                        Buffer.from(strAddress, 'hex'),
+                        (++this._nWalletAutoincrement).toString()
+                    );
+
+                    arrOps.push({type: 'put', key, value: Buffer.from(strHash, 'hex')});
+                }
+
+                // update WALLET_AUTOINCREMENT
+                const buffLastIdx = Buffer.allocUnsafe(4);
+                buffLastIdx.writeInt32BE(this._nWalletAutoincrement, 0);
+                arrOps.push({type: 'put', key: this.constructor.createKey(WALLET_AUTOINCREMENT), value: buffLastIdx});
+
+                await this._walletStorage.batch(arrOps);
+
             } finally {
                 await this._mutex.release(lock);
             }
@@ -757,23 +756,30 @@ module.exports = (factory, factoryOptions) => {
         async _walletCleanupMissed(arrBadKeys) {
             const arrOps = arrBadKeys.map(key => ({type: 'del', key}));
             await this._walletStorage.batch(arrOps);
+
+            logger.debug(`${arrBadKeys.length} items was cleared from wallet`);
         }
 
         /**
-         * Check whether any of wallet addresses present in given UTXO
          *
-         * @param {UTXO} utxo
+         * @param {[strHash, utxo]} arrCoins - @see patch.getCoins()
          * @return {Promise<void>}
          * @private
          */
-        async _walletUtxoCheck(utxo) {
+        async _walletCheckUtxos(arrCoins) {
             await this._ensureWalletInitialized();
-            for (let strAddress of this._arrStrWalletAddresses) {
-                const arrResult = utxo.getOutputsForAddress(strAddress);
-                if (arrResult.length) {
-                    await this._walletWriteAddressUtxo(strAddress, utxo.getTxHash());
+            const arrAddrHash = [];
+
+            for (let [strTxHash, utxo] of arrCoins) {
+                if (utxo.isEmpty()) continue;
+
+                for (let strAddress of this._arrStrWalletAddresses) {
+                    const arrResult = utxo.getOutputsForAddress(strAddress);
+                    if (arrResult.length) arrAddrHash.push([utxo.getTxHash(), strAddress]);
                 }
             }
+
+            await this._walletWriteNewUtxosBatch(arrAddrHash);
         }
 
         /**
@@ -799,17 +805,17 @@ module.exports = (factory, factoryOptions) => {
                     setHashes.add(strHash);
 
                     const utxo = await this.getUtxo(hash);
-                    arrResult.push(utxo);
+                    const utxoFiltered = utxo.filterOutputsForAddress(strAddress);
+                    if (utxoFiltered.isEmpty()) throw ('empty. marked for cleanup');
+
+                    arrResult.push(utxoFiltered);
                 } catch (e) {
                     arrKeysToCleanup.push(key);
                 }
             }
 
             if (arrKeysToCleanup.length) await this._walletCleanupMissed(arrKeysToCleanup);
-
-            return arrResult
-                .map(utxo => utxo.filterOutputsForAddress(strAddress))
-                .filter(utxo => !utxo.isEmpty());
+            return arrResult;
         }
 
         async walletWatchAddress(address) {
@@ -851,6 +857,8 @@ module.exports = (factory, factoryOptions) => {
             // store all watched addresses
             await this._walletFlushAddresses();
 
+            logger.log(`Reindexing wallets for ${this._arrStrWalletAddresses}`);
+
             // reindex
             const keyStart = this.constructor.createUtxoKey(Buffer.from([]));
             const keyEnd = this.constructor.createUtxoKey(Buffer.from('F'.repeat(64), 'hex'));
@@ -866,16 +874,14 @@ module.exports = (factory, factoryOptions) => {
                             const utxo = new UTXO({txHash: hash.toString('hex'), data: data.value});
                             for (let strAddr of this._arrStrWalletAddresses) {
                                 const arrIndexes = utxo.getOutputsForAddress(strAddr);
-//                                if (arrIndexes.length) await this._walletWriteAddressUtxo(strAddr, hash);
-                                if (arrIndexes.length) arrRecords.push({strAddr, hash});
+                                if (arrIndexes.length) arrRecords.push([hash.toString('hex'), strAddr]);
                             }
                         })
                         .on('close', () => resolve());
                 }
             );
-            for (const {strAddr, hash} of arrRecords) {
-                await this._walletWriteAddressUtxo(strAddr, hash);
-            }
+
+            await this._walletWriteNewUtxosBatch(arrRecords);
         }
 
         async getWalletsAddresses() {

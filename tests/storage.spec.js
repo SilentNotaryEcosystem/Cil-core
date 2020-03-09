@@ -566,11 +566,6 @@ describe('Storage tests', () => {
             return assert.isRejected(storage._ensureWalletInitialized());
         });
 
-        it('should throw _walletWriteAddressUtxo (no wallet support)', async () => {
-            const storage = new factory.Storage();
-            return assert.isRejected(storage._walletWriteAddressUtxo());
-        });
-
         it('should throw walletListUnspent (no wallet support)', async () => {
             const storage = new factory.Storage();
             return assert.isRejected(storage.walletListUnspent());
@@ -610,14 +605,11 @@ describe('Storage tests', () => {
             const hash1 = pseudoRandomBuffer();
             const hash2 = pseudoRandomBuffer();
 
-            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
-            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
-
-            // this UTXO doesn't belongs to address
-            await storage._walletWriteAddressUtxo(
-                generateAddress().toString('hex'),
-                pseudoRandomBuffer().toString('hex')
-            );
+            await storage._walletWriteNewUtxosBatch([
+                [hash1.toString('hex'), addr],
+                [hash2.toString('hex'), addr],
+                [pseudoRandomBuffer().toString('hex'), generateAddress().toString('hex')]
+            ]);
 
             // read it back
             const arrHashes = await storage._walletReadAddressRecords(addr);
@@ -653,8 +645,10 @@ describe('Storage tests', () => {
             storage._arrStrWalletAddresses = [addr];
             storage._nWalletAutoincrement = 0;
 
-            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
-            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+            await storage._walletWriteNewUtxosBatch([
+                [hash1.toString('hex'), addr],
+                [hash2.toString('hex'), addr]
+            ]);
 
             const arrResults = await storage.walletListUnspent(addr);
 
@@ -666,6 +660,8 @@ describe('Storage tests', () => {
             const hash1 = pseudoRandomBuffer();
             const hash2 = pseudoRandomBuffer();
             const fakeUtxo = {filterOutputsForAddress: () => ({isEmpty: () => false})};
+
+            // fake one missed
             storage.getUtxo = async (hash) => {
                 if (hash.equals(hash1)) return fakeUtxo;
                 throw 'not found';
@@ -674,8 +670,10 @@ describe('Storage tests', () => {
             storage._nWalletAutoincrement = 0;
             storage._walletCleanupMissed = sinon.fake();
 
-            await storage._walletWriteAddressUtxo(addr, hash1.toString('hex'));
-            await storage._walletWriteAddressUtxo(addr, hash2.toString('hex'));
+            await storage._walletWriteNewUtxosBatch([
+                [hash1.toString('hex'), addr],
+                [hash2.toString('hex'), addr]
+            ]);
 
             const arrResults = await storage.walletListUnspent(addr);
 
