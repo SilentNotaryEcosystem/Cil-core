@@ -555,6 +555,7 @@ module.exports = (factory, factoryOptions) => {
                 if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
                 block.finish(totalFee, this._wallet.address, await this._getFeeSizePerInput(conciliumId));
+                this._processBlockCoinbaseTX(block, totalFee, patchMerged);
 
                 debugWitness(
                     `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
