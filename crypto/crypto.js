@@ -197,7 +197,7 @@ class CryptoLib {
 
     /**
      *
-     * @param {String | Buffer} publicKey - transform if needed as kyePair.getPublic(true, 'hex')
+     * @param {String} publicKey - transform if needed as kyePair.getPublic(true, 'hex')
      * @param {Boolean} needBuffer - do we need address as Buffer or as String
      * @return {String | Buffer}
      */
