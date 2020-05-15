@@ -79,7 +79,9 @@ class Token10 extends Base {
         if (value < this._createFee) throw (`Create fee is ${this._createFee}`);
 
         this._validateTokenParameters(objTokenData);
-        const {strSymbol, nTotalSupply, strIssuerName, strGoals} = objTokenData;
+        const {strSymbol, nTotalSupply, strIssuerName, strGoals, decimals = 0} = objTokenData;
+        this._validateAmount(nTotalSupply, 'nTotalSupply');
+        this._validateAmount(decimals, 'decimals', true);
 
         this._data[strSymbol.toUpperCase()] = [
             nTotalSupply,
@@ -90,14 +92,20 @@ class Token10 extends Base {
                 [callerAddress]: [{}, nTotalSupply]
             },
             [block.hash],
-            false
+            false,
+            decimals
         ];
     }
 
     tokenData(strSymbol) {
-        const {nTotalSupply, strIssuerName, strGoals, strOwner, arrTxHashChanges} = this._getTokenData(strSymbol);
+        const {nTotalSupply, strIssuerName, strGoals, strOwner, arrTxHashChanges, decimals} = this._getTokenData(
+            strSymbol);
 
-        return {nTotalSupply, strIssuerName, strGoals, strOwner, arrTxHashChanges};
+        return {nTotalSupply, strIssuerName, strGoals, strOwner, arrTxHashChanges, decimals};
+    }
+
+    decimals(strSymbol) {
+        return this._getTokenData(strSymbol).decimals;
     }
 
     balanceOf(strSymbol, strWho) {
@@ -163,10 +171,13 @@ class Token10 extends Base {
     emitMoreTokens(strSymbol, nAmount) {
         if (!callerAddress) throw ('You should sign TX');
 
+        this._validateAmount(nAmount, 'amount');
         const {nTotalSupply, objHolders, strOwner, arrTxHashChanges} = this._getTokenData(strSymbol);
+
         if (callerAddress !== strOwner) throw ('You arent an owner');
 
         const nHas = this._getBalance(objHolders, callerAddress);
+        this._validateAmount(nHas + nAmount, 'Total supply');
 
         global.bIndirectCall = true;
         this._setBalance(objHolders, callerAddress, nHas + nAmount);
@@ -207,9 +218,9 @@ class Token10 extends Base {
         strSymbol = strSymbol.toUpperCase();
         if (!this._data[strSymbol]) throw ('Symbol doesn\'t exists');
 
-        const [nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, isFrozen] = this._data[strSymbol];
+        const [nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, isFrozen, decimals] = this._data[strSymbol];
 
-        return {nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, isFrozen};
+        return {nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, isFrozen, decimals};
     }
 
     _getBalance(objHolders, strWho) {
@@ -264,10 +275,11 @@ class Token10 extends Base {
         }
     }
 
-    _validateAmount(amount, strParameterName) {
+    _validateAmount(amount, strParameterName, bAllowZero = false) {
         if (typeof amount !== 'number') throw (`${strParameterName} should be a number`);
-        if (amount <= 0 || amount > Number.MAX_SAFE_INTEGER) {
-            throw (`${strParameterName} should be positive and less than ${Number.MAX_SAFE_INTEGER}`);
+        if (!bAllowZero && amount === 0 || amount < 0) throw (`${strParameterName} should be positive`);
+        if (amount > Number.MAX_SAFE_INTEGER) {
+            throw (`${strParameterName} should be less than ${Number.MAX_SAFE_INTEGER}`);
         }
         if (amount !== Math.round(amount)) throw (`${strParameterName} should be an integer`);
     }

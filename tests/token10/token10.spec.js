@@ -60,10 +60,24 @@ describe('Token 10', () => {
             contract.createToken(objTokedParams);
 
             assert.isOk(contract._data[objTokedParams.strSymbol.toUpperCase()]);
-            assert.equal(contract._data[objTokedParams.strSymbol].length, 7);
+            assert.equal(contract._data[objTokedParams.strSymbol].length, 8);
         });
 
-        it('should throw (unsigned T    X)', async () => {
+        it('should create with decimals', async () => {
+            objTokedParams.decimals = 5;
+            contract.createToken(objTokedParams);
+
+            assert.isOk(contract._data[objTokedParams.strSymbol.toUpperCase()]);
+            assert.equal(contract._data[objTokedParams.strSymbol].length, 8);
+
+            const {nTotalSupply, decimals} = contract.tokenData('TST');
+            assert.strictEqual(decimals, objTokedParams.decimals);
+            assert.strictEqual(nTotalSupply, objTokedParams.nTotalSupply);
+
+            assert.strictEqual(contract.balanceOf('TST', callerAddress), nTotalSupply);
+        });
+
+        it('should throw (unsigned TX)', async () => {
             global.callerAddress = undefined;
             assert.throws(() => contract.createToken(objTokedParams), 'You should sign TX');
         });
@@ -81,14 +95,14 @@ describe('Token 10', () => {
         it('should throw (bad nTotalSupply: negative)', async () => {
             objTokedParams.nTotalSupply = -100;
             assert.throws(() => contract.createToken(objTokedParams),
-                `nTotalSupply should be positive and less than ${Number.MAX_SAFE_INTEGER}`
+                `nTotalSupply should be positive`
             );
         });
 
         it('should throw (bad nTotalSupply: too big)', async () => {
             objTokedParams.nTotalSupply = 1e40;
             assert.throws(() => contract.createToken(objTokedParams),
-                `nTotalSupply should be positive and less than ${Number.MAX_SAFE_INTEGER}`
+                `nTotalSupply should be less than ${Number.MAX_SAFE_INTEGER}`
             );
         });
 
@@ -125,7 +139,7 @@ describe('Token 10', () => {
         });
 
         it('should pass', async () => {
-            const {nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges} =
+            const {nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, decimals} =
                 contract._getTokenData('TST');
 
             assert.isOk(nTotalSupply);
@@ -133,6 +147,7 @@ describe('Token 10', () => {
             assert.isOk(strGoals);
             assert.isOk(strOwner);
             assert.isOk(objHolders);
+            assert.strictEqual(decimals, 0);
             assert.deepEqual(arrTxHashChanges, ['hash']);
         });
     });
@@ -188,7 +203,7 @@ describe('Token 10', () => {
             const strAddr = generateAddress().toString('hex');
 
             assert.throws(() => contract.approve('TST', strAddr, -1),
-                `amount should be positive and less than ${Number.MAX_SAFE_INTEGER}`
+                `amount should be positive`
             );
         });
 
@@ -353,6 +368,7 @@ describe('Token 10', () => {
 
     describe('additional emission', async () => {
         const nTotalSupply = 1e5;
+        const nDecimals = 5;
         beforeEach(async () => {
             global.value = 130000;
             global.callerAddress = generateAddress().toString('hex');
@@ -361,7 +377,8 @@ describe('Token 10', () => {
                 strSymbol: 'tst',
                 nTotalSupply,
                 strIssuerName: 'Me',
-                strGoals: 'Test purposes'
+                strGoals: 'Test purposes',
+                decimals: nDecimals
             };
 
             contract.createToken(objTokedParams);
@@ -373,20 +390,27 @@ describe('Token 10', () => {
             assert.throws(() => contract.emitMoreTokens('TST', 1e5), 'You arent an owner');
         });
 
+        it('should fail (zero emission)', async () => {
+            assert.throws(() => contract.emitMoreTokens('TST', 0), 'amount should be positive');
+
+        });
+
         it('should emit', async () => {
             global.block.hash = 'hash2';
 
-            contract.emitMoreTokens('TST', nTotalSupply);
+            const nAddon = 1e4;
+            contract.emitMoreTokens('TST', nAddon);
 
             // Increase total supply
-            const {nTotalSupply: nNewTotal, arrTxHashChanges} = contract.tokenData('TST');
-            assert.strictEqual(nNewTotal, 2 * nTotalSupply);
+            const {nTotalSupply: nNewTotal, arrTxHashChanges, decimals} = contract.tokenData('TST');
+            const nExpectedAmount = (nTotalSupply + nAddon);
+            assert.strictEqual(nNewTotal, nExpectedAmount);
 
             // store TX with token changes
             assert.strictEqual(arrTxHashChanges[1], global.block.hash);
 
             // Deposit emitted tokens to owner
-            assert.strictEqual(contract.balanceOf('TST', callerAddress), 2 * nTotalSupply);
+            assert.strictEqual(contract.balanceOf('TST', callerAddress), nExpectedAmount);
         });
     });
 
@@ -439,6 +463,33 @@ describe('Token 10', () => {
                 () => contract.transferFrom('TST', strOwner, strAddressReceiver, 1),
                 'Token is frozen. No transfers allowed'
             );
+        });
+    });
+
+    describe('decimals', async () => {
+        const nTotalSupply = 1e5;
+        let nDecimals = 0;
+        beforeEach(async () => {
+            global.value = 130000;
+            global.callerAddress = generateAddress().toString('hex');
+
+            const objTokedParams = {
+                strSymbol: 'tst',
+                nTotalSupply,
+                strIssuerName: 'Me',
+                strGoals: 'Test purposes',
+                decimals: nDecimals++
+            };
+
+            contract.createToken(objTokedParams);
+        });
+
+        it('should get decimals (zero)', async () => {
+            assert.strictEqual(contract.decimals('tst'), 0);
+        });
+
+        it('should get decimals (non zero)', async () => {
+            assert.strictEqual(contract.decimals('tst'), 1);
         });
     });
 });
