@@ -196,6 +196,17 @@ describe('Concilium contract', () => {
             global.value = 1e5;
         });
 
+        it('should fail to join with unsigned TX', async () => {
+            global.callerAddress = undefined;
+            const concilium = new factory.ConciliumRr({
+                isOpen: false,
+                conciliumId: 14
+            });
+            await contract.createConcilium(concilium.toObject());
+
+            return assert.isRejected(contract.joinConcilium(1), 'Sign transaction!');
+        });
+
         it('should fail to join  conciliumId = 0', async () => {
             const concilium = new factory.ConciliumRr({
                 isOpen: false,
@@ -733,4 +744,3 @@ describe('Concilium contract', () => {
         });
     });
 })
-;

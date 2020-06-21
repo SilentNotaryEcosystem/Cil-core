@@ -70,6 +70,8 @@ module.exports = class ContractConciliums extends Base {
             return await delegatecall(this._proxyAddress, {method: "joinConcilium", arrArguments: [conciliumId]});
         }
 
+        if (!callerAddress) throw ('Sign transaction!');
+
         conciliumId = parseInt(conciliumId);
 
         // this will also include failure to join conciliumId 0. it's ok!
@@ -180,10 +182,10 @@ module.exports = class ContractConciliums extends Base {
 
         const oldFees = objConcilium.parameters && objConcilium.parameters.fees ? objConcilium.parameters.fees : {};
         objConcilium.parameters.fees = {...oldFees, ...objNewParameters.fees};
-        objConcilium.parameters.isEnabled = objNewParameters.isEnabled !== undefined ?
-            objNewParameters.isEnabled : objConcilium.parameters.isEnabled;
-        objConcilium.parameters.document = objNewParameters.document !== undefined ?
-            objNewParameters.document : objConcilium.parameters.document;
+        objConcilium.parameters.isEnabled = objNewParameters.isEnabled === undefined ?
+            objConcilium.parameters.isEnabled : objNewParameters.isEnabled;
+        objConcilium.parameters.document = objNewParameters.document === undefined ?
+            objConcilium.parameters.document : objNewParameters.document;
 
         if (!Array.isArray(objConcilium.parameterTXNs)) objConcilium.parameterTXNs = [];
         objConcilium.parameterTXNs.push(contractTx);
