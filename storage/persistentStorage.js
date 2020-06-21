@@ -695,11 +695,10 @@ module.exports = (factory, factoryOptions) => {
         _walletReadAddressRecords(strAddress) {
             typeforce(types.StrAddress, strAddress);
 
-            const strLastIndex = new Array(10).fill('9').join('');
+            const strLastIndex = Buffer.from('F'.repeat(40), 'hex');
 
             const buffAddress = Buffer.from(strAddress, 'hex');
             const keyStart = this.constructor.createKey(WALLET_PREFIX, buffAddress);
-
             const keyEnd = this.constructor.createKey(WALLET_PREFIX, buffAddress, strLastIndex);
 
             return new Promise(resolve => {
