@@ -152,7 +152,7 @@ describe('Stored wallets', async () => {
             });
         });
 
-        describe('_claimFunds', async () => {
+        describe('_claimFundsAndSignTx', async () => {
             let tx;
             beforeEach(async () => {
                 tx = new factory.Transaction();
@@ -162,7 +162,7 @@ describe('Stored wallets', async () => {
                 sinon.restore();
             });
 
-            it('should claim inputs', async () => {
+            it('should claim inputs (no contract call)', async () => {
                 tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
                 tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
 
@@ -171,8 +171,26 @@ describe('Stored wallets', async () => {
                     ['addr2', factory.Crypto.createKeyPair().privateKey]
                 ]));
 
-                await sw._claimFunds(tx, ['addr1', 'addr2']);
+                await sw._claimFundsAndSignTx(tx, ['addr1', 'addr2']);
+
                 assert.equal(tx.claimProofs.length, 2);
+                assert.isNotOk(tx.getTxSignerAddress());
+            });
+
+            it('should claim inputs and sign for contract call', async () => {
+                tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
+                tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
+
+                const kpAddr1 = factory.Crypto.createKeyPair();
+                sw._ensurePk = sinon.fake.returns(new Map([
+                    ['addr1', kpAddr1.privateKey],
+                    ['addr2', factory.Crypto.createKeyPair().privateKey]
+                ]));
+
+                await sw._claimFundsAndSignTx(tx, ['addr1', 'addr2'], undefined, undefined, 'addr1');
+
+                assert.equal(tx.claimProofs.length, 2);
+                assert.strictEqual(tx.getTxSignerAddress(), kpAddr1.address);
             });
 
             it('should fail to claim (no PK for address)', async () => {
@@ -185,7 +203,7 @@ describe('Stored wallets', async () => {
                 ]));
 
                 return assert.isRejected(
-                    sw._claimFunds(tx, ['addr1', 'addr2', 'addr3']),
+                    sw._claimFundsAndSignTx(tx, ['addr1', 'addr2', 'addr3']),
                     "Private key for addr3 not found"
                 );
             });
@@ -200,7 +218,7 @@ describe('Stored wallets', async () => {
                     generateAddress().toString('hex')
                 ];
                 sw.getAccountAddresses = sinon.fake.resolves(arrFakeAddresses);
-                sw._claimFunds = sinon.fake();
+                sw._claimFundsAndSignTx = sinon.fake();
                 sw._mapAccountPasswords.set('fakeAcc', 'fakePass');
             });
 
@@ -232,7 +250,7 @@ describe('Stored wallets', async () => {
                     tx.addInput(pseudoRandomBuffer(), 0);
                     return [1e6, arrFakeAddresses.slice(0, 2)];
                 };
-                sw._claimFunds = sinon.fake();
+                sw._claimFundsAndSignTx = sinon.fake();
                 sw._storage.getKeystoresForAccount = sinon.fake();
 
                 const tx = await sw.sendToAddress({
@@ -243,7 +261,7 @@ describe('Stored wallets', async () => {
                 });
 
                 assert.isOk(tx);
-                assert.isOk(sw._claimFunds.calledOnce);
+                assert.isOk(sw._claimFundsAndSignTx.calledOnce);
             });
         });
 
@@ -256,7 +274,7 @@ describe('Stored wallets', async () => {
                     generateAddress().toString('hex')
                 ];
                 sw.getAccountAddresses = sinon.fake.resolves(arrFakeAddresses);
-                sw._claimFunds = sinon.fake();
+                sw._claimFundsAndSignTx = sinon.fake();
                 sw._mapAccountPasswords.set('fakeAcc', 'fakePass');
                 sw._storage.getKeystoresForAccount = sinon.fake();
             });
@@ -285,13 +303,13 @@ describe('Stored wallets', async () => {
                 );
             });
 
-            it('should call', async () => {
+            it('should call (without signing contract)', async () => {
                 sw._formTxInputs = async (tx) => {
                     tx.addInput(pseudoRandomBuffer(), 0);
                     tx.addInput(pseudoRandomBuffer(), 0);
                     return [1e6, arrFakeAddresses.slice(0, 2)];
                 };
-                sw._claimFunds = sinon.fake();
+                sw._claimFundsAndSignTx = sinon.fake();
 
                 const tx = await sw.callContract({
                     strAccountName: 'fakeAcc',
@@ -303,7 +321,28 @@ describe('Stored wallets', async () => {
                 });
 
                 assert.isOk(tx);
-                assert.isOk(sw._claimFunds.calledOnce);
+                assert.isOk(sw._claimFundsAndSignTx.calledOnce);
+            });
+
+            it('should call (and signing contract)', async () => {
+                sw._formTxInputs = async (tx) => {
+                    tx.addInput(pseudoRandomBuffer(), 0);
+                    tx.addInput(pseudoRandomBuffer(), 0);
+                    return [1e6, arrFakeAddresses.slice(0, 2)];
+                };
+                sw._claimFundsAndSignTx = sinon.fake();
+
+                const tx = await sw.callContract({
+                    strAccountName: 'fakeAcc',
+                    strAddressContract: generateAddress().toString('hex'),
+                    strMethod: 'test',
+                    strJsonArguments: '[1,2,3,4]',
+                    nAmount: 1e5,
+                    strChangeAddress: generateAddress().toString('hex')
+                });
+
+                assert.isOk(tx);
+                assert.isOk(sw._claimFundsAndSignTx.calledOnce);
             });
         });
 

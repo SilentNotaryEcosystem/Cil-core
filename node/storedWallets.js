@@ -135,7 +135,7 @@ module.exports = ({Crypto, Constants, Transaction}) =>
                 );
             }
 
-            this._claimFunds(
+            this._claimFundsAndSignTx(
                 tx,
                 arrAddressesOwners,
                 await this._storage.getKeystoresForAccount(strAccountName),
@@ -157,7 +157,8 @@ module.exports = ({Crypto, Constants, Transaction}) =>
                 'strMethod',
                 'strJsonArguments',
                 'nAmount',
-                'strChangeAddress'];
+                'strChangeAddress'
+            ];
             checkRequiredParameters(objParameters, arrRequiredParams);
 
             const {
@@ -168,7 +169,8 @@ module.exports = ({Crypto, Constants, Transaction}) =>
                 nAmount,
                 strChangeAddress,
                 nConciliumId = 1,
-                nCoinLimit = 50000
+                nCoinLimit = 50000,
+                strSignerAddress
             } = objParameters;
 
             assert(this._mapAccountPasswords.has(strAccountName), 'unlockAccount first');
@@ -184,6 +186,10 @@ module.exports = ({Crypto, Constants, Transaction}) =>
             tx.conciliumId = nConciliumId;
 
             const arrAccountAddresses = await this.getAccountAddresses(strAccountName);
+            if (strSignerAddress && !arrAccountAddresses.includes(strSignerAddress)) {
+                throw(`Signer address specified BUT not found in account`);
+            }
+
             const nReqPlusOutputs = nAmount + nCoinLimit +
                                     this._nFeePerReceiver + this._estimateSizeContractInvoke(objCodeInvoke);
             const [nTotalGathered, arrAddressesOwners] = await this._formTxInputs(
@@ -203,11 +209,12 @@ module.exports = ({Crypto, Constants, Transaction}) =>
                 );
             }
 
-            this._claimFunds(
+            this._claimFundsAndSignTx(
                 tx,
                 arrAddressesOwners,
                 await this._storage.getKeystoresForAccount(strAccountName),
-                this._mapAccountPasswords.get(strAccountName)
+                this._mapAccountPasswords.get(strAccountName),
+                strSignerAddress
             );
 
             return tx;
@@ -218,12 +225,13 @@ module.exports = ({Crypto, Constants, Transaction}) =>
          *
          * @param tx
          * @param arrAddressesOwners
-         * @param mapAddrKeystore
-         * @param strPassword
+         * @param mapAddrKeystore -
+         * @param strPassword - password to decrypt keys
+         * @param strAddrToSign - address wo should sign TX (if it's contract call)
          * @return {Promise<void>}
          * @private
          */
-        async _claimFunds(tx, arrAddressesOwners, mapAddrKeystore, strPassword) {
+        async _claimFundsAndSignTx(tx, arrAddressesOwners, mapAddrKeystore, strPassword, strAddrToSign) {
             const mapUnencryptedKeys = this._ensurePk(
                 strPassword,
                 arrAddressesOwners,
@@ -234,6 +242,11 @@ module.exports = ({Crypto, Constants, Transaction}) =>
                 const pk = mapUnencryptedKeys.get(strAddress);
                 if (!pk) throw(`Private key for ${strAddress} not found`);
                 tx.claim(i, pk);
+            }
+
+            const signPk = mapUnencryptedKeys.get(strAddrToSign);
+            if (strAddrToSign && signPk) {
+                tx.signForContract(signPk);
             }
         }
 
