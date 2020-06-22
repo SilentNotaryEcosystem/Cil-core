@@ -8,7 +8,8 @@ const leveldown = require('leveldown');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const util = require('util');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromise = fs.promises;
 
 const types = require('../types');
 const {prepareForStringifyObject} = require('../utils');
@@ -26,6 +27,8 @@ const WALLET_ADDRESSES = 'WALLETS';
 const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
 const TX_INDEX_PREFIX = 'T';
 const INTENRAL_TX_INDEX_PREFIX = 'I';
+
+const BANNED_BLOCKS_FILE = 'bannedBlocks.json';
 
 const levelDbDestroy = util.promisify(leveldown.destroy);
 
@@ -97,6 +100,9 @@ module.exports = (factory, factoryOptions) => {
                 this._walletStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_WALLET_DIR}`));
                 this._strAccountPath = `${this._pathPrefix}/${Constants.DB_WALLET_DIR}/accounts`;
             }
+
+            this._setBlocksBad = new Set();
+            this._loadBannedBlocks();
 
             this._mutex = mutex;
         }
@@ -1016,11 +1022,11 @@ module.exports = (factory, factoryOptions) => {
             this._mapAccountAddresses = new Map();
 
             try {
-                const stat = await fs.stat(strPath).catch(err => {});
+                const stat = await fsPromise.stat(strPath).catch(err => {});
                 if (!stat || !stat.isDirectory()) {
-                    await fs.mkdir(strPath);
+                    await fsPromise.mkdir(strPath);
                 }
-                const arrFileNames = await fs.readdir(strPath);
+                const arrFileNames = await fsPromise.readdir(strPath);
 
                 for (let strDirName of arrFileNames) {
                     await this._readAccount(strDirName);
@@ -1039,7 +1045,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _readAccount(strAccountName) {
             const strPath = `${this._strAccountPath}/${strAccountName}`;
-            const arrAddresses = await fs.readdir(strPath);
+            const arrAddresses = await fsPromise.readdir(strPath);
             this._mapAccountAddresses.set(strAccountName, arrAddresses);
         }
 
@@ -1058,7 +1064,7 @@ module.exports = (factory, factoryOptions) => {
         async createAccount(strAccountName) {
             const strPath = `${this._strAccountPath}/${strAccountName}`;
 
-            await fs.mkdir(strPath);
+            await fsPromise.mkdir(strPath);
             this._mapAccountAddresses.set(strAccountName, []);
         }
 
@@ -1077,7 +1083,7 @@ module.exports = (factory, factoryOptions) => {
             });
 
             const strPath = `${this._strAccountPath}/${strAccountName}`;
-            await fs.writeFile(`${strPath}/${strAddress}`, strKeyStoreContent);
+            await fsPromise.writeFile(`${strPath}/${strAddress}`, strKeyStoreContent);
 
             await this._readAccount(strAccountName);
         }
@@ -1093,10 +1099,25 @@ module.exports = (factory, factoryOptions) => {
             const strPath = `${this._strAccountPath}/${strAccountName}`;
 
             for (let strAddress of await this.getAccountAddresses(strAccountName)) {
-                mapResult.set(strAddress, JSON.parse(await fs.readFile(`${strPath}/${strAddress}`, 'utf8')));
+                mapResult.set(strAddress, JSON.parse(await fsPromise.readFile(`${strPath}/${strAddress}`, 'utf8')));
             }
 
             return mapResult;
+        }
+
+        isBlockBanned(hash) {
+            return this._setBlocksBad.has(hash.toString('hex'));
+        }
+
+        _loadBannedBlocks() {
+            try {
+                const strFileContent = fs.readFileSync(`${this._pathPrefix}/${BANNED_BLOCKS_FILE}`);
+                for (let strHashBlock of JSON.parse(strFileContent)) {
+                    this._setBlocksBad.add(strHashBlock);
+                }
+            } catch (e) {
+                logger.debug(`${BANNED_BLOCKS_FILE} not found or corrupted!`);
+            }
         }
     };
 };

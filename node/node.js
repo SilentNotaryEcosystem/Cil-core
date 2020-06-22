@@ -402,6 +402,11 @@ module.exports = (factory, factoryOptions) => {
                 return;
             }
 
+            if (this._storage.isBlockBanned(block.hash())) {
+                debugNode(`Block ${block.hash()} was banned! Discarding`);
+                return;
+            }
+
             // since we building DAG, it's faster than check storage
             if (await this._isBlockKnown(block.hash())) {
                 debugNode(`Block ${block.hash()} already known!`);
@@ -2105,7 +2110,9 @@ module.exports = (factory, factoryOptions) => {
             } else {
                 this._queueBlockExec(block.getHash(), peer);
                 const {arrToRequest, arrToExec} = await this._blockProcessorProcessParents(block);
-                arrToRequest.forEach(hash => this._mapUnknownBlocks.set(hash, peer));
+                arrToRequest
+                    .filter(hash => !this._storage.isBlockBanned(hash))
+                    .forEach(hash => this._mapUnknownBlocks.set(hash, peer));
                 arrToExec.forEach(hash => this._queueBlockExec(hash, peer));
             }
         }
