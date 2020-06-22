@@ -475,7 +475,8 @@ module.exports = (factory, factoryOptions) => {
                             }
                         }
                     } else if (objVector.type === Constants.INV_BLOCK) {
-                        bShouldRequest = !this._requestCache.isRequested(objVector.hash) &&
+                        bShouldRequest = !this._storage.isBlockBanned(objVector.hash) &&
+                                         !this._requestCache.isRequested(objVector.hash) &&
                                          !await this._isBlockKnown(objVector.hash.toString('hex'));
                         if (bShouldRequest) nBlockToRequest++;
                     }
