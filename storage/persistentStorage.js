@@ -28,7 +28,7 @@ const WALLET_AUTOINCREMENT = 'WALLET_AUTO_INC';
 const TX_INDEX_PREFIX = 'T';
 const INTENRAL_TX_INDEX_PREFIX = 'I';
 
-const BANNED_BLOCKS_FILE = 'bannedBlocks.json';
+const BANNED_BLOCKS_FILE = '.bannedBlocks.json';
 
 const levelDbDestroy = util.promisify(leveldown.destroy);
 
