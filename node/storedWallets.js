@@ -107,7 +107,9 @@ module.exports = ({Crypto, Constants, Transaction}) =>
         async sendToAddress(objParameters) {
             checkRequiredParameters(objParameters, ['strAccountName', 'strAddressTo', 'nAmount', 'strChangeAddress']);
 
-            const {strAccountName, strAddressTo, nAmount, strChangeAddress, nConciliumId = 1} = objParameters;
+            let {strAccountName, strAddressTo, nAmount, strChangeAddress, nConciliumId = 1} = objParameters;
+            strAddressTo = stripAddressPrefix(Constants, strAddressTo);
+            strChangeAddress = stripAddressPrefix(Constants, strChangeAddress);
 
             assert(this._mapAccountPasswords.has(strAccountName), 'unlockAccount first');
 
@@ -161,7 +163,7 @@ module.exports = ({Crypto, Constants, Transaction}) =>
             ];
             checkRequiredParameters(objParameters, arrRequiredParams);
 
-            const {
+            let {
                 strAccountName,
                 strAddressContract,
                 strMethod,
@@ -172,6 +174,9 @@ module.exports = ({Crypto, Constants, Transaction}) =>
                 nCoinLimit = 50000,
                 strSignerAddress
             } = objParameters;
+            strAddressContract = stripAddressPrefix(Constants, strAddressContract);
+            strChangeAddress = stripAddressPrefix(Constants, strChangeAddress);
+            strSignerAddress = stripAddressPrefix(Constants, strSignerAddress);
 
             assert(this._mapAccountPasswords.has(strAccountName), 'unlockAccount first');
             await this._ensureAccount(strAccountName);

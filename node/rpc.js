@@ -288,7 +288,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
         }
 
         async getWalletsAddresses() {
-            return await this._storedWallets.getWalletsAddresses();
+            const arrAddresses = await this._storedWallets.getWalletsAddresses();
+            return arrAddresses.map(addr => Constants.ADDRESS_PREFIX + addr);
         }
 
         async getContractData(args) {
@@ -380,7 +381,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             const {strAccountName, bStableOnly, strHashSince} = args;
 
             const arrAccountAddresses = await this._storedWallets.getAccountAddresses(strAccountName);
-            assert(Array.isArray(arrAccountAddresses), 'Accound doesn\'t exist');
+            assert(Array.isArray(arrAccountAddresses), 'Account doesn\'t exist');
 
             const mapUtxoAddr = new Map();
             for (let strAddress of arrAccountAddresses) {

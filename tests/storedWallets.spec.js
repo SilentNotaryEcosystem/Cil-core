@@ -297,7 +297,9 @@ describe('Stored wallets', async () => {
                         strMethod: 'test',
                         strJsonArguments: '[1,2,3,4]',
                         nAmount: 1e5,
-                        strChangeAddress: generateAddress().toString('hex')
+                        strChangeAddress: factory.Constants.ADDRESS_PREFIX + generateAddress().toString('hex'),
+                        strSignerAddress: factory.Constants.ADDRESS_PREFIX + arrFakeAddresses[0]
+
                     }),
                     "Not enough coins to send. Required (with fee): 151538. Have: 100000"
                 );
@@ -317,7 +319,8 @@ describe('Stored wallets', async () => {
                     strMethod: 'test',
                     strJsonArguments: '[1,2,3,4]',
                     nAmount: 1e5,
-                    strChangeAddress: generateAddress().toString('hex')
+                    strChangeAddress: generateAddress().toString('hex'),
+                    strSignerAddress: arrFakeAddresses[0]
                 });
 
                 assert.isOk(tx);
@@ -338,7 +341,8 @@ describe('Stored wallets', async () => {
                     strMethod: 'test',
                     strJsonArguments: '[1,2,3,4]',
                     nAmount: 1e5,
-                    strChangeAddress: generateAddress().toString('hex')
+                    strChangeAddress: generateAddress().toString('hex'),
+                    strSignerAddress: factory.Constants.ADDRESS_PREFIX + arrFakeAddresses[0]
                 });
 
                 assert.isOk(tx);
