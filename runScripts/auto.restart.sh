@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+_term() {
+  echo "Requested CONTAINER SHUTDOWN !"
+  kill -TERM "$child" 2>/dev/null
+  wait "$child"
+  exit 100
+}
+trap _term SIGTERM
+
+
 # this script will check for new commits at remote, pull changes, restart container
 
 function checkForUpdate {
@@ -9,12 +18,18 @@ function checkForUpdate {
   [[ $behind == "1" ]] && git pull && exit 0
 }
 
+function justSleep {
+    sleep 30m &
+    wait "$!"
+}
+
 node index.js &
+child=$!
 
 if [[ ${AUTO_UPDATE} == "true" ]]; then
-    while :; do checkForUpdate; sleep 30m; done
+    while :; do checkForUpdate; justSleep; done
 else
-    while :; do sleep 60m; done
+    while :; do justSleep; done
 fi
 
 
