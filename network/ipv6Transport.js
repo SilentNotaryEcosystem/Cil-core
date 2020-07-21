@@ -228,7 +228,10 @@ module.exports = (factory) => {
 
                 // try to use NAT traversal for IPv4
                 if (!ipaddr.IPv6.isIPv6(this._address) && this._useNatTraversal) {
-                    this._publicAddress = await this._mapAddress().catch(err => console.error(err));
+                    const natAddress = await this._mapAddress().catch(err => console.error(err));
+                    if (natAddress && this.constructor.isRoutableIpV4Address(natAddress)) {
+                        this._publicAddress = natAddress;
+                    }
                 }
 
                 // it will be outbound only node (failed to NAT traversal or nonRoutable IPv6)

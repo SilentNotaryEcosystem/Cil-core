@@ -214,7 +214,7 @@ describe('IPv6 Transport', () => {
             // selected IPv4 & portmapping called!
             assert.isOk(endpoint._mapAddress.called);
 
-            assert.equal(endpoint.myAddress, mappedAddr);
+            assert.equal(endpoint.myAddress, endpoint.listenAddress);
         });
 
         it('should request MAPPING', async () => {
