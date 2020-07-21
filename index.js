@@ -32,8 +32,8 @@ process.on('warning', e => console.warn(e.stack));
     }
 
     let commonOptions = {
-        ...mapOptionsToNodeParameters(objUserParams),
-        ...setImpliedParameters(objUserParams)
+        ...setImpliedParameters(objUserParams),
+        ...mapOptionsToNodeParameters(objUserParams)
     };
 
     // if there are wallet tasks - program will terminate after completion!
