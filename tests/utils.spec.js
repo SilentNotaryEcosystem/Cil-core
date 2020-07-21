@@ -5,8 +5,11 @@ const {assert} = require('chai');
 const nock = require('nock');
 
 const factory = require('./testFactory');
-const {deStringifyObject, prepareForStringifyObject, arrayIntersection, mergeSets, decryptPkFileContent, queryRpc, getHttpData} =
-    require('../utils');
+const {
+    getBoolEnvParameter,
+    deStringifyObject, prepareForStringifyObject, arrayIntersection,
+    mergeSets, decryptPkFileContent, queryRpc, getHttpData
+} = require('../utils');
 
 describe('Utils', () => {
     before(async () => {
@@ -219,6 +222,28 @@ describe('Utils', () => {
             const result = await getHttpData(strUrlApi);
 
             assert.deepEqual(result, response);
+        });
+    });
+
+    describe('getBoolEnvParameter', () => {
+        it('should be FALSE for unset', async () => {
+            assert.strictEqual(getBoolEnvParameter(undefined), false);
+        });
+        it('should be FALSE for "0"', async () => {
+            assert.strictEqual(getBoolEnvParameter("0"), false);
+            assert.strictEqual(getBoolEnvParameter(" 0 "), false);
+        });
+        it('should be FALSE for "false"', async () => {
+            assert.strictEqual(getBoolEnvParameter("false"), false);
+            assert.strictEqual(getBoolEnvParameter(" false "), false);
+        });
+        it('should be TRUE for "1"', async () => {
+            assert.strictEqual(getBoolEnvParameter("1"), true);
+            assert.strictEqual(getBoolEnvParameter(" 1 "), true);
+        });
+        it('should be TRUE for "true"', async () => {
+            assert.strictEqual(getBoolEnvParameter("true"), true);
+            assert.strictEqual(getBoolEnvParameter(" true "), true);
         });
     });
 });

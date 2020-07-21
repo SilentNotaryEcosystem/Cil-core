@@ -24,7 +24,8 @@ module.exports = (factory, factoryOptions) => {
 
             this._conciliumSeed = 0;
 
-            const {wallet, networkSuspended} = options;
+            const {wallet, networkSuspended, suppressJoinTx} = options;
+            this._bCreateJoinTx = !suppressJoinTx;
             this._wallet = wallet;
             if (!this._wallet) throw new Error('Pass wallet into witness');
 
@@ -526,7 +527,7 @@ module.exports = (factory, factoryOptions) => {
                 const arrUtxos = await this._storage.walletListUnspent(this._wallet.address);
 
                 // There is possible situation with 1 UTXO having numerous output. It will be count as 1
-                if (arrUtxos.length > Constants.WITNESS_UTXOS_JOIN) {
+                if (this._bCreateJoinTx && arrUtxos.length > Constants.WITNESS_UTXOS_JOIN) {
                     arrTxToProcess = [
                         this._createJoinTx(arrUtxos, conciliumId),
                         ...this._mempool.getFinalTxns(conciliumId)

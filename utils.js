@@ -260,7 +260,11 @@ function decryptPkFileContent(Crypto, fileContent, password) {
  */
 function mapEnvToOptions() {
 
-    const {SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS, GENESIS_HASH, CONCILIUM_CONTRACT, WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT} = process.env;
+    const {
+        SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
+        GENESIS_HASH, CONCILIUM_CONTRACT,
+        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX
+    } = process.env;
     return {
 
         // if you plan to send TXns through your node
@@ -269,19 +273,28 @@ function mapEnvToOptions() {
         rpcAddress: RPC_ADDRESS,
 
         // if you plan to query your node
-        txIndex: !!BUILD_TX_INDEX,
-        walletSupport: !!WALLET_SUPPORT,
+        txIndex: (BUILD_TX_INDEX),
+        walletSupport: getBoolEnvParameter(WALLET_SUPPORT),
 
         // WITNESS_NODE is a Boolean variable, indicating witness node.
         // Just mount your real file name into container /app/private
         privateKey: WITNESS_NODE ? './private' : undefined,
-        seed: !!SEED_NODE,
+        seed: getBoolEnvParameter(SEED_NODE),
+
+        suppressJoinTx: getBoolEnvParameter(SUPPRESS_JOIN_TX),
 
         // Variables below used for development, regular user don't need it
         seedAddr: SEED_ADDRESS,
         genesisHash: GENESIS_HASH,
         conciliumDefContract: CONCILIUM_CONTRACT
     };
+}
+
+function getBoolEnvParameter(value) {
+    return !!(
+        value && typeof value === 'string' &&
+        (value.trim().toLowerCase() === 'true' || parseInt(value) === 1)
+    );
 }
 
 /**
@@ -360,7 +373,8 @@ module.exports = {
             {name: "listWallets", type: Boolean, multiple: false},
             {name: "localDevNode", type: Boolean, multiple: false},
             {name: "rebuildDb", type: Boolean, multiple: false},
-            {name: "whitelistedAddr", type: String, multiple: true}
+            {name: "whitelistedAddr", type: String, multiple: true},
+            {name: "suppressJoinTx", type: Boolean, multiple: false, defaultOption: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },
@@ -412,5 +426,6 @@ module.exports = {
     mapOptionsToNodeParameters,
     GCD,
     createPeerTag,
-    finePrintUtxos
+    finePrintUtxos,
+    getBoolEnvParameter
 };
