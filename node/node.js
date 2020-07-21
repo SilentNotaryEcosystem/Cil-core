@@ -208,7 +208,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _connectToPeer(peer) {
             debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
-            if (!peer.isBanned()) await peer.connect();
+            if (!peer.isBanned()) await peer.connect(this._transport.listenAddress);
             debugNode(`(address: "${this._debugAddress}") CONNECTED to "${peer.address}"`);
         }
 

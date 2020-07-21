@@ -246,7 +246,12 @@ module.exports = (factory) => {
             }
         }
 
-        async connect() {
+        /**
+         *
+         * @param {String | undefined} strLocalAddress - address connect from
+         * @return {Promise<void>}
+         */
+        async connect(strLocalAddress) {
             if (this.isBanned()) {
                 logger.error('Trying to connect to banned peer!');
                 return;
@@ -261,7 +266,7 @@ module.exports = (factory) => {
             }
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
-            this._connection = await this._transport.connect(this.address, this.port);
+            this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
 

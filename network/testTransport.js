@@ -44,6 +44,10 @@ module.exports = (factory) => {
             this._port = options.listenPort || Constants.port;
         }
 
+        get listenAddress() {
+            return this._address;
+        }
+
         /**
          *
          * @returns {String} !!!
