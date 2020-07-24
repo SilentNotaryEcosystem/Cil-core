@@ -198,9 +198,9 @@ module.exports = class ContractConciliums extends Base {
     }
 
     _addPosConciliumMember(objConcilium, strAddress = callerAddress, nAmount = value) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw ('You arent supposed to be here');
 
-        if (!nAmount) throw (`Have no sense to join with zero amount`);
+        if (!nAmount) throw ('Have no sense to join with zero amount');
 
         const objMemberRecord = this._getPosConciliumMember(objConcilium, strAddress);
 
@@ -225,13 +225,13 @@ module.exports = class ContractConciliums extends Base {
     }
 
     _retirePosConciliumMember(objConcilium, callerAddress) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw ('You arent supposed to be here');
 
         const idx = objConcilium.arrMembers.findIndex(member => member.address === callerAddress);
-        if (!~idx) throw ('You aren\'t member');
+        if (!~idx) throw ('You arent member');
 
         const objMember = objConcilium.arrMembers[idx];
-        if (objMember.nHeightToRelease > block.height) throw ('Don\'t leave us now');
+        if (objMember.nHeightToRelease > block.height) throw ('Dont leave us now');
 
         send(objMember.address, objMember.amount);
         objConcilium.arrMembers.splice(idx, 1);
@@ -245,7 +245,7 @@ module.exports = class ContractConciliums extends Base {
 
     _getPosHeightToRelease(objConcilium, callerAddress) {
         const idx = objConcilium.arrMembers.findIndex(member => member.address === callerAddress);
-        if (!~idx) throw ('You aren\'t member');
+        if (!~idx) throw ('You arent member');
 
         const objMember = objConcilium.arrMembers[idx];
         return objMember.nHeightToRelease;
@@ -258,17 +258,17 @@ module.exports = class ContractConciliums extends Base {
     }
 
     _addRrConciliumMember(objConcilium, callerAddress) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw ('You arent supposed to be here');
 
         if (this._rrConciliumMemberExists(objConcilium, callerAddress)) throw ('already joined');
         objConcilium.addresses.push(callerAddress);
     }
 
     _retireRrConciliumMember(objConcilium, callerAddress) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw ('You arent supposed to be here');
 
         const idx = objConcilium.addresses.findIndex(addr => addr === callerAddress);
-        if (!~idx) throw ('You aren\'t member');
+        if (!~idx) throw ('You arent member');
         objConcilium.addresses.splice(idx, 1);
     }
 
