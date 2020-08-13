@@ -261,11 +261,14 @@ function decryptPkFileContent(Crypto, fileContent, password) {
 function mapEnvToOptions() {
 
     const {
+        ANNOUNCE_ADDRESS,
         SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
         GENESIS_HASH, CONCILIUM_CONTRACT,
         WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX
     } = process.env;
+
     return {
+        announceAddr: ANNOUNCE_ADDRESS,
 
         // if you plan to send TXns through your node
         rpcUser: RPC_USER,
@@ -353,6 +356,7 @@ module.exports = {
 
     readCmdLineOptions: () => {
         const optionDefinitions = [
+            {name: "announceAddr", type: String, multiple: false},
             {name: "listenAddr", type: String, multiple: false},
             {name: "port", type: Number, multiple: false},
             {name: "seedAddr", type: String, multiple: false},

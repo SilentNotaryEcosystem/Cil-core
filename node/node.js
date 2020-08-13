@@ -113,11 +113,13 @@ module.exports = (factory, factoryOptions) => {
 
                 await this._transport.listen();
 
+                const {announceAddr} = options;
+                const address = Transport.strToAddress(announceAddr ? announceAddr : this._transport.myAddress);
                 this._myPeerInfo = new PeerInfo({
                     capabilities: [
                         {service: Constants.NODE}
                     ],
-                    address: Transport.strToAddress(this._transport.myAddress),
+                    address,
                     port: this._transport.port
                 });
 

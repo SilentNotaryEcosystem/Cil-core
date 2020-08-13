@@ -209,6 +209,14 @@ describe('Node tests', async () => {
         assert.isOk(node._mainDag.getBlockInfo(block.getHash()));
     });
 
+    it('should use "announceAddr"', async () => {
+        const address = 'test';
+        const node = new factory.Node({announceAddr: address});
+        await node.ensureLoaded();
+
+        assert.deepEqual(node._myPeerInfo.address, factory.Transport.strToAddress(address));
+    });
+
     it('should prepare verAckMessage', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
