@@ -261,7 +261,7 @@ function decryptPkFileContent(Crypto, fileContent, password) {
 function mapEnvToOptions() {
 
     const {
-        ANNOUNCE_ADDRESS,
+        ANNOUNCE_ADDRESS, LISTEN_ADDR,
         SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
         GENESIS_HASH, CONCILIUM_CONTRACT,
         WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX
@@ -269,6 +269,7 @@ function mapEnvToOptions() {
 
     return {
         announceAddr: ANNOUNCE_ADDRESS,
+        listenAddr: LISTEN_ADDR,
 
         // if you plan to send TXns through your node
         rpcUser: RPC_USER,
