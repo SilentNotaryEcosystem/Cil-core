@@ -14,7 +14,7 @@ if (process.env.NODE_ENV === 'Devel') {
 }
 
 const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_ID) : 1;
-const nMinAmount = process.env.MIN_AMOUNT ? parseFloat(process.env.MIN_AMOUNT) : 1e8;
+const nMinAmount = process.env.MIN_AMOUNT ? parseFloat(process.env.MIN_AMOUNT) : 1e9;
 
 main()
     .then(_ => {
@@ -72,9 +72,9 @@ function joinConcilium(conciliumId, amount, wallet, arrUtxos) {
         console.log(`Using UTXo ${utxo.hash} idx ${utxo.nOut}`);
         tx.addInput(utxo.hash, utxo.nOut);
     }
-    for (let i in arrUtxos) {
-        tx.claim(parseInt(i), wallet.privateKey);
-    }
+//    for (let i in arrUtxos) {
+//        tx.claim(parseInt(i), wallet.privateKey);
+//    }
 
     tx.signForContract(wallet.privateKey);
 

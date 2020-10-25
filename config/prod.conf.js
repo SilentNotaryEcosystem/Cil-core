@@ -159,6 +159,8 @@ module.exports = {
         BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF: 30 * 60,
 
         CONTRACT_V_JSON: 2,
-        CONTRACT_V_V8: 0
+        CONTRACT_V_V8: 0,
+
+        WITNESS_UTXOS_JOIN: 10
     }
 };

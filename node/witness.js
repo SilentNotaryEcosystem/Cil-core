@@ -515,6 +515,8 @@ module.exports = (factory, factoryOptions) => {
                 let totalFee = 0;
                 for (let tx of this._mempool.getFinalTxns(conciliumId)) {
                     try {
+
+                        // with current timers and diameter if concilium more than 10 - such TXns will freeze network
                         if (tx.inputs.length > 1000) continue;
                         const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
 
