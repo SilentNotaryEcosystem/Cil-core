@@ -1011,8 +1011,8 @@ module.exports = (factory, factoryOptions) => {
             const strTxHash = tx.getHash();
 
             // TODO: check against DB & valid claim here rather slow, consider light checks, now it's heavy strict check
-            // this will check for double spend in pending txns
-            // if something wrong - it will throw error
+            //  this will check for double spend in pending txns
+            //  if something wrong - it will throw error
 
             if (this._mempool.hasTx(tx.hash())) return;
 

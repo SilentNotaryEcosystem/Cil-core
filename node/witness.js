@@ -515,6 +515,7 @@ module.exports = (factory, factoryOptions) => {
                 let totalFee = 0;
                 for (let tx of this._mempool.getFinalTxns(conciliumId)) {
                     try {
+                        if (tx.inputs.length > 1000) continue;
                         const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
 
                         totalFee += fee;
