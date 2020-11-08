@@ -538,6 +538,9 @@ module.exports = (factory, factoryOptions) => {
 
                 for (let tx of arrTxToProcess) {
                     try {
+
+                        // with current timers and diameter if concilium more than 10 - such TXns will freeze network
+                        if (tx.inputs.length > 1000) continue;
                         const {fee, patchThisTx} = await this._processTx(patchMerged, false, tx);
 
                         totalFee += fee;
