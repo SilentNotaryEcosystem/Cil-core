@@ -161,6 +161,7 @@ module.exports = {
         CONTRACT_V_JSON: 2,
         CONTRACT_V_V8: 0,
 
-        WITNESS_UTXOS_JOIN: 10
+        WITNESS_UTXOS_JOIN: 30,
+        MAX_UTXO_PER_TX: 1000
     }
 };

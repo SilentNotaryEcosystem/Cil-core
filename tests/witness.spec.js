@@ -172,6 +172,22 @@ describe('Witness tests', () => {
         assert.isOk(tx.getTxSignature());
     });
 
+    it('should join no more than MAX', async () => {
+        const {witness, concilium} = createDummyWitness();
+        await witness.ensureLoaded();
+        const addr = generateAddress();
+        const amount = 1e4;
+        const arrUtxos = [
+            createDummyUtxo([1, 2, 5], amount, addr),
+            createDummyUtxo([0], amount, addr)
+        ];
+
+        const tx = witness._createJoinTx(arrUtxos, concilium, 2);
+
+        assert.equal(tx.inputs.length, 2);
+        assert.equal(tx.outputs.length, 1);
+    });
+
     describe('Create block', async () => {
         let clock;
         let witness;
@@ -194,7 +210,8 @@ describe('Witness tests', () => {
                 clock.tick(nFakeTimePerTx);
                 return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
             };
-            witness._mempool.getFinalTxns = () => new Array(1000).fill(1).map(() => createDummyTx());
+            witness._mempool.getFinalTxns =
+                () => new Array(1000).fill(1).map(() => new factory.Transaction(createDummyTx()));
             witness._calcHeight = () => 1;
             witness._pendingBlocks.getBestParents = () => ({
                 arrParents: [pseudoRandomBuffer().toString('hex')],
@@ -252,9 +269,10 @@ describe('Witness tests', () => {
             witness._processTx = async () => {
                 return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
             };
-            witness._mempool.getFinalTxns = () => new Array(10).fill(1).map(() => createDummyTx());
+            witness._mempool.getFinalTxns =
+                () => new Array(10).fill(1).map(() => new factory.Transaction(createDummyTx()));
             witness._calcHeight = () => 1;
-            witness._createJoinTx = sinon.fake.returns(createDummyTx());
+            witness._createJoinTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
             witness._storage.walletListUnspent = async () => new Array(factory.Constants.WITNESS_UTXOS_JOIN + 1);
             witness._pendingBlocks.getBestParents = () => ({
                 arrParents: [pseudoRandomBuffer().toString('hex')],
