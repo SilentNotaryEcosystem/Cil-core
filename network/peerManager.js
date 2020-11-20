@@ -22,12 +22,16 @@ module.exports = (factory) => {
     return class PeerManager extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {transport, storage, isSeed, strictAddresses, whitelistedAddr} = options;
+            const {transport, storage, isSeed, strictAddresses, whitelistedAddr, trustAnnounce} = options;
 
             // is this PeerManager belongs to seed node? if so - we'll return all peers, even "dead"
             this._isSeed = isSeed;
 
+            // source address from tcp connection should match address advertised via MSG_VERSION
             this._strictAddresses = strictAddresses || false;
+
+            // don't use source address from tcp connection, always use MSG_VERSION
+            this._trustAnnounce = trustAnnounce || true;
 
             // to pass it to peers
             this._transport = transport;
@@ -144,10 +148,10 @@ module.exports = (factory) => {
             }
 
             // TODO rethink "canonical" addresses for multihome nodes
-            peer.updatePeerFromPeerInfo(peerInfo);
+            peer.updatePeerFromPeerInfo(cPeerInfo, true);
             this._mapCandidatePeers.delete(keyCandidate);
 
-            return this.addPeer(peer, true);
+            return this.addPeer(peer, this._trustAnnounce);
         }
 
         storeOutboundPeer(peer, peerInfo) {

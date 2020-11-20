@@ -45,8 +45,9 @@ The default options are set in file [prod.conf.js](https://github.com/SilentNota
 |conciliumDefContract|The genesis block's contract to set up a test environment|
 |privateKey|Private key file to run a witness node|
 |dbPath|Directory for storing database files|
-|seed|Function used for the running node to be a seed (It will store and distribute the addresses of those who are connected to it (peers))|
-|strictAddresses|Function used to close the connection with the duplicate IP address|
+|seed|Running node as a seed (It will store and distribute the addresses of those who are connected to it (peers))|
+|strictAddresses|Source address from tcp connection should match address advertised via MSG_VERSION|
+|trustAnnounce|Use MSG_VERSION to determine node address|
 |txIndex|Function used to get transaction index by its hash|
 |watchAddress|Function used to operate with local wallets. Used for adding wallet address to Node to track all incoming and outgoing transactions|
 |reIndexWallet|Function used to operate with old wallets. Used to receive all transactions in the database by the specified wallet address|

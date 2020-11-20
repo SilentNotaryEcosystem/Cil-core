@@ -432,7 +432,7 @@ describe('Peer manager', () => {
         const peer = new factory.Peer({connection});
         pm.addPeer = sinon.fake();
 
-        pm.associatePeer(peer, createDummyPeer(factory));
+        pm.associatePeer(peer, createDummyPeer(factory).peerInfo);
 
         assert.equal(pm._mapCandidatePeers.size, 0);
         assert.isOk(pm.addPeer.calledOnce);

@@ -30,12 +30,13 @@ async function main() {
 
     const fees = 4e4;
     const arrUtxos = await getUtxos(wallet.address);
-    const {arrCoins} = gatherInputsForAmount(arrUtxos, fees);
+    const {arrCoins} = gatherInputsForAmount(arrUtxos.sort((a, b) => b.amount - a.amount), fees);
 
     const tx = leaveConcilium(nConciliumId, wallet, arrCoins);
     console.error(
         `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
 //    console.log(tx.encode().toString('hex'));
+    console.log(tx.getHash());
     await sendTx(tx.encode().toString('hex'));
 }
 

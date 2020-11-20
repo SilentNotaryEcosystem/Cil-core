@@ -261,13 +261,14 @@ function decryptPkFileContent(Crypto, fileContent, password) {
 function mapEnvToOptions() {
 
     const {
-        ANNOUNCE_ADDRESS, LISTEN_ADDR,
+        TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, LISTEN_ADDR,
         SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
         GENESIS_HASH, CONCILIUM_CONTRACT,
         WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX
     } = process.env;
 
     return {
+        trustAnnounce: getBoolEnvParameter(TRUST_ANNOUNCE),
         announceAddr: ANNOUNCE_ADDRESS,
         listenAddr: LISTEN_ADDR,
 
@@ -357,6 +358,7 @@ module.exports = {
 
     readCmdLineOptions: () => {
         const optionDefinitions = [
+            {name: "trustAnnounce", type: Boolean, multiple: false},
             {name: "announceAddr", type: String, multiple: false},
             {name: "listenAddr", type: String, multiple: false},
             {name: "port", type: Number, multiple: false},

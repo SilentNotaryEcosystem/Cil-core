@@ -185,9 +185,10 @@ module.exports = (factory) => {
          *
          * @param peerInfo
          */
-        updatePeerFromPeerInfo(peerInfo) {
+        updatePeerFromPeerInfo(peerInfo, bUpdateAddress = false) {
             this._peerInfo.capabilities = peerInfo.capabilities;
             this._peerInfo.port = peerInfo.port;
+            if (bUpdateAddress) this._peerInfo.address = peerInfo.address;
         }
 
         markAsWhitelisted() {
