@@ -148,10 +148,10 @@ module.exports = (factory) => {
             }
 
             // TODO rethink "canonical" addresses for multihome nodes
-            peer.updatePeerFromPeerInfo(cPeerInfo, true);
+            peer.updatePeerFromPeerInfo(cPeerInfo, this._trustAnnounce);
             this._mapCandidatePeers.delete(keyCandidate);
 
-            return this.addPeer(peer, this._trustAnnounce);
+            return this.addPeer(peer, true);
         }
 
         storeOutboundPeer(peer, peerInfo) {
@@ -273,7 +273,7 @@ module.exports = (factory) => {
                     const idx = byte % arrPeers.length;
                     if (setIndexes.size >= nCount) break;
                     if (!setIndexes.has(idx) &&
-                        !peerToExclude || peerToExclude && peerToExclude.address != arrPeers[idx].address) {
+                        !peerToExclude || peerToExclude && peerToExclude.address !== arrPeers[idx].address) {
                         setIndexes.add(idx);
                     }
                 }

@@ -188,7 +188,12 @@ module.exports = (factory) => {
         updatePeerFromPeerInfo(peerInfo, bUpdateAddress = false) {
             this._peerInfo.capabilities = peerInfo.capabilities;
             this._peerInfo.port = peerInfo.port;
-            if (bUpdateAddress) this._peerInfo.address = peerInfo.address;
+
+            if (bUpdateAddress) {
+                const cPeerInfo = peerInfo instanceof PeerInfo ? peerInfo : new PeerInfo(peerInfo);
+                const strAddrPeerInfo = Transport.addressToString(cPeerInfo.address);
+                if (Transport.isRoutableAddress(strAddrPeerInfo)) this._peerInfo.address = cPeerInfo.address;
+            }
         }
 
         markAsWhitelisted() {

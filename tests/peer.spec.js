@@ -360,6 +360,48 @@ describe('Peer tests', () => {
         assert.isTrue(pingMsg.isPing());
     });
 
+    describe('updatePeerFromPeerInfo', function() {
+        let newPeer;
+        let strAddress;
+        let peerInfo2;
+        beforeEach(async () => {
+            newPeer = new factory.Peer({peerInfo});
+            strAddress = factory.Transport.generateAddress();
+            const keyPair = factory.Crypto.createKeyPair();
+            peerInfo2 = new factory.Messages.PeerInfo({
+                capabilities: [
+                    {service: factory.Constants.NODE, data: null},
+                    {service: factory.Constants.WITNESS, data: Buffer.from(keyPair.address, 'hex')}
+                ],
+                address: factory.Transport.strToAddress(strAddress),
+                port: 12345
+            });
+        });
+
+        afterEach(async () => {
+            sinon.restore();
+        });
+
+        it('should update', async () => {
+            newPeer.updatePeerFromPeerInfo(peerInfo2, true);
+
+            assert.strictEqual(newPeer.address, strAddress);
+        });
+
+        it('should not update (address not routable)', async () => {
+            sinon.stub(factory.Transport, 'isRoutableAddress').returns(false);
+
+            newPeer.updatePeerFromPeerInfo(peerInfo2, true);
+
+            assert.notEqual(newPeer.address, strAddress);
+        });
+
+        it('should not update (disallow to rewrite)', async () => {
+            newPeer.updatePeerFromPeerInfo(peerInfo2, false);
+
+            assert.notEqual(newPeer.address, strAddress);
+        });
+    });
     describe('Whitelisted', async () => {
         let newPeer;
         beforeEach(async () => {
