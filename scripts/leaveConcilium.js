@@ -14,6 +14,7 @@ if (process.env.NODE_ENV === 'Devel') {
 }
 
 const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_ID) : 1;
+const nEnoughCoinsToLeave = 4e4;
 
 main()
     .then(_ => {
@@ -28,9 +29,8 @@ async function main() {
     const privateKey = await readPrivateKeyFromFile(factory.Crypto, './private');
     const wallet = new factory.Wallet(privateKey);
 
-    const fees = 4e4;
     const arrUtxos = await getUtxos(wallet.address);
-    const {arrCoins} = gatherInputsForAmount(arrUtxos.sort((a, b) => b.amount - a.amount), fees);
+    const {arrCoins} = gatherInputsForAmount(arrUtxos.sort((a, b) => b.amount - a.amount), nEnoughCoinsToLeave);
 
     const tx = leaveConcilium(nConciliumId, wallet, arrCoins);
     console.error(
@@ -61,11 +61,17 @@ function leaveConcilium(conciliumId, wallet, arrUtxos) {
         wallet.address
     );
 
+    let gathered = 0;
     for (let utxo of arrUtxos) {
         console.log(`Using UTXo ${utxo.hash} idx ${utxo.nOut}`);
         tx.addInput(utxo.hash, utxo.nOut);
+        gathered += utxo.amount;
     }
 
+    // magic constant 2000 - some sorta "minimal useful" UTXO
+    if (gathered - nEnoughCoinsToLeave > 2000) {
+        tx.addReceiver(gathered - nEnoughCoinsToLeave, Buffer.from(wallet.address, 'hex'));
+    }
     tx.signForContract(wallet.privateKey);
 
     return tx;
