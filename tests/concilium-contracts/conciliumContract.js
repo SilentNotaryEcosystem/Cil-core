@@ -24,6 +24,7 @@ class Base {
     }
 
     _checkOwner() {
+        if (!callerAddress) throw ('Sign transaction!');
         if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
     }
 }
@@ -46,14 +47,16 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async createConcilium(objConcilium) {
-        objConcilium._creator = callerAddress;
+        if (!callerAddress) throw ('Sign transaction!');
 
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {method: "createConcilium", arrArguments: [objConcilium]});
         }
 
+        objConcilium._creator = callerAddress;
         this._checkFeeCreate(value);
         this._validateConcilium(objConcilium);
+        if (!this._isOwner(callerAddress)) this._disallowContractCreation(objConcilium);
 
         this._arrConciliums.push({
             ...objConcilium,
@@ -61,18 +64,16 @@ module.exports = class ContractConciliums extends Base {
             conciliumCreationTx: contractTx,
             parameterTXNs: []
         });
+        this._feeCreate = 1e11;
     }
 
     async joinConcilium(conciliumId) {
+        if (!callerAddress) throw ('Sign transaction!');
 
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {method: "joinConcilium", arrArguments: [conciliumId]});
         }
-
-        if (!callerAddress) throw ('Sign transaction!');
-
-        conciliumId = parseInt(conciliumId);
 
         // this will also include failure to join conciliumId 0. it's ok!
         if (!conciliumId) throw ('Invalid concilium');
@@ -93,13 +94,12 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async leaveConcilium(conciliumId) {
+        if (!callerAddress) throw ('Sign transaction!');
 
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {method: "leaveConcilium", arrArguments: [conciliumId]});
         }
-
-        conciliumId = parseInt(conciliumId);
 
         // this will also include failure to leave conciliumId 0. it's ok!
         if (!conciliumId) throw ('Invalid concilium');
@@ -118,6 +118,8 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async inviteToConcilium(conciliumId, arrAddresses) {
+        if (!callerAddress) throw ('Sign transaction!');
+
         if (this._proxyAddress) {
             return await delegatecall(
                 this._proxyAddress,
@@ -169,6 +171,8 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async changeConciliumParameters(conciliumId, objNewParameters) {
+        if (!callerAddress) throw ('Sign transaction!');
+
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress,
                 {method: "changeConciliumParameters", arrArguments: [conciliumId, objNewParameters]}
@@ -177,8 +181,7 @@ module.exports = class ContractConciliums extends Base {
 
         const objConcilium = this._checkConciliumId(conciliumId);
         this._checkCreator(objConcilium, callerAddress);
-
-        global.bIndirectCall = true;
+        global.bIndirectCall = objConcilium._creator === callerAddress;
 
         const oldFees = objConcilium.parameters && objConcilium.parameters.fees ? objConcilium.parameters.fees : {};
         objConcilium.parameters.fees = {...oldFees, ...objNewParameters.fees};
@@ -188,6 +191,7 @@ module.exports = class ContractConciliums extends Base {
             objConcilium.parameters.document : objNewParameters.document;
 
         if (!Array.isArray(objConcilium.parameterTXNs)) objConcilium.parameterTXNs = [];
+        if (!this._isOwner(callerAddress)) this._disallowContractCreation(objConcilium);
         objConcilium.parameterTXNs.push(contractTx);
     }
 
@@ -274,7 +278,12 @@ module.exports = class ContractConciliums extends Base {
 
     // common
     _checkConciliumId(conciliumId) {
-        if (conciliumId > this._arrConciliums.length || conciliumId < 0) throw ('Bad conciliumId');
+        conciliumId = parseInt(conciliumId);
+        if (conciliumId > this._arrConciliums.length ||
+            conciliumId < 0 ||
+            !this._arrConciliums[conciliumId]) {
+            throw ('Bad conciliumId');
+        }
         return this._arrConciliums[conciliumId];
     }
 
@@ -284,11 +293,12 @@ module.exports = class ContractConciliums extends Base {
     }
 
     _checkCreator(objConcilium, callerAddress) {
-        if (objConcilium._creator) {
-            if (objConcilium._creator !== callerAddress) throw ('Unauthorized call');
+        if (objConcilium._creator && objConcilium._creator === callerAddress) {
+            return;
         } else {
-            this._checkOwner();
+            return this._checkOwner();
         }
+        throw ('Unauthorized call');
     }
 
     _validateConcilium(objConcilium) {
@@ -301,5 +311,17 @@ module.exports = class ContractConciliums extends Base {
             const initialAmount = objConcilium.arrMembers.reduce((accum, objMember) => accum + objMember.amount, 0);
             if (this._feeCreate + initialAmount > value) throw ('Not enough coins were sent co create such concilium');
         }
+    }
+
+    _disallowContractCreation(objConcilium) {
+        const nHighWatermark = 1e11;
+
+        if (!objConcilium.parameters) objConcilium.parameters = {};
+        if (!objConcilium.parameters.fees) objConcilium.parameters.fees = {};
+        objConcilium.parameters.fees.feeContractCreation = nHighWatermark;
+    }
+
+    _isOwner(callerAddress) {
+        return callerAddress && this._ownerAddress === callerAddress;
     }
 };

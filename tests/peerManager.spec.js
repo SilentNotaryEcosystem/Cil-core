@@ -467,16 +467,16 @@ describe('Peer manager', () => {
             pm._prepareWhitelisted(['172.16.0.3', '172.16.0.0/16']);
 
             assert.isOk(pm._arrWhitelistedNets.length === 2);
-            assert.isOk(pm._arrWhitelistedNets[0][1] === 32);
-            assert.isOk(pm._arrWhitelistedNets[1][1] === 16);
+            assert.isOk(pm._arrWhitelistedNets[0][1] === 128);
+            assert.isOk(pm._arrWhitelistedNets[1][1] === 112);
         });
 
         it('should create it at constructor', async () => {
             pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.3', '172.16.0.0/16']});
 
             assert.isOk(pm._arrWhitelistedNets.length === 2);
-            assert.isOk(pm._arrWhitelistedNets[0][1] === 32);
-            assert.isOk(pm._arrWhitelistedNets[1][1] === 16);
+            assert.isOk(pm._arrWhitelistedNets[0][1] === 128);
+            assert.isOk(pm._arrWhitelistedNets[1][1] === 112);
         });
 
         it('should NOT be whitelisted (net config)', async () => {
@@ -495,6 +495,12 @@ describe('Peer manager', () => {
             pm = new factory.PeerManager({storage, whitelistedAddr: ['172.16.0.0/16']});
 
             assert.isOk(pm.isWhitelisted('172.16.0.3'));
+        });
+
+        it('should add whitelisted host (match against ipv6)', async () => {
+            pm = new factory.PeerManager({storage, whitelistedAddr: ['5.101.122.167']});
+
+            assert.isNotOk(pm.isWhitelisted('2002:565:7aa7::565:7aa7'));
         });
 
         it('should add whitelisted host', async () => {

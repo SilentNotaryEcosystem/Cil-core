@@ -341,21 +341,23 @@ module.exports = (factory) => {
          */
         _prepareWhitelisted(arrWhitelisted) {
             for (let strAddrOrNet of arrWhitelisted) {
-                if (ipaddr.isValid(strAddrOrNet)) {
-                    this._arrWhitelistedNets.push([ipaddr.parse(strAddrOrNet), 32]);
-                } else {
-                    this._arrWhitelistedNets.push(ipaddr.parseCIDR(strAddrOrNet));
-                }
+                const [ipAddr, bitLength] = ipaddr.isValid(strAddrOrNet) ?
+                    [ipaddr.parse(strAddrOrNet), 32] :
+                    ipaddr.parseCIDR(strAddrOrNet);
+                const ipV6Addr = ipAddr.kind() === 'ipv4' ? ipAddr.toIPv4MappedAddress() : ipAddr;
+                const ipV6BitLength = ipAddr.kind() === 'ipv4' ? 128 - (32 - bitLength) : ipAddr;
+                this._arrWhitelistedNets.push([ipV6Addr, ipV6BitLength]);
             }
         }
 
         isWhitelisted(strIpAddress) {
 
             // tests contain no whitelist, but non ip addresses, so next line will throw
-            if (!this._arrWhitelistedNets.length) return;
+            if (!this._arrWhitelistedNets.length) return false;
 
             const ipAddr = ipaddr.parse(strIpAddress);
-            return this._arrWhitelistedNets.find(arrNetRecord => ipAddr.match(arrNetRecord));
+            const ipV6ToMatch = ipAddr.kind() === 'ipv4' ? ipAddr.toIPv4MappedAddress() : ipAddr;
+            return !!this._arrWhitelistedNets.find(arrNetRecord => ipV6ToMatch.match(arrNetRecord));
         }
     };
 };
