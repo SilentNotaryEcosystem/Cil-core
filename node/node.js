@@ -1785,6 +1785,7 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<void>}
          */
         async _rebuildPending(arrLastStableHashes, arrPendingBlocksHashes) {
+            const setStable = new Set(arrLastStableHashes);
             this._pendingBlocks = new PendingBlocksManager({
                 mutex: this._mutex,
                 arrTopStable: arrLastStableHashes
@@ -1793,6 +1794,10 @@ module.exports = (factory, factoryOptions) => {
             const mapBlocks = new Map();
             const setPatches = new Set();
             for (let hash of arrPendingBlocksHashes) {
+
+                // Somtimes we have hash in both: pending & stable blocks (unexpected shutdown)?
+                if (setStable.has(hash)) continue;
+
                 hash = hash.toString('hex');
                 let bi = this._mainDag.getBlockInfo(hash);
                 if (!bi) bi = await this._storage.getBlockInfo(hash);
