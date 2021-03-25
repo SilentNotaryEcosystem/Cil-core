@@ -109,6 +109,140 @@ describe('Pending block manager', async () => {
         pbm = new factory.PendingBlocksManager({});
     });
 
+    describe('isReasonToWitness', async () => {
+        it('should be true', async () => {
+            const block1 = createDummyBlock(factory, 1, 0);
+            block1.parentHashes = ['0'.repeat(64)];
+            await pbm.addBlock(block1, new factory.PatchDB(1));
+
+            const block2 = createDummyBlock(factory, 4, 0);
+            block2.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block2, new factory.PatchDB(0));
+
+            const block3 = createDummyBlock(factory, 1, 1);
+            block3.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block3, new factory.PatchDB(4));
+
+            const block4 = createDummyBlock(factory, 0, 0);
+            block4.parentHashes = [block2.getHash(), block3.getHash()];
+            await pbm.addBlock(block4, new factory.PatchDB(1));
+
+            const block5 = createDummyBlock(factory, 0);
+            block5.parentHashes = [block4.getHash()];
+
+            const block6 = createDummyBlock(factory, 4);
+            block6.parentHashes = [block4.getHash()];
+
+            assert.isOk(pbm.isReasonToWitness(block5) || pbm.isReasonToWitness(block6));
+        });
+
+        it('should be true', async () => {
+            const block1 = createDummyBlock(factory, 1, 0);
+            block1.parentHashes = ['0'.repeat(64)];
+            await pbm.addBlock(block1, new factory.PatchDB(1));
+
+            const block2 = createDummyBlock(factory, 4, 0);
+            block2.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block2, new factory.PatchDB(0));
+
+            const block3 = createDummyBlock(factory, 1, 1);
+            block3.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block3, new factory.PatchDB(4));
+
+            const block4 = createDummyBlock(factory, 0, 0);
+            block4.parentHashes = [block2.getHash(), block3.getHash()];
+            await pbm.addBlock(block4, new factory.PatchDB(1));
+
+            const block5 = createDummyBlock(factory, 0);
+            block5.parentHashes = [block4.getHash()];
+
+            const block6 = createDummyBlock(factory, 4);
+            block6.parentHashes = [block4.getHash()];
+
+            assert.isOk(pbm.isReasonToWitness(block5) || pbm.isReasonToWitness(block6));
+        });
+
+        it('should be true', async () => {
+            const block1 = createDummyBlock(factory, 4, 0);
+            block1.parentHashes = ['0'.repeat(64)];
+            await pbm.addBlock(block1, new factory.PatchDB(4));
+
+            const block2 = createDummyBlock(factory, 1, 1);
+            block2.parentHashes = ['1'.repeat(64)];
+            await pbm.addBlock(block2, new factory.PatchDB(1));
+
+            const block4 = createDummyBlock(factory, 0, 0);
+            block4.parentHashes = [block1.getHash(), block2.getHash()];
+            await pbm.addBlock(block4, new factory.PatchDB(0));
+
+            const block6 = createDummyBlock(factory, 4);
+            block6.parentHashes = [block4.getHash()];
+
+            assert.isOk(pbm.isReasonToWitness(block6));
+        });
+
+        it('should be true', async () => {
+            const block1 = createDummyBlock(factory, 1, 3);
+            block1.parentHashes = ['0'.repeat(64)];
+            await pbm.addBlock(block1, new factory.PatchDB(1));
+
+            const block2 = createDummyBlock(factory, 0, 0);
+            block2.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block2, new factory.PatchDB(0));
+
+            const block3 = createDummyBlock(factory, 4, 0);
+            block3.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block3, new factory.PatchDB(4));
+
+            const block4 = createDummyBlock(factory, 1, 1);
+            block4.parentHashes = [block2.getHash(), block3.getHash()];
+            await pbm.addBlock(block4, new factory.PatchDB(1));
+
+            const block5 = createDummyBlock(factory, 0);
+            block5.parentHashes = [block4.getHash()];
+
+            assert.isOk(pbm.isReasonToWitness(block5));
+        });
+
+        it('should be true', async () => {
+            const block1 = createDummyBlock(factory, 1, 3);
+            block1.parentHashes = ['0'.repeat(64)];
+            await pbm.addBlock(block1, new factory.PatchDB(1));
+
+            const block2 = createDummyBlock(factory, 0, 0);
+            block2.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block2, new factory.PatchDB(0));
+
+            const block3 = createDummyBlock(factory, 4, 0);
+            block3.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block3, new factory.PatchDB(4));
+
+            const block5 = createDummyBlock(factory, 0);
+            block5.parentHashes = [block3.getHash(), block2.getHash()];
+
+            assert.isOk(pbm.isReasonToWitness(block5));
+        });
+
+        it('should be true', async () => {
+            const block1 = createDummyBlock(factory, 0, 0);
+            block1.parentHashes = ['0'.repeat(64)];
+            await pbm.addBlock(block1, new factory.PatchDB(1));
+
+            const block2 = createDummyBlock(factory, 1, 1);
+            block2.parentHashes = [block1.getHash()];
+            await pbm.addBlock(block2, new factory.PatchDB(0));
+
+            const block3 = createDummyBlock(factory, 1, 1);
+            block3.parentHashes = [block2.getHash()];
+            await pbm.addBlock(block3, new factory.PatchDB(4));
+
+            const block5 = createDummyBlock(factory, 4);
+            block5.parentHashes = [block3.getHash(), block3.getHash()];
+
+            assert.isOk(pbm.isReasonToWitness(block5));
+        });
+    });
+
     it('should add block', async () => {
 
         const block = createDummyBlock(factory);
@@ -123,8 +257,6 @@ describe('Pending block manager', async () => {
     });
 
     it('should test "getVertexWitnessBelow"', async () => {
-
-
         const block1 = createDummyBlock(factory, 0);
         const block2 = createDummyBlock(factory, 2);
         const block3 = createDummyBlock(factory, 0);

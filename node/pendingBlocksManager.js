@@ -470,21 +470,19 @@ module.exports = (factory, factoryOptions) => {
             // we are interested only in pending parents!
             const arrParents = block.parentHashes.filter(strHash => this._dag.hasVertex(strHash));
 
-            // we need non-empty blocks
-            let bFoundNonEmptyBlock = false;
+            return arrParents.find(hash => {
 
-            return !arrParents.every(hash => {
+                // no reason to create block upon own previous
+                if (this._dag.readObj(hash).conciliumId === block.conciliumId) return false;
                 const arrPaths = this._dag.findPathsDown(hash);
-                let bConciliumFound = false;
                 for (let path of arrPaths) {
                     for (let vertex of path) {
                         const {blockHeader, bIsEmpty} = this._dag.readObj(vertex);
-                        if (blockHeader.conciliumId === block.conciliumId) bConciliumFound = true;
-                        bFoundNonEmptyBlock |= !bIsEmpty;
+                        if (!bIsEmpty && blockHeader.conciliumId !== block.conciliumId) return true;
                     }
                 }
-                return bConciliumFound;
-            }) && bFoundNonEmptyBlock;
+                return false;
+            });
         }
 
         forEach(fnCallback) {
