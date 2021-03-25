@@ -272,6 +272,7 @@ describe('Witness tests', () => {
             witness._mempool.getFinalTxns =
                 () => new Array(10).fill(1).map(() => new factory.Transaction(createDummyTx()));
             witness._calcHeight = () => 1;
+            witness._nLowestConciliumId = 0;
             witness._createJoinTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
             witness._storage.walletListUnspent = async () => new Array(factory.Constants.WITNESS_UTXOS_JOIN + 1);
             witness._pendingBlocks.getBestParents = () => ({

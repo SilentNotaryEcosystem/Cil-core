@@ -41,6 +41,7 @@ module.exports = (factory, factoryOptions) => {
                 });
             }
             this._consensuses = new Map();
+            this._nLowestConciliumId = undefined;
 
             this._storage.on('conciliumsChanged', this.restart.bind(this));
         }
@@ -102,6 +103,7 @@ module.exports = (factory, factoryOptions) => {
             if (wasStarted) {
                 this._consensuses.forEach(bft => bft._stopTimer());
                 this._consensuses = new Map();
+                this._nLowestConciliumId = undefined;
                 await this.start();
             }
         }
@@ -203,6 +205,12 @@ module.exports = (factory, factoryOptions) => {
             consensus.setRoundSeed(this._conciliumSeed);
             this._setConsensusHandlers(consensus);
             this._consensuses.set(concilium.getConciliumId(), consensus);
+
+            // this will help to use only this concilium for joinTx creation
+            //
+            if (this._nLowestConciliumId === undefined || this._nLowestConciliumId > concilium.getConciliumId()) {
+                this._nLowestConciliumId = concilium.getConciliumId();
+            }
         }
 
         /**
@@ -383,8 +391,11 @@ module.exports = (factory, factoryOptions) => {
                 try {
                     const {conciliumId} = consensus;
                     const {block, patch} = await this._createBlock(conciliumId);
-                    if (block.isEmpty() && (!consensus.timeForWitnessBlock() ||
-                                            !this._pendingBlocks.isReasonToWitness(block) || this._isBigTimeDiff(block))
+                    if (block.isEmpty() &&
+                        (!consensus.timeForWitnessBlock() ||
+                         this._isBigTimeDiff(block) ||
+                         !this._pendingBlocks.isReasonToWitness(block)
+                        )
                     ) {
                         this._suppressedBlockHandler();
                     } else {
@@ -527,7 +538,8 @@ module.exports = (factory, factoryOptions) => {
                 const arrUtxos = await this._storage.walletListUnspent(this._wallet.address);
 
                 // There is possible situation with 1 UTXO having numerous output. It will be count as 1
-                if (this._bCreateJoinTx && arrUtxos.length > Constants.WITNESS_UTXOS_JOIN) {
+                if (this._bCreateJoinTx && this._nLowestConciliumId === conciliumId && arrUtxos.length >
+                    Constants.WITNESS_UTXOS_JOIN) {
                     arrTxToProcess = [
                         this._createJoinTx(arrUtxos, conciliumId, Constants.MAX_UTXO_PER_TX / 2),
                         ...this._mempool.getFinalTxns(conciliumId)

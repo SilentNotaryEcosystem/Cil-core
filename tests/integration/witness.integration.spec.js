@@ -361,6 +361,7 @@ describe('Witness integration tests', () => {
             await witness.ensureLoaded();
 
             patchNodeForWitnesses(witness, concilium);
+            await witness.start();
 
             factory.Constants.WITNESS_UTXOS_JOIN = 2;
 
