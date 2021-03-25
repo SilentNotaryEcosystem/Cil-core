@@ -65,7 +65,7 @@ describe('Crypto library', () => {
     });
 
     it('encrypt/decrypt key (scrypt)', async function() {
-        this.timeout(5000);
+        this.timeout(10000);
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
         const objEncryptedKey = await Crypto.encrypt(
@@ -86,7 +86,8 @@ describe('Crypto library', () => {
         }
     });
 
-    it('FAIL to decrypt key (wrong password)', async () => {
+    it('FAIL to decrypt key (wrong password)', async function() {
+        this.timeout(15000);
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
         const objEncryptedKey = await Crypto.encrypt(

@@ -66,7 +66,7 @@ class KeyPair {
 // algorithm used to symmtrical encryption/decryption (for storing privateKeys)
 const ALGO = 'aes256';
 const LENGTH = 16;
-const SCRYPT_OPTIONS = {N: 131072, p: 1, r: 8};
+const SCRYPT_OPTIONS = {N: 262144, p: 1, r: 8};
 const PBKDF2_OPTIONS = {iterations: 1e5};
 
 class CryptoLib {
