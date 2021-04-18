@@ -77,6 +77,10 @@ module.exports = ({Crypto, Constants, Transaction}) =>
             return await this._storage.walletListUnspent(strAddress);
         }
 
+        async getCoinHistory(strAddress) {
+            return await this._storage.getCoinHistory(strAddress);
+        }
+
         async getAccountAddresses(strAccountName) {
             return await this._storage.getAccountAddresses(strAccountName);
         }

@@ -145,9 +145,10 @@ const prepareForStringifyObject = (obj) => {
  * @param arrUtxos
  * @param bStable
  * @param mapUtxoAddr
+ * @param mapTxBlock
  * @return {[{hash, nOut, amount, isStable}]}
  */
-const finePrintUtxos = (arrUtxos, bStable, mapUtxoAddr) => {
+const finePrintUtxos = (arrUtxos, bStable, mapUtxoAddr, mapTxBlock) => {
     const arrResult = [];
     arrUtxos.forEach(utxo => {
         utxo.getIndexes()
@@ -159,7 +160,8 @@ const finePrintUtxos = (arrUtxos, bStable, mapUtxoAddr) => {
                     nOut: idx,
                     amount: coins.getAmount(),
                     isStable: bStable,
-                    receiver: strReceiver
+                    receiver: strReceiver,
+                    block: mapTxBlock ? mapTxBlock.get(utxo.getTxHash()) : undefined
                 });
             });
     });

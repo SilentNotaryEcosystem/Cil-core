@@ -826,4 +826,46 @@ describe('Storage tests', () => {
             assert.equal(await storage.countWallets(), 0);
         });
     });
+
+    describe('ListSinceBlock (one by one!!)', function() {
+        let storage;
+        const buffAddr1 = Buffer.from('a'.repeat(40), 'hex');
+        const buffAddr2 = Buffer.from('b'.repeat(40), 'hex');
+        const strHash1 = 'f'.repeat(64);
+
+        before(async () => {
+            storage = new factory.Storage();
+        });
+
+        it('should _writeCoinHistory', async () => {
+            const patch = new factory.PatchDB(0);
+
+            patch.createCoins(strHash1, 0, new factory.Coins(1e5, buffAddr1));
+            patch.createCoins(strHash1, 1, new factory.Coins(1e5, buffAddr2));
+
+            const nWrote = await storage._writeCoinHistory(patch);
+
+            assert.equal(nWrote, 2);
+        });
+
+        it('should getCoinHistory', async () => {
+            {
+                const arrResults = await storage.getCoinHistory(buffAddr2.toString('hex'));
+
+                assert.equal(arrResults.length, 1);
+                assert.equal(arrResults[0][0].toString('hex'), strHash1);
+                assert.equal(arrResults[0][1], 1);
+                assert.equal(arrResults[0][2], 1e5);
+            }
+            {
+                const arrResults = await storage.getCoinHistory(buffAddr1.toString('hex'));
+
+                assert.equal(arrResults.length, 1);
+                assert.equal(arrResults[0][0].toString('hex'), strHash1);
+                assert.equal(arrResults[0][1], 0);
+                assert.equal(arrResults[0][2], 1e5);
+            }
+        });
+
+    });
 });
