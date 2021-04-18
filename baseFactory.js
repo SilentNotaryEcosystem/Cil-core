@@ -30,6 +30,7 @@ const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
 const RequestCacheWrapper = require('./node/requestsCache');
 
+const CoinHistory = require('./structures/coinHistory');
 const TransactionWrapper = require('./structures/transaction');
 const BlockWrapper = require('./structures/block');
 const InventoryWrapper = require('./structures/inventory');
@@ -68,6 +69,7 @@ class BaseFactory {
                     };
 
                     // prototypes
+                    this._coinHistory = CoinHistory(this);
                     this._coinsImplementation = CoinsWrapper(this);
                     this._transactionImplementation = TransactionWrapper(this, prototypes);
                     this._blockImplementation = BlockWrapper(this, prototypes);
@@ -284,6 +286,10 @@ class BaseFactory {
 
     get StoredWallet() {
         return this._storedWalletImplementation;
+    }
+
+    get CoinHistory() {
+        return this._coinHistory;
     }
 
     get utils() {

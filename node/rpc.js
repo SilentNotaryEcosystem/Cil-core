@@ -9,7 +9,7 @@ const rpc = require('json-rpc2');
 const {asyncRPC, prepareForStringifyObject, stripAddressPrefix, finePrintUtxos} = require('../utils');
 const types = require('../types');
 
-module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
+module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
     class RPC {
         /**
          *
@@ -51,6 +51,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
 
             this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
             this._server.expose('accountListUnspent', asyncRPC(this.getAccountUnspent.bind(this)));
+            this._server.expose('accountCoinHistory', asyncRPC(this.accountCoinHistory.bind(this)));
             this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
             this._server.expose('getAccountBalance', asyncRPC(this.getAccountBalance.bind(this)));
 
@@ -429,6 +430,44 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
                     finePrintUtxos(arrFilteredArrayOfStableUtxos, true, mapUtxoAddr),
                     finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false, mapUtxoAddr)
                 ));
+        }
+
+        async accountCoinHistory(args) {
+            const {strAccountName, strHashSince} = args;
+            const mapTxBlock = new Map();
+
+            const arrAccountAddresses = await this._storedWallets.getAccountAddresses(strAccountName);
+            assert(Array.isArray(arrAccountAddresses), 'Account doesn\'t exist');
+
+            const mapUtxoAddr = new Map();
+            for (let strAddress of arrAccountAddresses) {
+                const arrUtxos = await this._storedWallets.getCoinHistory(strAddress);
+                for (let [buffHash, nVOut, nAmount] of arrUtxos) {
+                    const utxo = new UTXO({txHash: buffHash.toString('hex')});
+                    utxo.addCoins(nVOut, new Coins(nAmount, strAddress));
+                    mapUtxoAddr.set(utxo, strAddress);
+                }
+            }
+
+            const storage = this._nodeInstance.storage;
+            let arrFilteredArrayOfTxHashes = [];
+
+            if (strHashSince) {
+                for (let [utxo] of mapUtxoAddr) {
+                    const buffSourceTx = await storage.findInternalTx(utxo.getTxHash()) ||
+                                         Buffer.from(utxo.getTxHash(), 'hex');
+                    const strBlockHash = (await storage.getTxBlock(buffSourceTx)).toString('hex');
+                    if (this._nodeInstance.sortBlocks(strBlockHash, strHashSince) > 0) {
+                        arrFilteredArrayOfTxHashes.push(utxo);
+                        mapTxBlock.set(utxo.getTxHash(), strBlockHash);
+                    }
+                }
+            } else {
+                arrFilteredArrayOfTxHashes = Array.from(mapUtxoAddr.keys());
+            }
+
+            // flatten results
+            return prepareForStringifyObject(finePrintUtxos(arrFilteredArrayOfTxHashes, true, mapUtxoAddr, mapTxBlock));
         }
 
         async nodeStatus() {

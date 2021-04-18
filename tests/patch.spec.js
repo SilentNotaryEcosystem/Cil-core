@@ -816,4 +816,17 @@ describe('PatchDB', () => {
         });
 
     });
+
+    describe('coinHistory', async () => {
+        it('should add upon "createCoins"', async () => {
+            const patch = new factory.PatchDB(0);
+            const strHash1 = 'a'.repeat(64);
+
+            patch.createCoins(strHash1, 0, new factory.Coins(1e5, Buffer.from('b'.repeat(40), 'hex')));
+
+            assert.isOk(patch.coinHistory);
+            const arrValues = Array.from(patch.coinHistory);
+            assert.equal(arrValues.length, 1);
+        });
+    });
 });
