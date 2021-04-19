@@ -396,6 +396,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
             let arrFilteredArrayOfStableUtxos = [];
 
             if (strHashSince) {
+                await storage.getBlockInfo(strHashSince);
                 for (let [utxo] of mapUtxoAddr) {
                     const buffSourceTx = await storage.findInternalTx(utxo.getTxHash()) ||
                                          Buffer.from(utxo.getTxHash(), 'hex');
@@ -453,6 +454,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
             let arrFilteredArrayOfTxHashes = [];
 
             if (strHashSince) {
+                await storage.getBlockInfo(strHashSince);
                 for (let [utxo] of mapUtxoAddr) {
                     const buffSourceTx = await storage.findInternalTx(utxo.getTxHash()) ||
                                          Buffer.from(utxo.getTxHash(), 'hex');
