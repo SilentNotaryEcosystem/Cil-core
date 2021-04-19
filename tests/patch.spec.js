@@ -828,5 +828,26 @@ describe('PatchDB', () => {
             const arrValues = Array.from(patch.coinHistory);
             assert.equal(arrValues.length, 1);
         });
+
+        it('should add upon "setUtxo"', async () => {
+            const buffAddr1 = Buffer.from('a'.repeat(40), 'hex');
+            const buffAddr2 = Buffer.from('b'.repeat(40), 'hex');
+            const patch = new factory.PatchDB(0);
+            const coins1 = new factory.Coins(1e4, buffAddr1);
+            const coins2 = new factory.Coins(5e5, buffAddr2);
+
+            const txHash = 'a'.repeat(64);
+            const utxo = new factory.UTXO({txHash});
+            utxo.addCoins(0, coins1);
+            utxo.addCoins(1, coins2);
+
+            patch.setUtxo(utxo);
+
+            assert.isOk(patch.coinHistory);
+            const arrValues = Array.from(patch.coinHistory);
+            assert.equal(arrValues.length, 1);
+            assert.equal(arrValues[0].length, 2);
+        });
+
     });
 });

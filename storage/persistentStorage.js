@@ -953,6 +953,7 @@ module.exports = (factory, factoryOptions) => {
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`);
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`);
                 await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`);
+                await levelDbDestroy(`${this._pathPrefix}/${Constants.DB_COINHISTORY_DIR}`);
 
                 if (bEraseBlockStorage) {
                     console.log('INFO: erased blockstate!');
@@ -1133,11 +1134,12 @@ module.exports = (factory, factoryOptions) => {
             if (!statePatch.coinHistory) return;
 
             const arrOps = [];
-            const buffSuffix = Buffer.allocUnsafe(32 + 2);
-            const buffForAmount = Buffer.allocUnsafe(8);
+
             for (let [strHash, arrUtxos] of statePatch.coinHistory) {
                 const buffTxHash = Buffer.from(strHash, 'hex');
                 for (let [buffAddr, nAmount, nVout] of arrUtxos) {
+                    const buffSuffix = Buffer.allocUnsafe(32 + 2);
+                    const buffForAmount = Buffer.allocUnsafe(8);
                     buffTxHash.copy(buffSuffix);
                     buffSuffix.writeUInt16LE(nVout, 32);
                     buffForAmount.writeDoubleLE(nAmount);

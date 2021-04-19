@@ -840,8 +840,8 @@ describe('Storage tests', () => {
         it('should _writeCoinHistory', async () => {
             const patch = new factory.PatchDB(0);
 
-            patch.createCoins(strHash1, 0, new factory.Coins(1e5, buffAddr1));
-            patch.createCoins(strHash1, 1, new factory.Coins(1e5, buffAddr2));
+            patch.createCoins(strHash1, 0, new factory.Coins(1e2, buffAddr1));
+            patch.createCoins(strHash1, 1, new factory.Coins(2e5, buffAddr2));
 
             const nWrote = await storage._writeCoinHistory(patch);
 
@@ -855,7 +855,7 @@ describe('Storage tests', () => {
                 assert.equal(arrResults.length, 1);
                 assert.equal(arrResults[0][0].toString('hex'), strHash1);
                 assert.equal(arrResults[0][1], 1);
-                assert.equal(arrResults[0][2], 1e5);
+                assert.equal(arrResults[0][2], 2e5);
             }
             {
                 const arrResults = await storage.getCoinHistory(buffAddr1.toString('hex'));
@@ -863,8 +863,19 @@ describe('Storage tests', () => {
                 assert.equal(arrResults.length, 1);
                 assert.equal(arrResults[0][0].toString('hex'), strHash1);
                 assert.equal(arrResults[0][1], 0);
-                assert.equal(arrResults[0][2], 1e5);
+                assert.equal(arrResults[0][2], 1e2);
             }
+        });
+
+        it('should create for internal Tx', async () => {
+            const patch = new factory.PatchDB(0);
+
+            patch.createCoins(strHash1, 0, new factory.Coins(1e2, buffAddr1));
+            patch.createCoins(strHash1, 1, new factory.Coins(2e5, buffAddr2));
+
+            const nWrote = await storage._writeCoinHistory(patch);
+
+            assert.equal(nWrote, 2);
         });
 
     });

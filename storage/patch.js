@@ -132,6 +132,10 @@ module.exports = ({UTXO, Contract, TxReceipt, CoinHistory}) =>
             typeforce(types.UTXO, utxo);
 
             this._data.coins.set(utxo.getTxHash(), utxo.clone());
+            const txHash = utxo.getTxHash();
+            for (let idx of utxo.getIndexes()) {
+                this._coinHistory.recordReceive(txHash, idx, utxo.coinsAtIndex(idx));
+            }
         }
 
         /**
@@ -270,7 +274,7 @@ module.exports = ({UTXO, Contract, TxReceipt, CoinHistory}) =>
                 resultPatch.setReceipt(strHash, receipt);
             }
 
-            resultPatch._coinHistory = this._coinHistory.mergeHistory(patch._coinHistory);
+            if (this._coinHistory) resultPatch._coinHistory = this._coinHistory.mergeHistory(patch._coinHistory);
 
             return resultPatch;
         }
