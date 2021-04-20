@@ -30,9 +30,6 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
                     'Access-Control-Allow-Origin': '*'
                 },
 
-                // default rate limit: 20 requests/second
-                ratelimit: {maxPerInterval: 20, msInterval: 1000},
-
                 // this allow override defaults above
                 ...options
             });
