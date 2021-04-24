@@ -2427,20 +2427,21 @@ module.exports = (factory, factoryOptions) => {
             return this._peerManager.filterPeers({service: Constants.WITNESS}, true);
         }
 
-        async getLastBlockByConciliumId(nConciliumId) {
+        async getLastBlockByConciliumId({nConciliumId, bStable}) {
             let maxHeight = 0;
             let strBestHash;
 
-            this._pendingBlocks.forEach(hash => {
-                const {blockHeader} = this._pendingBlocks.getBlock(hash);
-                const blockInfo = new factory.BlockInfo(blockHeader);
-                if (blockInfo.getHeight() > maxHeight && blockInfo.getConciliumId() === nConciliumId) {
-                    maxHeight = blockInfo.getHeight();
-                    strBestHash = hash;
-                }
-            });
-
-            if (strBestHash) return strBestHash;
+            if (!bStable) {
+                this._pendingBlocks.forEach(hash => {
+                    const {blockHeader} = this._pendingBlocks.getBlock(hash);
+                    const blockInfo = new factory.BlockInfo(blockHeader);
+                    if (blockInfo.getHeight() > maxHeight && blockInfo.getConciliumId() === nConciliumId) {
+                        maxHeight = blockInfo.getHeight();
+                        strBestHash = hash;
+                    }
+                });
+                if (strBestHash) return strBestHash;
+            }
 
             const arrLastStable = await this._storage.getLastAppliedBlockHashes();
             const [stableBi] = arrLastStable

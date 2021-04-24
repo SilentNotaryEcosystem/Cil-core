@@ -320,11 +320,9 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
         }
 
         async getLastBlockByConciliumId(args) {
-            const {nConciliumId} = args;
-
             const strHash = await this._nodeInstance.rpcHandler({
                 event: 'getLastBlockByConciliumId',
-                content: nConciliumId
+                content: args
             });
             return strHash;
         }
