@@ -80,7 +80,7 @@ describe('Crypto library', () => {
             assert.equal(strPrivKey, decryptedKey.toString('hex'));
         }
         {
-            // from stringifyed options
+            // from stringified options
             const decryptedKey = await Crypto.decrypt('234', prepareForStringifyObject(objEncryptedKey));
             assert.equal(strPrivKey, decryptedKey.toString('hex'));
         }

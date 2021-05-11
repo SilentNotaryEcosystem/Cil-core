@@ -325,6 +325,7 @@ class CryptoLib {
 
         const decipher = crypto.createDecipheriv(ALGO, key, iv);
         try {
+            if (!(encrypted.length % 32)) decipher.setAutoPadding(false);
             return Buffer.concat([decipher.update(encrypted), decipher.final()]);
         } catch (err) {
             return undefined;
@@ -348,6 +349,7 @@ class CryptoLib {
         const {key, options: hashOptions} = this.createKey(keyAlgo, password, salt);
         const iv = this.randomBytes(LENGTH);
         const cipher = crypto.createCipheriv(ALGO, key, iv);
+        if (!(buffer.length % 32)) cipher.setAutoPadding(false);
         const enc = Buffer.concat([cipher.update(buffer), cipher.final()]);
 
         return {
