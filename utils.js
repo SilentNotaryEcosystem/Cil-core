@@ -264,7 +264,7 @@ function mapEnvToOptions() {
         TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, LISTEN_ADDR,
         SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
         GENESIS_HASH, CONCILIUM_CONTRACT,
-        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX
+        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX, FIX_LEVEL_DB
     } = process.env;
 
     return {
@@ -291,7 +291,9 @@ function mapEnvToOptions() {
         // Variables below used for development, regular user don't need it
         seedAddr: SEED_ADDRESS,
         genesisHash: GENESIS_HASH,
-        conciliumDefContract: CONCILIUM_CONTRACT
+        conciliumDefContract: CONCILIUM_CONTRACT,
+
+        fixLevelDb: FIX_LEVEL_DB
     };
 }
 
@@ -358,6 +360,7 @@ module.exports = {
 
     readCmdLineOptions: () => {
         const optionDefinitions = [
+            {name: "fixLevelDb", type: Boolean, multiple: false},
             {name: "trustAnnounce", type: Boolean, multiple: false},
             {name: "announceAddr", type: String, multiple: false},
             {name: "listenAddr", type: String, multiple: false},
@@ -381,7 +384,7 @@ module.exports = {
             {name: "localDevNode", type: Boolean, multiple: false},
             {name: "rebuildDb", type: Boolean, multiple: false},
             {name: "whitelistedAddr", type: String, multiple: true},
-            {name: "suppressJoinTx", type: Boolean, multiple: false, defaultOption: false}
+            {name: "suppressJoinTx", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },
