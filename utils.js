@@ -293,7 +293,7 @@ function mapEnvToOptions() {
         genesisHash: GENESIS_HASH,
         conciliumDefContract: CONCILIUM_CONTRACT,
 
-        fixLevelDb: FIX_LEVEL_DB
+        fixLevelDb: getBoolEnvParameter(FIX_LEVEL_DB)
     };
 }
 
