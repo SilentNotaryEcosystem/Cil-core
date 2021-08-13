@@ -23,15 +23,14 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             this._nodeInstance = cNodeInstance;
             this._storedWallets = new StoredWallet({storage: cNodeInstance.storage});
 
-            const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
+            const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1', rpcRate = 20} = options;
             this._server = rpc.Server.$create({
                 websocket: true,
                 headers: {
                     'Access-Control-Allow-Origin': '*'
                 },
 
-                // default rate limit: 20 requests/second
-                ratelimit: {maxPerInterval: 20, msInterval: 1000},
+                ratelimit: {maxPerInterval: rpcRate, msInterval: 1000},
 
                 // this allow override defaults above
                 ...options

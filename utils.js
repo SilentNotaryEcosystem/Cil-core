@@ -262,7 +262,7 @@ function mapEnvToOptions() {
 
     const {
         TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, LISTEN_ADDR,
-        SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
+        SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS, RPC_RATE,
         GENESIS_HASH, CONCILIUM_CONTRACT,
         WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX, FIX_LEVEL_DB
     } = process.env;
@@ -276,9 +276,10 @@ function mapEnvToOptions() {
         rpcUser: RPC_USER,
         rpcPass: RPC_PASS,
         rpcAddress: RPC_ADDRESS,
+        rpcRate: parseInt(RPC_RATE),
 
         // if you plan to query your node
-        txIndex: (BUILD_TX_INDEX),
+        txIndex: getBoolEnvParameter(BUILD_TX_INDEX),
         walletSupport: getBoolEnvParameter(WALLET_SUPPORT),
 
         // WITNESS_NODE is a Boolean variable, indicating witness node.
@@ -369,6 +370,7 @@ module.exports = {
             {name: "rpcUser", type: String, multiple: false},
             {name: "rpcPass", type: String, multiple: false},
             {name: "rpcPort", type: Number, multiple: false},
+            {name: "rpcRate", type: Number, multiple: false},
             {name: "rpcAddress", type: String, multiple: false},
             {name: "genesisHash", type: String, multiple: false},
             {name: "conciliumDefContract", type: String, multiple: false},
