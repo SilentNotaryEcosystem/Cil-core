@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 CONTAINER_NAME=$1
-CONTAINER_NAME="${CONTAINER_NAME:-cil-node}"
+CONTAINER_NAME="${CONTAINER_NAME:-cil-rpc}"
 
 sudo docker run \
 --restart always \
