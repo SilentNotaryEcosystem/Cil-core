@@ -4,7 +4,7 @@
 
 function startProcess() {
   echo "Node started"
-  node index.js &
+  node --max-old-space-size=4096 index.js &
   child=$!
 }
 
