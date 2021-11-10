@@ -1,35 +1,55 @@
 #!/usr/bin/env bash
 
-_term() {
+# this script will check for new commits at remote, pull changes, restart container
+
+function startProcess() {
+  echo "Node started"
+  node index.js &
+  child=$!
+}
+
+function restartIfNeeded() {
+  echo "Checking is alive ..."
+  if ! ps -p $child >/dev/null; then
+    echo "Node is dead. Restarting"
+    startProcess
+  fi
+}
+
+function checkForUpdate() {
+  echo "Checking for update ..."
+  git remote update
+  behind=$(git status -uno | grep behind | wc -l | awk '{print $1}')
+  [[ $behind == "1" ]] && git pull && exit 0
+}
+
+function justSleep() {
+  # это должно быть так, потому что wait - это часть bash, и поскольку управление у него
+  # то работает trap. А если sleep без & то обработчик trap не работает
+  sleep 5m &
+  wait "$!"
+}
+
+function _term() {
   echo "Requested CONTAINER SHUTDOWN !"
   kill -TERM "$child" 2>/dev/null
   wait "$child"
   exit 100
 }
+
+#------------------------------------------------
+
+startProcess
+i=0
 trap _term SIGTERM
 
+while :; do
+  ((i++))
+  restartIfNeeded
 
-# this script will check for new commits at remote, pull changes, restart container
+  if [[ ${AUTO_UPDATE} == "true" ]] && ! (($i % 6)); then
+    checkForUpdate
+  fi
 
-function checkForUpdate {
-  echo "Checking for update ..."
-  git remote update
-  behind=`git status -uno | grep behind | wc -l | awk '{print $1}'`
-  [[ $behind == "1" ]] && git pull && exit 0
-}
-
-function justSleep {
-    sleep 30m &
-    wait "$!"
-}
-
-node index.js &
-child=$!
-
-if [[ ${AUTO_UPDATE} == "true" ]]; then
-    while :; do checkForUpdate; justSleep; done
-else
-    while :; do justSleep; done
-fi
-
-
+  justSleep
+done
