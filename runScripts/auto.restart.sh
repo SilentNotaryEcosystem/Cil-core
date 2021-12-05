@@ -3,9 +3,8 @@
 # this script will check for new commits at remote, pull changes, restart container
 
 function startProcess() {
-  echo "Node was started"
-  cd /app/
-  node index.js &
+  echo "Node started"
+  node --max-old-space-size=4096 index.js &
   child=$!
 }
 
@@ -21,7 +20,7 @@ function checkForUpdate() {
   echo "Checking for update ..."
   git remote update
   behind=$(git status -uno | grep behind | wc -l | awk '{print $1}')
-  [[ $behind == "1" ]] && git pull && exit 0
+  [[ $behind == "1" ]] && git pull && _term
 }
 
 function justSleep() {
