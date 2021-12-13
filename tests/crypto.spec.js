@@ -86,13 +86,25 @@ describe('Crypto library', () => {
         }
     });
 
-    it('FAIL to decrypt key (wrong password)', async function() {
+    it('Decrypt wrong key (wrong password)', async function() {
         this.timeout(15000);
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
         const objEncryptedKey = await Crypto.encrypt(
             '234',
             Buffer.from(strPrivKey, 'hex')
+        );
+
+        const decryptedKey = await Crypto.decrypt('111', objEncryptedKey);
+        assert.isNotOk(decryptedKey.equals(Buffer.from(strPrivKey, 'hex')));
+    });
+
+    it('Fail to decrypt (padded data + wrong password)', async function() {
+        this.timeout(15000);
+        const strPrivKey = 'Some key';
+        const objEncryptedKey = await Crypto.encrypt(
+            '234',
+            Buffer.from(strPrivKey)
         );
 
         const decryptedKey = await Crypto.decrypt('111', objEncryptedKey);
