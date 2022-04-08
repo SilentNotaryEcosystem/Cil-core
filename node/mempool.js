@@ -19,7 +19,11 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
         constructor(options = {}) {
             this._mapTxns = new Map();
             this._tock = new Tick(this);
-            this._tock.setInterval(MEMPOOL_TIMER_NAME, this.purgeOutdated.bind(this), MEMPOOL_TIMER_INTERVAL);
+            this._tock.setInterval(
+                MEMPOOL_TIMER_NAME,
+                this.purgeOutdated.bind(this),
+                Constants.MEMPOOL_TX_LIFETIME
+            );
 
             const {dbPath, testStorage} = {...factoryOptions, ...options};
 
@@ -39,42 +43,45 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
          * @param {Array} arrTxHashes
          */
         removeForBlock(arrTxHashes) {
-            debug(`Removed block TXns ${arrTxHashes}`);
-            this.removeTxns(arrTxHashes);
+        debug(`Removed block TXns ${arrTxHashes}`);
+        this.removeTxns(arrTxHashes);
         }
 
         removeTxns(arrTxHashes) {
-            const prevSize = this._mapLocalTxns.size;
+        const prevSize = this._mapLocalTxns.size;
 
-            for (let txHash of arrTxHashes) {
-
-                // TODO: check could be here descendants (i.e. when we undo block, from misbehaving concilium). if so - implement queue
-                // TODO: think about: is it problem that TX isn't present in mempool, but present in block
-                let mapWithTx;
-                if (this._mapLocalTxns.has(txHash)) {
-                    this._mapLocalTxns.delete(txHash);
-                } else if ((mapWithTx = this._searchMapByHash(txHash))) {
-                    mapWithTx.delete(txHash);
-                } else {
-                    debug(`removeTxns: no TX ${txHash} in mempool`);
-                }
+        for (let txHash of arrTxHashes) {
+            
+            // TODO: check could be here descendants (i.e. when we undo block, from misbehaving concilium). if so - implement queue
+            // TODO: think about: is it problem that TX isn't present in mempool, but present in block
+            let mapWithTx;
+            if (this._mapLocalTxns.has(txHash)) {
+            this._mapLocalTxns.delete(txHash);
+            } else if ((mapWithTx = this._searchMapByHash(txHash))) {
+            mapWithTx.delete(txHash);
+            } else {
+            debug(`removeTxns: no TX ${txHash} in mempool`);
             }
+        }
 
-            if (prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
+        if (prevSize !== this._mapLocalTxns.size) this._dumpToDisk();
         }
 
         purgeOutdated() {
-            this._mapConcilimTxns.forEach((mapTxns) => {
-                mapTxns.forEach((tx, hash) => {
-                    if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
-                        mapTxns.delete(hash);
-                    }
-                });
-            });
+        // TODO: Delete the BadTxnsHash over 24hr
+        this._mapBadTxnsHash.forEach((msecAdded, strHash) => {
+            if (msecAdded < Date.now() - Constants.MEMPOOL_BAD_TX_CACHE)
+            this._mapBadTxnsHash.delete(strHash);
+        });
 
-            this._mapBadTxnsHash.forEach((msecAdded, strHash) => {
-                if (msecAdded < Date.now() - Constants.MEMPOOL_BAD_TX_CACHE) this._mapBadTxnsHash.delete(strHash);
+        // TODO: Delete ConcilimTxns over 24hr
+        this._mapConcilimTxns.forEach((mapTxns) => {
+            mapTxns.forEach((tx, hash) => {
+            if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
+                mapTxns.delete(hash);
+            }
             });
+        });
         }
 
         limitConstraints() {
@@ -120,8 +127,8 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
             return this._mapLocalTxns.has(strTxHash) ||
-                   this._mapBadTxnsHash.has(strTxHash) ||
-                   !!this._searchMapByHash(strTxHash);
+                this._mapBadTxnsHash.has(strTxHash) ||
+                !!this._searchMapByHash(strTxHash);
         }
 
         /**
