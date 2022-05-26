@@ -10,4 +10,4 @@ sudo docker run \
 --env-file sample.node.env \
 -e AUTO_UPDATE=true \
 --name $CONTAINER_NAME \
-trueshura/cil-core-prod:rpc
+trueshura/cil-core-prod:latest
