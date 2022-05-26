@@ -34,7 +34,6 @@ const deepCloneObject = (objToClone) => {
 const arrayIntersection = (array1, array2) => {
     const cache = new Set(array1);
     return array2.filter(elem => cache.has(elem));
-    return result;
 };
 
 const queryRpc = async (url, strMethod, objParams = {}) => {
@@ -261,16 +260,23 @@ function decryptPkFileContent(Crypto, fileContent, password) {
 function mapEnvToOptions() {
 
     const {
-        TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, LISTEN_ADDR,
+        TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, ANNOUNCE_PORT, LISTEN_ADDR, LISTEN_PORT,
         SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
         GENESIS_HASH, CONCILIUM_CONTRACT,
-        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX
+        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX,
+        WHITELISTED_ADDR,
+        KEYSTORE_NAME
     } = process.env;
 
     return {
+        whitelistedAddr: WHITELISTED_ADDR ? WHITELISTED_ADDR.split(/\s/) : undefined,
         trustAnnounce: getBoolEnvParameter(TRUST_ANNOUNCE),
+
         announceAddr: ANNOUNCE_ADDRESS,
+        announcePort: parseInt(ANNOUNCE_PORT),
+
         listenAddr: LISTEN_ADDR,
+        port: parseInt(LISTEN_PORT),
 
         // if you plan to send TXns through your node
         rpcUser: RPC_USER,
@@ -283,7 +289,7 @@ function mapEnvToOptions() {
 
         // WITNESS_NODE is a Boolean variable, indicating witness node.
         // Just mount your real file name into container /app/private
-        privateKey: WITNESS_NODE ? './private' : undefined,
+        privateKey: getBoolEnvParameter(WITNESS_NODE) ? (KEYSTORE_NAME ? KEYSTORE_NAME : './private') : undefined,
         seed: getBoolEnvParameter(SEED_NODE),
 
         suppressJoinTx: getBoolEnvParameter(SUPPRESS_JOIN_TX),
@@ -360,6 +366,7 @@ module.exports = {
         const optionDefinitions = [
             {name: "trustAnnounce", type: Boolean, multiple: false},
             {name: "announceAddr", type: String, multiple: false},
+            {name: "announcePort", type: Number, multiple: false},
             {name: "listenAddr", type: String, multiple: false},
             {name: "port", type: Number, multiple: false},
             {name: "seedAddr", type: String, multiple: false},

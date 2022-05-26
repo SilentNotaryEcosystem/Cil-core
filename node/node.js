@@ -113,14 +113,15 @@ module.exports = (factory, factoryOptions) => {
 
                 await this._transport.listen();
 
-                const {announceAddr} = options;
+                const {announceAddr, announcePort} = options;
                 const address = Transport.strToAddress(announceAddr ? announceAddr : this._transport.myAddress);
+                const port = announcePort ? announcePort : this._transport.port;
                 this._myPeerInfo = new PeerInfo({
                     capabilities: [
                         {service: Constants.NODE}
                     ],
                     address,
-                    port: this._transport.port
+                    port
                 });
 
                 this._debugAddress = this._transport.myAddress;
