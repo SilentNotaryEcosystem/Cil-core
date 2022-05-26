@@ -302,4 +302,17 @@ describe('Utils', () => {
             assert.equal(privateKey, process.env.KEYSTORE_NAME);
         });
     });
+
+    it('should read RPC_RATE, FIX_LEVEL_DB', async () => {
+        process.env = {
+            ...process.env,
+            RPC_RATE: '1000',
+            FIX_LEVEL_DB: 'true'
+        };
+
+        const {rpcRate, fixLevelDb} = mapEnvToOptions();
+
+        assert.equal(rpcRate, parseInt(process.env.RPC_RATE));
+        assert.isOk(fixLevelDb);
+    });
 });
