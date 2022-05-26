@@ -261,9 +261,9 @@ function mapEnvToOptions() {
 
     const {
         TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, ANNOUNCE_PORT, LISTEN_ADDR, LISTEN_PORT,
-        SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS,
+        SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS, RPC_RATE,
         GENESIS_HASH, CONCILIUM_CONTRACT,
-        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX,
+        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX, FIX_LEVEL_DB
         WHITELISTED_ADDR,
         KEYSTORE_NAME
     } = process.env;
@@ -282,9 +282,10 @@ function mapEnvToOptions() {
         rpcUser: RPC_USER,
         rpcPass: RPC_PASS,
         rpcAddress: RPC_ADDRESS,
+        rpcRate: parseInt(RPC_RATE),
 
         // if you plan to query your node
-        txIndex: (BUILD_TX_INDEX),
+        txIndex: getBoolEnvParameter(BUILD_TX_INDEX),
         walletSupport: getBoolEnvParameter(WALLET_SUPPORT),
 
         // WITNESS_NODE is a Boolean variable, indicating witness node.
@@ -297,7 +298,9 @@ function mapEnvToOptions() {
         // Variables below used for development, regular user don't need it
         seedAddr: SEED_ADDRESS,
         genesisHash: GENESIS_HASH,
-        conciliumDefContract: CONCILIUM_CONTRACT
+        conciliumDefContract: CONCILIUM_CONTRACT,
+
+        fixLevelDb: getBoolEnvParameter(FIX_LEVEL_DB)
     };
 }
 
@@ -364,6 +367,7 @@ module.exports = {
 
     readCmdLineOptions: () => {
         const optionDefinitions = [
+            {name: "fixLevelDb", type: Boolean, multiple: false},
             {name: "trustAnnounce", type: Boolean, multiple: false},
             {name: "announceAddr", type: String, multiple: false},
             {name: "announcePort", type: Number, multiple: false},
@@ -373,6 +377,7 @@ module.exports = {
             {name: "rpcUser", type: String, multiple: false},
             {name: "rpcPass", type: String, multiple: false},
             {name: "rpcPort", type: Number, multiple: false},
+            {name: "rpcRate", type: Number, multiple: false},
             {name: "rpcAddress", type: String, multiple: false},
             {name: "genesisHash", type: String, multiple: false},
             {name: "conciliumDefContract", type: String, multiple: false},
@@ -388,7 +393,7 @@ module.exports = {
             {name: "localDevNode", type: Boolean, multiple: false},
             {name: "rebuildDb", type: Boolean, multiple: false},
             {name: "whitelistedAddr", type: String, multiple: true},
-            {name: "suppressJoinTx", type: Boolean, multiple: false, defaultOption: false}
+            {name: "suppressJoinTx", type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },

@@ -30,6 +30,8 @@ const INTENRAL_TX_INDEX_PREFIX = 'I';
 
 const BANNED_BLOCKS_FILE = '.bannedBlocks.json';
 
+const N_OPS_BEFORE_DB_REOPEN = 1e5;
+
 const levelDbDestroy = util.promisify(leveldown.destroy);
 
 /**
@@ -67,7 +69,7 @@ module.exports = (factory, factoryOptions) => {
 
             super();
 
-            const {testStorage, buildTxIndex, walletSupport, dbPath, mutex} = options;
+            const {testStorage, buildTxIndex, walletSupport, dbPath, mutex, fixLevelDb, nOpsBeforeReopen} = options;
             assert(mutex, 'Storage constructor requires Mutex instance!');
 
             if (testStorage) {
@@ -79,20 +81,15 @@ module.exports = (factory, factoryOptions) => {
             }
 
             this._pathPrefix = path.resolve(dbPath || Constants.DB_PATH_PREFIX);
+            this._buildTxIndex = buildTxIndex;
+            this._bFixDb = fixLevelDb;
+            this._nPutCount = 0;
+            this._nOpsBeforeReopen = nOpsBeforeReopen || N_OPS_BEFORE_DB_REOPEN;
 
-            this._db = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`));
-
-            // it's a good idea to keep blocks separately from UTXO DB
-            // it will allow erase UTXO DB, and rebuild it from block DB
-            // it could be levelDB also, but in different dir
-            this._blockStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
-
-            this._peerStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
-
-            if (buildTxIndex) {
-                this._buildTxIndex = true;
-                this._txIndexStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
-            }
+            this._initMainDb();
+            this._initBlockDb();
+            this._initPeerDb();
+            this._initTxDb();
 
             // TODO: make it persistent after adding first address/key to wallet?
             if (walletSupport) {
@@ -320,15 +317,21 @@ module.exports = (factory, factoryOptions) => {
 
          * @param {BlockInfo} blockInfo
          */
-        saveBlockInfo(blockInfo) {
+        async saveBlockInfo(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
 
-            return this._mutex.runExclusive('blockInfoStore', async () => {
-                const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX,
+            const lock = await this._mutex.acquire(['blockInfoStore']);
+
+            try {
+                const blockInfoKey = this.constructor.createKey(
+                    BLOCK_INFO_PREFIX,
                     Buffer.from(blockInfo.getHash(), 'hex')
                 );
                 await this._db.put(blockInfoKey, blockInfo.encode());
-            });
+            } finally {
+                this._mutex.release(lock);
+                await this._fixMainDb();
+            }
         }
 
         /**
@@ -343,6 +346,7 @@ module.exports = (factory, factoryOptions) => {
 
             const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, buffHash);
             await this._db.del(blockInfoKey);
+            await this._fixMainDb();
         }
 
         /**
@@ -476,7 +480,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._db.batch(arrOps);
             } finally {
                 this._mutex.release(lock);
-
+                await this._fixMainDb(arrOps.length);
                 if (!this._arrConciliumDefinition) this.emit('conciliumsChanged');
             }
         }
@@ -556,6 +560,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._db.put(key, cArr.encode());
             } finally {
                 this._mutex.release(lock);
+                await this._fixMainDb();
             }
         }
 
@@ -574,14 +579,18 @@ module.exports = (factory, factoryOptions) => {
             });
         }
 
-        updatePendingBlocks(arrBlockHashes) {
+        async updatePendingBlocks(arrBlockHashes) {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
             const key = this.constructor.createKey(PENDING_BLOCKS);
+            const lock = await this._mutex.acquire(['pending_blocks']);
 
-            return this._mutex.runExclusive(['pending_blocks'], async () => {
+            try {
                 await this._db.put(key, (new ArrayOfHashes(arrBlockHashes)).encode());
-            });
+            } finally {
+                this._mutex.release(lock);
+                await this._fixMainDb();
+            }
         }
 
         async savePeers(arrPeers) {
@@ -1109,6 +1118,18 @@ module.exports = (factory, factoryOptions) => {
             return this._setBlocksBad.has(hash.toString('hex'));
         }
 
+        _reInitMainDb() {
+            const arrSemNames = [
+                'utxo', 'contract', 'receipt', 'conciliums',
+                'pending_blocks', 'blockInfoStore', 'lastAppliedBlock'
+            ];
+
+            return this._mutex.runExclusive(arrSemNames, async () => {
+                await this._db.close();
+                this._db = await this._initMainDb(false);
+            });
+        }
+
         _loadBannedBlocks() {
             try {
                 const strFileContent = fs.readFileSync(`${this._pathPrefix}/${BANNED_BLOCKS_FILE}`);
@@ -1117,6 +1138,50 @@ module.exports = (factory, factoryOptions) => {
                 }
             } catch (e) {
                 logger.debug(`${BANNED_BLOCKS_FILE} not found or corrupted!`);
+            }
+        }
+
+        _initMainDb(bSync = true) {
+            if (bSync) {
+                this._db = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`));
+            } else {
+                return new Promise((resolve, reject) => {
+                    levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`), {}, (err, db) => {
+                        if (err) return reject(err);
+                        resolve(db);
+                    });
+                });
+            }
+        }
+
+        _initTxDb() {
+            if (this._buildTxIndex) {
+                this._txIndexStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
+            }
+        }
+
+        _initBlockDb() {
+
+            // it's a good idea to keep blocks separately from UTXO DB
+            // it will allow erase UTXO DB, and rebuild it from block DB
+            // it could be levelDB also, but in different dir
+            this._blockStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
+        }
+
+        _initPeerDb() {
+            this._peerStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
+        }
+
+        async _fixMainDb(count = 1) {
+
+            // levelDb keep doesn't purge deleted data
+            // only upon startup, so database grows uncontrollably
+            // here is a workaround
+            this._nPutCount += count;
+            if (this._bFixDb && this._nPutCount > this._nOpsBeforeReopen) {
+                logger.log('Reopening "chainstate" db');
+                await this._reInitMainDb();
+                this._nPutCount = 0;
             }
         }
     };
