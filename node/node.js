@@ -612,23 +612,29 @@ module.exports = (factory, factoryOptions) => {
             let currentLevel = [];
             arrKnownHashes.forEach(hash => this._mainDag
                 .getChildren(hash)
+                .filter(strChildHash => this._mainDag.getBlockInfo(strChildHash).getHeight() -
+                                        this._mainDag.getBlockInfo(hash).getHeight() === 1)
                 .forEach(child => !setKnownHashes.has(child) && currentLevel.push(child)));
 
             do {
                 const setNextLevel = new Set();
                 for (let hash of currentLevel) {
                     const biCurrent = this._mainDag.getBlockInfo(hash);
-                    this._mainDag.getChildren(hash).forEach(
-                        child => {
-                            const biChild = this._mainDag.getBlockInfo(child);
+                    this._mainDag
+                        .getChildren(hash)
+                        .filter(strChildHash => this._mainDag.getBlockInfo(strChildHash).getHeight() -
+                                                this._mainDag.getBlockInfo(hash).getHeight() === 1)
+                        .forEach(
+                            strChildHash => {
+                                const biChild = this._mainDag.getBlockInfo(strChildHash);
 
-                            // if we didn't already processed it and it's direct child (height diff === 1) - let's add it
-                            // it not direct child - we'll add it when find direct one
-                            if (!setBlocksToSend.has(child) && !setKnownHashes.has(child)
-                                && biChild.getHeight() - biCurrent.getHeight() === 1) {
-                                setNextLevel.add(child);
-                            }
-                        });
+                                // if we didn't already processed it and it's direct child (height diff === 1) - let's add it
+                                // it not direct child - we'll add it when find direct one
+                                if (!setBlocksToSend.has(strChildHash) && !setKnownHashes.has(strChildHash)
+                                    && biChild.getHeight() - biCurrent.getHeight() === 1) {
+                                    setNextLevel.add(strChildHash);
+                                }
+                            });
                     setBlocksToSend.add(hash);
                     if (setBlocksToSend.size > Constants.MAX_BLOCKS_INV) break;
                 }
@@ -875,7 +881,9 @@ module.exports = (factory, factoryOptions) => {
 
         async _createGetBlocksMsg() {
             const msg = new MsgGetBlocks();
-            msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
+            const arrLastApplied = await this._storage.getLastAppliedBlockHashes();
+            const arrTips = this._pendingBlocks.getTips();
+            msg.arrHashes = arrLastApplied.concat(arrTips);
             return msg;
         }
 
@@ -1374,7 +1382,7 @@ module.exports = (factory, factoryOptions) => {
          */
         _sendCoins(patchTx, strTxHash, strAddress, amount, contract) {
             typeforce(typeforce.tuple(
-                types.Patch, types.Str64, types.Address, typeforce.Number, types.Contract),
+                    types.Patch, types.Str64, types.Address, typeforce.Number, types.Contract),
                 arguments
             );
 

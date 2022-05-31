@@ -1816,7 +1816,11 @@ describe('Node tests', async () => {
             invokeContract(strAddress.toString('hex'), {method, arrArguments});
 
             assert.isOk(node._invokeNestedContract.calledOnce);
-            const [patchBlockArg, patchTxArg, strTxHashArg, strAddrArg, {method: methodArg, arrArguments: arrArgumentsArg}] = node._invokeNestedContract.args[0];
+            const [
+                patchBlockArg, patchTxArg, strTxHashArg, strAddrArg, {
+                    method: methodArg,
+                    arrArguments: arrArgumentsArg
+                }] = node._invokeNestedContract.args[0];
             assert.isOk(patchBlockArg && patchBlockArg instanceof factory.PatchDB);
             assert.isOk(patchTxArg && patchTxArg instanceof factory.PatchDB);
             assert.equal(strAddress, strAddrArg);
@@ -2344,6 +2348,7 @@ describe('Node tests', async () => {
             });
 
         });
+
         describe('Some loaded node', async () => {
 
             it('should return CHAIN for empty REQUEST', async () => {
@@ -2465,6 +2470,345 @@ describe('Node tests', async () => {
                 const setResult = node._getBlocksFromLastKnown([block1]);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 1);
+            });
+
+            it('should return beginning of chain', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 3;
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[0]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, 3);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrExpectedHashes.slice(1, factory.Constants.MAX_BLOCKS_INV + 1)
+                    )
+                );
+            });
+        });
+
+        describe('Node with gap more than MAX_BLOCKS_INV', async () => {
+            const nSaveConstant = factory.Constants.MAX_BLOCKS_INV;
+            after(async () => {
+                factory.Constants.MAX_BLOCKS_INV = nSaveConstant;
+            });
+
+            async function prepareDag() {
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const topBlock = createDummyBlock(factory);
+                topBlock.setHeight(arrExpectedHashes.length + 1);
+                topBlock.parentHashes = [arrExpectedHashes[0], arrExpectedHashes[arrExpectedHashes.length - 1]];
+                node._mainDag.addBlock(new factory.BlockInfo(topBlock.header));
+
+                arrExpectedHashes.push(topBlock.getHash());
+                return arrExpectedHashes;
+            }
+
+            async function prepareDag2() {
+                const arrExpectedHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const sideBlock = createDummyBlock(factory);
+                sideBlock.setHeight(2);
+                sideBlock.parentHashes = [arrExpectedHashes[0]];
+                node._mainDag.addBlock(new factory.BlockInfo(sideBlock.header));
+
+                const topBlock = createDummyBlock(factory);
+                topBlock.setHeight(arrExpectedHashes.length + 1);
+                topBlock.parentHashes = [sideBlock, arrExpectedHashes[arrExpectedHashes.length - 1]];
+                node._mainDag.addBlock(new factory.BlockInfo(topBlock.header));
+
+                arrExpectedHashes.push(sideBlock.getHash());
+                arrExpectedHashes.push(topBlock.getHash());
+                return arrExpectedHashes;
+            }
+
+            it('should return just beginning of chain (except attached to root)', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 3;
+                const nPosInChain = 0;
+
+                const arrExpectedHashes = await prepareDag();
+                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrExpectedHashes.slice(nPosInChain + 1, nPosInChain + 1 + factory.Constants.MAX_BLOCKS_INV)
+                    )
+                );
+            });
+
+            it('should return middle of chain', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 3;
+                const nPosInChain = 3;
+
+                const arrExpectedHashes = await prepareDag();
+                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrExpectedHashes.slice(nPosInChain + 1, nPosInChain + 1 + factory.Constants.MAX_BLOCKS_INV)
+                    )
+                );
+            });
+
+            it('should return end of chain + top block', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 3;
+
+                const arrExpectedHashes = await prepareDag();
+                const nPosInChain = arrExpectedHashes.length - factory.Constants.MAX_BLOCKS_INV - 1;
+
+                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrExpectedHashes.slice(nPosInChain + 1, nPosInChain + 1 + factory.Constants.MAX_BLOCKS_INV)
+                    )
+                );
+            });
+
+            it('should get all', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 300;
+
+                const arrExpectedHashes = await prepareDag();
+
+                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[0]]);
+
+                assert.isOk(setResult);
+
+                // because we already have root, so -1
+                assert.equal(setResult.size, arrExpectedHashes.length - 1);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrExpectedHashes.slice(1, arrExpectedHashes.length)
+                    )
+                );
+            });
+        });
+
+        describe('Node with side chain gap more than MAX_BLOCKS_INV', async () => {
+            const nSaveConstant = factory.Constants.MAX_BLOCKS_INV;
+            after(async () => {
+                factory.Constants.MAX_BLOCKS_INV = nSaveConstant;
+            });
+
+            async function prepareDag() {
+                const arrMainChainHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const sideBlock = createDummyBlock(factory);
+                sideBlock.setHeight(2);
+                sideBlock.parentHashes = [arrMainChainHashes[0]];
+                node._mainDag.addBlock(new factory.BlockInfo(sideBlock.header));
+
+                const topBlock = createDummyBlock(factory);
+                topBlock.setHeight(arrMainChainHashes.length + 1);
+                topBlock.parentHashes = [sideBlock.getHash(), arrMainChainHashes[arrMainChainHashes.length - 1]];
+                node._mainDag.addBlock(new factory.BlockInfo(topBlock.header));
+
+                arrMainChainHashes.push(topBlock.getHash());
+                return [arrMainChainHashes, sideBlock.getHash()];
+            }
+
+            it('should return beginning of chain and 1st block of side', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 3;
+                const nPosInChain = 0;
+
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        [
+                            arrMainChainHashes[nPosInChain + 1],
+                            strSideBlockHash,
+                            arrMainChainHashes[nPosInChain + 2]
+                        ]
+                    )
+                );
+            });
+
+            it('should return middle of chain', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 3;
+                const nPosInChain = 3;
+
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrMainChainHashes.slice(nPosInChain + 1, nPosInChain + 1 + factory.Constants.MAX_BLOCKS_INV)
+                    )
+                );
+            });
+
+            it('should return end of chain + top block', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 3;
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+                const nPosInChain = arrMainChainHashes.length - factory.Constants.MAX_BLOCKS_INV - 1;
+
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrMainChainHashes.slice(nPosInChain + 1, nPosInChain + 1 + factory.Constants.MAX_BLOCKS_INV)
+                    )
+                );
+            });
+
+            it('should get all', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 300;
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[0]]);
+
+                assert.isOk(setResult);
+
+                // because we already have root, so -1 and +1 for side
+                assert.equal(setResult.size, arrMainChainHashes.length);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        [
+                            arrMainChainHashes[1],
+                            strSideBlockHash,
+                            ...arrMainChainHashes.slice(2, arrMainChainHashes.length)
+                        ]
+                    )
+                );
+            });
+        });
+
+        describe('Node with side chain gap more than MAX_BLOCKS_INV attached in a middle', async () => {
+            const nSaveConstant = factory.Constants.MAX_BLOCKS_INV;
+            after(async () => {
+                factory.Constants.MAX_BLOCKS_INV = nSaveConstant;
+            });
+
+            async function prepareDag() {
+                const arrMainChainHashes = await createSimpleChain(
+                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                );
+
+                const sideBlock = createDummyBlock(factory);
+                sideBlock.setHeight(4);
+                sideBlock.parentHashes = [arrMainChainHashes[2]];
+                node._mainDag.addBlock(new factory.BlockInfo(sideBlock.header));
+
+                const topBlock = createDummyBlock(factory);
+                topBlock.setHeight(arrMainChainHashes.length + 1);
+                topBlock.parentHashes = [sideBlock.getHash(), arrMainChainHashes[arrMainChainHashes.length - 1]];
+                node._mainDag.addBlock(new factory.BlockInfo(topBlock.header));
+
+                arrMainChainHashes.push(topBlock.getHash());
+                return [arrMainChainHashes, sideBlock.getHash()];
+            }
+
+            it('should return beginning of chain and 1st block of side', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 5;
+                const nPosInChain = 0;
+
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        [
+                            arrMainChainHashes[nPosInChain + 1],
+                            arrMainChainHashes[nPosInChain + 2],
+                            strSideBlockHash,
+                            arrMainChainHashes[nPosInChain + 3],
+                            arrMainChainHashes[nPosInChain + 4]
+                        ]
+                    )
+                );
+            });
+
+            it('should return middle of chain', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 5;
+                const nPosInChain = 3;
+
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrMainChainHashes.slice(nPosInChain + 1, nPosInChain + 1 + factory.Constants.MAX_BLOCKS_INV)
+                    )
+                );
+            });
+
+            it('should return end of chain + top block', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 5;
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+                const nPosInChain = arrMainChainHashes.length - factory.Constants.MAX_BLOCKS_INV - 1;
+
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+
+                assert.isOk(setResult);
+                assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        arrMainChainHashes.slice(nPosInChain + 1, nPosInChain + 1 + factory.Constants.MAX_BLOCKS_INV)
+                    )
+                );
+            });
+
+            it('should get all', async () => {
+                factory.Constants.MAX_BLOCKS_INV = 300;
+                const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
+
+                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[0]]);
+
+                assert.isOk(setResult);
+
+                // because we already have root, so -1 and +1 for side
+                assert.equal(setResult.size, arrMainChainHashes.length);
+                assert.isOk(
+                    arrayEquals(
+                        Array.from(setResult),
+                        [
+                            arrMainChainHashes[1],
+                            arrMainChainHashes[2],
+                            strSideBlockHash,
+                            ...arrMainChainHashes.slice(3, arrMainChainHashes.length)
+                        ]
+                    )
+                );
             });
         });
     });
