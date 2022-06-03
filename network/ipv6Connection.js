@@ -68,7 +68,7 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
                     // for receiveSync only.
                     this.emit('messageSync', msg);
                 } catch (err) {
-                    logger.error(err);
+                    err.log();
                 }
             }
         }

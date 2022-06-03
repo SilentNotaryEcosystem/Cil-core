@@ -7,6 +7,26 @@ const v8 = require('v8');
 const http = require('http');
 const https = require('https');
 
+class ExceptionDebug extends Error {
+    constructor(strMsg) {
+        super(strMsg);
+    }
+
+    log() {
+        logger.debug(this);
+    }
+}
+
+class ExceptionLog extends Error {
+    constructor(strMsg) {
+        super(strMsg);
+    }
+
+    log() {
+        logger.log(this);
+    }
+}
+
 /**
  *
  * @param {Array} arrNumbers
@@ -446,5 +466,7 @@ module.exports = {
     GCD,
     createPeerTag,
     finePrintUtxos,
-    getBoolEnvParameter
+    getBoolEnvParameter,
+    ExceptionDebug,
+    ExceptionLog
 };

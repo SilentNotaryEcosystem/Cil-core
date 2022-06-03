@@ -9,7 +9,8 @@ const {
     getBoolEnvParameter,
     deStringifyObject, prepareForStringifyObject, arrayIntersection,
     mergeSets, decryptPkFileContent, queryRpc, getHttpData,
-    mapEnvToOptions
+    mapEnvToOptions,
+    ExceptionDebug, ExceptionLog
 } = require('../utils');
 
 describe('Utils', () => {
@@ -314,5 +315,31 @@ describe('Utils', () => {
 
         assert.equal(rpcRate, parseInt(process.env.RPC_RATE));
         assert.isOk(fixLevelDb);
+    });
+
+    describe('Exceptions', async () => {
+        it('should create ExceptionDebug', async () => {
+            const e = new ExceptionDebug('debug');
+            e.log();
+
+            assert.isOk(e.message);
+            assert.isOk(e.stack);
+        });
+
+        it('should create ExceptionLog', async () => {
+            const e = new ExceptionLog('log');
+            e.log();
+
+            assert.isOk(e.message);
+            assert.isOk(e.stack);
+        });
+
+        it('should create Error', async () => {
+            const e = new Error('error');
+            e.log();
+
+            assert.isOk(e.message);
+            assert.isOk(e.stack);
+        });
     });
 });
