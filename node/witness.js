@@ -1,7 +1,7 @@
 const assert = require('assert');
 const debugLib = require('debug');
 
-const {createPeerTag} = require('../utils');
+const {createPeerTag, arrayEquals, ExceptionDebug} = require('../utils');
 
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
@@ -318,6 +318,7 @@ module.exports = (factory, factoryOptions) => {
 
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
+                    await this._compareParents(block);
                     if (await this._canExecuteBlock(block)) {
                         this._processedBlock = block;
                         const patch = await this._execBlock(block);
@@ -328,7 +329,7 @@ module.exports = (factory, factoryOptions) => {
 
                     // no _accept here, because this block should be voted before
                 } catch (e) {
-                    logger.error(e);
+                    e.log();
                     consensus.invalidBlock();
                 } finally {
                     this._mutex.release(lock);
@@ -338,6 +339,15 @@ module.exports = (factory, factoryOptions) => {
                 // we still wait for block from designated proposer or timer for BLOCK state will expire
                 debugWitness(
                     `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not his turn!`);
+            }
+        }
+
+        async _compareParents(block) {
+            const {arrParents} = await this._pendingBlocks.getBestParents(block.getConciliumId());
+
+            if (!arrayEquals(block.parentHashes, arrParents)) {
+                throw new ExceptionDebug(
+                    'Will reject block because of different parents');
             }
         }
 
