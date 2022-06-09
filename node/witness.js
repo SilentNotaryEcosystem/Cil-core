@@ -319,7 +319,7 @@ module.exports = (factory, factoryOptions) => {
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
                     await this._compareParents(block);
-                    if (await this._canExecuteBlock(block)) {
+                    if (this._canExecuteBlock(block)) {
                         this._processedBlock = block;
                         const patch = await this._execBlock(block);
                         consensus.processValidBlock(block, patch);
@@ -430,13 +430,15 @@ module.exports = (factory, factoryOptions) => {
                         // we have contracts inside block - we should re-execute block to have proper variables inside block
                         await this._handleArrivedBlock(block);
                     } else if (!this._mutex.isLocked('blockReceived') && !this._isBlockExecuted(block.getHash())) {
-                        lockBlock = await this._mutex.acquire(['blockReceived']);
+                        lockBlock = await this._mutex.acquire(['blockReceived', block.getHash()]);
 
                         // block still hadn't received from more quick (that already commited & announced block) witness
                         // we have only moneys transfers, so we could use patch. this will speed up processing
-                        await this._storeBlockAndInfo(block, new BlockInfo(block.header));
-                        await this._acceptBlock(block, patch);
-                        await this._postAcceptBlock(block);
+                        if (!this._isBlockExecuted(block.getHash())) {
+                            await this._storeBlockAndInfo(block, new BlockInfo(block.header));
+                            await this._acceptBlock(block, patch);
+                            await this._postAcceptBlock(block);
+                        }
 
                         if (!this._networkSuspended) this._informNeighbors(block);
                     }

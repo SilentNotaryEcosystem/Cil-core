@@ -2111,13 +2111,9 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Attempting to exec block "${block.getHash()}"`);
 
-            if (await this._canExecuteBlock(block)) {
+            if (this._canExecuteBlock(block)) {
                 if (!this._isBlockExecuted(block.getHash())) {
-                    if (block instanceof Block) {
-                        await this._blockProcessorExecBlock(block, peer);
-                    } else {
-                        await this._blockProcessorExecBlock(block.getHash(), peer);
-                    }
+                    await this._blockProcessorExecBlock(block instanceof Block ? block : block.getHash(), peer);
 
                     const arrChildrenHashes = this._mainDag.getChildren(block.getHash());
                     for (let hash of arrChildrenHashes) {
@@ -2170,11 +2166,11 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Executing block "${block.getHash()}"`);
 
-            const lock = await this._mutex.acquire(['blockExec']);
+            const lock = await this._mutex.acquire(['blockExec', block.getHash()]);
             this._processedBlock = block;
             try {
                 const patchState = await this._execBlock(block);
-                if (patchState) {
+                if (patchState && !this._isBlockExecuted(block.getHash())) {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
                     if (!this._networkSuspended && !this._isInitialBlockLoading()) this._informNeighbors(block, peer);
