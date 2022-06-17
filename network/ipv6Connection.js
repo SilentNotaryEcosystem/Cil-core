@@ -69,6 +69,7 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
                     this.emit('messageSync', msg);
                 } catch (err) {
                     err.log();
+                    this.close();
                 }
             }
         }
