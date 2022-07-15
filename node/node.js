@@ -1000,11 +1000,13 @@ module.exports = (factory, factoryOptions) => {
             const strNewTxHash = newTx.getHash();
             assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
 
-            await this._processReceivedTx(newTx, false);
-            const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
+            const lock = await this._mutex.acquire(['blockExec']);
 
             // let's check for patch conflicts with other local txns
             try {
+                await this._processReceivedTx(newTx, false);
+                const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
+
                 await this._ensureLocalTxnsPatch();
 
                 // update cache
@@ -1018,6 +1020,8 @@ module.exports = (factory, factoryOptions) => {
             } catch (e) {
                 logger.error(e);
                 throw new Error(`Tx is not accepted: ${e.message}`);
+            } finally {
+                this._mutex.release(lock);
             }
         }
 
