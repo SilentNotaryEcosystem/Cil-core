@@ -360,6 +360,38 @@ describe('Peer tests', () => {
         assert.isTrue(pingMsg.isPing());
     });
 
+    it('should increase attemts to connect to peer counter for a swithed off node', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect();
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+
+        const failedConnectionCount = newPeer._failedConnectionCount;
+
+        newPeer._tick();
+        assert.equal(newPeer._failedConnectionCount, failedConnectionCount + 1);
+    });
+
+    it('should mark node as dead if we have reached PEER_FAILED_CONNECTIONS_LIMIT of attempts', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        await newPeer.connect();
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+        newPeer._failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT;
+
+        newPeer._tick();
+
+        assert.isOk(newPeer.isDead());
+    });
+
+    it('should not be able to connect to a dead node', async () => {
+        const newPeer = new factory.Peer({peerInfo});
+        newPeer._updateFailedConnectionCount(factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1);
+
+        await newPeer.connect();
+
+        assert.isOk(newPeer.disconnected);
+        assert.isNotOk(newPeer._connection);
+    });
+
     describe('updatePeerFromPeerInfo', function() {
         let newPeer;
         let strAddress;

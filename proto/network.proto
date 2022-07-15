@@ -29,7 +29,7 @@ message PeerInfo {
     uint32 lifetimeMisbehaveScore = 4;
     uint32 lifetimeTransmittedBytes = 5;
     uint32 lifetimeReceivedBytes = 6;
-
+    uint32 failedConnectionCount = 7;
 }
 
 enum Services {

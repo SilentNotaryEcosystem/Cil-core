@@ -33,6 +33,7 @@ module.exports = (factory) => {
             this._restrictedTill = Date.now();
             this._misbehavedAt = Date.now();
             this._misbehaveScore = 0;
+            this._failedConnectionCount = 0;
 
             this._cleanup();
 
@@ -77,6 +78,10 @@ module.exports = (factory) => {
 
         get receivedBytes() {
             return this._receivedBytes;
+        }
+
+        get failedConnectionCount() {
+            return this._failedConnectionCount;
         }
 
         get peerInfo() {
@@ -235,7 +240,11 @@ module.exports = (factory) => {
 
         isAlive() {
             const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
-            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive;
+            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive && !this.isDead();
+        }
+
+        isDead() {
+            return this._failedConnectionCount > Constants.PEER_FAILED_CONNECTIONS_LIMIT;
         }
 
         async loaded() {
@@ -264,6 +273,10 @@ module.exports = (factory) => {
             }
             if (this.isRestricted()) {
                 logger.error('Trying to connect to temporary restricted peer!');
+                return;
+            }
+            if (this.isDead()) {
+                logger.error('Trying to connect to a dead peer!');
                 return;
             }
             if (!this.disconnected) {
@@ -438,6 +451,7 @@ module.exports = (factory) => {
 
             if (this._lastActionTimestamp + Constants.PEER_DEAD_TIME < Date.now()) {
                 this.disconnect('Peer is dead!');
+                this._incrementFailedConnectionCount();
                 return;
             }
 
@@ -474,6 +488,21 @@ module.exports = (factory) => {
         _updateMisbehave(score) {
             this.peerInfo.lifetimeMisbehaveScore += score;
             this._misbehaveScore += score;
+        }
+
+        _updateFailedConnectionCount(count) {
+            this._failedConnectionCount = count;
+            this.peerInfo.failedConnectionCount = count;
+        }
+
+        _incrementFailedConnectionCount() {
+            this._failedConnectionCount++;
+            this.peerInfo.failedConnectionCount++;
+        }
+
+        resetFailedConnectionCount() {
+            this._failedConnectionCount = 0;
+            this.peerInfo.failedConnectionCount = 0;
         }
 
         markAsPossiblyAhead() {

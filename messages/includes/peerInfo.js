@@ -97,6 +97,15 @@ module.exports = (Constants, PeerInfoProto) =>
         set lifetimeReceivedBytes(bytesCount) {
             this._data.lifetimeReceivedBytes = bytesCount;
         }
+
+        get failedConnectionCount() {
+            return this._data.failedConnectionCount;
+        }
+
+        set failedConnectionCount(count) {
+            this._data.failedConnectionCount = count;
+        }
+
         /**
          *
          * @param {Object} objAddress - {addr0, addr1, addr2, addr3}
