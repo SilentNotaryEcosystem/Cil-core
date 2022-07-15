@@ -97,6 +97,10 @@ module.exports = (factory) => {
             if (existingPeer && existingPeer.isBanned()) return Constants.REJECT_BANNED;
             if (existingPeer && existingPeer.isRestricted()) return Constants.REJECT_RESTRICTED;
 
+            if (existingPeer && existingPeer.isDead() && peer.inbound) {
+                existingPeer.resetFailedConnectionCount();
+            }
+
             // both peers are connected.
             if (existingPeer && !existingPeer.disconnected && !peer.disconnected) return Constants.REJECT_DUPLICATE;
 
@@ -234,7 +238,7 @@ module.exports = (factory) => {
             for (let [, peer] of this._mapAllPeers.entries()) {
                 if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
 
-                    if (!peer.isBanned() &&
+                    if (!peer.isBanned() && !peer.isDead() &&
                         (bIncludeInactive || this._isSeed || (peer.isAlive() && !peer.isRestricted()))) {
                         arrResult.push(peer);
                     }
