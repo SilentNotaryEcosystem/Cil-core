@@ -365,17 +365,17 @@ describe('Peer tests', () => {
         await newPeer.connect();
         newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
 
-        const failedConnectionCount = newPeer._failedConnectionCount;
+        const failedConnectionCount = newPeer.getFailedConnectionCount();
 
         newPeer._tick();
-        assert.equal(newPeer._failedConnectionCount, failedConnectionCount + 1);
+        assert.equal(newPeer.getFailedConnectionCount(), failedConnectionCount + 1);
     });
 
     it('should mark node as dead if we have reached PEER_FAILED_CONNECTIONS_LIMIT of attempts', async () => {
         const newPeer = new factory.Peer({peerInfo});
         await newPeer.connect();
         newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
-        newPeer._failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT;
+        newPeer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT;
 
         newPeer._tick();
 

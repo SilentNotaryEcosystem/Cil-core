@@ -33,7 +33,6 @@ module.exports = (factory) => {
             this._restrictedTill = Date.now();
             this._misbehavedAt = Date.now();
             this._misbehaveScore = 0;
-            this._failedConnectionCount = 0;
 
             this._cleanup();
 
@@ -80,8 +79,8 @@ module.exports = (factory) => {
             return this._receivedBytes;
         }
 
-        get failedConnectionCount() {
-            return this._failedConnectionCount;
+        getFailedConnectionCount() {
+            return this._peerInfo.failedConnectionCount;
         }
 
         get peerInfo() {
@@ -244,7 +243,7 @@ module.exports = (factory) => {
         }
 
         isDead() {
-            return this._failedConnectionCount > Constants.PEER_FAILED_CONNECTIONS_LIMIT;
+            return this._peerInfo.failedConnectionCount > Constants.PEER_FAILED_CONNECTIONS_LIMIT;
         }
 
         async loaded() {
@@ -451,7 +450,7 @@ module.exports = (factory) => {
 
             if (this._lastActionTimestamp + Constants.PEER_DEAD_TIME < Date.now()) {
                 this.disconnect('Peer is dead!');
-                this._incrementFailedConnectionCount();
+                this.peerInfo.failedConnectionCount++;
                 return;
             }
 
@@ -491,17 +490,10 @@ module.exports = (factory) => {
         }
 
         _updateFailedConnectionCount(count) {
-            this._failedConnectionCount = count;
             this.peerInfo.failedConnectionCount = count;
         }
 
-        _incrementFailedConnectionCount() {
-            this._failedConnectionCount++;
-            this.peerInfo.failedConnectionCount++;
-        }
-
         resetFailedConnectionCount() {
-            this._failedConnectionCount = 0;
             this.peerInfo.failedConnectionCount = 0;
         }
 
