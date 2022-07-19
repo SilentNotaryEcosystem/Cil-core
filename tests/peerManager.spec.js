@@ -349,7 +349,7 @@ describe('Peer manager', () => {
         assert.equal(peer.misbehaveScore, arrPeers[0].peerInfo.lifetimeMisbehaveScore);
         assert.equal(peer.transmittedBytes, arrPeers[0].peerInfo.lifetimeTransmittedBytes);
         assert.equal(peer.receivedBytes, arrPeers[0].peerInfo.lifetimeReceivedBytes);
-        assert.equal(peer.failedConnectionCount, arrPeers[0].peerInfo.failedConnectionCount);
+        assert.equal(peer.getFailedConnectionCount(), arrPeers[0].peerInfo.failedConnectionCount);
     });
 
     it('should load peers from storage', async () => {

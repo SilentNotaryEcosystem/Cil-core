@@ -284,7 +284,15 @@ module.exports = (factory) => {
             }
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
-            this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
+
+            try {
+                this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
+            } catch (e) {
+                this._peerInfo.failedConnectionCount++;
+                logger.error(`Connection error: ${e}`);
+                return;
+            }
+
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
 
@@ -450,7 +458,6 @@ module.exports = (factory) => {
 
             if (this._lastActionTimestamp + Constants.PEER_DEAD_TIME < Date.now()) {
                 this.disconnect('Peer is dead!');
-                this.peerInfo.failedConnectionCount++;
                 return;
             }
 
