@@ -6,6 +6,7 @@
   "version": "0.7.2-staging",
   "main": "factory.js",
   "dependencies": {
+    "@babel/core": "^7.18.9",
     "command-line-args": "^5.1.1",
     "dagjs": "git+https://github.com/trueshura/DAG.git",
     "elliptic": "^6.5.4",

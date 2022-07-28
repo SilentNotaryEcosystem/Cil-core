@@ -3,6 +3,7 @@ const Long = require('long');
 const assert = require('assert');
 const typeforce = require('typeforce');
 const types = require('../types');
+const hasUnsupportedOperation = require('./babel/hasUnsupportedOperation');
 
 // TODO: calculate tx size for proper fee calculating
 
@@ -109,10 +110,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @param {String} strCode
          * @param {Address} addrChangeReceiver
          * @returns {Transaction}
+         * @throws unsupported operation error in case if strCode contains any dangerous operation
          */
         static createContract(strCode, addrChangeReceiver) {
             typeforce(typeforce.String, strCode);
             typeforce(typeforce.maybe(types.Address, addrChangeReceiver));
+
+            if (hasUnsupportedOperation(strCode)) {
+                throw new Error('Found unsupported operation in the contract!');
+            }
 
             if (addrChangeReceiver && !Buffer.isBuffer(addrChangeReceiver)) {
                 addrChangeReceiver = Buffer.from(addrChangeReceiver, 'hex');
