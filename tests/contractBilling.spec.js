@@ -20,28 +20,33 @@ describe('Tests of contract billing', () => {
     });
 
     describe('Check unsupported operations', () => {
+        const UnsupportedExceptionText = 'Found unsupported operation in the contract!';
+
         it('should not allow to create a contract with a dangerous operation and throw an exception: process.exit()', () => {
             const strCode = '{ process.exit(1); }';
             const createContract = () => factory.Transaction.createContract(strCode, generateAddress());
-            assert.throws(createContract);
-        })
+            assert.throws(createContract, UnsupportedExceptionText);
+        });
 
         it('should not allow to create a contract with a dangerous operation and throw an exception: Math.random();', () => {
             const strCode = '{ class A { testMethod() { return Math.random(); } } }';
             const createContract = () => factory.Transaction.createContract(strCode, generateAddress());
-            assert.throws(createContract);
+            assert.throws(createContract, UnsupportedExceptionText);
         })
 
         it('should not allow to create a contract with a dangerous operation and throw an exception: eval();', () => {
             const strCode = '{ function test() { eval("process.exit(1);"); } }';
             const createContract = () => factory.Transaction.createContract(strCode, generateAddress());
-            assert.throws(createContract);
+            assert.throws(createContract, UnsupportedExceptionText);
         })
 
         it('should not throw an exception', () => {
             const strCode = '{}';
             const createContract = () => factory.Transaction.createContract(strCode, generateAddress());
-            assert.isOk(createContract());
+            assert.doesNotThrow(createContract);
         })
+    });
+
+    describe('Check infinite loop breaking using loop iteration cost', () => {
     });
 })
