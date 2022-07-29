@@ -8,9 +8,13 @@ const typeforce = require('typeforce');
 const debugLib = require('debug');
 const util = require('util');
 const types = require('../types');
+const billingCodeWrapper = require('../structures/babel/billCodeOperations');
 
 const debug = debugLib('application:');
 
+const strCodePrefix = (nTotalCoins) => `
+    let __nTotalCoins = ${nTotalCoins};
+`;
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
     ;
@@ -130,9 +134,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let message;
 
             try {
-
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
                 const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
+                // TODO: check how it works before
+                // const retVal = vm.run(strCodePrefix(this._nCoinsLimit) + strPredefinedClassesCode + billingCodeWrapper(strCode) + strCodeSuffix);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
                 assert(retVal.objCode, 'No contract methods exported!');
                 assert(retVal.data, 'No contract data exported!');
@@ -256,6 +261,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
                 const strArgs = objInvocationCode.arrArguments.map(arg => JSON.stringify(arg)).join(',');
                 const strPreparedCode = `
+                    ${strCodePrefix(this._nInitialCoins)}
                     ${this._prepareCode(objMethods)}
                     ${objInvocationCode.method}(${strArgs});`;
 
@@ -309,6 +315,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                     objFuncCode[methodName] = objFuncCode[methodName].substr(1);
                     strAsync = 'async ';
                 }
+
+                const bracketIndex = objFuncCode[methodName].indexOf(')');
+                const codeParts = [objFuncCode[methodName].substr(0, bracketIndex), objFuncCode[methodName].substr(bracketIndex + 1)];
+                objFuncCode[methodName] = [codeParts[0], billingCodeWrapper(codeParts[1])].join(')');
 
                 // temporary name
                 const newName = `__MyRenamed__${methodName}`;
