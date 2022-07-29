@@ -77,13 +77,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: for (;;);', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ for (;;); }"}',
+                contractCode: '{"test": "(){ for (;;); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -91,13 +90,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: for (;;) {}', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ for (;;) {} }"}',
+                contractCode: '{"test": "(){ for (;;) {} }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -105,13 +103,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: for (;;) { continue; }', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ for (;;) { continue; } }"}',
+                contractCode: '{"test": "(){ for (;;) { continue; } }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -119,13 +116,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: while (true);', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ while (true); }"}',
+                contractCode: '{"test": "(){ while (true); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -133,13 +129,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: while (true) {}', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ while (true) {} }"}',
+                contractCode: '{"test": "(){ while (true) {} }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -147,13 +142,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: while (true) { continue; }', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ while (true) { continue; } }"}',
+                contractCode: '{"test": "(){ while (true) { continue; } }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -161,13 +155,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: do ; while (true);', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ do ; while (true); }"}',
+                contractCode: '{"test": "(){ do ; while (true); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -175,13 +168,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: do {} while (true);', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ do {} while (true); }"}',
+                contractCode: '{"test": "(){ do {} while (true); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -189,13 +181,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite loop: do { continue; } while (true);', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ do { continue; } while (true); }"}',
+                contractCode: '{"test": "(){ do { continue; } while (true); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -203,13 +194,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite recursion: function f() { f(); } f();', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ function f() { f(); } f(); }"}',
+                contractCode: '{"test": "(){ function f() { f(); } f(); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -217,13 +207,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite recursion: const f = () => { f(); }; f();', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ const f = () => { f(); }; f(); }"}',
+                contractCode: '{"test": "(){ const f = () => { f(); }; f(); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
@@ -231,13 +220,12 @@ describe('Tests of contract billing', () => {
 
         it('should throw an exception for the infinite recursion: function f1() { f2(); } function f2() { f1(); } f1();', async () => {
             const contract = new factory.Contract({
-                contractData: {value: 100},
-                contractCode: '{"add": "(a){ function f1() { f2(); } function f2() { f1(); } f1(); }"}',
+                contractCode: '{"test": "(){ function f1() { f2(); } function f2() { f1(); } f1(); }"}',
                 conciliumId: 10
             });
 
             assert.isRejected(app.runContract(
-                {method: 'add', arrArguments: [10]},
+                {method: 'test', arrArguments: []},
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
