@@ -9,5 +9,15 @@ module.exports = (babel, { setHasUnsupportedOperation }) => ({
                 }
             }
         },
+        RegExpLiteral: (path) => {
+            setHasUnsupportedOperation(true);
+            path.stop();
+        },
+        Identifier: (path) => {
+            if (path.node.name === 'RegExp') {
+                setHasUnsupportedOperation(true);
+                path.stop();
+            }
+         },
     },
 });
