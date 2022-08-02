@@ -13,7 +13,7 @@ const billingCodeWrapper = require('../structures/babel/billCodeOperations');
 const debug = debugLib('application:');
 
 const strCodePrefix = (nTotalCoins) => `
-    let __nTotalCoins = ${nTotalCoins};
+    let __nTotalCoins = ${nTotalCoins || 0};
 `;
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
@@ -135,9 +135,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
             try {
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
-                const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
-                // TODO: check how it works before
-                // const retVal = vm.run(strCodePrefix(this._nCoinsLimit) + strPredefinedClassesCode + billingCodeWrapper(strCode) + strCodeSuffix);
+                const retVal = vm.run(strCodePrefix(this._nCoinsLimit) + strPredefinedClassesCode + billingCodeWrapper(strCode) + strCodeSuffix);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
                 assert(retVal.objCode, 'No contract methods exported!');
                 assert(retVal.data, 'No contract data exported!');

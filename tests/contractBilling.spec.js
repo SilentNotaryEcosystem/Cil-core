@@ -105,6 +105,7 @@ describe('Tests of contract billing', () => {
                 coinsLimit: 10000,
                 objFees: {
                     nFeeContractInvocation,
+                    nFeeContractCreation,
                     nFeeSize: nFeeSizeFakeTx,
                     nFeeStorage
                 }
@@ -265,6 +266,168 @@ describe('Tests of contract billing', () => {
                 contract,
                 {}, undefined
             ), ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in class: for (;;);', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        for (;;);
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: for (;;) {}', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        for (;;) {}
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: for (;;) { continue; }', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        for (;;) { continue; }
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: while (true);', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        while (true);
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: while (true) {}', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        while (true) {}
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: while (true) { continue; }', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        while (true) { continue; }
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: do ; while (true);', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        do ; while (true);
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: do {} while (true);', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        do {} while (true);
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
+        });
+
+        it('should throw an exception for the infinite loop in a class: do { continue; } while (true);', async () => {
+            const strCode = `
+                class A extends Base {
+                    constructor(){
+                        super();
+                        do { continue; } while (true);
+                    }
+                }
+                exports=new A();
+                `;
+            const callerAddress = generateAddress().toString('hex');
+            const createContract = () => app.createContract(
+                strCode,
+                {contractAddr: 'hash', callerAddress}
+            );
+            assert.throws(createContract, ContractRunOutOfCoinsText);
         });
     });
 })
