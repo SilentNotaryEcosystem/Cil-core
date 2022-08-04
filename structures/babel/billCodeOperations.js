@@ -1,4 +1,5 @@
 const babel = require("@babel/core");
+const bracketizeCode = require('./plugins/bracketizeCode');
 const commentBilledOperations = require('./plugins/commentBilledOperations');
 
 const billCoins = (cost, comment) =>
@@ -10,7 +11,11 @@ const billCoins = (cost, comment) =>
  * @returns {String}
  */
 module.exports = (strCode) => {
-    const commentedCode = babel.transform(strCode, {
+    const bracketizedCode = babel.transform(strCode, {
+        plugins: [bracketizeCode]
+    });
+
+    const commentedCode = babel.transform(bracketizedCode.code, {
         plugins: [commentBilledOperations]
     });
 

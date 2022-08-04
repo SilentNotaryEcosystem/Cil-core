@@ -18,6 +18,10 @@ module.exports = (babel, { setHasUnsupportedOperation }) => ({
                 setHasUnsupportedOperation(true);
                 path.stop();
             }
-         },
+        },
+        ArrowFunctionExpression: (path) => {
+            setHasUnsupportedOperation(true);
+            path.stop();
+        }
     },
 });

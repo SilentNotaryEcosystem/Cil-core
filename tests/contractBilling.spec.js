@@ -43,6 +43,13 @@ describe('Tests of contract billing', () => {
             assert.throws(createContract, UnsupportedExceptionText);
         })
 
+        it('should not allow to create a contract with an arrow function', () => {
+            const strCode = '{ const f = () => {}; }';
+            const createContract = () => factory.Transaction.createContract(strCode, generateAddress());
+            assert.throws(createContract, UnsupportedExceptionText);
+        });
+
+
         it('should not throw an exception for the contract without a dangerous operation', () => {
             const strCode = '{}';
             const createContract = () => factory.Transaction.createContract(strCode, generateAddress());
@@ -242,9 +249,9 @@ describe('Tests of contract billing', () => {
             ), ContractRunOutOfCoinsText);
         });
 
-        it('should throw an exception for the infinite recursion: const f = () => { f(); }; f();', async () => {
+        it('should throw an exception for the infinite recursion: function f() { f(); }; f();', async () => {
             const contract = new factory.Contract({
-                contractCode: '{"test": "(){ const f = () => { f(); }; f(); }"}',
+                contractCode: '{"test": "(){ function f() { f(); }; f() }"}',
                 conciliumId: 10
             });
 
