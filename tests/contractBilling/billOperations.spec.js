@@ -28,7 +28,6 @@ describe('Contract billing: bill operations', () => {
     let nFeeStorage;
     let nFeeSizeFakeTx;
     let app;
-    const ContractRunOutOfCoinsText = 'Contract run out of coins';
 
     beforeEach(() => {
         nFeeContractInvocation = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
@@ -210,5 +209,4 @@ describe('Contract billing: bill operations', () => {
 
         assert.equal(initialCoins - LOOPITER * (loopIterations + 1), app._nCoinsLimit);
     });
-
 });
