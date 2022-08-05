@@ -124,7 +124,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
                 sandbox: {
-                    ...environment
+                    ...environment,
+                    updateExecutionCoinsBalance: (coins) => { this._nCoinsLimit = coins; }
                 }
             });
 
@@ -136,8 +137,16 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let message;
 
             try {
+                const strPreparedCode = `
+                    ${strCodePrefix(this._nCoinsLimit)}
+                    ${strPredefinedClassesCode}
+                    ${billingCodeWrapper(strCode)}
+                    ${strBillingCall}
+                    ${strCodeSuffix}
+                `;
+
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
-                const retVal = vm.run(strCodePrefix(this._nCoinsLimit) + strPredefinedClassesCode + billingCodeWrapper(strCode) + strCodeSuffix);
+                const retVal = vm.run(strPreparedCode);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
                 assert(retVal.objCode, 'No contract methods exported!');
                 assert(retVal.data, 'No contract data exported!');

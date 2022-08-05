@@ -29,9 +29,11 @@ describe('Contract billing: bill operations', () => {
     let nFeeSizeFakeTx;
     let app;
 
+    const CONTRACT_CREATION_FEE = 100;
+
     beforeEach(() => {
         nFeeContractInvocation = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
-        nFeeContractCreation = factory.Constants.fees.CONTRACT_CREATION_FEE;
+        nFeeContractCreation = CONTRACT_CREATION_FEE;
         nFeeStorage = factory.Constants.fees.STORAGE_PER_BYTE_FEE;
         nFeeSizeFakeTx = 100;
 
@@ -208,5 +210,85 @@ describe('Contract billing: bill operations', () => {
         );
 
         assert.equal(initialCoins - LOOPITER * (loopIterations + 1), app._nCoinsLimit);
+    });
+
+    it('should reduce balance by ADD operation cost for an object', async () => {
+        const strCode = `
+            class A extends Base {
+                constructor(){
+                    super();
+                    1 + 1;
+                }
+            }
+            exports=new A();
+            `;
+        const callerAddress = generateAddress().toString('hex');
+
+        const initialCoins = app._nCoinsLimit;
+        app.createContract(
+            strCode,
+            {contractAddr: 'hash', callerAddress}
+        );
+        assert.equal(initialCoins - CONTRACT_CREATION_FEE - ADD, app._nCoinsLimit);
+    });
+
+    it('should reduce balance by SUB operation cost for an object', async () => {
+        const strCode = `
+            class A extends Base {
+                constructor(){
+                    super();
+                    3 - 2;
+                }
+            }
+            exports=new A();
+            `;
+        const callerAddress = generateAddress().toString('hex');
+
+        const initialCoins = app._nCoinsLimit;
+        app.createContract(
+            strCode,
+            {contractAddr: 'hash', callerAddress}
+        );
+        assert.equal(initialCoins - CONTRACT_CREATION_FEE - SUB, app._nCoinsLimit);
+    });
+
+    it('should reduce balance by MUL operation cost for an object', async () => {
+        const strCode = `
+            class A extends Base {
+                constructor(){
+                    super();
+                    3 * 2;
+                }
+            }
+            exports=new A();
+            `;
+        const callerAddress = generateAddress().toString('hex');
+
+        const initialCoins = app._nCoinsLimit;
+        app.createContract(
+            strCode,
+            {contractAddr: 'hash', callerAddress}
+        );
+        assert.equal(initialCoins - CONTRACT_CREATION_FEE - MUL, app._nCoinsLimit);
+    });
+
+    it('should reduce balance by DIV operation cost for an object', async () => {
+        const strCode = `
+            class A extends Base {
+                constructor(){
+                    super();
+                    3 / 2;
+                }
+            }
+            exports=new A();
+            `;
+        const callerAddress = generateAddress().toString('hex');
+
+        const initialCoins = app._nCoinsLimit;
+        app.createContract(
+            strCode,
+            {contractAddr: 'hash', callerAddress}
+        );
+        assert.equal(initialCoins - CONTRACT_CREATION_FEE - DIV, app._nCoinsLimit);
     });
 });

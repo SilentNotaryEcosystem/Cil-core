@@ -70,7 +70,9 @@ module.exports = (babel) => {
     return {
         visitor: {
             CallExpression: (path) => {
-                path.insertBefore(billCoins(CALLCODE, "CALLCODE"));
+                if (path.node.callee.type !== 'Super') {
+                    path.insertBefore(billCoins(CALLCODE, "CALLCODE"));
+                }
             },
             WhileStatement: (path) => {
                 loopInjection(path);
