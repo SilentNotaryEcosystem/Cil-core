@@ -15,6 +15,8 @@ const debug = debugLib('application:');
 const strCodePrefix = (nTotalCoins) => `
     let __nTotalCoins = ${nTotalCoins || 0};
 `;
+
+const strBillingCall = 'updateExecutionCoinsBalance(__nTotalCoins);';
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
     ;
@@ -245,7 +247,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                         objParams,
                         thisContext,
                         environment
-                    )
+                    ),
+                    updateExecutionCoinsBalance: (coins) => { this._nCoinsLimit = coins; }
                 };
 
                 const vm = new VM({
@@ -261,7 +264,9 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 const strPreparedCode = `
                     ${strCodePrefix(this._nInitialCoins)}
                     ${this._prepareCode(objMethods)}
-                    ${objInvocationCode.method}(${strArgs});`;
+                    ${objInvocationCode.method}(${strArgs});
+                    ${strBillingCall}
+                    `;
 
                 result = await vm.run(strPreparedCode);
 
