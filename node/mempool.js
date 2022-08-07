@@ -45,7 +45,11 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
         removeTxns(arrTxHashes) {
             const prevSize = this._mapLocalTxns.size;
-
+            //Cleanup MemPool from transactions that are already added to blocks
+            if(this._mapConcilimTxns.get(this._setPreferredConciliums.size - 1) !== this._mapLocalTxns)
+            {
+                this.loadLocalTxnsFromDisk();
+            }
             for (let txHash of arrTxHashes) {
 
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving concilium). if so - implement queue
