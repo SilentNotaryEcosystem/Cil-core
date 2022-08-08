@@ -33,6 +33,8 @@ function _spendCoins(nCurrent, nAmount) {
     return nRemained;
 }
 
+const ContractRunOutOfCoinsText = 'Contract run out of coins';
+
 module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Contract}) =>
     class Application {
         constructor(options) {
@@ -161,6 +163,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 contract =
                     this._newContract(environment.contractAddr, objData, strCodeExportedFunctions, nContractVersion);
 
+            } catch (error) {
+                if (error.message.startsWith(`${ContractRunOutOfCoinsText}#`)) {
+                    const messageParts = error.message.split('#');
+                    this._nCoinsLimit = +messageParts[1];
+                    throw new Error(ContractRunOutOfCoinsText);
+                } else {
+                    throw error;
+                }
             } finally {
                 this._execDone(contract);
             }
@@ -289,6 +299,14 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                     // this will keep only data (strip proxies & member functions that we inject to call like this.method)
                     const objData = JSON.parse(JSON.stringify(newContractState));
                     contract.updateData(objData);
+                }
+            } catch (error) {
+                if (error.message.startsWith(`${ContractRunOutOfCoinsText}#`)) {
+                    const messageParts = error.message.split('#');
+                    this._nCoinsLimit = +messageParts[1];
+                    throw new Error(ContractRunOutOfCoinsText);
+                } else {
+                    throw error;
                 }
             } finally {
                 this._execDone(contract);

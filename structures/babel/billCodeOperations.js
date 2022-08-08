@@ -3,7 +3,7 @@ const bracketizeCode = require('./plugins/bracketizeCode');
 const commentBilledOperations = require('./plugins/commentBilledOperations');
 
 const billCoins = (cost, comment) =>
-   `if ((__nTotalCoins -= ${cost}) <= 0) throw new Error('Contract run out of coins'); // ${comment}`;
+   `if (__nTotalCoins >= ${cost}) { __nTotalCoins -= ${cost}; } else throw new Error('Contract run out of coins#' + __nTotalCoins); // ${comment}`;
 
 /**
  *

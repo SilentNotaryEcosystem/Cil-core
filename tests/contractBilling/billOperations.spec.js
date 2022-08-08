@@ -7,7 +7,7 @@ chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
 const {generateAddress} = require('../testUtil');
-const { ADD, MUL, SUB, DIV, MOD, CALLCODE, LOOPITER } = require('../../structures/babel/billingPrice');
+const {ADD, MUL, SUB, DIV, MOD, CALLCODE, LOOPITER} = require('../../structures/babel/billingPrice');
 
 let keyPair;
 let privateKey;
