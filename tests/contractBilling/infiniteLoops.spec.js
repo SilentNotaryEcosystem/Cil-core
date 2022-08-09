@@ -62,7 +62,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: for (;;) {}', async () => {
@@ -77,7 +77,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: for (;;) { continue; }', async () => {
@@ -92,7 +92,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: while (true);', async () => {
@@ -107,7 +107,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: while (true) {}', async () => {
@@ -122,7 +122,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: while (true) { continue; }', async () => {
@@ -137,7 +137,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: do ; while (true);', async () => {
@@ -152,7 +152,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: do {} while (true);', async () => {
@@ -167,7 +167,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop: do { continue; } while (true);', async () => {
@@ -182,7 +182,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite recursion: function f() { f(); } f();', async () => {
@@ -197,7 +197,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite recursion: function f() { f(); }; f();', async () => {
@@ -212,7 +212,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite recursion: function f1() { f2(); } function f2() { f1(); } f1();', async () => {
@@ -227,7 +227,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
             contract,
             {}, undefined
         ), ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in class: for (;;);', async () => {
@@ -248,7 +248,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: for (;;) {}', async () => {
@@ -269,7 +269,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: for (;;) { continue; }', async () => {
@@ -290,7 +290,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: while (true);', async () => {
@@ -311,7 +311,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: while (true) {}', async () => {
@@ -332,7 +332,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: while (true) { continue; }', async () => {
@@ -353,7 +353,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: do ; while (true);', async () => {
@@ -374,7 +374,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: do {} while (true);', async () => {
@@ -395,7 +395,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 
     it('should throw an exception for the infinite loop in a class: do { continue; } while (true);', async () => {
@@ -416,6 +416,6 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
 
         const initialCoins = app._nCoinsLimit;
         assert.throws(createContract, ContractRunOutOfCoinsText);
-        assert.equal(initialCoins - Math.floor(initialCoins / LOOPITER) * LOOPITER, app._nCoinsLimit)
+        assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
 });
