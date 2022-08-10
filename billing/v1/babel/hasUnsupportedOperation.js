@@ -2,8 +2,8 @@ const babel = require("@babel/core");
 const checkDangerousCode = require('./plugins/checkDangerousCode');
 
 /**
- *
- * @param {String} strCode
+ * Whether contract has unsupported code or not
+ * @param {String} strCode - original smart contract code
  * @returns {boolean}
  */
 module.exports = (strCode) => {

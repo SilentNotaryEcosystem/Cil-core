@@ -1,26 +1,14 @@
 const { ADD, MUL, SUB, DIV, MOD, CALLCODE, LOOPITER } = require('../billingPrice');
 
 module.exports = (babel) => {
-    const t = babel.types;
-
     const billCoins = (cost, comment) =>
         babel.parse(`
-            // #Bill#${cost}#${comment}
+            // #BILL#${cost}#${comment}
         `);
 
     const loopInjection = (path) => {
         const bodyType = path.get("body").type;
         if (bodyType === "BlockStatement") {
-            path.get("body").unshiftContainer("body", billCoins(LOOPITER, "LOOPITER"));
-        }
-
-        // After replacement of every loop string operator to block operator this code must not be used
-        if (bodyType === "EmptyStatement") {
-            path.get("body").replaceWithMultiple(billCoins(LOOPITER, "LOOPITER"));
-        }
-
-        if (bodyType === "ExpressionStatement") {
-            path.get("body").replaceWith(t.blockStatement([path.get("body").node]));
             path.get("body").unshiftContainer("body", billCoins(LOOPITER, "LOOPITER"));
         }
     };

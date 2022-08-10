@@ -7,7 +7,7 @@ chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
 const {generateAddress} = require('../testUtil');
-const {LOOPITER} = require('../../structures/babel/billingPrice');
+const {LOOPITER} = require('../../billing/v1/babel/billingPrice');
 
 let keyPair;
 let privateKey;
@@ -60,7 +60,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -75,7 +75,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -90,7 +90,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -105,7 +105,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -120,7 +120,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -135,7 +135,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -150,7 +150,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -165,7 +165,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -180,7 +180,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -195,7 +195,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -210,7 +210,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -225,7 +225,7 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         assert.isRejected(app.runContract(
             {method: 'test', arrArguments: []},
             contract,
-            {}, undefined
+            {}, undefined, false, 1
         ), ContractRunOutOfCoinsText);
         assert.equal(initialCoins % LOOPITER, app._nCoinsLimit)
     });
@@ -243,7 +243,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -264,7 +265,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -285,7 +287,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -306,7 +309,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -327,7 +331,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -348,7 +353,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -369,7 +375,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -390,7 +397,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;
@@ -411,7 +419,8 @@ describe('Contract billing: Infinite loop breaking using loop iteration cost', (
         const callerAddress = generateAddress().toString('hex');
         const createContract = () => app.createContract(
             strCode,
-            {contractAddr: 'hash', callerAddress}
+            {contractAddr: 'hash', callerAddress},
+            undefined, 1
         );
 
         const initialCoins = app._nCoinsLimit;

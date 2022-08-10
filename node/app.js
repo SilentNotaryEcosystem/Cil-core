@@ -8,7 +8,7 @@ const typeforce = require('typeforce');
 const debugLib = require('debug');
 const util = require('util');
 const types = require('../types');
-const billingCodeWrapper = require('../structures/babel/billCodeOperations');
+const billingCodeWrapper = require('../billing');
 
 const debug = debugLib('application:');
 
@@ -26,14 +26,14 @@ const strCodeSuffix = `
 const CONTEXT_NAME = '__MyContext';
 const defaultFunctionName = '_default';
 
+const ContractRunOutOfCoinsText = 'Contract run out of coins';
+
 function _spendCoins(nCurrent, nAmount) {
     const nRemained = nCurrent - nAmount;
-    if (nRemained < 0) throw new Error('Contract run out of coins');
+    if (nRemained < 0) throw new Error(ContractRunOutOfCoinsText);
 
     return nRemained;
 }
-
-const ContractRunOutOfCoinsText = 'Contract run out of coins';
 
 module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Contract}) =>
     class Application {
@@ -116,9 +116,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {String} strCode - contract code
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Number} nContractVersion - @see contract constructor
+         * @param {Number|undefined} nContractBillingVersion - supported contract billing version
          * @returns {contract}
          */
-        createContract(strCode, environment, nContractVersion) {
+        createContract(strCode, environment, nContractVersion, nContractBillingVersion = undefined) {
             typeforce(typeforce.tuple(typeforce.String, typeforce.Object), arguments);
 
             this._execStarted();
@@ -139,13 +140,19 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             let message;
 
             try {
-                const strPreparedCode = `
-                    ${strCodePrefix(this._nCoinsLimit)}
-                    ${strPredefinedClassesCode}
-                    ${billingCodeWrapper(strCode)}
-                    ${strBillingCall}
-                    ${strCodeSuffix}
-                `;
+                let strPreparedCode;
+
+                if (!nContractBillingVersion) {
+                    strPreparedCode = strPredefinedClassesCode + strCode + strCodeSuffix;
+                } else {
+                    strPreparedCode = `
+                        ${strCodePrefix(this._nCoinsLimit)}
+                        ${strPredefinedClassesCode}
+                        ${billingCodeWrapper(strCode, nContractBillingVersion)}
+                        ${strBillingCall}
+                        ${strCodeSuffix}
+                    `;
+                }
 
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
                 const retVal = vm.run(strPreparedCode);
@@ -210,9 +217,10 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Object} context - within we'll execute code, contain: contractData, global functions, environment
          * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
+         * @param {Number|undefined} nContractBillingVersion - supported contract billing version
          * @returns {Promise<result>}
          */
-        async runContract(objInvocationCode, contract, environment, context = undefined, isConstantCall = false) {
+        async runContract(objInvocationCode, contract, environment, context = undefined, isConstantCall = false, nContractBillingVersion = undefined) {
             typeforce(
                 typeforce.tuple(
                     typeforce.Object,
@@ -280,12 +288,22 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                 }
 
                 const strArgs = objInvocationCode.arrArguments.map(arg => JSON.stringify(arg)).join(',');
-                const strPreparedCode = `
-                    ${strCodePrefix(this._nInitialCoins)}
-                    ${this._prepareCode(objMethods)}
-                    ${objInvocationCode.method}(${strArgs});
-                    ${strBillingCall}
+
+                let strPreparedCode;
+
+                if (!nContractBillingVersion) {
+                    strPreparedCode = `
+                        ${this._prepareCode(objMethods)}
+                        ${objInvocationCode.method}(${strArgs});
                     `;
+                } else {
+                    strPreparedCode = `
+                        ${strCodePrefix(this._nInitialCoins)}
+                        ${this._prepareCode(objMethods, nContractBillingVersion)}
+                        ${objInvocationCode.method}(${strArgs});
+                        ${strBillingCall}
+                    `;
+                }
 
                 result = await vm.run(strPreparedCode);
 
@@ -335,7 +353,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @return {String} code of contract. just need to append invocation code
          * @private
          */
-        _prepareCode(objFuncCode) {
+        _prepareCode(objFuncCode, nContractBillingVersion = undefined) {
             let arrCode = [];
             for (let methodName in objFuncCode) {
 
@@ -348,7 +366,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
                 const bracketIndex = objFuncCode[methodName].indexOf(')');
                 const codeParts = [objFuncCode[methodName].substr(0, bracketIndex), objFuncCode[methodName].substr(bracketIndex + 1)];
-                objFuncCode[methodName] = [codeParts[0], billingCodeWrapper(codeParts[1])].join(')');
+                objFuncCode[methodName] = [codeParts[0], billingCodeWrapper(codeParts[1], nContractBillingVersion)].join(')');
 
                 // temporary name
                 const newName = `__MyRenamed__${methodName}`;
