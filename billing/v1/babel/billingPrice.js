@@ -1,3 +1,5 @@
+'use strict';
+
 // https://ethereum.stackexchange.com/questions/11474/is-there-a-table-of-evm-instructions-and-their-gas-costs
 module.exports = {
     ADD: 3,

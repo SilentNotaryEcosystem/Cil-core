@@ -1,3 +1,5 @@
+'use strict';
+
 const babel = require("@babel/core");
 const bracketizeCode = require('./plugins/bracketizeCode');
 const commentBilledOperations = require('./plugins/commentBilledOperations');

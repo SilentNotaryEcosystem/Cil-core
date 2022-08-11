@@ -1,3 +1,5 @@
+'use strict';
+
 const { ADD, MUL, SUB, DIV, MOD, CALLCODE, LOOPITER } = require('../billingPrice');
 
 module.exports = (babel) => {

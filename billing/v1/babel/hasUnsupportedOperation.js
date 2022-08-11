@@ -1,3 +1,5 @@
+'use strict';
+
 const babel = require("@babel/core");
 const checkDangerousCode = require('./plugins/checkDangerousCode');
 

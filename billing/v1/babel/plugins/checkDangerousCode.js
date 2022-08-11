@@ -1,3 +1,5 @@
+'use strict';
+
 const unsupportedOperations = require("../unsupportedOperations");
 module.exports = (babel, { setHasUnsupportedOperation }) => ({
     visitor: {

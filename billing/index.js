@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * Should inject smart contract billing code
  * @param {String} strCode - original smart contract code
