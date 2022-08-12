@@ -8,7 +8,7 @@
  * @throws An unsupported operation error in case if strCode contains any dangerous operation
  */
 module.exports = (strCode, nContractBillingVersion = undefined) => {
-    if (!nContractBillingVersion) return strCode
+    if (!nContractBillingVersion) return strCode;
 
     return require(`./v${nContractBillingVersion}/babel/billCodeOperations`)(strCode);
 }

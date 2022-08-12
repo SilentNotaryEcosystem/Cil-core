@@ -13,6 +13,8 @@ const billingCodeWrapper = require('../billing');
 const debug = debugLib('application:');
 
 const strCodePrefix = (nTotalCoins) => `
+    'use strict';
+    let exports;
     let __nTotalCoins = ${nTotalCoins || 0};
 `;
 
@@ -117,6 +119,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Number} nContractVersion - @see contract constructor
          * @param {Number|undefined} nContractBillingVersion - supported contract billing version
+         * @throws unsupported operation error in case if strCode contains any dangerous operation
          * @returns {contract}
          */
         createContract(strCode, environment, nContractVersion, nContractBillingVersion = undefined) {
@@ -218,6 +221,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
          * @param {Object} context - within we'll execute code, contain: contractData, global functions, environment
          * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
          * @param {Number|undefined} nContractBillingVersion - supported contract billing version
+         * @throws unsupported operation error in case if strCode contains any dangerous operation
          * @returns {Promise<result>}
          */
         async runContract(objInvocationCode, contract, environment, context = undefined, isConstantCall = false, nContractBillingVersion = undefined) {
