@@ -7,8 +7,12 @@ chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
 const factory = require('../testFactory');
+
 const {pseudoRandomBuffer, generateAddress, createObjInvocationCode} = require('../testUtil');
 const {ADD} = require('../../billing/v1/babel/billingPrice');
+
+const CONTRACT_CREATION_FEE = factory.Constants.fees.CONTRACT_CREATION_FEE;
+const CONTRACT_INVOCATION_FEE = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
 
 describe('Contract billing integration tests', () => {
     let node;
@@ -22,7 +26,7 @@ describe('Contract billing integration tests', () => {
     });
 
     beforeEach(async () => {
-        nCoinsIn = factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx + nFakeFeeDataSize * 1000;
+        nCoinsIn = CONTRACT_CREATION_FEE + nFakeFeeTx + nFakeFeeDataSize * 1000;
         node = new factory.Node();
         node._calculateSizeFee = sinon.fake.resolves(nFakeFeeTx);
         node._getFeeStorage = sinon.fake.resolves(nFakeFeeDataSize);
@@ -59,7 +63,7 @@ describe('Contract billing integration tests', () => {
         const receipt = patchTx.getReceipt(tx.hash());
         assert.isOk(receipt);
         assert.isOk(receipt.isSuccessful());
-        assert.equal(node._app._nCoinsLimit, nCoinsIn - factory.Constants.fees.CONTRACT_CREATION_FEE - nFakeFeeTx);
+        assert.equal(node._app._nCoinsLimit, nCoinsIn - CONTRACT_CREATION_FEE - nFakeFeeTx);
     });
 
     it('should deploy a contract (after 1st contract billing fork)', async () => {
@@ -87,7 +91,7 @@ describe('Contract billing integration tests', () => {
         const receipt = patchTx.getReceipt(tx.hash());
         assert.isOk(receipt);
         assert.isOk(receipt.isSuccessful());
-        assert.equal(node._app._nCoinsLimit, nCoinsIn - factory.Constants.fees.CONTRACT_CREATION_FEE - nFakeFeeTx - ADD);
+        assert.equal(node._app._nCoinsLimit, nCoinsIn - CONTRACT_CREATION_FEE - nFakeFeeTx - ADD);
     });
 
     it('should run a contract (before 1st contract billing fork)', async () => {
@@ -117,10 +121,10 @@ describe('Contract billing integration tests', () => {
         assert.isOk(receipt);
         assert.isOk(receipt.isSuccessful());
 
-        assert.equal(node._app._nCoinsLimit, nCoinsIn - factory.Constants.fees.CONTRACT_INVOCATION_FEE - nFakeFeeTx);
+        assert.equal(node._app._nCoinsLimit, nCoinsIn - CONTRACT_INVOCATION_FEE - nFakeFeeTx);
     });
 
-    it.skip('should run a contract (after 1st contract billing fork)', async () => {
+    it('should run a contract (after 1st contract billing fork)', async () => {
         let strContractAddress = generateAddress().toString('hex');
         let contract = new factory.Contract({
             contractData: {},
@@ -147,6 +151,6 @@ describe('Contract billing integration tests', () => {
         assert.isOk(receipt);
         assert.isOk(receipt.isSuccessful());
 
-        assert.equal(node._app._nCoinsLimit, nCoinsIn - factory.Constants.fees.CONTRACT_INVOCATION_FEE - nFakeFeeTx - ADD);
+        assert.equal(node._app._nCoinsLimit, nCoinsIn - CONTRACT_INVOCATION_FEE - nFakeFeeTx - ADD);
     });
 });

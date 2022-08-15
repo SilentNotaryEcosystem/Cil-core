@@ -302,7 +302,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                     `;
                 } else {
                     strPreparedCode = `
-                        ${strCodePrefix(this._nInitialCoins)}
+                        ${strCodePrefix(this._nCoinsLimit)}
                         ${this._prepareCode(objMethods, nContractBillingVersion)}
                         ${objInvocationCode.method}(${strArgs});
                         ${strBillingCall}

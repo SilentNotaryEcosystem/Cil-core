@@ -15,6 +15,9 @@ let publicKey;
 
 const factory = require('../testFactory');
 
+const CONTRACT_CREATION_FEE = 100;
+const CONTRACT_INVOCATION_FEE = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
+
 describe('Contract billing: bill operations', () => {
     before(async () => {
         await factory.asyncLoad();
@@ -29,17 +32,15 @@ describe('Contract billing: bill operations', () => {
     let nFeeSizeFakeTx;
     let app;
 
-    const CONTRACT_CREATION_FEE = 100;
-
     beforeEach(() => {
-        nFeeContractInvocation = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
+        nFeeContractInvocation = CONTRACT_INVOCATION_FEE;
         nFeeContractCreation = CONTRACT_CREATION_FEE;
         nFeeStorage = factory.Constants.fees.STORAGE_PER_BYTE_FEE;
         nFeeSizeFakeTx = 100;
 
         app = new factory.Application();
         app.setupVariables({
-            coinsLimit: 10000,
+            coinsLimit: 100000,
             objFees: {
                 nFeeContractInvocation,
                 nFeeContractCreation,
@@ -62,7 +63,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - ADD, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD, app._nCoinsLimit);
     });
 
     it('should reduce balance by SUB operation cost', async () => {
@@ -78,7 +79,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - SUB, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - SUB, app._nCoinsLimit);
     });
 
     it('should reduce balance by MUL operation cost', async () => {
@@ -94,7 +95,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - MUL, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - MUL, app._nCoinsLimit);
     });
 
     it('should reduce balance by DIV operation cost', async () => {
@@ -110,7 +111,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - DIV, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - DIV, app._nCoinsLimit);
     });
 
     it('should reduce balance by MOD operation cost', async () => {
@@ -126,7 +127,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - MOD, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - MOD, app._nCoinsLimit);
     });
 
     it('should reduce balance by complex operation cost', async () => {
@@ -142,7 +143,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - ADD - MUL - DIV - SUB - MOD, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD - MUL - DIV - SUB - MOD, app._nCoinsLimit);
     });
 
     it('should reduce balance by ADD operation cost for if operator', async () => {
@@ -158,7 +159,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - ADD, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD, app._nCoinsLimit);
     });
 
     it('should reduce balance by function call cost', async () => {
@@ -174,7 +175,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - CALLCODE, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - CALLCODE, app._nCoinsLimit);
     });
 
     it('should reduce balance by "for" loop iterations cost', async () => {
@@ -191,7 +192,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - LOOPITER * loopIterations, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - LOOPITER * loopIterations, app._nCoinsLimit);
     });
 
     it('should reduce balance by "while" loop iterations cost', async () => {
@@ -208,7 +209,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - LOOPITER * loopIterations, app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - LOOPITER * loopIterations, app._nCoinsLimit);
     });
 
     it('should reduce balance by "do while" loop iterations cost', async () => {
@@ -225,7 +226,7 @@ describe('Contract billing: bill operations', () => {
             {}, undefined, false, 1
         );
 
-        assert.equal(initialCoins - LOOPITER * (loopIterations + 1), app._nCoinsLimit);
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - LOOPITER * (loopIterations + 1), app._nCoinsLimit);
     });
 
     it('should reduce balance by ADD operation cost for an object', async () => {
