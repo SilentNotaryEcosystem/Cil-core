@@ -97,8 +97,12 @@ module.exports = (factory) => {
             if (existingPeer && existingPeer.isBanned()) return Constants.REJECT_BANNED;
             if (existingPeer && existingPeer.isRestricted()) return Constants.REJECT_RESTRICTED;
 
-            if (existingPeer && existingPeer.isDead() && peer.inbound) {
-                existingPeer.resetFailedConnectionCount();
+            if (existingPeer && existingPeer.isDead()) {
+                if (peer.inbound) {
+                    existingPeer.resetFailedConnectionCount();
+                } else {
+                    return Constants.REJECT_DEAD;
+                }
             }
 
             // both peers are connected.

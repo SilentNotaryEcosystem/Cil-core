@@ -283,6 +283,20 @@ describe('Peer manager', () => {
         }
     });
 
+    it('should NOT add dead peer (REJECT_DEAD)', async () => {
+        const pm = new factory.PeerManager();
+        const peer = new factory.Peer(createDummyPeer(factory));
+
+        const result = await pm.addPeer(peer);
+        assert.isOk(result instanceof factory.Peer);
+        {
+            peer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
+            const result = await pm.addPeer(peer);
+            assert.isNotOk(result instanceof factory.Peer);
+            assert.equal(result, factory.Constants.REJECT_DEAD);
+        }
+    });
+
     it('should NOT add peer with banned address (REJECT_RESTRICTED)', async () => {
         const address = factory.Transport.generateAddress();
         const pm = new factory.PeerManager();
