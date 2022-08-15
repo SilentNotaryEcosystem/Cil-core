@@ -7,6 +7,7 @@ module.exports = {
     SUB: 3,
     DIV: 5,
     MOD: 10,
+    EXP: 20,
     CALLCODE: 20,
     LOOPITER: 10,
 };

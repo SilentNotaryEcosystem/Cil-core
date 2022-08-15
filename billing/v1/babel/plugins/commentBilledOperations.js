@@ -1,6 +1,6 @@
 'use strict';
 
-const { ADD, MUL, SUB, DIV, MOD, CALLCODE, LOOPITER } = require('../billingPrice');
+const {ADD, MUL, SUB, DIV, MOD, EXP, CALLCODE, LOOPITER} = require('../billingPrice');
 
 module.exports = (babel) => {
     const billCoins = (cost, comment) =>
@@ -40,19 +40,30 @@ module.exports = (babel) => {
 
         switch (operator) {
             case "+":
+            case "++":
+            case "+=":
                 injectCode(billCoins(ADD, 'ADD'));
                 break;
             case "-":
+            case "--":
+            case "-=":
                 injectCode(billCoins(SUB, 'SUB'));
                 break;
             case "*":
+            case "*=":
                 injectCode(billCoins(MUL, 'MUL'));
                 break;
             case "/":
+            case "/=":
                 injectCode(billCoins(DIV, 'DIV'));
                 break;
             case "%":
+            case "%=":
                 injectCode(billCoins(MOD, 'MOD'));
+                break;
+            case "**":
+            case "**=":
+                injectCode(billCoins(EXP, 'EXP'));
                 break;
         }
     }
@@ -74,6 +85,14 @@ module.exports = (babel) => {
                 loopInjection(path);
             },
             BinaryExpression: (path) => {
+                const parentBlockPath = getParentBlock(path);
+                addBillingForOperator(path.node.operator, parentBlockPath.type, parentBlockPath.path);
+            },
+            AssignmentExpression: (path) => {
+                const parentBlockPath = getParentBlock(path);
+                addBillingForOperator(path.node.operator, parentBlockPath.type, parentBlockPath.path);
+            },
+            UpdateExpression: (path) => {
                 const parentBlockPath = getParentBlock(path);
                 addBillingForOperator(path.node.operator, parentBlockPath.type, parentBlockPath.path);
             }
