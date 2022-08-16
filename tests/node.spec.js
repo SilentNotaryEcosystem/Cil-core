@@ -1077,22 +1077,15 @@ describe('Node tests', async () => {
             await node.ensureLoaded();
         });
 
-        it('should exec all localTxns from mempool (just loaded from disk) and accept new', async () => {
-            const fakeLocalTxns = [new factory.Transaction(createDummyTx()), new factory.Transaction(createDummyTx())];
-            node._mempool.getLocalTxnsPatches =
-                sinon.fake.returns(fakeLocalTxns.map(tx => ({strTxHash: tx.getHash(), patchTx: undefined})));
-            node._mempool.getTx = sinon.fake();
+        it('should accept new TX', async () => {
+            node._processReceivedTx = sinon.fake();
             node._processTx = sinon.fake.resolves({patchThisTx: new factory.PatchDB()});
-            node._processReceivedTx = sinon.fake.resolves(new factory.PatchDB());
             node._mempool.addLocalTx = sinon.fake();
 
             await node._acceptLocalTx(new factory.Transaction(createDummyTx()));
 
-            // 2 from mempool + one that just received
-            assert.equal(node._processTx.callCount, 3);
-
-            // existed + new
-            assert.equal(node._mempool.addLocalTx.callCount, 3);
+            assert.equal(node._processTx.callCount, 1);
+            assert.equal(node._mempool.addLocalTx.callCount, 1);
         });
 
         it('should fail to accept tx (conflicting txns)', async () => {
@@ -1105,6 +1098,26 @@ describe('Node tests', async () => {
             node._processReceivedTx = sinon.fake.resolves(new factory.PatchDB());
 
             return assert.isRejected(node._acceptLocalTx(new factory.Transaction(createDummyTx())));
+        });
+    });
+
+    describe('_ensureLocalTxnsPatch', async () => {
+        let node;
+        beforeEach(async () => {
+            node = new factory.Node();
+            await node.ensureLoaded();
+            node._patchLocalTxns = undefined;
+        });
+
+        it('should remove stalled tx from mempool (conflict with main chainstate)', async () => {
+            node._mempool.addLocalTx(new factory.Transaction(createDummyTx()), undefined);
+            node._mempool.addLocalTx(new factory.Transaction(createDummyTx()), undefined);
+
+            node._processTx = sinon.fake.rejects(new Error('Confliting'));
+
+            await node._ensureLocalTxnsPatch();
+
+            assert.equal(node._mempool.getLocalTxnHashes().length, 0);
         });
     });
 
