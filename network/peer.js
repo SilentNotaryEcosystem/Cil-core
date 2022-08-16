@@ -235,7 +235,11 @@ module.exports = (factory) => {
 
         isAlive() {
             const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
-            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive;
+            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive && !this.isDead();
+        }
+
+        isDead() {
+            return this._peerInfo.failedConnectionCount > Constants.PEER_FAILED_CONNECTIONS_LIMIT;
         }
 
         async loaded() {
@@ -266,13 +270,25 @@ module.exports = (factory) => {
                 logger.error('Trying to connect to temporary restricted peer!');
                 return;
             }
+            if (this.isDead()) {
+                logger.error('Trying to connect to a dead peer!');
+                return;
+            }
             if (!this.disconnected) {
                 logger.error(`Peer ${this.address} already connected`);
                 return;
             }
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
-            this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
+
+            try {
+                this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
+            } catch (e) {
+                this._peerInfo.failedConnectionCount++;
+                logger.error(`Connection error: ${e}`);
+                return;
+            }
+
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
 
@@ -474,6 +490,10 @@ module.exports = (factory) => {
         _updateMisbehave(score) {
             this.peerInfo.lifetimeMisbehaveScore += score;
             this._misbehaveScore += score;
+        }
+
+        resetFailedConnectionCount() {
+            this.peerInfo.failedConnectionCount = 0;
         }
 
         markAsPossiblyAhead() {

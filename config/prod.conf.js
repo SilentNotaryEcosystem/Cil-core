@@ -54,6 +54,9 @@ module.exports = {
 
         PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
 
+        // exclude node from node an active list if we fail N times to connect it
+        PEER_FAILED_CONNECTIONS_LIMIT: 10,
+
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 
         // maximum block hashes in MSG_INV
