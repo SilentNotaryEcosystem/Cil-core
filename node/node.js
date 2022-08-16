@@ -1004,10 +1004,10 @@ module.exports = (factory, factoryOptions) => {
 
             // let's check for patch conflicts with other local txns
             try {
+                await this._ensureLocalTxnsPatch();
+
                 await this._processReceivedTx(newTx, false);
                 const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
-
-                await this._ensureLocalTxnsPatch();
 
                 // update cache
                 this._patchLocalTxns = this._patchLocalTxns.merge(patchNewTx);
@@ -2050,6 +2050,7 @@ module.exports = (factory, factoryOptions) => {
             debugNode(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
 
             this._mempool.loadLocalTxnsFromDisk();
+            await this._ensureLocalTxnsPatch();
         }
 
         async _nodeWorker() {
@@ -2493,20 +2494,21 @@ module.exports = (factory, factoryOptions) => {
                 if (!patchTx) {
                     const localTx = this._mempool.getTx(strTxHash);
 
-                    let patchThisTx;
                     try {
                         const objResult = await this._processTx(undefined, false, localTx);
-                        patchThisTx = objResult.patchThisTx;
-                    } catch (e) {
-                        this._mempool.removeTxns(strTxHash);
-                    }
+                        const patchThisTx = objResult.patchThisTx;
 
-                    // store it back with patch
-                    this._mempool.addLocalTx(localTx, patchThisTx);
-                    patchTx = patchThisTx;
+                        // store it back with patch
+                        this._mempool.addLocalTx(localTx, patchThisTx);
+                        patchTx = patchThisTx;
+                    } catch (e) {
+                        debugNode(`Removing TX ${strTxHash} conflicting with current chainstate`);
+                        this._mempool.removeTxns([strTxHash]);
+                    }
                 }
 
-                patchMerged = patchMerged.merge(patchTx);
+                // if we were unable to process TX patchTx will be undefined
+                if (patchTx) patchMerged = patchMerged.merge(patchTx);
             }
 
             this._patchLocalTxns = patchMerged;
