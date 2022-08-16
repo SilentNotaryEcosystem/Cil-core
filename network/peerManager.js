@@ -98,7 +98,7 @@ module.exports = (factory) => {
             if (existingPeer && existingPeer.isRestricted()) return Constants.REJECT_RESTRICTED;
 
             if (existingPeer && existingPeer.isDead()) {
-                if (!peer.inbound) return Constants.REJECT_DEAD;
+                if (!peer.inbound) return Constants.REJECT_REWRITE_DEAD;
                 existingPeer.resetFailedConnectionCount();
             }
 

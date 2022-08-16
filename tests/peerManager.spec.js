@@ -283,17 +283,19 @@ describe('Peer manager', () => {
         }
     });
 
-    it('should NOT add dead peer (REJECT_DEAD)', async () => {
+    it('should NOT rewrite dead peer status by the same alive peer (REJECT_REWRITE_DEAD)', async () => {
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
 
         const result = await pm.addPeer(peer);
+        peer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
         assert.isOk(result instanceof factory.Peer);
         {
-            peer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
-            const result = await pm.addPeer(peer);
+            const newPeer = new factory.Peer(createDummyPeer(factory));
+            const result = await pm.addPeer(newPeer);
             assert.isNotOk(result instanceof factory.Peer);
-            assert.equal(result, factory.Constants.REJECT_DEAD);
+            assert.equal(result, factory.Constants.REJECT_REWRITE_DEAD);
+            assert.isTrue(peer.isDead());
         }
     });
 
