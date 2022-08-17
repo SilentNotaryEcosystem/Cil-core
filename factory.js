@@ -1,5 +1,3 @@
-const debugLib = require('debug');
-
 const configProd = require('./config/prod.conf');
 const configDev = require('./config/devel.conf');
 const BaseFactory = require('./baseFactory');

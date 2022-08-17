@@ -1,5 +1,5 @@
 class Base {
-    constructor(props) {
+    constructor() {
         this._ownerAddress = callerAddress;
     }
 

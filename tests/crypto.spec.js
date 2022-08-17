@@ -114,7 +114,7 @@ describe('Crypto library', () => {
     it('should recover public key from signature buffer', async () => {
         const keyPair = Crypto.createKeyPair();
 
-        msg = 'string';
+        const msg = 'string';
         const buffSignature = Crypto.sign(msg, keyPair.getPrivate(), 'hex');
         const pubKey = Crypto.recoverPubKey(msg, buffSignature);
         assert.isOk(pubKey);

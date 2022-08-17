@@ -1,8 +1,7 @@
-const v8 = require('v8');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
 const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
 

@@ -1,5 +1,4 @@
 const typeforce = require('typeforce');
-const types = require('../types');
 
 // block awaits for parents to be executed
 const IN_FLIGHT_BLOCK = 1 << 1;
@@ -13,7 +12,7 @@ const FINAL_BLOCK = 1 << 3;
 // block cannot be executed (validation failed)
 const BAD_BLOCK = 1 << 8;
 // Class to store block header + additional info in DB
-module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
+module.exports = ({/*Constants,*/ Crypto}, {blockInfoProto, blockHeaderProto}) =>
 
     class BlockInfo {
 

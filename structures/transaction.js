@@ -53,7 +53,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         set conciliumId(conciliumId) {
-            return this._data.payload.conciliumId = conciliumId;
+            this._data.payload.conciliumId = conciliumId;
         }
 
         get rawData() {
@@ -197,7 +197,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @param {Number} idx - for SIGHASH_SINGLE (not used now)
          * @return {String} !!
          */
-        hash(idx) {
+        hash(/*idx*/) {
             return this.getHash();
         }
 

@@ -462,7 +462,7 @@ describe('PatchDB', () => {
             patch2.setContract(contract);
         }
 
-        assert.throws(_ => patch1.merge(patch2));
+        assert.throws(() => patch1.merge(patch2));
     });
 
     it('should merge 2 patches with contract data', async () => {

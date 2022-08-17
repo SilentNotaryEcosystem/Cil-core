@@ -15,7 +15,7 @@ const PEERMANAGER_BACKUP_TIMER_NAME = 'peerManagerBackupTimer';
  * @emits 'message' {peer, message}
  */
 module.exports = (factory) => {
-    const {Constants, Messages, Peer, Transport} = factory;
+    const {Constants, Messages, Peer /*Transport*/} = factory;
 
     const {PeerInfo} = Messages;
 

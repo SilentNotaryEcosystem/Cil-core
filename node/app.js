@@ -27,11 +27,8 @@ function _spendCoins(nCurrent, nAmount) {
     return nRemained;
 }
 
-module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Contract}) =>
+module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxReceipt,*/ Contract}) =>
     class Application {
-        constructor(options) {
-        }
-
         /**
          *
          * @param {Transaction} tx
@@ -125,9 +122,7 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
             this._nCoinsLimit = _spendCoins(this._nCoinsLimit, this._objFees.nFeeContractCreation);
 
             // prepend predefined classes to code
-            let status;
             let contract;
-            let message;
 
             try {
 
@@ -200,10 +195,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
 
             this._execStarted(contract);
 
-            const {nFeeContractInvocation, nFeeStorage} = this._objFees;
+            const {nFeeContractInvocation} = this._objFees;
 
-            let status;
-            let message;
             let result;
 
             try {

@@ -229,8 +229,8 @@ describe('RPC', () => {
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         rpc.getTx()
-            .then(_ => done('Unexpected success'))
-            .catch(_ => done());
+            .then(() => done('Unexpected success'))
+            .catch(() => done());
     });
 
     it('should get TX', async () => {

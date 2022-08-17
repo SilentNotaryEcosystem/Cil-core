@@ -6,7 +6,6 @@ const sinon = require('sinon');
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
-const {GCD} = require('../utils');
 
 const generateSeed = (nTotalRound) => (Math.random() * nTotalRound) % 8192;
 

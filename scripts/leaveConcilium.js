@@ -1,7 +1,7 @@
 const url = require('url');
 
 const factory = require('../factory');
-const {questionAsync, readPrivateKeyFromFile, prepareForStringifyObject, queryRpc, getHttpData} = require('../utils');
+const {readPrivateKeyFromFile, prepareForStringifyObject, queryRpc, getHttpData} = require('../utils');
 
 let urlApi;
 let urlRpc;
@@ -17,7 +17,7 @@ const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_I
 const nEnoughCoinsToLeave = 4e4;
 
 main()
-    .then(_ => {
+    .then(() => {
         process.exit(0);
     })
     .catch(err => {

@@ -1,11 +1,8 @@
 'use strict';
 
 const typeforce = require('typeforce');
-const debugLib = require('debug');
 
 const types = require('../types');
-
-const debug = debugLib('requestsCache:');
 
 module.exports = ({Constants}) =>
     class RequestCache {

@@ -4,7 +4,6 @@ const assert = require('assert');
 const {Dag} = require('dagjs');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
-
 const types = require('../types');
 const {mergeSets} = require('../utils');
 

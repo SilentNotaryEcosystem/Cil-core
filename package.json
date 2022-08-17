@@ -26,15 +26,22 @@
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "debug": "^3.2.7",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
     "memdown": "^3.0.0",
     "mocha": "^5.2.0",
     "nock": "^11.9.1",
     "node-uuid": "^1.4.8",
+    "prettier": "^2.7.1",
     "sinon": "^6.3.5"
   },
   "scripts": {
     "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
     "testDebugWin": "set DEBUG=*,-mocha:* && mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
-    "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
+    "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "lint": "./node_modules/.bin/eslint './**/*.js'",
+    "check": "npx prettier --check .",
+    "fix": "npx prettier --write ."
   }
 }

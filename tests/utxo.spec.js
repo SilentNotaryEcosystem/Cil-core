@@ -2,7 +2,6 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
@@ -46,7 +45,7 @@ describe('UTXO', () => {
     });
 
     it('should NOT get coins (wrong index)', async () => {
-        const {utxo, coins} = createDummyUtxo([10]);
+        const {utxo} = createDummyUtxo([10]);
         assert.throws(() => utxo.coinsAtIndex(12));
     });
 

@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === 'Devel') {
 }
 
 main()
-    .then(_ => {
+    .then(() => {
         process.exit(0);
     })
     .catch(err => {

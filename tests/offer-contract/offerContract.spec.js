@@ -4,19 +4,11 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
-const sinon = require('sinon');
 
 const Contract = require('./offerContract');
 const factory = require('../testFactory');
 
-const {arrayEquals} = require('../../utils');
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
-
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
 
 let contract;
 

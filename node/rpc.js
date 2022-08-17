@@ -1,7 +1,6 @@
 'use strict';
 const typeforce = require('typeforce');
 const assert = require('assert');
-const debugLib = require('debug');
 const {version} = require('../package');
 
 const rpc = require('json-rpc2');
@@ -9,7 +8,7 @@ const rpc = require('json-rpc2');
 const {asyncRPC, prepareForStringifyObject, stripAddressPrefix, finePrintUtxos} = require('../utils');
 const types = require('../types');
 
-module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
+module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
     class RPC {
         /**
          *

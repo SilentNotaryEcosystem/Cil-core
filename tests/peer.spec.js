@@ -1,7 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
-const debug = require('debug')('peer:');
 
 const {sleep} = require('../utils');
 const {createDummyPeer} = require('./testUtil');
@@ -75,7 +74,7 @@ describe('Peer tests', () => {
         assert.isOk(newPeer);
 
         newPeer.connect().then(() => {
-            newPeer.on('message', (peer, msg) => done());
+            newPeer.on('message', (/*peer, msg*/) => done());
             newPeer._connection.emit('message', {isInv: () => false});
         });
     });

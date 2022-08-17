@@ -4,7 +4,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
 const factory = require('./testFactory');
-const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const {generateAddress} = require('./testUtil');
 
 describe('Coins', () => {
     before(async function() {

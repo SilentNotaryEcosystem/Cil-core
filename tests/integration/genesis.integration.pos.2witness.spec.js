@@ -1,6 +1,5 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debugLib = require('debug');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('../testFactory');
@@ -10,7 +9,7 @@ const {arrayEquals, prepareForStringifyObject} = require('../../utils');
 process.on('warning', e => console.warn(e.stack));
 
 const CONCILIUM_CREATE_FEE = 1e6;
-const CONCILIUM_INVOKE_FEE = 1e6;
+// const CONCILIUM_INVOKE_FEE = 1e6;
 
 // set to undefined to use random delays
 const delay = undefined;
@@ -27,8 +26,6 @@ let moneyIssueTx;
 let witnessConciliumOne;
 let witnessConciliumTwo;
 let witnessThree;
-let nodeThree;
-let nodeFour;
 
 let stepDone = false;
 
@@ -70,7 +67,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         const patch = await processBlock(genesisNode, genesis);
 
         if (patch) {
-            receipt = patch.getReceipt(strConciliumDefContractTx);
+            const receipt = patch.getReceipt(strConciliumDefContractTx);
             factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = receipt.getContractAddress().toString('hex');
         } else {
             throw new Error('Something went wrong! No patch to Genesis');
@@ -280,7 +277,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await witnessThree.bootstrap();
 
         // wait to 4 block (including one with concilium 1 definition)
-        await (new Promise((resolve, reject) => {
+        await (new Promise((resolve) => {
             sinon.stub(witnessThree, '_postAcceptBlock').callsFake(() => {
                 if (witnessThree._mainDag.order === 4) {
                     resolve();
@@ -293,7 +290,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await witnessThree.rpcHandler({event: 'tx', content: txCode});
 
         // wait for witnessOne receive tx & produce block with concilium invocation & send us (witnessThree) that block
-        const donePromise = new Promise((resolve, reject) => {
+        const donePromise = new Promise((resolve) => {
             sinon.stub(witnessThree, '_postAcceptBlock').callsFake((block) => {
                 if (block.conciliumId === 0 && block.txns.length === 2) {
                     resolve();
@@ -318,7 +315,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         {
             // wait for witnessTwo receive tx & produce block & send us (witnessThree) that block
-            const donePromise = new Promise((resolve, reject) => {
+            const donePromise = new Promise((resolve) => {
                 sinon.stub(witnessThree, '_postAcceptBlock').callsFake((block) => {
                     if (block.conciliumId === 1 && block.txns.length === 2) {
                         resolve();

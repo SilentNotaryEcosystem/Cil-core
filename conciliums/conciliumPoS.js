@@ -1,15 +1,11 @@
 'use strict';
 
 const typeforce = require('typeforce');
-const debugLib = require('debug');
 
 const assert = require('assert');
-const types = require('../types');
 const {GCD} = require('../utils');
 
 const BaseConciliumDefinition = require('./baseConciliumDefinition');
-
-const debug = debugLib('conciliumPoS:');
 
 //--------------- Witness concilium definition ---------
 

@@ -4,7 +4,6 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 const os = require('os');
 const sinon = require('sinon');
-const debugLib = require('debug');
 
 const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
@@ -73,36 +72,36 @@ const createNet = async (onlySeedProcessBlock = false) => {
     return {seedNode, arrNodes};
 };
 
-const createLiveNet = async (onlySeedProcessBlock = false) => {
-    const genesis = createDummyBlock(factoryIpV6);
-    factoryIpV6.Constants.GENESIS_BLOCK = genesis.getHash();
+// const createLiveNet = async (onlySeedProcessBlock = false) => {
+//     const genesis = createDummyBlock(factoryIpV6);
+//     factoryIpV6.Constants.GENESIS_BLOCK = genesis.getHash();
 
-    const seedNode = new factoryIpV6.Node({useNatTraversal: false, useNonRoutableAddresses: true});
-    await seedNode.ensureLoaded();
-    const seedAddress = seedNode._transport.myAddress;
+//     const seedNode = new factoryIpV6.Node({useNatTraversal: false, useNonRoutableAddresses: true});
+//     await seedNode.ensureLoaded();
+//     const seedAddress = seedNode._transport.myAddress;
 
-    seedNode._rpc = new factoryIpV6.RPC(
-        seedNode,
-        {rpcAddress: seedAddress, rpcUser: 'test', rpcPass: 'test', useNatTraversal: false}
-    );
+//     seedNode._rpc = new factoryIpV6.RPC(
+//         seedNode,
+//         {rpcAddress: seedAddress, rpcUser: 'test', rpcPass: 'test', useNatTraversal: false}
+//     );
 
-    const arrNodes = [];
-    for (let i = 0; i < maxConnections; i++) {
-        const node = new factoryIpV6.Node({
-            useNatTraversal: false,
-            useNonRoutableAddresses: true,
-            arrSeedAddresses: [seedAddress],
-            listenPort: 8000 + i
-        });
-        await node.ensureLoaded();
-        if (!onlySeedProcessBlock) await processBlock(node, genesis);
-        arrNodes.push(node);
-    }
+//     const arrNodes = [];
+//     for (let i = 0; i < maxConnections; i++) {
+//         const node = new factoryIpV6.Node({
+//             useNatTraversal: false,
+//             useNonRoutableAddresses: true,
+//             arrSeedAddresses: [seedAddress],
+//             listenPort: 8000 + i
+//         });
+//         await node.ensureLoaded();
+//         if (!onlySeedProcessBlock) await processBlock(node, genesis);
+//         arrNodes.push(node);
+//     }
 
-    await processBlock(seedNode, genesis);
+//     await processBlock(seedNode, genesis);
 
-    return {seedNode, arrNodes};
-};
+//     return {seedNode, arrNodes};
+// };
 
 describe('Node integration tests', async () => {
     before(async function() {

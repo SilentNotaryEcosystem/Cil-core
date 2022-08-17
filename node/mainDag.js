@@ -1,12 +1,9 @@
 'use strict';
 
 const typeforce = require('typeforce');
-const debugLib = require('debug');
 const {Dag} = require('dagjs');
 
 const types = require('../types');
-
-const debug = debugLib('mainDag:');
 
 module.exports = ({Constants}) =>
     class MainDag {

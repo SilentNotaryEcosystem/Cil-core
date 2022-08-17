@@ -288,7 +288,7 @@ module.exports = (factory) => {
                 });
 
                 server.on('error', e => reject(e));
-                server.on('listening', _ => resolve());
+                server.on('listening', () => resolve());
 
                 server.listen({port: this._port, host: this._address});
             });

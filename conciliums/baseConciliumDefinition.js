@@ -87,7 +87,7 @@ module.exports = class BaseConciliumDefinition {
         return this._data.parameters.fees ? this._data.parameters.fees.feeInternalTx : undefined;
     }
 
-    validateBlock(block) {
+    validateBlock(/*block*/) {
         throw new Error('Implement!');
     }
 

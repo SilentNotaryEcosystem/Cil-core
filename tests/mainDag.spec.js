@@ -2,22 +2,21 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 const {createDummyBlockInfo} = require('./testUtil');
 
-let fakeResult = {
-    fake: 1,
-    toObject: function() {
-        return this;
-    },
-    getHash: function() {
-        return 'dead';
-    }
-};
-let node;
+// let fakeResult = {
+//     fake: 1,
+//     toObject: function() {
+//         return this;
+//     },
+//     getHash: function() {
+//         return 'dead';
+//     }
+// };
 
+// let node;
 describe('Main Dag', () => {
     before(async function() {
         this.timeout(15000);
@@ -25,9 +24,9 @@ describe('Main Dag', () => {
     });
 
     beforeEach(() => {
-        node = {
-            rpcHandler: sinon.fake.resolves(fakeResult)
-        };
+        // node = {
+        //     rpcHandler: sinon.fake.resolves(fakeResult)
+        // };
     });
 
     after(async function() {
