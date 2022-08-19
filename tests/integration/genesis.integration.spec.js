@@ -1,6 +1,5 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debugLib = require('debug');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('../testFactory');
@@ -70,7 +69,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         const patch = await processBlock(genesisNode, genesis);
 
         if (patch) {
-            receipt = patch.getReceipt(strConciliumDefContractTx);
+            const receipt = patch.getReceipt(strConciliumDefContractTx);
             factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = receipt.getContractAddress().toString('hex');
         } else {
             throw new Error('Something went wrong! No patch to Genesis');

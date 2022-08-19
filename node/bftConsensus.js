@@ -4,12 +4,11 @@ const typeforce = require('typeforce');
 const EventEmitter = require('events');
 const Tick = require('tick-tock');
 const debug = require('debug')('bft:app');
-
 const types = require('../types');
 
 module.exports = (factory) => {
     const {Constants, Crypto, Messages} = factory;
-    const {MsgWitnessNextRound, MsgWitnessCommon, MsgWitnessBlockVote} = Messages;
+    const {MsgWitnessNextRound, MsgWitnessBlockVote} = Messages;
     const States = Constants.consensusStates;
     const MAIN_TIMER_NAME = 'stateChange';
     const Timeouts = Constants.consensusTimeouts;

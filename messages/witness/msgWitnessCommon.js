@@ -72,7 +72,7 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
         set content(value) {
             typeforce('Buffer', value);
 
-            return this._msgData.content = value;
+            this._msgData.content = value;
         }
 
         set handshakeMessage(unused) {

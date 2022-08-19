@@ -1,7 +1,7 @@
 const factory = require('../testFactory');
 
 class Base {
-    constructor(props) {
+    constructor() {
         this._ownerAddress = callerAddress;
     }
 
@@ -298,7 +298,7 @@ module.exports = class ContractConciliums extends Base {
         } else {
             return this._checkOwner();
         }
-        throw ('Unauthorized call');
+        // throw ('Unauthorized call');
     }
 
     _validateConcilium(objConcilium) {

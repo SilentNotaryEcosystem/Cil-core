@@ -2,7 +2,6 @@
 
 const typeforce = require('typeforce');
 const assert = require('assert');
-const types = require('../types');
 
 const BaseConciliumDefinition = require('./baseConciliumDefinition');
 
@@ -19,7 +18,7 @@ const BaseConciliumDefinition = require('./baseConciliumDefinition');
 //    quorum: 1 | addresses.length*2/3
 //};
 
-module.exports = ({Constants}) =>
+module.exports = (/*{Constants}*/) =>
     class ConciliumRrDefinition extends BaseConciliumDefinition {
         constructor(data) {
             super(data, data.addresses ? data.addresses.length : 1);

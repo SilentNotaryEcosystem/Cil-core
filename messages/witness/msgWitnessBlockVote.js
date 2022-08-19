@@ -1,5 +1,4 @@
 const typeforce = require('typeforce');
-const types = require('../../types');
 
 const BLOCK_HASH = typeforce.oneOf(typeforce.BufferN(32), typeforce.BufferN(6));
 

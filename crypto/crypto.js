@@ -228,7 +228,7 @@ class CryptoLib {
      * @param {Number} hashLength - in BYTES!
      * @returns {Buffer}
      */
-    static argon2(password, salt, hashLength = 32) {
+    static argon2(/*password, salt, hashLength = 32*/) {
         // raw: true - mandatory!
 //        const key = await argon2.hash(password, {salt, type: argon2id, raw: true, hashLength});
         throw new Error('Not implemented yet');
@@ -298,7 +298,6 @@ class CryptoLib {
                 break;
             default:
                 throw new Error(`Hash function ${passwordHashFunction} is unknown`);
-                break;
         }
         return {key: Buffer.from(key, 'hex'), options};
     }

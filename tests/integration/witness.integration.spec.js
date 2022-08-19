@@ -1,7 +1,5 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const os = require('os');
-const debugLib = require('debug');
 const sinon = require('sinon');
 
 const factory = require('../testFactory');
@@ -39,7 +37,7 @@ const createDummyDefinition = (conciliumId = 0, numOfKeys = 2) => {
     return {arrKeyPairs, concilium};
 };
 
-let witnesNo = 1;
+// let witnesNo = 1;
 const createWitnesses = (num, seedAddress) => {
     const arrWitnesses = [];
 
@@ -56,7 +54,7 @@ const createWitnesses = (num, seedAddress) => {
         patchNodeForWitnesses(witness, concilium);
         arrWitnesses.push(witness);
     }
-    witnesNo += num;
+    // witnesNo += num;
 
     return arrWitnesses;
 };

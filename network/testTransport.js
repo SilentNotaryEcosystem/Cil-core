@@ -82,7 +82,7 @@ module.exports = (factory) => {
             let i = 0;
 
             // skip leading 0
-            for (; i < buffer.length && !buffer[i]; i++) {}
+            for (; i < buffer.length && !buffer[i]; i++);
             return buffer.toString(encoding, i);
         }
 
@@ -116,7 +116,7 @@ module.exports = (factory) => {
             return address;
         }
 
-        static isPrivateAddress(address) {
+        static isPrivateAddress(/*address*/) {
             return false;
         }
 
@@ -204,7 +204,7 @@ module.exports = (factory) => {
             debug(`sending my address: ${this._address}`);
             socket.write(TestTransport.strToAddress(this._address));
 
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 socket.once('data', (addressBuff) => {
                     debug(`got remote address: ${TestTransport.addressToString(addressBuff)}`);
                     resolve(addressBuff);

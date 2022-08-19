@@ -3,21 +3,20 @@
 const fs = require('fs');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {sleep, createDummyTx, pseudoRandomBuffer} = require('./testUtil');
-const {arrayEquals} = require('../utils');
+const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 const sinon = require('sinon').createSandbox();
 
 const factory = require('./testFactory');
 
-let keyPair;
+// let keyPair;
 let stubWrite;
-let stubRead;
+// let stubRead;
 
 describe('Mempool tests', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
-        keyPair = factory.Crypto.createKeyPair();
+        // keyPair = factory.Crypto.createKeyPair();
     });
 
     after(async function() {
@@ -26,7 +25,7 @@ describe('Mempool tests', () => {
 
     beforeEach(async () => {
         stubWrite = sinon.stub(fs, 'writeFileSync');
-        stubRead = sinon.stub(fs, 'readFileSync').returns('{}');
+        // stubRead = sinon.stub(fs, 'readFileSync').returns('{}');
     });
 
     afterEach(async () => {

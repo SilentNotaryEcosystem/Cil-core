@@ -3,7 +3,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
-const debug = require('debug')('pendingBlocksManager:');
 
 const factory = require('./testFactory');
 
@@ -41,16 +40,16 @@ const createRhombus = async (pbm, bNonEmpty = false) => {
 /**
  * Duplicate block, but change conciliumId & change tx
  */
-const makeDoubleSpend = (block, newConciliumId) => {
-    const newBlock = new factory.Block(newConciliumId);
+// const makeDoubleSpend = (block, newConciliumId) => {
+//     const newBlock = new factory.Block(newConciliumId);
 
-    // first is coinbase
-    const tx = new factory.Transaction(block.txns[1]);
-    tx.conciliumId = newConciliumId;
-    newBlock.addTx(tx);
-    newBlock.finish(factory.Constants.fees.TX_FEE, generateAddress());
-    return newBlock;
-};
+//     // first is coinbase
+//     const tx = new factory.Transaction(block.txns[1]);
+//     tx.conciliumId = newConciliumId;
+//     newBlock.addTx(tx);
+//     newBlock.finish(factory.Constants.fees.TX_FEE, generateAddress());
+//     return newBlock;
+// };
 
 const createSample = async (pbm, isContractFound = false) => {
     const block1 = createDummyBlock(factory, 0);

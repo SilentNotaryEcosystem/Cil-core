@@ -7,7 +7,7 @@ const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
 
 module.exports = (factory, factoryOptions) => {
-    const {Node, Messages, Constants, BFT, Block, Transaction, BaseConciliumDefinition, PatchDB, BlockInfo} = factory;
+    const {Node, Messages, Constants, BFT, Block, Transaction, /*BaseConciliumDefinition,*/ PatchDB, BlockInfo} = factory;
     const {MsgWitnessCommon, MsgWitnessBlock, MsgWitnessWitnessExpose} = Messages;
 
     return class Witness extends Node {

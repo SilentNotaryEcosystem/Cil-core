@@ -1,11 +1,9 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon');
-const debug = require('debug')('peer:');
 
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
 describe('TX Receipt tests', () => {
     before(async function() {

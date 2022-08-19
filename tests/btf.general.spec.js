@@ -2,14 +2,13 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 
-const {sleep} = require('../utils');
 const {pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
-let myWallet;
+// let myWallet;
 const conciliumId = 0;
-let BFT;
+// let BFT;
 
 const createDummyBFT = (conciliumId = 0, numOfKeys = 2) => {
     const arrKeyPairs = [];
@@ -36,10 +35,10 @@ describe('BFT general tests', () => {
     before(async function() {
         this.timeout(15000);
         await factory.asyncLoad();
-        BFT = factory.BFT;
+        // BFT = factory.BFT;
 
-        const keyPair = factory.Crypto.createKeyPair();
-        myWallet = new factory.Wallet(keyPair.privateKey);
+        // const keyPair = factory.Crypto.createKeyPair();
+        // myWallet = new factory.Wallet(keyPair.privateKey);
     });
 
     after(async function() {
@@ -226,7 +225,7 @@ describe('BFT general tests', () => {
 
     it('should PASS 3 witness (one dead)', async () => {
         const {newBft, concilium} = createDummyBFT(0, 3);
-        const [myWalletAddress, anotherAddress, thirdAddress] = concilium.getAddresses();
+        const [myWalletAddress, /*anotherAddress,*/ thirdAddress] = concilium.getAddresses();
 
         const sampleData = {data: 1};
         newBft._resetState();
@@ -484,7 +483,7 @@ describe('BFT general tests', () => {
         newBft._state = factory.Constants.consensusStates.ROUND_CHANGE;
         newBft._nextRound = sinon.fake();
 
-        const prevRound = newBft._roundNo = 123;
+        // const prevRound = newBft._roundNo = 123;
 
         newBft._roundChangeHandler(false);
 
@@ -766,7 +765,7 @@ describe('BFT general tests', () => {
     });
 
     it('should get signatures', async () => {
-        const {arrKeyPairs, newBft, concilium} = createDummyBFT(conciliumId, 2);
+        const {arrKeyPairs, newBft} = createDummyBFT(conciliumId, 2);
 
         newBft._resetState();
         newBft._block = createDummyBlock(factory);

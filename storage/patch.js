@@ -1,7 +1,6 @@
 'use strict';
 const assert = require('assert');
 const typeforce = require('typeforce');
-const debugLib = require('debug');
 const v8 = require('v8');
 
 const types = require('../types');

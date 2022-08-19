@@ -1,7 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {sleep} = require('../../utils');
 const factory = require('../testFactory');
 
 const conciliumId = 11;

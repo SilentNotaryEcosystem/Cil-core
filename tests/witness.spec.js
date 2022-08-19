@@ -8,7 +8,6 @@ const debug = require('debug')('witness:');
 const factory = require('./testFactory');
 
 const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
-const {arrayEquals} = require('../utils');
 
 let wallet;
 
@@ -191,10 +190,10 @@ describe('Witness tests', () => {
     describe('Create block', async () => {
         let clock;
         let witness;
-        let concilium;
+        // let concilium;
 
         beforeEach(async () => {
-            ({witness, concilium} = createDummyWitness());
+            ({witness /*concilium*/} = createDummyWitness());
             await witness.ensureLoaded();
             clock = sinon.useFakeTimers();
         });
@@ -228,10 +227,9 @@ describe('Witness tests', () => {
     });
     describe('_isBigTimeDiff', async () => {
         let witness;
-        let concilium;
 
         beforeEach(async () => {
-            ({witness, concilium} = createDummyWitness());
+            ({witness /*concilium*/} = createDummyWitness());
             await witness.ensureLoaded();
         });
 

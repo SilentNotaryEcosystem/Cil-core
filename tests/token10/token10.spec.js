@@ -4,19 +4,11 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
-const sinon = require('sinon');
 
 const Contract = require('./token10').Token10;
 const factory = require('../testFactory');
 
-const {arrayEquals} = require('../../utils');
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
-
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
 
 let contract;
 
@@ -402,7 +394,7 @@ describe('Token 10', () => {
             contract.emitMoreTokens('TST', nAddon);
 
             // Increase total supply
-            const {nTotalSupply: nNewTotal, arrTxHashChanges, decimals} = contract.tokenData('TST');
+            const {nTotalSupply: nNewTotal, arrTxHashChanges} = contract.tokenData('TST');
             const nExpectedAmount = (nTotalSupply + nAddon);
             assert.strictEqual(nNewTotal, nExpectedAmount);
 

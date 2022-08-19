@@ -10,11 +10,8 @@ const sinon = require('sinon').createSandbox();
 const debugChannel = 'storage:*';
 process.env['DEBUG'] = `${debugChannel},` + process.env['DEBUG'];
 
-const debugLib = require('debug');
-const debug = debugLib(debugChannel);
-
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
 const {timestamp, arrayEquals, prepareForStringifyObject} = require('../utils');
 
 const createBlockInfo = () => {
@@ -493,8 +490,8 @@ describe('Storage tests', () => {
             const storage = new factory.Storage();
 
             storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
-                .then(_ => done(new Error('Unexpected success')))
-                .catch(_ => done());
+                .then(() => done(new Error('Unexpected success')))
+                .catch(() => done());
         });
 
         it('should throw. Hash not found', async () => {

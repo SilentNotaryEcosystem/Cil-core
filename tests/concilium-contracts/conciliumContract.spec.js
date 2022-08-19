@@ -12,12 +12,6 @@ const factory = require('../testFactory');
 const {arrayEquals} = require('../../utils');
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
 
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
-
 let contract;
 let addrCurrentOwner;
 

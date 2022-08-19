@@ -638,7 +638,7 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<Block>}
          */
         async findBlockByTxHash(strTxHash) {
-            const buffTxHash = Buffer.from(strTxHash, 'hex');
+            // const buffTxHash = Buffer.from(strTxHash, 'hex');
             const blockHash = await this.getTxBlock(strTxHash);
 
             try {
@@ -784,7 +784,7 @@ module.exports = (factory, factoryOptions) => {
             await this._ensureWalletInitialized();
             const arrAddrHash = [];
 
-            for (let [strTxHash, utxo] of arrCoins) {
+            for (let [/*strTxHash*/, utxo] of arrCoins) {
                 if (utxo.isEmpty()) continue;
 
                 for (let strAddress of this._arrStrWalletAddresses) {
@@ -1031,7 +1031,7 @@ module.exports = (factory, factoryOptions) => {
             this._mapAccountAddresses = new Map();
 
             try {
-                const stat = await fsPromise.stat(strPath).catch(err => {});
+                const stat = await fsPromise.stat(strPath).catch(() => {});
                 if (!stat || !stat.isDirectory()) {
                     await fsPromise.mkdir(strPath);
                 }

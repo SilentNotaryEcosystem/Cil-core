@@ -4,7 +4,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 
 const debugLib = require('debug');
-const {sleep, arrayEquals} = require('../utils');
+const {sleep} = require('../utils');
 const types = require('../types');
 const Tick = require('tick-tock');
 
@@ -21,7 +21,7 @@ function createPeerKey(peer) {
 
 module.exports = (factory, factoryOptions) => {
     const {
-        Contract,
+        // Contract,
         Transport,
         Messages,
         Constants,
@@ -57,7 +57,7 @@ module.exports = (factory, factoryOptions) => {
         MsgGetData,
         MsgGetBlocks
     } = Messages;
-    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_REJECT, MSG_GET_MEMPOOL} = Constants.messageTypes;
+    const {MSG_VERSION, MSG_VERACK, MSG_GET_ADDR, MSG_ADDR, MSG_GET_MEMPOOL} = Constants.messageTypes;
 
     return class Node {
         constructor(options) {
@@ -70,7 +70,7 @@ module.exports = (factory, factoryOptions) => {
 
             this._nMinConnections = Constants.MIN_PEERS;
 
-            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout, workerSuspended, networkSuspended} = options;
+            const {arrSeedAddresses, arrDnsSeeds, queryTimeout, workerSuspended, networkSuspended} = options;
 
             this._workerSuspended = workerSuspended;
             this._networkSuspended = networkSuspended;
@@ -474,8 +474,7 @@ module.exports = (factory, factoryOptions) => {
                             try {
                                 await this._storage.getUtxo(objVector.hash, true).catch();
                                 bShouldRequest = false;
-                            } catch (e) {
-                            }
+                            } catch (e) {}
                         }
                     } else if (objVector.type === Constants.INV_BLOCK) {
                         bShouldRequest = !this._storage.isBlockBanned(objVector.hash) &&
@@ -523,8 +522,6 @@ module.exports = (factory, factoryOptions) => {
                     }
                     peer.doneGetBlocks();
                 }
-            } catch (e) {
-                throw e;
             } finally {
                 this._mutex.release(lock);
             }
@@ -776,7 +773,7 @@ module.exports = (factory, factoryOptions) => {
                     }
                 } else {
                     peer.updatePeerFromPeerInfo(message.peerInfo);
-                    const result = this._peerManager.addPeer(peer, true);
+                    this._peerManager.addPeer(peer, true);
                 }
 
                 this._adjustNetworkTime(_offset);
@@ -968,9 +965,10 @@ module.exports = (factory, factoryOptions) => {
                         return await this._getTxForRpc(content);
                     case 'constantMethodCall':
                         return await this._constantMethodCallRpc(content);
-                    case 'getUnspent':
+                    case 'getUnspent': {
                         const utxo = await this._storage.getUtxo(content);
                         return utxo.toObject();
+                    }
                     case 'getWitnesses':
                         return await this._getAllWitnesses();
                     case 'getConnectedPeers':
@@ -1042,7 +1040,6 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._mempool.hasTx(tx.hash())) return;
 
-            let patchThisTx;
             try {
                 await this._storage.checkTxCollision([strTxHash]);
                 await this._validateTxLight(tx);
@@ -1420,7 +1417,7 @@ module.exports = (factory, factoryOptions) => {
                 arguments
             );
 
-            const {method, arrArguments, context, coinsLimit, environment, objFees} = objParams;
+            const {method, arrArguments, context, coinsLimit, environment} = objParams;
             typeforce(
                 typeforce.tuple(typeforce.String, typeforce.Array, typeforce.Number),
                 [method, arrArguments, coinsLimit]
@@ -1946,7 +1943,7 @@ module.exports = (factory, factoryOptions) => {
 
             // skip coinbase
             for (let i = 1; i < block.txns.length; i++) {
-                await this._processReceivedTx(new Transaction(block.txns[i]), true).catch(err => {});
+                await this._processReceivedTx(new Transaction(block.txns[i]), true).catch(() => {});
             }
 
             try {
@@ -1962,7 +1959,7 @@ module.exports = (factory, factoryOptions) => {
         gracefulShutdown() {
 
             // TODO: implement flushing all in memory data to disk
-            this._peerManager.saveAllPeers().then(_ => {
+            this._peerManager.saveAllPeers().then(() => {
                 logger.log('Shutting down');
                 process.exit(0);
             });

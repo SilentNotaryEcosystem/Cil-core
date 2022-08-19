@@ -2,7 +2,6 @@
 
 const {describe, it} = require('mocha');
 const chai = require('chai');
-const sinon = require('sinon').createSandbox();
 const debug = require('debug')('application:test');
 
 chai.use(require('chai-as-promised'));
@@ -31,7 +30,7 @@ const createGenesis = async (factory, utxoHash) => {
 
 describe('Application layer', () => {
     let nFeeContractInvocation;
-    let nFeeContractCreation;
+    // let nFeeContractCreation;
     let nFeeStorage;
     let nFeeSizeFakeTx;
     let coinsIn;
@@ -48,7 +47,7 @@ describe('Application layer', () => {
 
     beforeEach(() => {
         nFeeContractInvocation = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
-        nFeeContractCreation = factory.Constants.fees.CONTRACT_CREATION_FEE;
+        // nFeeContractCreation = factory.Constants.fees.CONTRACT_CREATION_FEE;
         nFeeStorage = factory.Constants.fees.STORAGE_PER_BYTE_FEE;
         nFeeSizeFakeTx = 100;
         coinsIn = factory.Constants.fees.CONTRACT_INVOCATION_FEE +
@@ -174,7 +173,7 @@ describe('Application layer', () => {
         const app = new factory.Application();
 
         const utxoHash = pseudoRandomBuffer().toString('hex');
-        const {storage, keyPair} = await createGenesis(factory, utxoHash);
+        const {keyPair} = await createGenesis(factory, utxoHash);
         const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
         const anotherKeyPair = factory.Crypto.createKeyPair();
 

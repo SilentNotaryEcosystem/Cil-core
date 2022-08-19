@@ -6,7 +6,6 @@ const debugLib = require('debug');
 const path = require('path');
 const fs = require('fs');
 
-const {sleep} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('mempool:');

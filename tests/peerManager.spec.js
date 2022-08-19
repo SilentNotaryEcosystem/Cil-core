@@ -3,7 +3,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
-const {sleep} = require('../utils');
 
 const factory = require('./testFactory');
 const {createDummyPeer} = require('./testUtil');

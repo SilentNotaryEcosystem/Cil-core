@@ -1,16 +1,14 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debug = require('debug')('transport:');
 
 const factory = require('./testFactoryIpV6');
 const sinon = require('sinon').createSandbox();
-const {sleep} = require('./testUtil');
 
 let msgCommon;
 
 process.on('warning', e => console.warn(e.stack));
 
-const port = 8223;
+// const port = 8223;
 
 describe('IPv6 Transport', () => {
     before(async function() {
@@ -172,9 +170,9 @@ describe('IPv6 Transport', () => {
         it('should AUTODETECT ROUTABLE IPv6 address (faked)', async () => {
             const endpoint = new factory.Transport();
             endpoint.constructor = {
-                getInterfacesIpV6Addresses: _ => ['2a00:1838:37:28:8000::'],
-                isRoutableAddress: _ => true,
-                isRoutableIpV6Address: _ => true
+                getInterfacesIpV6Addresses: () => ['2a00:1838:37:28:8000::'],
+                isRoutableAddress: () => true,
+                isRoutableIpV6Address: () => true
             };
             endpoint._startListen = sinon.fake();
             endpoint._mapAddress = sinon.fake();
@@ -187,10 +185,10 @@ describe('IPv6 Transport', () => {
         it('should AUTODETECT ROUTABLE IPv4 address (faked)', async () => {
             const endpoint = new factory.Transport();
             endpoint.constructor = {
-                getInterfacesIpV4Addresses: _ => ['8.8.8.8'],
-                getInterfacesIpV6Addresses: _ => [],
-                isRoutableAddress: _ => true,
-                isRoutableIpV4Address: _ => true
+                getInterfacesIpV4Addresses: () => ['8.8.8.8'],
+                getInterfacesIpV6Addresses: () => [],
+                isRoutableAddress: () => true,
+                isRoutableIpV4Address: () => true
             };
             endpoint._startListen = sinon.fake();
             endpoint._mapAddress = sinon.fake();
@@ -204,11 +202,11 @@ describe('IPv6 Transport', () => {
             const mappedAddr = '1.2.3.4';
             const endpoint = new factory.Transport();
             endpoint.constructor = {
-                getInterfacesIpV4Addresses: _ => ['192.168.1.2'],
-                getInterfacesIpV6Addresses: _ => ['fd44:c346:f8fe:d300:5145:d4fa:badb:29bd'],
-                isRoutableAddress: _ => false,
-                isRoutableIpV6Address: _ => false,
-                isRoutableIpV4Address: _ => false
+                getInterfacesIpV4Addresses: () => ['192.168.1.2'],
+                getInterfacesIpV6Addresses: () => ['fd44:c346:f8fe:d300:5145:d4fa:badb:29bd'],
+                isRoutableAddress: () => false,
+                isRoutableIpV6Address: () => false,
+                isRoutableIpV4Address: () => false
             };
             endpoint._startListen = sinon.fake();
             endpoint._mapAddress = sinon.fake.resolves(mappedAddr);

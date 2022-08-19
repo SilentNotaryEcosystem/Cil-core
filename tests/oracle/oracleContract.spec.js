@@ -4,20 +4,11 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
-const sinon = require('sinon');
 
 const {Base, RatesOracle} = require('./oracle');
 const factory = require('../testFactory');
 
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
-
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
-
-let contract;
 
 describe('Oracle contract', () => {
     before(async function() {
@@ -37,7 +28,7 @@ describe('Oracle contract', () => {
             timestamp: parseInt(Date.now() / 1000)
         };
 
-        contract = new RatesOracle();
+        // contract = new RatesOracle();
     });
 
     describe('Base', async () => {

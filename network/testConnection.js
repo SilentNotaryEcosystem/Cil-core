@@ -1,5 +1,4 @@
 const EventEmitter = require('events');
-const util = require('util');
 const debug = require('debug')('transport:connection');
 
 const {sleep} = require('../utils');

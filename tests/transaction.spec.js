@@ -6,8 +6,8 @@ const {assert} = require('chai');
 const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 let keyPair;
-let privateKey;
-let publicKey;
+// let privateKey;
+// let publicKey;
 
 const factory = require('./testFactory');
 
@@ -15,8 +15,8 @@ describe('Transaction tests', () => {
     before(async function() {
         await factory.asyncLoad();
         keyPair = factory.Crypto.createKeyPair();
-        privateKey = keyPair.getPrivate();
-        publicKey = keyPair.getPublic();
+        // privateKey = keyPair.getPrivate();
+        // publicKey = keyPair.getPublic();
     });
 
     it('should create empty transaction', async () => {
@@ -414,7 +414,7 @@ describe('Transaction tests', () => {
         it('should fail to verifyCoinbase (bad amount)', async () => {
             const coinbase = factory.Transaction.createCoinbase();
             coinbase.addReceiver(100, generateAddress());
-            assert.throws(() => coinbase.verifyCoinbase(tx.amountOut() - 1));
+            assert.throws(() => coinbase.verifyCoinbase(coinbase.amountOut() - 1));
         });
 
         it('should pass verifyCoinbase', async () => {

@@ -2,7 +2,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const debug = require('debug')('wallet:test');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
 describe('Wallet tests', () => {
     before(async function() {

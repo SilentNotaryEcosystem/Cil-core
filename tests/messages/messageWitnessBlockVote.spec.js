@@ -2,7 +2,7 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyTx, pseudoRandomBuffer} = require('../testUtil');
+const {pseudoRandomBuffer} = require('../testUtil');
 
 const factory = require('../testFactory');
 

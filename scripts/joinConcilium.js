@@ -17,7 +17,7 @@ const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_I
 const nMinAmount = process.env.MIN_AMOUNT ? parseFloat(process.env.MIN_AMOUNT) : 2e7;
 
 main()
-    .then(_ => {
+    .then(() => {
         process.exit(0);
     })
     .catch(err => {
