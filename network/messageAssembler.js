@@ -1,6 +1,6 @@
 const debug = require('debug')('msgassembler:');
 
-module.exports = (Serializer) =>
+module.exports = Serializer =>
     class MessageAssembler {
         get isDone() {
             return !this._messageBuffer;
@@ -14,7 +14,6 @@ module.exports = (Serializer) =>
         extractMessages(data) {
             const arrMessagesBuffers = [];
             if (!this._messageBuffer) {
-
                 // new message, let's assemby it
                 const {length, dataOffset} = Serializer.readMsgLength(data);
                 const totalMsgBufferLength = length + dataOffset;
@@ -25,11 +24,9 @@ module.exports = (Serializer) =>
                 data.copy(messageBuffer, 0, 0, toCopyBytes);
 
                 if (data.length === messageBuffer.length) {
-
                     // exactly one message
                     return [messageBuffer];
                 } else if (data.length > messageBuffer.length) {
-
                     // we have another message (possibly part of it) in 'data'
                     // let's recursively get it
                     arrMessagesBuffers.push(messageBuffer);
@@ -41,7 +38,6 @@ module.exports = (Serializer) =>
                         return arrMessagesBuffers;
                     }
                 } else if (data.length < messageBuffer.length) {
-
                     // we need more chunks for it!
                     this._messageBuffer = messageBuffer;
                     this._bytesToGo = messageBuffer.length - data.length;
@@ -54,7 +50,6 @@ module.exports = (Serializer) =>
                 const toCopyBytes = this._bytesToGo < data.length ? this._bytesToGo : data.length;
                 data.copy(this._messageBuffer, this._messageBuffer.length - this._bytesToGo, 0, toCopyBytes);
                 if (toCopyBytes === this._bytesToGo) {
-
                     // we are done with this message
                     arrMessagesBuffers.push(this._messageBuffer);
                     this._messageBuffer = undefined;

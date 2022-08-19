@@ -3,19 +3,12 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-let keyPair;
-let privateKey;
-let publicKey;
-
 const factory = require('../testFactory');
 const UnsupportedExceptionText = 'Found unsupported operation in the contract!';
 
 describe('Contract billing: Check unsupported operations', () => {
     before(async () => {
         await factory.asyncLoad();
-        keyPair = factory.Crypto.createKeyPair();
-        privateKey = keyPair.getPrivate();
-        publicKey = keyPair.getPublic();
     });
 
     let nFeeContractInvocation;
@@ -49,11 +42,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ process.exit(1); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with a dangerous operation and throw an exception: Math.random();', () => {
@@ -61,11 +53,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ Math.random(); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with a dangerous operation and throw an exception: eval();', () => {
@@ -73,11 +64,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ eval(`process.exit(1)`); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with an arrow function', () => {
@@ -85,11 +75,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ const f = () => {}; }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not throw an exception for the contract without a dangerous operation', () => {
@@ -97,11 +86,7 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){}"}',
             conciliumId: 10
         });
-        assert.isOk(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ));
+        assert.isOk(app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1));
     });
 
     it('should not allow to create a contract with a string regex', () => {
@@ -109,11 +94,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ let a = /^TEST$/; }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with a string regex test', () => {
@@ -121,11 +105,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ /.*/gi.test(`test`); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with a string regex replace', () => {
@@ -133,11 +116,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ `ab`.replaceAll(/b/, `c`); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with an object regex', () => {
@@ -145,11 +127,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ let a = new RegExp(`^TEST$`); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with an object regex test', () => {
@@ -157,11 +138,10 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ new RegExp(`.*`, `gi`).test(`test`); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 
     it('should not allow to create a contract with an object regex replace', () => {
@@ -169,10 +149,9 @@ describe('Contract billing: Check unsupported operations', () => {
             contractCode: '{"test": "(){ `ab`.replaceAll(new RegExp(`b`), `c`); }"}',
             conciliumId: 10
         });
-        assert.isRejected(app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        ), UnsupportedExceptionText);
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            UnsupportedExceptionText
+        );
     });
 });

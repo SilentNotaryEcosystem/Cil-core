@@ -10,7 +10,7 @@ let msgCommon;
 process.on('warning', e => console.warn(e.stack));
 
 describe('TestTransport', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -18,24 +18,24 @@ describe('TestTransport', () => {
         msgCommon.message = 'test';
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
-    it('should convert STRING address to BUFFER address', async function() {
+    it('should convert STRING address to BUFFER address', async function () {
         const strAddr = 'address';
         const result = factory.Transport.strToAddress(strAddr);
         assert.isOk(Buffer.isBuffer(result));
     });
 
-    it('should convert BUFFER address to STRING address', async function() {
+    it('should convert BUFFER address to STRING address', async function () {
         const buffAddress = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const result = factory.Transport.addressToString(buffAddress);
         assert.isOk(typeof result === 'string');
         assert.isOk(buffAddress.equals(factory.Transport.strToAddress(result)));
     });
 
-    it('should get address AS string', async function() {
+    it('should get address AS string', async function () {
         this.timeout(10000);
         const strAddress = factory.Transport.generateAddress();
         const endpoint1 = new factory.Transport({delay: 0, listenAddr: strAddress});
@@ -47,10 +47,7 @@ describe('TestTransport', () => {
         const endpoint1 = new factory.Transport({delay: 0, listenAddr: address});
         const endpoint2 = new factory.Transport({delay: 0});
 
-        const [connection1, connection2] = await Promise.all([
-            endpoint1.listenSync(),
-            endpoint2.connect(address)
-        ]);
+        const [connection1, connection2] = await Promise.all([endpoint1.listenSync(), endpoint2.connect(address)]);
 
         assert.isOk(connection1);
         assert.isOk(connection2);
@@ -60,7 +57,7 @@ describe('TestTransport', () => {
 
         const result = await msgPromise;
         assert.isOk(result.message);
-        assert.equal(factory.Transport.addressToString(connection2.remoteAddress), "" + address);
+        assert.equal(factory.Transport.addressToString(connection2.remoteAddress), '' + address);
     });
 
     it('should communicate each other', async () => {
@@ -68,10 +65,7 @@ describe('TestTransport', () => {
         const endpoint1 = new factory.Transport({delay: 200, listenAddr: address});
         const endpoint2 = new factory.Transport({delay: 200});
 
-        const [connection1, connection2] = await Promise.all([
-            endpoint1.listenSync(),
-            endpoint2.connect(address)
-        ]);
+        const [connection1, connection2] = await Promise.all([endpoint1.listenSync(), endpoint2.connect(address)]);
 
         assert.isOk(connection1);
         assert.isOk(connection2);
@@ -81,7 +75,7 @@ describe('TestTransport', () => {
 
         const result = await msgPromise;
         assert.isOk(result.message);
-        assert.equal(factory.Transport.addressToString(connection2.remoteAddress), "" + address);
+        assert.equal(factory.Transport.addressToString(connection2.remoteAddress), '' + address);
     });
 
     it('should receive only ONE message (timeout with second one)', async () => {
@@ -89,10 +83,7 @@ describe('TestTransport', () => {
         const endpoint1 = new factory.Transport({delay: 0, listenAddr: address});
         const endpoint2 = new factory.Transport({delay: 0});
 
-        const [connection1, connection2] = await Promise.all([
-            endpoint1.listenSync(),
-            endpoint2.connect(address)
-        ]);
+        const [connection1, connection2] = await Promise.all([endpoint1.listenSync(), endpoint2.connect(address)]);
 
         assert.isOk(connection1);
         assert.isOk(connection2);
@@ -110,7 +101,7 @@ describe('TestTransport', () => {
         assert.isNotOk(result2);
     });
 
-    it('should FAIL or timeout 3 sec (different addresses)', async function() {
+    it('should FAIL or timeout 3 sec (different addresses)', async function () {
         this.timeout(10000);
         const address1 = factory.Transport.generateAddress();
         const address2 = factory.Transport.generateAddress();
@@ -119,10 +110,7 @@ describe('TestTransport', () => {
         const endpoint2 = new factory.Transport({delay: 200, timeout: 3000});
 
         try {
-            await Promise.all([
-                endpoint1.listenSync(),
-                endpoint2.connect(address2)
-            ]);
+            await Promise.all([endpoint1.listenSync(), endpoint2.connect(address2)]);
         } catch (err) {
             debug(err);
             return;
@@ -130,7 +118,7 @@ describe('TestTransport', () => {
         assert.isOk(false, 'Unexpected success');
     });
 
-    it('should simulate network latency (3 sec)', async function() {
+    it('should simulate network latency (3 sec)', async function () {
         this.timeout(10000);
         const address = factory.Transport.generateAddress();
         const tsStarted = Date.now();
@@ -140,10 +128,7 @@ describe('TestTransport', () => {
         // we expect roundtrip delay 3 sec
         const endpoint2 = new factory.Transport({delay: 1500});
 
-        const [connection1, connection2] = await Promise.all([
-            endpoint1.listenSync(),
-            endpoint2.connect(address)
-        ]);
+        const [connection1, connection2] = await Promise.all([endpoint1.listenSync(), endpoint2.connect(address)]);
 
         assert.isOk(connection1);
         assert.isOk(connection2);
@@ -158,5 +143,4 @@ describe('TestTransport', () => {
         assert.isOk(result.message);
         assert.isOk(tsFinished - tsStarted >= 3000);
     });
-
 });

@@ -5,11 +5,11 @@ const Crypto = require('../crypto/crypto');
 const {prepareForStringifyObject} = require('../utils');
 
 describe('Crypto library', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -43,11 +43,7 @@ describe('Crypto library', () => {
     it('encrypt/decrypt key (pbkdf2)', async () => {
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
-        const objEncryptedKey = await Crypto.encrypt(
-            '234',
-            Buffer.from(strPrivKey, 'hex'),
-            'pbkdf2'
-        );
+        const objEncryptedKey = await Crypto.encrypt('234', Buffer.from(strPrivKey, 'hex'), 'pbkdf2');
 
         console.log(strPrivKey);
         console.dir(prepareForStringifyObject(objEncryptedKey), {colors: true, depth: null});
@@ -64,15 +60,11 @@ describe('Crypto library', () => {
         }
     });
 
-    it('encrypt/decrypt key (scrypt)', async function() {
+    it('encrypt/decrypt key (scrypt)', async function () {
         this.timeout(10000);
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
-        const objEncryptedKey = await Crypto.encrypt(
-            '234',
-            Buffer.from(strPrivKey, 'hex'),
-            'scrypt'
-        );
+        const objEncryptedKey = await Crypto.encrypt('234', Buffer.from(strPrivKey, 'hex'), 'scrypt');
 
         {
             // from object
@@ -86,26 +78,20 @@ describe('Crypto library', () => {
         }
     });
 
-    it('Decrypt wrong key (wrong password)', async function() {
+    it('Decrypt wrong key (wrong password)', async function () {
         this.timeout(15000);
         const keyPair = Crypto.createKeyPair();
         const strPrivKey = keyPair.getPrivate();
-        const objEncryptedKey = await Crypto.encrypt(
-            '234',
-            Buffer.from(strPrivKey, 'hex')
-        );
+        const objEncryptedKey = await Crypto.encrypt('234', Buffer.from(strPrivKey, 'hex'));
 
         const decryptedKey = await Crypto.decrypt('111', objEncryptedKey);
         assert.isNotOk(decryptedKey.equals(Buffer.from(strPrivKey, 'hex')));
     });
 
-    it('Fail to decrypt (padded data + wrong password)', async function() {
+    it('Fail to decrypt (padded data + wrong password)', async function () {
         this.timeout(15000);
         const strPrivKey = 'Some key';
-        const objEncryptedKey = await Crypto.encrypt(
-            '234',
-            Buffer.from(strPrivKey)
-        );
+        const objEncryptedKey = await Crypto.encrypt('234', Buffer.from(strPrivKey));
 
         const decryptedKey = await Crypto.decrypt('111', objEncryptedKey);
         assert.isNotOk(decryptedKey);
@@ -114,7 +100,7 @@ describe('Crypto library', () => {
     it('should recover public key from signature buffer', async () => {
         const keyPair = Crypto.createKeyPair();
 
-        msg = 'string';
+        const msg = 'string';
         const buffSignature = Crypto.sign(msg, keyPair.getPrivate(), 'hex');
         const pubKey = Crypto.recoverPubKey(msg, buffSignature);
         assert.isOk(pubKey);

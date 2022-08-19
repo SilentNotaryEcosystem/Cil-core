@@ -9,10 +9,6 @@ const {assert} = chai;
 const {generateAddress} = require('../testUtil');
 const {ADD, MUL, SUB, DIV, MOD, EXP, CALLCODE, LOOPITER} = require('../../billing/v1/babel/billingPrice');
 
-let keyPair;
-let privateKey;
-let publicKey;
-
 const factory = require('../testFactory');
 
 const CONTRACT_CREATION_FEE = 100;
@@ -21,9 +17,6 @@ const CONTRACT_INVOCATION_FEE = factory.Constants.fees.CONTRACT_INVOCATION_FEE;
 describe('Contract billing: bill operations', () => {
     before(async () => {
         await factory.asyncLoad();
-        keyPair = factory.Crypto.createKeyPair();
-        privateKey = keyPair.getPrivate();
-        publicKey = keyPair.getPublic();
     });
 
     let nFeeContractInvocation;
@@ -57,11 +50,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD, app._nCoinsLimit);
     });
@@ -73,11 +62,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD, app._nCoinsLimit);
     });
@@ -89,11 +74,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD, app._nCoinsLimit);
     });
@@ -105,11 +86,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - SUB, app._nCoinsLimit);
     });
@@ -121,11 +98,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - SUB, app._nCoinsLimit);
     });
@@ -137,11 +110,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - MUL, app._nCoinsLimit);
     });
@@ -153,11 +122,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - MUL, app._nCoinsLimit);
     });
@@ -169,11 +134,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - DIV, app._nCoinsLimit);
     });
@@ -185,11 +146,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - DIV, app._nCoinsLimit);
     });
@@ -201,11 +158,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - MOD, app._nCoinsLimit);
     });
@@ -217,11 +170,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - MOD, app._nCoinsLimit);
     });
@@ -233,11 +182,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - EXP, app._nCoinsLimit);
     });
@@ -249,11 +194,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - EXP, app._nCoinsLimit);
     });
@@ -265,11 +206,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD - MUL - DIV - SUB - MOD, app._nCoinsLimit);
     });
@@ -281,11 +218,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - ADD, app._nCoinsLimit);
     });
@@ -297,11 +230,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - CALLCODE, app._nCoinsLimit);
     });
@@ -314,11 +243,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - (LOOPITER + ADD) * loopIterations, app._nCoinsLimit);
     });
@@ -331,11 +256,7 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - (LOOPITER + ADD) * loopIterations, app._nCoinsLimit);
     });
@@ -348,13 +269,12 @@ describe('Contract billing: bill operations', () => {
         });
 
         const initialCoins = app._nCoinsLimit;
-        app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {}, undefined, false, 1
-        );
+        app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1);
 
-        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - (LOOPITER + ADD) * (loopIterations + 1), app._nCoinsLimit);
+        assert.equal(
+            initialCoins - CONTRACT_INVOCATION_FEE - (LOOPITER + ADD) * (loopIterations + 1),
+            app._nCoinsLimit
+        );
     });
 
     it('should reduce balance by ADD operation cost for an object', async () => {
@@ -370,11 +290,7 @@ describe('Contract billing: bill operations', () => {
         const callerAddress = generateAddress().toString('hex');
 
         const initialCoins = app._nCoinsLimit;
-        app.createContract(
-            strCode,
-            {contractAddr: 'hash', callerAddress},
-            undefined, 1
-        );
+        app.createContract(strCode, {contractAddr: 'hash', callerAddress}, undefined, 1);
         assert.equal(initialCoins - CONTRACT_CREATION_FEE - ADD, app._nCoinsLimit);
     });
 
@@ -391,11 +307,7 @@ describe('Contract billing: bill operations', () => {
         const callerAddress = generateAddress().toString('hex');
 
         const initialCoins = app._nCoinsLimit;
-        app.createContract(
-            strCode,
-            {contractAddr: 'hash', callerAddress},
-            undefined, 1
-        );
+        app.createContract(strCode, {contractAddr: 'hash', callerAddress}, undefined, 1);
         assert.equal(initialCoins - CONTRACT_CREATION_FEE - SUB, app._nCoinsLimit);
     });
 
@@ -412,11 +324,7 @@ describe('Contract billing: bill operations', () => {
         const callerAddress = generateAddress().toString('hex');
 
         const initialCoins = app._nCoinsLimit;
-        app.createContract(
-            strCode,
-            {contractAddr: 'hash', callerAddress},
-            undefined, 1
-        );
+        app.createContract(strCode, {contractAddr: 'hash', callerAddress}, undefined, 1);
         assert.equal(initialCoins - CONTRACT_CREATION_FEE - MUL, app._nCoinsLimit);
     });
 
@@ -433,11 +341,7 @@ describe('Contract billing: bill operations', () => {
         const callerAddress = generateAddress().toString('hex');
 
         const initialCoins = app._nCoinsLimit;
-        app.createContract(
-            strCode,
-            {contractAddr: 'hash', callerAddress},
-            undefined, 1
-        );
+        app.createContract(strCode, {contractAddr: 'hash', callerAddress}, undefined, 1);
         assert.equal(initialCoins - CONTRACT_CREATION_FEE - DIV, app._nCoinsLimit);
     });
 });

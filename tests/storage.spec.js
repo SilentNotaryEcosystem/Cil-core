@@ -10,11 +10,8 @@ const sinon = require('sinon').createSandbox();
 const debugChannel = 'storage:*';
 process.env['DEBUG'] = `${debugChannel},` + process.env['DEBUG'];
 
-const debugLib = require('debug');
-const debug = debugLib(debugChannel);
-
 const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
 const {timestamp, arrayEquals, prepareForStringifyObject} = require('../utils');
 
 const createBlockInfo = () => {
@@ -27,11 +24,14 @@ const createBlockInfo = () => {
     });
 };
 
-const createInternalUtxo = (buffHash) => new factory.UTXO({txHash: buffHash || pseudoRandomBuffer()})
-    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
+const createInternalUtxo = buffHash =>
+    new factory.UTXO({txHash: buffHash || pseudoRandomBuffer()}).addCoins(
+        0,
+        factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()})
+    );
 
 describe('Storage tests', () => {
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
     });
 
@@ -66,7 +66,7 @@ describe('Storage tests', () => {
         } catch (e) {
             return;
         }
-        throw ('Unexpected success');
+        throw 'Unexpected success';
     });
 
     it('should NOT find block in storage', async () => {
@@ -206,7 +206,7 @@ describe('Storage tests', () => {
         } catch (e) {
             return;
         }
-        throw ('Unexpected success');
+        throw 'Unexpected success';
     });
 
     it('should NOT find TX COLLISION', async () => {
@@ -335,10 +335,13 @@ describe('Storage tests', () => {
             contract.storeAddress(buffContractAddr);
             patch.setContract(contract);
         }
-        patch.setReceipt(buffUtxoHash.toString('hex'), new factory.TxReceipt({
-            contractAddress: buffContractAddr,
-            coinsUsed: 1000
-        }));
+        patch.setReceipt(
+            buffUtxoHash.toString('hex'),
+            new factory.TxReceipt({
+                contractAddress: buffContractAddr,
+                coinsUsed: 1000
+            })
+        );
 
         await storage.applyPatch(patch);
 
@@ -392,23 +395,14 @@ describe('Storage tests', () => {
         const contractAddress = generateAddress();
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = contractAddress;
 
-        const def1 = factory.ConciliumRr.create(
-            0,
-            [Buffer.from('addr1'), Buffer.from('addr2')]
-        );
-        const def2 = factory.ConciliumRr.create(
-            1,
-            [Buffer.from('addr2'), Buffer.from('addr3')]
-        );
+        const def1 = factory.ConciliumRr.create(0, [Buffer.from('addr1'), Buffer.from('addr2')]);
+        const def2 = factory.ConciliumRr.create(1, [Buffer.from('addr2'), Buffer.from('addr3')]);
 
         const patch = new factory.PatchDB();
         {
             const contract = new factory.Contract({
                 contractData: {
-                    _arrConciliums: [
-                        def1.toObject(),
-                        def2.toObject()
-                    ]
+                    _arrConciliums: [def1.toObject(), def2.toObject()]
                 },
                 contractCode: '',
                 conciliumId: 0
@@ -482,19 +476,18 @@ describe('Storage tests', () => {
         assert.equal(coinsUsed, receipt.getCoinsUsed());
         assert.isOk(buffContractAddr.equals(Buffer.from(receipt.getContractAddress(), 'hex')));
         assert.isOk(
-            receipt
-                .getInternalTxns()
-                .every(buffTxHash => arrInternalTxns.includes(buffTxHash.toString('hex')))
+            receipt.getInternalTxns().every(buffTxHash => arrInternalTxns.includes(buffTxHash.toString('hex')))
         );
     });
 
     describe('TX index', () => {
-        it('should throw. No txIndex enabled', (done) => {
+        it('should throw. No txIndex enabled', done => {
             const storage = new factory.Storage();
 
-            storage.findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
-                .then(_ => done(new Error('Unexpected success')))
-                .catch(_ => done());
+            storage
+                .findBlockByTxHash(pseudoRandomBuffer().toString('hex'))
+                .then(() => done(new Error('Unexpected success')))
+                .catch(() => done());
         });
 
         it('should throw. Hash not found', async () => {
@@ -526,7 +519,7 @@ describe('Storage tests', () => {
 
         it('should save block and index', async () => {
             const storage = new factory.Storage({buildTxIndex: true});
-            const storeIndexFake = storage._txIndexStorage.batch = sinon.fake();
+            const storeIndexFake = (storage._txIndexStorage.batch = sinon.fake());
             const block = createDummyBlock(factory);
 
             await storage.saveBlock(block);
@@ -534,13 +527,18 @@ describe('Storage tests', () => {
             assert.isOk(storeIndexFake.calledOnce);
             const [arrRecords] = storeIndexFake.args[0];
             const arrTxHashes = block.getTxHashes();
-            assert.isOk(arrRecords.every((rec, i) => rec.key.equals(factory.Storage.createTxKey(arrTxHashes[i])) &&
-                                                     rec.value.toString('hex') === block.getHash()));
+            assert.isOk(
+                arrRecords.every(
+                    (rec, i) =>
+                        rec.key.equals(factory.Storage.createTxKey(arrTxHashes[i])) &&
+                        rec.value.toString('hex') === block.getHash()
+                )
+            );
         });
 
         it('should _storeInternalTxnsIndex', async () => {
             const storage = new factory.Storage({buildTxIndex: true});
-            const storeIndexFake = storage._txIndexStorage.batch = sinon.fake();
+            const storeIndexFake = (storage._txIndexStorage.batch = sinon.fake());
 
             const buffTxSourceHash = pseudoRandomBuffer();
             const arrInternalTxnsHashes = [pseudoRandomBuffer(), pseudoRandomBuffer()];
@@ -548,9 +546,13 @@ describe('Storage tests', () => {
 
             assert.isOk(storeIndexFake.calledOnce);
             const [arrRecords] = storeIndexFake.args[0];
-            assert.isOk(arrRecords.every(
-                (rec, i) => rec.key.equals(factory.Storage.createInternalTxKey(arrInternalTxnsHashes[i])) &&
-                            rec.value.equals(buffTxSourceHash)));
+            assert.isOk(
+                arrRecords.every(
+                    (rec, i) =>
+                        rec.key.equals(factory.Storage.createInternalTxKey(arrInternalTxnsHashes[i])) &&
+                        rec.value.equals(buffTxSourceHash)
+                )
+            );
         });
     });
 
@@ -585,7 +587,6 @@ describe('Storage tests', () => {
 
             let callCount = 0;
             storage._walletStorage.get = async () => {
-
                 // first call - request for addresses, second - autoincrement
                 return ++callCount === 1 ? Buffer.concat([addr1, addr2]) : Buffer.from([0, 0, 0, autoInc]);
             };
@@ -662,7 +663,7 @@ describe('Storage tests', () => {
             const fakeUtxo = {filterOutputsForAddress: () => ({isEmpty: () => false})};
 
             // fake one missed
-            storage.getUtxo = async (hash) => {
+            storage.getUtxo = async hash => {
                 if (hash.equals(hash1)) return fakeUtxo;
                 throw 'not found';
             };
@@ -769,7 +770,7 @@ describe('Storage tests', () => {
         });
     });
 
-    describe('readBlocks', function() {
+    describe('readBlocks', function () {
         it('should read blocks one by one', async () => {
             const storage = new factory.Storage();
             await storage.saveBlock(createDummyBlock(factory));
@@ -827,7 +828,7 @@ describe('Storage tests', () => {
         });
     });
 
-    describe('_fixMainDb', function() {
+    describe('_fixMainDb', function () {
         it('should be disabled by default', async () => {
             const storage = new factory.Storage();
 

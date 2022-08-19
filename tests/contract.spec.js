@@ -1,18 +1,18 @@
-const v8 = require('v8');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
-const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
+const encodedContractSample =
+    '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
 
 describe('Contract tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
     it('should create contract', async () => {
@@ -28,25 +28,30 @@ describe('Contract tests', () => {
 
         new factory.Contract({});
 
-        new factory.Contract(Buffer.from(
-            encodedContractSample,
-            'hex'
-        ));
+        new factory.Contract(Buffer.from(encodedContractSample, 'hex'));
     });
 
-    describe('Set version upon constructing', function() {
+    describe('Set version upon constructing', function () {
         it('should be V_JSON', async () => {
-            const contract = new factory.Contract({
-                contractData: {a: 1}
-            }, 'asdasd', factory.Constants.CONTRACT_V_JSON);
+            const contract = new factory.Contract(
+                {
+                    contractData: {a: 1}
+                },
+                'asdasd',
+                factory.Constants.CONTRACT_V_JSON
+            );
 
             assert.equal(contract.getVersion(), factory.Constants.CONTRACT_V_JSON);
         });
 
         it('should be V_V8', async () => {
-            const contract = new factory.Contract({
-                contractData: {a: 1}
-            }, 'asdasd', factory.Constants.CONTRACT_V_V8);
+            const contract = new factory.Contract(
+                {
+                    contractData: {a: 1}
+                },
+                'asdasd',
+                factory.Constants.CONTRACT_V_V8
+            );
 
             assert.equal(contract.getVersion(), factory.Constants.CONTRACT_V_V8);
         });
@@ -66,10 +71,7 @@ describe('Contract tests', () => {
 
         it('should get (from Buffer)', async () => {
             const data = {a: 1};
-            const contract = new factory.Contract(Buffer.from(
-                encodedContractSample,
-                'hex'
-            ));
+            const contract = new factory.Contract(Buffer.from(encodedContractSample, 'hex'));
             assert.deepEqual(contract.getData(), data);
         });
     });
@@ -88,10 +90,7 @@ describe('Contract tests', () => {
 
         it('should get (from Buffer)', async () => {
             const data = {a: 1};
-            const contract = new factory.Contract(Buffer.from(
-                encodedContractSample,
-                'hex'
-            ));
+            const contract = new factory.Contract(Buffer.from(encodedContractSample, 'hex'));
             assert.deepEqual(contract.getDataBuffer(), Buffer.from(JSON.stringify(data)));
         });
     });
@@ -112,10 +111,7 @@ describe('Contract tests', () => {
 
         it('should get (from Buffer)', async () => {
             const code = '{"add": "(a){this.value+=a;}"}';
-            const contract = new factory.Contract(Buffer.from(
-                encodedContractSample,
-                'hex'
-            ));
+            const contract = new factory.Contract(Buffer.from(encodedContractSample, 'hex'));
             assert.strictEqual(contract.getCode(), code);
         });
     });
@@ -204,9 +200,7 @@ describe('Contract tests', () => {
         });
     });
 
-    describe('Update data', async () => {
-
-    });
+    describe('Update data', async () => {});
 
     it('should update data', async () => {
         const data = {a: 1};
@@ -381,7 +375,6 @@ describe('Contract tests', () => {
             assert.equal(newContract.getBalance(), nInitialBalance + nAmount);
             assert.equal(depthTwoContract.getBalance(), nInitialBalance + nAmount);
         });
-
     });
 
     describe('Data size', () => {
@@ -491,7 +484,7 @@ describe('Contract tests', () => {
         });
     });
 
-    describe('Dirty workaround', function() {
+    describe('Dirty workaround', function () {
         let data;
         let contract;
 

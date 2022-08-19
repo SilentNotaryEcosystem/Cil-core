@@ -1,7 +1,6 @@
 'use strict';
 const assert = require('assert');
 const typeforce = require('typeforce');
-const debugLib = require('debug');
 const v8 = require('v8');
 
 const types = require('../types');
@@ -41,10 +40,12 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             patch._data.coins.forEach((value, key) => arrUtxos.push([key, UTXO.createFromData(value)]));
             patch._data.coins = new Map(arrUtxos);
 
-            patch._mapContractStates.forEach(
-                (value, key) => patch._mapContractStates.set(key, Contract.createFromData(value)));
-            patch._mapTxReceipts.forEach(
-                (value, key) => patch._mapTxReceipts.set(key, TxReceipt.createFromData(value)));
+            patch._mapContractStates.forEach((value, key) =>
+                patch._mapContractStates.set(key, Contract.createFromData(value))
+            );
+            patch._mapTxReceipts.forEach((value, key) =>
+                patch._mapTxReceipts.set(key, TxReceipt.createFromData(value))
+            );
 
             return patch;
         }
@@ -137,12 +138,11 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
          * @return {PatchDB} NEW patch!
          */
         merge(patch, bPreferPatchData = false) {
-
             // same concilium + same level. it's definitely error!
             if (this._conciliumId !== undefined && patch._conciliumId !== undefined && !bPreferPatchData) {
                 assert(
                     this._conciliumId !== patch._conciliumId ||
-                    this.getLevel(this._conciliumId) !== patch.getLevel(patch._conciliumId),
+                        this.getLevel(this._conciliumId) !== patch.getLevel(patch._conciliumId),
                     'It seems we have unexpected fork!'
                 );
             }
@@ -154,7 +154,8 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             for (let conciliumId of arrConciliumIds) {
                 resultPatch._mapConciliumLevel.set(
                     conciliumId,
-                    Math.max(this._mapConciliumLevel.get(conciliumId) || 0,
+                    Math.max(
+                        this._mapConciliumLevel.get(conciliumId) || 0,
                         patch._mapConciliumLevel.get(conciliumId) || 0
                     )
                 );
@@ -166,20 +167,19 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
 
             const setUnionHashes = new Set(arrThisCoinsHashes.concat(arrAnotherCoinsHashes));
             for (let coinHash of setUnionHashes) {
-
-                if ((this._data.coins.has(coinHash) && !patch._data.coins.has(coinHash)) ||
-                    (!this._data.coins.has(coinHash) && patch._data.coins.has(coinHash))) {
-
+                if (
+                    (this._data.coins.has(coinHash) && !patch._data.coins.has(coinHash)) ||
+                    (!this._data.coins.has(coinHash) && patch._data.coins.has(coinHash))
+                ) {
                     // only one patch have this utxo -> put it in result
                     const utxo = this._data.coins.get(coinHash) || patch._data.coins.get(coinHash);
-                    const mapSpentOutputs = this._getSpentOutputs(coinHash).size ?
-                        this._getSpentOutputs(coinHash) : patch._getSpentOutputs(coinHash);
+                    const mapSpentOutputs = this._getSpentOutputs(coinHash).size
+                        ? this._getSpentOutputs(coinHash)
+                        : patch._getSpentOutputs(coinHash);
 
                     resultPatch._data.coins.set(coinHash, utxo.clone());
                     for (let [idx, hash] of mapSpentOutputs) resultPatch._setSpentOutput(coinHash, idx, hash);
-
                 } else {
-
                     // both has
                     const utxoMy = this.getUtxo(coinHash);
                     const utxoHis = patch.getUtxo(coinHash);
@@ -222,7 +222,6 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             // merge contracts
             const arrContractAddresses = getMapsKeysUnique(this._mapContractStates, patch._mapContractStates);
             for (let strAddr of arrContractAddresses) {
-
                 let winnerContract;
 
                 // contract belongs always to one concilium
@@ -234,13 +233,12 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
                         'Contract belongs to different conciliums'
                     );
 
-                    winnerContract = bPreferPatchData ||
-                                     patch.getLevel(contractPatch.getConciliumId()) >=
-                                     this.getLevel(contractThis.getConciliumId())
-                        ? contractPatch
-                        : contractThis;
+                    winnerContract =
+                        bPreferPatchData ||
+                        patch.getLevel(contractPatch.getConciliumId()) >= this.getLevel(contractThis.getConciliumId())
+                            ? contractPatch
+                            : contractThis;
                 } else {
-
                     // no conflict
                     winnerContract = contractThis || contractPatch;
                 }
@@ -252,7 +250,6 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             // TODO: think is TX collisions possible?
             const arrTxHashes = getMapsKeysUnique(this._mapTxReceipts, patch._mapTxReceipts);
             for (let strHash of arrTxHashes) {
-
                 // receipts should be same (if no tx collision)
                 const receiptThis = this._mapTxReceipts.get(strHash);
                 const receiptPatch = patch._mapTxReceipts.get(strHash);
@@ -279,13 +276,13 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             for (let hash of arrAnotherCoinsHashes) {
                 const utxo = this.getUtxo(hash);
                 if (utxo) {
-                    if (utxo.equals(patch.getUtxo(hash)) &&
-                        this._spendingTnxsEqual(this._getSpentOutputs(hash), patch._getSpentOutputs(hash))) {
-
+                    if (
+                        utxo.equals(patch.getUtxo(hash)) &&
+                        this._spendingTnxsEqual(this._getSpentOutputs(hash), patch._getSpentOutputs(hash))
+                    ) {
                         // remove it, if unchanged since (patch)
                         this.removeUtxo(utxo.getTxHash());
                     } else {
-
                         // remove indexes from UTXO
                         const setUnspentIndexes = new Set(utxo.getIndexes());
                         for (let [idx, buffHashSpent] of patch._getSpentOutputs(utxo.getTxHash())) {
@@ -298,15 +295,17 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             // remove contracts
             for (let contractAddr of patch._mapContractStates.keys()) {
                 if (this._mapContractStates.has(contractAddr)) {
-
                     // we could check patch level for contract's conciliumId (faster, but could keep unchanged data)
                     // or compare entire data (could be time consuming)
                     // contract belong only to one concilium. so conciliumId is same for both
                     const thisContract = this.getContract(contractAddr);
                     const patchContract = patch.getContract(contractAddr);
 
-                    if (thisContract && patchContract &&
-                        thisContract.getDataBuffer().equals(patchContract.getDataBuffer())) {
+                    if (
+                        thisContract &&
+                        patchContract &&
+                        thisContract.getDataBuffer().equals(patchContract.getDataBuffer())
+                    ) {
                         this._mapContractStates.delete(contractAddr);
                     }
                 }
@@ -369,12 +368,13 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
          * @returns {Number}
          */
         getComplexity() {
-            return [...this._mapSpentUtxos.keys()]
-                .reduce((result, strUtxoHash) => result + this._mapSpentUtxos.get(strUtxoHash).size, 0);
+            return [...this._mapSpentUtxos.keys()].reduce(
+                (result, strUtxoHash) => result + this._mapSpentUtxos.get(strUtxoHash).size,
+                0
+            );
         }
 
         setConciliumId(nId) {
-
             // invoked from constructor, which invoked from merge
             if (nId === undefined) return;
 
@@ -488,7 +488,6 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
          */
         validateAgainstStable(stablePatch) {
             for (let hash of this.getCoins().keys()) {
-
                 // it could be UTXO from pending parent blocks. we'll check in later, when it become stable
                 const utxo = stablePatch.getUtxo(hash);
                 if (!utxo) continue;
@@ -514,6 +513,5 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
         removeUtxo(strHash) {
             this._data.coins.delete(strHash);
             this._mapSpentUtxos.delete(strHash);
-
         }
     };

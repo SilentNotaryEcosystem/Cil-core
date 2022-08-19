@@ -1,22 +1,22 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
 describe('Message assembly (part of connection)', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
     it('should pass (1 message - 1 chunk)', async () => {
-        const msg = new factory.Messages.MsgCommon;
+        const msg = new factory.Messages.MsgCommon();
         msg.payload = Buffer.from('asdasdasd');
-        const assembler = new factory.MessageAssembler;
+        const assembler = new factory.MessageAssembler();
         const encodedMsg = msg.encode();
 
         const arrMessages = assembler.extractMessages(encodedMsg);
@@ -27,9 +27,9 @@ describe('Message assembly (part of connection)', () => {
     });
 
     it('should pass (1 message - 2 chunks)', async () => {
-        const msg = new factory.Messages.MsgCommon;
+        const msg = new factory.Messages.MsgCommon();
         msg.payload = Buffer.from('asdasdasd');
-        const assembler = new factory.MessageAssembler;
+        const assembler = new factory.MessageAssembler();
         const encodedMsg = msg.encode();
         const part1 = encodedMsg.slice(0, 3);
         const part2 = encodedMsg.slice(3);
@@ -45,9 +45,9 @@ describe('Message assembly (part of connection)', () => {
     });
 
     it('should pass (2 messages - 1 chunk. wait for next chunk)', async () => {
-        const msg = new factory.Messages.MsgCommon;
+        const msg = new factory.Messages.MsgCommon();
         msg.payload = Buffer.from('asdasdasd');
-        const assembler = new factory.MessageAssembler;
+        const assembler = new factory.MessageAssembler();
         const encodedMsg = msg.encode();
 
         // full message + 3 bytes of next
@@ -61,9 +61,9 @@ describe('Message assembly (part of connection)', () => {
     });
 
     it('should pass (2 message - 1 chunks)', async () => {
-        const msg = new factory.Messages.MsgCommon;
+        const msg = new factory.Messages.MsgCommon();
         msg.payload = Buffer.from('asdasdasd');
-        const assembler = new factory.MessageAssembler;
+        const assembler = new factory.MessageAssembler();
         const encodedMsg = msg.encode();
 
         // full message + 3 bytes of next
@@ -78,9 +78,9 @@ describe('Message assembly (part of connection)', () => {
     });
 
     it('should (3 messages - 1 chunk. wait for next chunk)', async () => {
-        const msg = new factory.Messages.MsgCommon;
+        const msg = new factory.Messages.MsgCommon();
         msg.payload = Buffer.from('asdasdasd');
-        const assembler = new factory.MessageAssembler;
+        const assembler = new factory.MessageAssembler();
         const encodedMsg = msg.encode();
 
         // 2 full message + 3 bytes of next
@@ -95,11 +95,11 @@ describe('Message assembly (part of connection)', () => {
     });
 
     it('should pass (2 message - 3 chunks)', async () => {
-        const msg = new factory.Messages.MsgCommon;
+        const msg = new factory.Messages.MsgCommon();
         msg.payload = Buffer.from('asdasdasd');
-        const msg2 = new factory.Messages.MsgCommon;
+        const msg2 = new factory.Messages.MsgCommon();
         msg2.payload = Buffer.from('1234567890');
-        const assembler = new factory.MessageAssembler;
+        const assembler = new factory.MessageAssembler();
         const encodedMsg = msg.encode();
         const encodedMsg2 = msg2.encode();
         const part1 = encodedMsg.slice(0, 3);
@@ -122,5 +122,4 @@ describe('Message assembly (part of connection)', () => {
         assert.isOk(arrResult3[0].equals(encodedMsg2));
         assert.isOk(assembler.isDone);
     });
-
 });

@@ -1,7 +1,7 @@
 const typeforce = require('typeforce');
 const types = require('../types');
 
-module.exports = ({Constants, Crypto}, {inventoryProto}) =>
+module.exports = ({Constants /*Crypto*/}, {inventoryProto}) =>
     class Inventory {
         constructor(data) {
             typeforce(typeforce.oneOf('Number', 'Buffer', types.Empty), data);

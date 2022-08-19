@@ -20,7 +20,7 @@ describe('Contract billing integration tests', () => {
     const nFakeFeeTx = 1e3;
     const nFakeFeeDataSize = 10;
 
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
@@ -34,7 +34,7 @@ describe('Contract billing integration tests', () => {
         await node.ensureLoaded();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -96,11 +96,15 @@ describe('Contract billing integration tests', () => {
 
     it('should run a contract (before 1st contract billing fork)', async () => {
         let strContractAddress = generateAddress().toString('hex');
-        let contract = new factory.Contract({
-            contractData: {},
-            contractCode: `{"test": "(){1+1;}"}`,
-            conciliumId: 0
-        }, strContractAddress, factory.Constants.CONTRACT_V_V8);
+        let contract = new factory.Contract(
+            {
+                contractData: {},
+                contractCode: `{"test": "(){1+1;}"}`,
+                conciliumId: 0
+            },
+            strContractAddress,
+            factory.Constants.CONTRACT_V_V8
+        );
 
         let tx = factory.Transaction.invokeContract(
             generateAddress().toString('hex'),
@@ -126,11 +130,15 @@ describe('Contract billing integration tests', () => {
 
     it('should run a contract (after 1st contract billing fork)', async () => {
         let strContractAddress = generateAddress().toString('hex');
-        let contract = new factory.Contract({
-            contractData: {},
-            contractCode: `{"test": "(){1+1;}"}`,
-            conciliumId: 0
-        }, strContractAddress, factory.Constants.CONTRACT_V_V8);
+        let contract = new factory.Contract(
+            {
+                contractData: {},
+                contractCode: `{"test": "(){1+1;}"}`,
+                conciliumId: 0
+            },
+            strContractAddress,
+            factory.Constants.CONTRACT_V_V8
+        );
 
         let tx = factory.Transaction.invokeContract(
             generateAddress().toString('hex'),

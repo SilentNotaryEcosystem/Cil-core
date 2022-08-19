@@ -1,13 +1,12 @@
 class Base {
-    constructor(props) {
+    constructor() {
         this._ownerAddress = callerAddress;
     }
 
     __getCode() {
         const arrFunctionsToPropagateFromBase = ['_checkOwner', '_transferOwnership', '_validateAddress'];
 
-        const methods = Object
-            .getOwnPropertyNames(Object.getPrototypeOf(this))
+        const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
             .filter(name => name !== 'constructor' && typeof this[name] === 'function')
             .concat(arrFunctionsToPropagateFromBase);
         const objCode = {};
@@ -25,11 +24,11 @@ class Base {
     }
 
     _validateAddress(strAddress) {
-        if (strAddress.length !== 40) throw ('Bad address');
+        if (strAddress.length !== 40) throw 'Bad address';
     }
 
     _checkOwner() {
-        if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
+        if (this._ownerAddress !== callerAddress) throw 'Unauthorized call';
     }
 
     _transferOwnership(strNewAddress) {
@@ -44,7 +43,7 @@ class PublicOffer extends Base {
     constructor(text, bAutoOpen = false) {
         super();
 
-        if (!this._ownerAddress) throw "You should sign offer creation!";
+        if (!this._ownerAddress) throw 'You should sign offer creation!';
 
         this._bOpen = false;
         this.setText(text, bAutoOpen);
@@ -64,7 +63,7 @@ class PublicOffer extends Base {
     open() {
         this._checkOwner();
 
-        if (!this._text) throw "Offer contain no text!";
+        if (!this._text) throw 'Offer contain no text!';
         this._bOpen = true;
     }
 
@@ -76,8 +75,8 @@ class PublicOffer extends Base {
 
     join() {
         if (!this.isOpen()) throw "Can't join. Offer closed.";
-        if (!callerAddress) throw "You should sign offer.";
-        if (this.wasAcceptedBy(callerAddress)) throw "Already accepted";
+        if (!callerAddress) throw 'You should sign offer.';
+        if (this.wasAcceptedBy(callerAddress)) throw 'Already accepted';
 
         // if you need some money transfer here - you could check value
         this._objJoinedAddrs[callerAddress] = contractTx;

@@ -5,26 +5,25 @@ const assert = require('assert');
 
 // v8.serialize undeterministic in encoded data length, so we couldn't use it to calculate storage fee!
 const v8 = require('v8');
-const serializeContractDataV8 = (objData) => {
+const serializeContractDataV8 = objData => {
     return v8.serialize(objData);
 };
-const deSerializeContractDataV8 = (buffData) => {
+const deSerializeContractDataV8 = buffData => {
     return v8.deserialize(buffData);
 };
 const nSizeOfEmptyDataV8 = serializeContractDataV8({}).length;
 
 // so we temporary replace with JSON.stringify
-const serializeContractDataJson = (objData) => {
+const serializeContractDataJson = objData => {
     return Buffer.from(JSON.stringify(objData));
 };
-const deSerializeContractDataJson = (buffData) => {
+const deSerializeContractDataJson = buffData => {
     return JSON.parse(buffData.toString());
 };
 const nSizeOfEmptyDataJson = serializeContractDataJson({}).length;
 
 module.exports = ({Constants}, {contractProto}) =>
     class Contract {
-
         /**
          *
          * @param {Object | Buffer} data
@@ -43,8 +42,10 @@ module.exports = ({Constants}, {contractProto}) =>
                 this._cacheData = data.contractData;
                 data.contractData = undefined;
 
-                this._cacheCode = typeof data.contractCode === 'string' && data.contractCode.length ?
-                    JSON.parse(data.contractCode) : data.contractCode;
+                this._cacheCode =
+                    typeof data.contractCode === 'string' && data.contractCode.length
+                        ? JSON.parse(data.contractCode)
+                        : data.contractCode;
                 data.contractCode = undefined;
 
                 data.version = nContractVersion;
@@ -94,7 +95,7 @@ module.exports = ({Constants}, {contractProto}) =>
             }
             if (this._cacheData) return this._serialize(this._cacheData);
 
-            throw ('Unexpected situation');
+            throw 'Unexpected situation';
         }
 
         getConciliumId() {
@@ -125,7 +126,7 @@ module.exports = ({Constants}, {contractProto}) =>
                 this._cacheData = data;
                 this._invalidateEncodedData();
             } else {
-                throw('Unexpected update with buffer data');
+                throw 'Unexpected update with buffer data';
             }
         }
 
@@ -259,8 +260,7 @@ module.exports = ({Constants}, {contractProto}) =>
 
         _deserialize() {
             if (this.getVersion() === Constants.CONTRACT_V_JSON) {
-                return deSerializeContractDataJson(
-                    this._data.contractData);
+                return deSerializeContractDataJson(this._data.contractData);
             }
             return deSerializeContractDataV8(this._data.contractData);
         }

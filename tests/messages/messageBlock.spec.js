@@ -2,17 +2,17 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyTx, createDummyBlock} = require('../testUtil');
+const {createDummyBlock} = require('../testUtil');
 
 const factory = require('../testFactory');
 
 describe('MessageBlock', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -26,7 +26,7 @@ describe('MessageBlock', () => {
     it('should create from block', async () => {
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
-        assert.isOk((new factory.Transaction(msg.block.txns[0]).isCoinbase()));
+        assert.isOk(new factory.Transaction(msg.block.txns[0]).isCoinbase());
     });
 
     it('should set/get block', async () => {
@@ -71,5 +71,4 @@ describe('MessageBlock', () => {
         const restoredBlock = msg.block;
         assert.isNotOk(restoredBlock);
     });
-
 });

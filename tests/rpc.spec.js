@@ -12,17 +12,17 @@ const {prepareForStringifyObject} = require('../utils');
 
 let fakeResult = {
     fake: 1,
-    toObject: function() {
+    toObject: function () {
         return this;
     },
-    getHash: function() {
+    getHash: function () {
         return 'dead';
     }
 };
 let node;
 
 describe('RPC', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
@@ -34,7 +34,7 @@ describe('RPC', () => {
         };
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -63,7 +63,6 @@ describe('RPC', () => {
         assert.isOk(content);
         assert.equal(event, 'tx');
         assert.isOk(tx.equals(content));
-
     });
 
     it('should FAIL to send TX', async () => {
@@ -130,14 +129,11 @@ describe('RPC', () => {
 
         const result = await rpc.getBlock({strBlockHash});
 
-        assert.deepEqual(
-            prepareForStringifyObject(result),
-            {
-                block: prepareForStringifyObject(block.toObject()),
-                hash: block.getHash(),
-                state
-            }
-        );
+        assert.deepEqual(prepareForStringifyObject(result), {
+            block: prepareForStringifyObject(block.toObject()),
+            hash: block.getHash(),
+            state
+        });
     });
 
     it('should get prev block', async () => {
@@ -148,7 +144,8 @@ describe('RPC', () => {
             {
                 block,
                 state
-            }];
+            }
+        ];
 
         node = {
             rpcHandler: sinon.fake.resolves(getBlockResults),
@@ -158,14 +155,11 @@ describe('RPC', () => {
         const strBlockHash = pseudoRandomBuffer().toString('hex');
         const [result] = await rpc.getPrev({strBlockHash});
 
-        assert.deepEqual(
-            prepareForStringifyObject(result),
-            {
-                block: prepareForStringifyObject(block.toObject()),
-                hash: block.getHash(),
-                state
-            }
-        );
+        assert.deepEqual(prepareForStringifyObject(result), {
+            block: prepareForStringifyObject(block.toObject()),
+            hash: block.getHash(),
+            state
+        });
     });
 
     it('should get next block', async () => {
@@ -176,7 +170,8 @@ describe('RPC', () => {
             {
                 block,
                 state
-            }];
+            }
+        ];
 
         node = {
             rpcHandler: sinon.fake.resolves(getBlockResults),
@@ -187,14 +182,11 @@ describe('RPC', () => {
 
         const [result] = await rpc.getNext({strBlockHash});
 
-        assert.deepEqual(
-            prepareForStringifyObject(result),
-            {
-                block: prepareForStringifyObject(block.toObject()),
-                hash: block.getHash(),
-                state
-            }
-        );
+        assert.deepEqual(prepareForStringifyObject(result), {
+            block: prepareForStringifyObject(block.toObject()),
+            hash: block.getHash(),
+            state
+        });
     });
 
     it('should get tips', async () => {
@@ -221,7 +213,7 @@ describe('RPC', () => {
         assert.deepEqual(result, prepareForStringifyObject(expectedResults));
     });
 
-    it('should throw error', (done) => {
+    it('should throw error', done => {
         const node = {
             rpcHandler: sinon.fake.throws('RPC error'),
             storage: {}
@@ -229,8 +221,8 @@ describe('RPC', () => {
 
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         rpc.getTx()
-            .then(_ => done('Unexpected success'))
-            .catch(_ => done());
+            .then(() => done('Unexpected success'))
+            .catch(() => done());
     });
 
     it('should get TX', async () => {
@@ -318,7 +310,8 @@ describe('RPC', () => {
                 nOut: 2,
                 amount: 100000,
                 isStable: false
-            }];
+            }
+        ];
 
         const coins = new factory.Coins(1e5, addr);
         const coinsOther = new factory.Coins(1e5, generateAddress());
@@ -417,7 +410,7 @@ describe('RPC', () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         rpc._storedWallets = {
             getAccountAddresses: async () => [addr2.toString('hex'), addr.toString('hex')],
-            walletListUnspent: async (address) => [utxo1.filterOutputsForAddress(address)]
+            walletListUnspent: async address => [utxo1.filterOutputsForAddress(address)]
         };
 
         const arrExpected = [
@@ -448,7 +441,8 @@ describe('RPC', () => {
                 amount: 100000,
                 isStable: false,
                 receiver: addr.toString('hex')
-            }];
+            }
+        ];
 
         // --------
         const arrUtxos = await rpc.getAccountUnspent('test', false);
@@ -480,7 +474,7 @@ describe('RPC', () => {
         const rpc = new factory.RPC(node, {rpcAddress: factory.Transport.generateAddress()});
         rpc._storedWallets = {
             getAccountAddresses: async () => [addr2, addr],
-            walletListUnspent: async (address) => [utxo1.filterOutputsForAddress(address)]
+            walletListUnspent: async address => [utxo1.filterOutputsForAddress(address)]
         };
 
         const objExpected = {confirmedBalance: 1e5 + 1e3, unconfirmedBalance: 1e3};

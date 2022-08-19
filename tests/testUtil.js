@@ -31,24 +31,22 @@ const createDummyBlock = (factory, nConciliumId = 0, nTxCount = 0) => {
     return block;
 };
 
-const createDummyBlockInfo = (factory) => {
+const createDummyBlockInfo = factory => {
     const block = createDummyBlock(factory);
     return new factory.BlockInfo(block.header);
 };
 
 module.exports = {
     generateAddress,
-    sleep: (delay) => {
+    sleep: delay => {
         return new Promise(resolve => {
             setTimeout(() => resolve(), delay);
         });
     },
     createDummyTx,
-    createDummyPeer: (factory) => ({
+    createDummyPeer: factory => ({
         peerInfo: {
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: pseudoRandomBuffer()}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: pseudoRandomBuffer()}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
         }
     }),
@@ -66,7 +64,7 @@ module.exports = {
         return block;
     },
 
-    createNonMergeablePatch: (factory) => {
+    createNonMergeablePatch: factory => {
         const patchThatWouldntMerge = new factory.PatchDB(0);
         patchThatWouldntMerge._data = undefined;
         return patchThatWouldntMerge;

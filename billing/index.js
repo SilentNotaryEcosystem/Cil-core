@@ -11,4 +11,4 @@ module.exports = (strCode, nContractBillingVersion = undefined) => {
     if (!nContractBillingVersion) return strCode;
 
     return require(`./v${nContractBillingVersion}/babel/billCodeOperations`)(strCode);
-}
+};

@@ -6,7 +6,7 @@ const factory = require('../testFactory');
 let templateMsg;
 
 describe('Addr Message', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -29,7 +29,7 @@ describe('Addr Message', () => {
         };
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 

@@ -1,7 +1,6 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {sleep} = require('../../utils');
 const factory = require('../testFactory');
 
 const conciliumId = 11;
@@ -34,13 +33,13 @@ const createBlockAckMessage = (conciliumId, privateKey, blockHash) => {
 };
 
 describe('BFT consensus integration tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
 
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 

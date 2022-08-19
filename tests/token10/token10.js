@@ -1,15 +1,18 @@
 class Base {
-    constructor(props) {
+    constructor() {
         this._ownerAddress = callerAddress;
     }
 
     __getCode() {
         const arrFunctionsToPropagateFromBase = [
-            '_checkOwner', '_transferOwnership', '_validateAddress', 'addManager', 'removeManager'
+            '_checkOwner',
+            '_transferOwnership',
+            '_validateAddress',
+            'addManager',
+            'removeManager'
         ];
 
-        const methods = Object
-            .getOwnPropertyNames(Object.getPrototypeOf(this))
+        const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
             .filter(name => name !== 'constructor' && typeof this[name] === 'function')
             .concat(arrFunctionsToPropagateFromBase);
         const objCode = {};
@@ -27,11 +30,11 @@ class Base {
     }
 
     _validateAddress(strAddress) {
-        if (strAddress.length !== 40) throw ('Bad address');
+        if (strAddress.length !== 40) throw 'Bad address';
     }
 
     _checkOwner() {
-        if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
+        if (this._ownerAddress !== callerAddress) throw 'Unauthorized call';
     }
 
     _transferOwnership(strNewAddress) {
@@ -60,13 +63,12 @@ class Base {
     _checkManager() {
         if (this._ownerAddress === callerAddress) return;
 
-        if (!this._managers) throw ('Unauthorized call');
-        if (!~this._managers.findIndex(strAddr => strAddr === callerAddress)) throw ('Unauthorized call');
+        if (!this._managers) throw 'Unauthorized call';
+        if (!~this._managers.findIndex(strAddr => strAddr === callerAddress)) throw 'Unauthorized call';
     }
 }
 
 class Token10 extends Base {
-
     constructor() {
         super();
 
@@ -75,8 +77,8 @@ class Token10 extends Base {
     }
 
     createToken(objTokenData) {
-        if (!callerAddress) throw ('You should sign TX');
-        if (value < this._createFee) throw (`Create fee is ${this._createFee}`);
+        if (!callerAddress) throw 'You should sign TX';
+        if (value < this._createFee) throw `Create fee is ${this._createFee}`;
 
         this._validateTokenParameters(objTokenData);
         const {strSymbol, nTotalSupply, strIssuerName, strGoals, decimals = 0} = objTokenData;
@@ -98,8 +100,8 @@ class Token10 extends Base {
     }
 
     tokenData(strSymbol) {
-        const {nTotalSupply, strIssuerName, strGoals, strOwner, arrTxHashChanges, decimals} = this._getTokenData(
-            strSymbol);
+        const {nTotalSupply, strIssuerName, strGoals, strOwner, arrTxHashChanges, decimals} =
+            this._getTokenData(strSymbol);
 
         return {nTotalSupply, strIssuerName, strGoals, strOwner, arrTxHashChanges, decimals};
     }
@@ -125,7 +127,7 @@ class Token10 extends Base {
     }
 
     approve(strSymbol, strSpender, amount) {
-        if (!callerAddress) throw ('You should sign TX');
+        if (!callerAddress) throw 'You should sign TX';
 
         this._validateAddress(strSpender);
         this._validateAmount(amount, 'amount');
@@ -137,18 +139,18 @@ class Token10 extends Base {
     }
 
     transferFrom(strSymbol, strFrom, strTo, amount) {
-        if (!callerAddress) throw ('You should sign TX');
+        if (!callerAddress) throw 'You should sign TX';
 
         this._validateAddress(strFrom);
         this._validateAddress(strTo);
         this._validateAmount(amount, 'amount');
 
         const {objHolders, isFrozen} = this._getTokenData(strSymbol);
-        if (isFrozen) throw ('Token is frozen. No transfers allowed');
+        if (isFrozen) throw 'Token is frozen. No transfers allowed';
 
         const nAllowedAmount = this._getAllowance(objHolders, strFrom, callerAddress);
 
-        if (amount > nAllowedAmount) throw (`Allowed to transfer at most ${nAllowedAmount} of ${strSymbol}`);
+        if (amount > nAllowedAmount) throw `Allowed to transfer at most ${nAllowedAmount} of ${strSymbol}`;
 
         global.bIndirectCall = true;
         this._transferFromTo(objHolders, strFrom, strTo, amount);
@@ -156,25 +158,25 @@ class Token10 extends Base {
     }
 
     transfer(strSymbol, strTo, amount) {
-        if (!callerAddress) throw ('You should sign TX');
+        if (!callerAddress) throw 'You should sign TX';
 
         this._validateAddress(strTo);
         this._validateAmount(amount, 'amount');
 
         const {objHolders, isFrozen} = this._getTokenData(strSymbol);
-        if (isFrozen) throw ('Token is frozen. No transfers allowed');
+        if (isFrozen) throw 'Token is frozen. No transfers allowed';
 
         global.bIndirectCall = true;
         this._transferFromTo(objHolders, callerAddress, strTo, amount);
     }
 
     emitMoreTokens(strSymbol, nAmount) {
-        if (!callerAddress) throw ('You should sign TX');
+        if (!callerAddress) throw 'You should sign TX';
 
         this._validateAmount(nAmount, 'amount');
         const {nTotalSupply, objHolders, strOwner, arrTxHashChanges} = this._getTokenData(strSymbol);
 
-        if (callerAddress !== strOwner) throw ('You arent an owner');
+        if (callerAddress !== strOwner) throw 'You arent an owner';
 
         const nHas = this._getBalance(objHolders, callerAddress);
         this._validateAmount(nHas + nAmount, 'Total supply');
@@ -186,10 +188,10 @@ class Token10 extends Base {
     }
 
     freeze(strSymbol) {
-        if (!callerAddress) throw ('You should sign TX');
+        if (!callerAddress) throw 'You should sign TX';
 
         const {strOwner, arrTxHashChanges} = this._getTokenData(strSymbol);
-        if (callerAddress !== strOwner) throw ('You arent an owner');
+        if (callerAddress !== strOwner) throw 'You arent an owner';
 
         global.bIndirectCall = true;
         this._setFreeze(strSymbol);
@@ -204,21 +206,22 @@ class Token10 extends Base {
     _validateTokenParameters(objTokenData) {
         const {strSymbol, nTotalSupply, strIssuerName, strGoals} = objTokenData;
 
-        if (typeof strSymbol !== 'string') throw ('Symbol should be a string');
-        if (strSymbol.length > 6) throw ('Symbol should be at most 6 chars');
-        if (this._data[strSymbol.toUpperCase()]) throw ('Symbol already exists');
+        if (typeof strSymbol !== 'string') throw 'Symbol should be a string';
+        if (strSymbol.length > 6) throw 'Symbol should be at most 6 chars';
+        if (this._data[strSymbol.toUpperCase()]) throw 'Symbol already exists';
 
         this._validateAmount(nTotalSupply, 'nTotalSupply');
 
-        if (typeof strIssuerName !== 'string') throw ('strIssuerName should be a string');
-        if (typeof strGoals !== 'string') throw ('strGoals should be a string');
+        if (typeof strIssuerName !== 'string') throw 'strIssuerName should be a string';
+        if (typeof strGoals !== 'string') throw 'strGoals should be a string';
     }
 
     _getTokenData(strSymbol) {
         strSymbol = strSymbol.toUpperCase();
-        if (!this._data[strSymbol]) throw ('Symbol doesn\'t exists');
+        if (!this._data[strSymbol]) throw "Symbol doesn't exists";
 
-        const [nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, isFrozen, decimals] = this._data[strSymbol];
+        const [nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, isFrozen, decimals] =
+            this._data[strSymbol];
 
         return {nTotalSupply, strIssuerName, strGoals, strOwner, objHolders, arrTxHashChanges, isFrozen, decimals};
     }
@@ -228,21 +231,21 @@ class Token10 extends Base {
     }
 
     _setTotalSupply(strSymbol, nSupply) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
 
         strSymbol = strSymbol.toUpperCase();
         this._data[strSymbol][0] = nSupply;
     }
 
     _setFreeze(strSymbol) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
 
         strSymbol = strSymbol.toUpperCase();
         this._data[strSymbol][6] = true;
     }
 
     _setBalance(objHolders, strWho, nNewBalance) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
 
         if (!objHolders[strWho]) {
             objHolders[strWho] = [{}, nNewBalance];
@@ -252,10 +255,10 @@ class Token10 extends Base {
     }
 
     _transferFromTo(objHolders, strFrom, strTo, amount) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
 
         const nHas = this._getBalance(objHolders, strFrom);
-        if (amount > nHas) throw (`${strFrom} has only ${nHas}`);
+        if (amount > nHas) throw `${strFrom} has only ${nHas}`;
 
         this._setBalance(objHolders, strFrom, nHas - amount);
         this._setBalance(objHolders, strTo, this._getBalance(objHolders, strTo) + amount);
@@ -266,7 +269,7 @@ class Token10 extends Base {
     }
 
     _setAllowance(objHolders, strHolder, strAllowTo, amount) {
-        if (!global.bIndirectCall) throw ('You aren\'t supposed to be here');
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
 
         if (!objHolders[strHolder]) {
             objHolders[strHolder] = [{[strAllowTo]: amount}, 0];
@@ -276,14 +279,14 @@ class Token10 extends Base {
     }
 
     _validateAmount(amount, strParameterName, bAllowZero = false) {
-        if (typeof amount !== 'number') throw (`${strParameterName} should be a number`);
-        if (!bAllowZero && amount === 0 || amount < 0) throw (`${strParameterName} should be positive`);
+        if (typeof amount !== 'number') throw `${strParameterName} should be a number`;
+        if ((!bAllowZero && amount === 0) || amount < 0) throw `${strParameterName} should be positive`;
         if (amount > Number.MAX_SAFE_INTEGER) {
-            throw (`${strParameterName} should be less than ${Number.MAX_SAFE_INTEGER}`);
+            throw `${strParameterName} should be less than ${Number.MAX_SAFE_INTEGER}`;
         }
-        if (amount !== Math.round(amount)) throw (`${strParameterName} should be an integer`);
+        if (amount !== Math.round(amount)) throw `${strParameterName} should be an integer`;
     }
-};
+}
 
 module.exports = {
     Base,

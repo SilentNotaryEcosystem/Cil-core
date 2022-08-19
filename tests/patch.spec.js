@@ -7,7 +7,7 @@ const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
 const {pseudoRandomBuffer, createNonMergeablePatch, generateAddress} = require('./testUtil');
 
-const createUtxo = (arrIndexes) => {
+const createUtxo = arrIndexes => {
     const txHash = pseudoRandomBuffer(32).toString('hex');
 
     const utxo = new factory.UTXO({txHash});
@@ -17,16 +17,19 @@ const createUtxo = (arrIndexes) => {
     return utxo;
 };
 
-const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')})
-    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
+const createInternalUtxo = () =>
+    new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')}).addCoins(
+        0,
+        factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()})
+    );
 
 describe('PatchDB', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -353,7 +356,6 @@ describe('PatchDB', () => {
 
         assert.throws(() => patch.merge(patch2), /It seems we have unexpected fork!/);
         assert.throws(() => patch2.merge(patch), /It seems we have unexpected fork!/);
-
     });
 
     it('should get patch COMPLEXITY', async () => {
@@ -369,7 +371,7 @@ describe('PatchDB', () => {
         assert.isOk(mergedPatch.getComplexity() === 2);
     });
 
-    it('should create patch that woldn\'t merge', async () => {
+    it("should create patch that woldn't merge", async () => {
         const patch = new factory.PatchDB(0);
         const patchThatWouldntMerge = createNonMergeablePatch(factory);
 
@@ -462,7 +464,7 @@ describe('PatchDB', () => {
             patch2.setContract(contract);
         }
 
-        assert.throws(_ => patch1.merge(patch2));
+        assert.throws(() => patch1.merge(patch2));
     });
 
     it('should merge 2 patches with contract data', async () => {
@@ -757,8 +759,8 @@ describe('PatchDB', () => {
             const strTxHash = pseudoRandomBuffer().toString('hex');
 
             patch.setReceipt(strTxHash, new factory.TxReceipt({status: factory.Constants.TX_STATUS_FAILED}));
-            assert.throws(
-                () => patch.setReceipt(strTxHash, new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK}))
+            assert.throws(() =>
+                patch.setReceipt(strTxHash, new factory.TxReceipt({status: factory.Constants.TX_STATUS_OK}))
             );
         });
 
@@ -814,6 +816,5 @@ describe('PatchDB', () => {
             assert.isOk(patch.hasUtxos([utxo2.getTxHash(), utxo.getTxHash()]));
             assert.isOk(patch.hasUtxos([utxo2.getTxHash()]));
         });
-
     });
 });

@@ -5,7 +5,6 @@ const types = require('../types');
 
 module.exports = () =>
     class Coins {
-
         constructor(amount, receiverAddr) {
             typeforce(typeforce.tuple(types.Amount, types.Address), arguments);
 

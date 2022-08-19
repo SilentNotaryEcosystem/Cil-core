@@ -2,15 +2,15 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const debug = require('debug')('wallet:test');
 
-factory = require('./testFactory');
+const factory = require('./testFactory');
 
 describe('Wallet tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -24,9 +24,8 @@ describe('Wallet tests', () => {
         assert.isOk(false, 'Unexpected success');
     });
 
-    it('should create wallet', function() {
+    it('should create wallet', function () {
         const wallet = new factory.Wallet('b7760a01705490e5e153a6ef7732369a72dbf9aaafb5c482cdfd960546909ec1');
         assert.isOk(wallet.publicKey);
     });
-
 });

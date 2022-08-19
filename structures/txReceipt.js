@@ -3,12 +3,10 @@ const types = require('../types');
 const assert = require('assert');
 
 module.exports = ({Constants, Coins}, {txReceiptProto}) =>
-
     /**
      * Used for serialization in storage & MsgGetBlocks
      */
     class TxReceipt {
-
         /**
          *
          * @param {Array | Buffer} data
@@ -42,19 +40,19 @@ module.exports = ({Constants, Coins}, {txReceiptProto}) =>
          * @returns {TxReceipt}
          */
         merge(receiptToMerge) {
-
             this._data.internalTxns = this._data.internalTxns.concat(receiptToMerge._data.internalTxns);
             this._data.coins = this._data.coins.concat(receiptToMerge._data.coins);
 
-//            Scenario is following:
-//            - we already have receipt for some tx
-//            - and "receiptToMerge" expected to have cumulative coinsUsed
+            //            Scenario is following:
+            //            - we already have receipt for some tx
+            //            - and "receiptToMerge" expected to have cumulative coinsUsed
             assert(receiptToMerge.getCoinsUsed() >= this.getCoinsUsed(), 'receiptToMerge have more coinsUsed');
             this._updateCoinsUsed(receiptToMerge.getCoinsUsed());
 
-            this.setStatus(receiptToMerge.isSuccessful() && this.isSuccessful()
-                ? Constants.TX_STATUS_OK
-                : Constants.TX_STATUS_FAILED
+            this.setStatus(
+                receiptToMerge.isSuccessful() && this.isSuccessful()
+                    ? Constants.TX_STATUS_OK
+                    : Constants.TX_STATUS_FAILED
             );
 
             return this;

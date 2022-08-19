@@ -2,7 +2,6 @@
 
 const typeforce = require('typeforce');
 const assert = require('assert');
-const types = require('../types');
 
 const BaseConciliumDefinition = require('./baseConciliumDefinition');
 
@@ -19,7 +18,7 @@ const BaseConciliumDefinition = require('./baseConciliumDefinition');
 //    quorum: 1 | addresses.length*2/3
 //};
 
-module.exports = ({Constants}) =>
+module.exports = (/*{Constants}*/) =>
     class ConciliumRrDefinition extends BaseConciliumDefinition {
         constructor(data) {
             super(data, data.addresses ? data.addresses.length : 1);
@@ -44,7 +43,9 @@ module.exports = ({Constants}) =>
          */
         getAddresses(bConvertToBuffer = true) {
             if (!Array.isArray(this._data.addresses)) return undefined;
-            return this._data.addresses.map(addr => bConvertToBuffer ? Buffer.from(addr, 'hex') : addr.toString('hex'));
+            return this._data.addresses.map(addr =>
+                bConvertToBuffer ? Buffer.from(addr, 'hex') : addr.toString('hex')
+            );
         }
 
         setQuorum(quorum) {

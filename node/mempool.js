@@ -6,7 +6,6 @@ const debugLib = require('debug');
 const path = require('path');
 const fs = require('fs');
 
-const {sleep} = require('../utils');
 const types = require('../types');
 
 const debug = debugLib('mempool:');
@@ -23,9 +22,9 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
             const {dbPath, testStorage} = {...factoryOptions, ...options};
 
-            this._fileName = testStorage ? undefined : path.resolve(dbPath || Constants.DB_PATH_PREFIX,
-                Constants.LOCAL_TX_FILE_NAME
-            );
+            this._fileName = testStorage
+                ? undefined
+                : path.resolve(dbPath || Constants.DB_PATH_PREFIX, Constants.LOCAL_TX_FILE_NAME);
 
             this._mapConcilimTxns = new Map();
             this._mapLocalTxns = new Map();
@@ -47,7 +46,6 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             const prevSize = this._mapLocalTxns.size;
 
             for (let txHash of arrTxHashes) {
-
                 // TODO: check could be here descendants (i.e. when we undo block, from misbehaving concilium). if so - implement queue
                 // TODO: think about: is it problem that TX isn't present in mempool, but present in block
                 let mapWithTx;
@@ -64,7 +62,7 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
         }
 
         purgeOutdated() {
-            this._mapConcilimTxns.forEach((mapTxns) => {
+            this._mapConcilimTxns.forEach(mapTxns => {
                 mapTxns.forEach((tx, hash) => {
                     if (tx.arrived < Date.now() - Constants.MEMPOOL_TX_LIFETIME) {
                         mapTxns.delete(hash);
@@ -81,14 +79,13 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             const nCurrentSize = this._calcSize();
             if (nCurrentSize < Constants.MEMPOOL_TX_QTY) return;
 
-            const nTrimmedSize = Math.floor(2 * nCurrentSize / 3);
+            const nTrimmedSize = Math.floor((2 * nCurrentSize) / 3);
 
             // we have preferred
             if (this._setPreferredConciliums.size) {
                 const nPrefferedSize = this._calcPrefferedSize();
 
                 if (nPrefferedSize < Constants.MEMPOOL_TX_QTY) {
-
                     // trim other, and keep maximum of preferred
                     const arrMaps = [...this._mapConcilimTxns.keys()]
                         .filter(nConciliumId => !this._setPreferredConciliums.has(nConciliumId))
@@ -96,7 +93,6 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
 
                     this._purgeMaps(arrMaps, Constants.MEMPOOL_TX_QTY - nPrefferedSize);
                 } else {
-
                     // trim preffered
                     const arrMaps = [...this._mapConcilimTxns.keys()]
                         .filter(nConciliumId => this._setPreferredConciliums.has(nConciliumId))
@@ -109,8 +105,9 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
                         .forEach(nConciliumId => this._mapConcilimTxns.get(nConciliumId).clear());
                 }
             } else {
-                const arrMaps = [...this._mapConcilimTxns.keys()]
-                    .map(nConciliumId => this._mapConcilimTxns.get(nConciliumId));
+                const arrMaps = [...this._mapConcilimTxns.keys()].map(nConciliumId =>
+                    this._mapConcilimTxns.get(nConciliumId)
+                );
                 this._purgeMaps(arrMaps, nTrimmedSize);
             }
         }
@@ -119,9 +116,11 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
             typeforce(types.Hash256bit, txHash);
 
             let strTxHash = Buffer.isBuffer(txHash) ? txHash.toString('hex') : txHash;
-            return this._mapLocalTxns.has(strTxHash) ||
-                   this._mapBadTxnsHash.has(strTxHash) ||
-                   !!this._searchMapByHash(strTxHash);
+            return (
+                this._mapLocalTxns.has(strTxHash) ||
+                this._mapBadTxnsHash.has(strTxHash) ||
+                !!this._searchMapByHash(strTxHash)
+            );
         }
 
         /**
@@ -186,7 +185,6 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
          * @returns {IterableIterator<any>} {tx, arrived ...}
          */
         getFinalTxns(nConciliumId) {
-
             // TODO: implement lock_time
             const arrResult = [];
 
@@ -313,13 +311,12 @@ module.exports = ({Constants, Transaction}, factoryOptions) =>
          * @private
          */
         _purgeMaps(arrMaps, nDesiredSize) {
-
             const nCurrentSize = arrMaps.reduce((nSum, mapCurrent) => nSum + mapCurrent.size, 0);
             const nToRemove = nCurrentSize - nDesiredSize;
 
             for (let map of arrMaps) {
                 let i = 0;
-                const nThisMapRemove = Math.round(nToRemove * map.size / nCurrentSize);
+                const nThisMapRemove = Math.round((nToRemove * map.size) / nCurrentSize);
                 map.forEach((val, key) => {
                     if (i++ < nThisMapRemove) map.delete(key);
                 });

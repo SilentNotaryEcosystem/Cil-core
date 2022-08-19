@@ -4,12 +4,12 @@ const {assert} = require('chai');
 const factory = require('../testFactory');
 
 describe('MessageWitnessCommon', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -23,7 +23,7 @@ describe('MessageWitnessCommon', () => {
 
     it('should FAIL set content (requires buffer)', async () => {
         const msg = new factory.Messages.MsgWitnessCommon({conciliumId: 0});
-        assert.throws(() => msg.content = '123');
+        assert.throws(() => (msg.content = '123'));
     });
 
     it('should set/get content', async () => {

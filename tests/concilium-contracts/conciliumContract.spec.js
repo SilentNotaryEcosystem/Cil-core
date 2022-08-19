@@ -12,22 +12,16 @@ const factory = require('../testFactory');
 const {arrayEquals} = require('../../utils');
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
 
-const sleep = (delay) => {
-    return new Promise(resolve => {
-        setTimeout(() => resolve(), delay);
-    });
-};
-
 let contract;
 let addrCurrentOwner;
 
 describe('Concilium contract', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -84,42 +78,38 @@ describe('Concilium contract', () => {
     describe('_validateConcilium', async () => {
         it('should fail: not enough coins', async () => {
             contract.setFeeCreate(0);
-            const concilium = factory.ConciliumPos.create(11, 1e3, 100,
-                [
-                    {amount: 1e3, address: generateAddress().toString('hex')},
-                    {amount: 1e5, address: generateAddress().toString('hex')}
-                ]
-            );
+            const concilium = factory.ConciliumPos.create(11, 1e3, 100, [
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ]);
             global.value = 0;
 
-            assert.throws(() => contract._validateConcilium(concilium.toObject()),
+            assert.throws(
+                () => contract._validateConcilium(concilium.toObject()),
                 'Not enough coins were sent co create such concilium'
             );
         });
 
         it('should fail: not enough coins', async () => {
             contract.setFeeCreate(1e5);
-            const concilium = factory.ConciliumPos.create(11, 1e3, 100,
-                [
-                    {amount: 1e3, address: generateAddress().toString('hex')},
-                    {amount: 1e5, address: generateAddress().toString('hex')}
-                ]
-            );
+            const concilium = factory.ConciliumPos.create(11, 1e3, 100, [
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ]);
             global.value = 1e3 + 1e5;
 
-            assert.throws(() => contract._validateConcilium(concilium.toObject()),
+            assert.throws(
+                () => contract._validateConcilium(concilium.toObject()),
                 'Not enough coins were sent co create such concilium'
             );
         });
         it('should pass', async () => {
             const feeCreate = 1e5;
             contract.setFeeCreate(feeCreate);
-            const concilium = factory.ConciliumPos.create(11, 1e3, 100,
-                [
-                    {amount: 1e3, address: generateAddress().toString('hex')},
-                    {amount: 1e5, address: generateAddress().toString('hex')}
-                ]
-            );
+            const concilium = factory.ConciliumPos.create(11, 1e3, 100, [
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ]);
             global.value = 1e3 + 1e5 + feeCreate;
 
             contract._validateConcilium(concilium.toObject());
@@ -138,7 +128,7 @@ describe('Concilium contract', () => {
         });
     });
 
-    describe('_disallowContractCreation', function() {
+    describe('_disallowContractCreation', function () {
         it('should set for omited parameters', async () => {
             const concilium = factory.ConciliumRr.create(11, []);
 
@@ -149,7 +139,7 @@ describe('Concilium contract', () => {
         });
 
         it('should set for full parameters (override)', async () => {
-            const concilium = new factory.ConciliumRr(({
+            const concilium = new factory.ConciliumRr({
                 addresses: [],
                 conciliumId: 11,
                 quorum: 2,
@@ -159,7 +149,7 @@ describe('Concilium contract', () => {
                         feeContractCreation: 1
                     }
                 }
-            }));
+            });
             assert.equal(concilium.getFeeContractCreation(), 1);
             assert.equal(concilium.getFeeTxSize(), 7);
 
@@ -170,12 +160,12 @@ describe('Concilium contract', () => {
         });
 
         it('should set for partial parameters', async () => {
-            const concilium = new factory.ConciliumRr(({
+            const concilium = new factory.ConciliumRr({
                 addresses: [],
                 conciliumId: 11,
                 quorum: 2,
                 parameters: {}
-            }));
+            });
 
             contract._disallowContractCreation(concilium.toObject());
 
@@ -223,8 +213,8 @@ describe('Concilium contract', () => {
             // neither consilium owner nor creator
             global.callerAddress = generateAddress().toString('hex');
 
-            assert.throws(() => contract._checkCreator(
-                concilium.toObject(), generateAddress().toString('hex')),
+            assert.throws(
+                () => contract._checkCreator(concilium.toObject(), generateAddress().toString('hex')),
                 'Unauthorized call'
             );
         });
@@ -386,7 +376,8 @@ describe('Concilium contract', () => {
             const objMember = contract._getPosConciliumMember(storedConcilium, global.callerAddress);
 
             assert.equal(objMember.amount, 2 * global.value);
-            assert.equal(objMember.nHeightToRelease,
+            assert.equal(
+                objMember.nHeightToRelease,
                 global.block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON
             );
         });
@@ -411,7 +402,8 @@ describe('Concilium contract', () => {
         it('should throw: not a member', async () => {
             const callerAddress = generateAddress().toString('hex');
 
-            assert.throws(() => contract._retireRrConciliumMember(concilium.toObject(), callerAddress),
+            assert.throws(
+                () => contract._retireRrConciliumMember(concilium.toObject(), callerAddress),
                 'You arent member'
             );
         });
@@ -448,7 +440,8 @@ describe('Concilium contract', () => {
         it('should throw: too early', async () => {
             global.block.height = 100 + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON - 1;
 
-            assert.throws(() => contract._retirePosConciliumMember(concilium.toObject(), arrMembers[0].address),
+            assert.throws(
+                () => contract._retirePosConciliumMember(concilium.toObject(), arrMembers[0].address),
                 'Dont leave us now'
             );
         });
@@ -462,9 +455,10 @@ describe('Concilium contract', () => {
 
             assert.isOk(global.send.calledOnce);
             arrMembers.splice(nIdxToLeave, 1);
-            assert.isOk(arrayEquals(
-                concilium.getAddresses(false),
-                arrMembers.map(objRecord => objRecord.address)
+            assert.isOk(
+                arrayEquals(
+                    concilium.getAddresses(false),
+                    arrMembers.map(objRecord => objRecord.address)
                 )
             );
         });
@@ -623,7 +617,8 @@ describe('Concilium contract', () => {
             const objMember = contract._getPosConciliumMember(storedConcilium, strAddrMember);
 
             assert.equal(objMember.amount, global.value);
-            assert.equal(objMember.nHeightToRelease,
+            assert.equal(
+                objMember.nHeightToRelease,
                 global.block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON
             );
 

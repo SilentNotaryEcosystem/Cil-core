@@ -8,12 +8,12 @@ const {pseudoRandomBuffer} = require('../testUtil');
 const {arrayEquals} = require('../../utils');
 
 describe('MessageGetBlocks', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 

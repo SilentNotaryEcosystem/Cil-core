@@ -11,12 +11,12 @@ const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 chai.use(require('chai-as-promised'));
 
 describe('Stored wallets', async () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -40,7 +40,10 @@ describe('Stored wallets', async () => {
         });
 
         it('should decode 2 keys (_ensurePk)', async () => {
-            const map = new Map([[1, 'fakeKeystore'], [2, 'fakeKeystore2']]);
+            const map = new Map([
+                [1, 'fakeKeystore'],
+                [2, 'fakeKeystore2']
+            ]);
             const mapResult = sw._ensurePk('fakePass', [1, 1, 2, 2, 2], map);
             assert.equal(mapResult.size, 2);
         });
@@ -118,9 +121,9 @@ describe('Stored wallets', async () => {
                 ];
                 let attempt = 0;
                 sw._gatherInputsForAmount = () => {
-                    return attempt++ ?
-                        {arrCoins: [arrCoins[0]], gathered: arrCoins[0].amount, bDone: true} :
-                        {arrCoins: [arrCoins[1]], gathered: arrCoins[1].amount, bDone: false};
+                    return attempt++
+                        ? {arrCoins: [arrCoins[0]], gathered: arrCoins[0].amount, bDone: true}
+                        : {arrCoins: [arrCoins[1]], gathered: arrCoins[1].amount, bDone: false};
                 };
 
                 const arrAddresses = [generateAddress().toString('hex'), generateAddress().toString('hex')];
@@ -138,9 +141,9 @@ describe('Stored wallets', async () => {
                 ];
                 let attempt = 0;
                 sw._gatherInputsForAmount = () => {
-                    return attempt++ ?
-                        {arrCoins: [arrCoins[1]], gathered: arrCoins[1].amount, bDone: false} :
-                        {arrCoins: [arrCoins[0]], gathered: arrCoins[0].amount, bDone: true};
+                    return attempt++
+                        ? {arrCoins: [arrCoins[1]], gathered: arrCoins[1].amount, bDone: false}
+                        : {arrCoins: [arrCoins[0]], gathered: arrCoins[0].amount, bDone: true};
                 };
 
                 const arrAddresses = [generateAddress().toString('hex'), generateAddress().toString('hex')];
@@ -166,10 +169,12 @@ describe('Stored wallets', async () => {
                 tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
                 tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
 
-                sw._ensurePk = sinon.fake.returns(new Map([
-                    ['addr1', factory.Crypto.createKeyPair().privateKey],
-                    ['addr2', factory.Crypto.createKeyPair().privateKey]
-                ]));
+                sw._ensurePk = sinon.fake.returns(
+                    new Map([
+                        ['addr1', factory.Crypto.createKeyPair().privateKey],
+                        ['addr2', factory.Crypto.createKeyPair().privateKey]
+                    ])
+                );
 
                 await sw._claimFundsAndSignTx(tx, ['addr1', 'addr2']);
 
@@ -182,10 +187,12 @@ describe('Stored wallets', async () => {
                 tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
 
                 const kpAddr1 = factory.Crypto.createKeyPair();
-                sw._ensurePk = sinon.fake.returns(new Map([
-                    ['addr1', kpAddr1.privateKey],
-                    ['addr2', factory.Crypto.createKeyPair().privateKey]
-                ]));
+                sw._ensurePk = sinon.fake.returns(
+                    new Map([
+                        ['addr1', kpAddr1.privateKey],
+                        ['addr2', factory.Crypto.createKeyPair().privateKey]
+                    ])
+                );
 
                 await sw._claimFundsAndSignTx(tx, ['addr1', 'addr2'], undefined, undefined, 'addr1');
 
@@ -197,14 +204,16 @@ describe('Stored wallets', async () => {
                 tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
                 tx.addInput(pseudoRandomBuffer().toString('hex'), 0);
 
-                sw._ensurePk = sinon.fake.returns(new Map([
-                    ['addr1', factory.Crypto.createKeyPair().privateKey],
-                    ['addr2', factory.Crypto.createKeyPair().privateKey]
-                ]));
+                sw._ensurePk = sinon.fake.returns(
+                    new Map([
+                        ['addr1', factory.Crypto.createKeyPair().privateKey],
+                        ['addr2', factory.Crypto.createKeyPair().privateKey]
+                    ])
+                );
 
                 return assert.isRejected(
                     sw._claimFundsAndSignTx(tx, ['addr1', 'addr2', 'addr3']),
-                    "Private key for addr3 not found"
+                    'Private key for addr3 not found'
                 );
             });
         });
@@ -227,7 +236,7 @@ describe('Stored wallets', async () => {
             });
 
             it('should fail send (not enough coins)', async () => {
-                sw._formTxInputs = async (tx) => {
+                sw._formTxInputs = async tx => {
                     tx.addInput(pseudoRandomBuffer(), 0);
                     tx.addInput(pseudoRandomBuffer(), 0);
                     return [1e5, arrFakeAddresses.slice(0, 2)];
@@ -240,12 +249,12 @@ describe('Stored wallets', async () => {
                         nAmount: 1e5,
                         strChangeAddress: generateAddress().toString('hex')
                     }),
-                    "Not enough coins to send. Required (with fee): 101280. Have: 100000"
+                    'Not enough coins to send. Required (with fee): 101280. Have: 100000'
                 );
             });
 
             it('should send', async () => {
-                sw._formTxInputs = async (tx) => {
+                sw._formTxInputs = async tx => {
                     tx.addInput(pseudoRandomBuffer(), 0);
                     tx.addInput(pseudoRandomBuffer(), 0);
                     return [1e6, arrFakeAddresses.slice(0, 2)];
@@ -284,7 +293,7 @@ describe('Stored wallets', async () => {
             });
 
             it('should fail to call (not enough coins)', async () => {
-                sw._formTxInputs = async (tx) => {
+                sw._formTxInputs = async tx => {
                     tx.addInput(pseudoRandomBuffer(), 0);
                     tx.addInput(pseudoRandomBuffer(), 0);
                     return [1e5, arrFakeAddresses.slice(0, 2)];
@@ -299,14 +308,13 @@ describe('Stored wallets', async () => {
                         nAmount: 1e5,
                         strChangeAddress: factory.Constants.ADDRESS_PREFIX + generateAddress().toString('hex'),
                         strSignerAddress: factory.Constants.ADDRESS_PREFIX + arrFakeAddresses[0]
-
                     }),
-                    "Not enough coins to send. Required (with fee): 151538. Have: 100000"
+                    'Not enough coins to send. Required (with fee): 151538. Have: 100000'
                 );
             });
 
             it('should call (without signing contract)', async () => {
-                sw._formTxInputs = async (tx) => {
+                sw._formTxInputs = async tx => {
                     tx.addInput(pseudoRandomBuffer(), 0);
                     tx.addInput(pseudoRandomBuffer(), 0);
                     return [1e6, arrFakeAddresses.slice(0, 2)];
@@ -328,7 +336,7 @@ describe('Stored wallets', async () => {
             });
 
             it('should call (and signing contract)', async () => {
-                sw._formTxInputs = async (tx) => {
+                sw._formTxInputs = async tx => {
                     tx.addInput(pseudoRandomBuffer(), 0);
                     tx.addInput(pseudoRandomBuffer(), 0);
                     return [1e6, arrFakeAddresses.slice(0, 2)];
@@ -349,6 +357,5 @@ describe('Stored wallets', async () => {
                 assert.isOk(sw._claimFundsAndSignTx.calledOnce);
             });
         });
-
     });
 });

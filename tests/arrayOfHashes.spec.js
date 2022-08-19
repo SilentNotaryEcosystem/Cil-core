@@ -7,7 +7,7 @@ const factory = require('./testFactory');
 const {pseudoRandomBuffer} = require('./testUtil');
 
 describe('Array of hashes (serialization)', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });

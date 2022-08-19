@@ -6,17 +6,17 @@ const {assert} = require('chai');
 const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 let keyPair;
-let privateKey;
-let publicKey;
+// let privateKey;
+// let publicKey;
 
 const factory = require('./testFactory');
 
 describe('Transaction tests', () => {
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
         keyPair = factory.Crypto.createKeyPair();
-        privateKey = keyPair.getPrivate();
-        publicKey = keyPair.getPublic();
+        // privateKey = keyPair.getPrivate();
+        // publicKey = keyPair.getPublic();
     });
 
     it('should create empty transaction', async () => {
@@ -318,11 +318,7 @@ describe('Transaction tests', () => {
     it('should VERIFY tx with contract invocation', async () => {
         const kp = factory.Crypto.createKeyPair();
         const objCode = {};
-        const tx = factory.Transaction.invokeContract(
-            generateAddress().toString('hex'),
-            objCode,
-            0
-        );
+        const tx = factory.Transaction.invokeContract(generateAddress().toString('hex'), objCode, 0);
 
         // spend witness2 coins (WHOLE!)
         tx.addInput(pseudoRandomBuffer(), 0);
@@ -332,11 +328,7 @@ describe('Transaction tests', () => {
     });
 
     it('should get amount sent to contract', async () => {
-        const tx = factory.Transaction.invokeContract(
-            generateAddress().toString('hex'),
-            {},
-            100
-        );
+        const tx = factory.Transaction.invokeContract(generateAddress().toString('hex'), {}, 100);
         tx.addReceiver(1000, generateAddress());
         tx.addReceiver(2000, generateAddress());
 
@@ -374,11 +366,7 @@ describe('Transaction tests', () => {
 
     it('should get Contract Address', async () => {
         const buffAddr = generateAddress();
-        const tx = factory.Transaction.invokeContract(
-            buffAddr.toString('hex'),
-            {},
-            100
-        );
+        const tx = factory.Transaction.invokeContract(buffAddr.toString('hex'), {}, 100);
 
         assert.isOk(buffAddr.equals(tx.getContractAddr()));
     });
@@ -414,7 +402,7 @@ describe('Transaction tests', () => {
         it('should fail to verifyCoinbase (bad amount)', async () => {
             const coinbase = factory.Transaction.createCoinbase();
             coinbase.addReceiver(100, generateAddress());
-            assert.throws(() => coinbase.verifyCoinbase(tx.amountOut() - 1));
+            assert.throws(() => coinbase.verifyCoinbase(coinbase.amountOut() - 1));
         });
 
         it('should pass verifyCoinbase', async () => {
@@ -423,5 +411,4 @@ describe('Transaction tests', () => {
             assert.doesNotThrow(() => coinbase.verifyCoinbase(coinbase.amountOut()));
         });
     });
-
 });

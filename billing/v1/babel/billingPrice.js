@@ -9,5 +9,5 @@ module.exports = {
     MOD: 10,
     EXP: 20,
     CALLCODE: 20,
-    LOOPITER: 10,
+    LOOPITER: 10
 };

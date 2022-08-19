@@ -2,20 +2,19 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const debug = require('debug')('blockInfo:test');
 
 const factory = require('./testFactory');
-const {createDummyBlock, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyBlock} = require('./testUtil');
 
 describe('BlockInfo tests', () => {
     let blockInfo;
     let block;
 
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
     });
 
-    beforeEach(async function() {
+    beforeEach(async function () {
         block = createDummyBlock(factory);
         blockInfo = new factory.BlockInfo(block.header);
     });

@@ -3,14 +3,13 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
-const debug = require('debug')('pendingBlocksManager:');
 
 const factory = require('./testFactory');
 
 const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('./testUtil');
 const {arrayEquals} = require('../utils');
 
-const createNonEmptyBlock = (nConciliumId) => {
+const createNonEmptyBlock = nConciliumId => {
     const block = createDummyBlock(factory, nConciliumId);
     block.isEmpty = () => false;
     return block;
@@ -41,16 +40,16 @@ const createRhombus = async (pbm, bNonEmpty = false) => {
 /**
  * Duplicate block, but change conciliumId & change tx
  */
-const makeDoubleSpend = (block, newConciliumId) => {
-    const newBlock = new factory.Block(newConciliumId);
+// const makeDoubleSpend = (block, newConciliumId) => {
+//     const newBlock = new factory.Block(newConciliumId);
 
-    // first is coinbase
-    const tx = new factory.Transaction(block.txns[1]);
-    tx.conciliumId = newConciliumId;
-    newBlock.addTx(tx);
-    newBlock.finish(factory.Constants.fees.TX_FEE, generateAddress());
-    return newBlock;
-};
+//     // first is coinbase
+//     const tx = new factory.Transaction(block.txns[1]);
+//     tx.conciliumId = newConciliumId;
+//     newBlock.addTx(tx);
+//     newBlock.finish(factory.Constants.fees.TX_FEE, generateAddress());
+//     return newBlock;
+// };
 
 const createSample = async (pbm, isContractFound = false) => {
     const block1 = createDummyBlock(factory, 0);
@@ -101,7 +100,7 @@ const createSample = async (pbm, isContractFound = false) => {
 describe('Pending block manager', async () => {
     let pbm;
 
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
     });
 
@@ -244,7 +243,6 @@ describe('Pending block manager', async () => {
     });
 
     it('should add block', async () => {
-
         const block = createDummyBlock(factory);
         block.parentHashes = [
             pseudoRandomBuffer().toString('hex'),
@@ -292,8 +290,6 @@ describe('Pending block manager', async () => {
     });
 
     it('should select only 1 parent (conflict)', async () => {
-
-
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
 
@@ -309,8 +305,6 @@ describe('Pending block manager', async () => {
     });
 
     it('should select longest chain 3->2 (3 & 1 conflicts)', async () => {
-
-
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
         const block3 = createDummyBlock(factory, 3);
@@ -330,9 +324,6 @@ describe('Pending block manager', async () => {
     });
 
     it('should call merge 10 times', async () => {
-
-
-
         const patch = new factory.PatchDB(0);
         patch.merge = sinon.fake.returns(patch);
 
@@ -345,8 +336,6 @@ describe('Pending block manager', async () => {
     });
 
     it('should select 2 from 3  (has conflicts)', async () => {
-
-
         const block1 = createDummyBlock(factory, 1);
         const block2 = createDummyBlock(factory, 2);
         const block3 = createDummyBlock(factory, 3);
@@ -375,9 +364,7 @@ describe('Pending block manager', async () => {
         assert.isOk(arrayEquals(arrParents, [block3.getHash(), block4.getHash()]));
     });
 
-    it('should getBestParents with ', async () => {
-
-    });
+    it('should getBestParents with ', async () => {});
 
     describe('getBestParents', async () => {
         let pbm;
@@ -526,31 +513,27 @@ describe('Pending block manager', async () => {
             assert.isOk(pbm.isReasonToWitness(block));
         });
 
-        it('should be a reason for rhombus (existed inside rhombus of empty blocks, but has single non empty tip)',
-            async () => {
-                const blockTip1 = await createRhombus(pbm);
-                const blockTip2 = createNonEmptyBlock(0);
-                await pbm.addBlock(blockTip2, new factory.PatchDB());
+        it('should be a reason for rhombus (existed inside rhombus of empty blocks, but has single non empty tip)', async () => {
+            const blockTip1 = await createRhombus(pbm);
+            const blockTip2 = createNonEmptyBlock(0);
+            await pbm.addBlock(blockTip2, new factory.PatchDB());
 
-                const block = createNonEmptyBlock(2);
-                block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
+            const block = createNonEmptyBlock(2);
+            block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
 
-                assert.isOk(pbm.isReasonToWitness(block));
-            }
-        );
+            assert.isOk(pbm.isReasonToWitness(block));
+        });
 
-        it('should be a reason for rhombus (existed inside rhombus of non-empty blocks, but has single yet empty tip)',
-            async () => {
-                const blockTip1 = await createRhombus(pbm, true);
-                const blockTip2 = createDummyBlock(factory, 0);
-                await pbm.addBlock(blockTip2, new factory.PatchDB());
+        it('should be a reason for rhombus (existed inside rhombus of non-empty blocks, but has single yet empty tip)', async () => {
+            const blockTip1 = await createRhombus(pbm, true);
+            const blockTip2 = createDummyBlock(factory, 0);
+            await pbm.addBlock(blockTip2, new factory.PatchDB());
 
-                const block = createNonEmptyBlock(2);
-                block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
+            const block = createNonEmptyBlock(2);
+            block.parentHashes = [blockTip1.getHash(), blockTip2.getHash()];
 
-                assert.isOk(pbm.isReasonToWitness(block));
-            }
-        );
+            assert.isOk(pbm.isReasonToWitness(block));
+        });
     });
 
     describe('FINALITY', async () => {
@@ -559,7 +542,7 @@ describe('Pending block manager', async () => {
             pbm = new factory.PendingBlocksManager({});
         });
 
-        it('should fail to reach the FINALITY (no majority of 2)', async function() {
+        it('should fail to reach the FINALITY (no majority of 2)', async function () {
             this.timeout(15000);
 
             const block1 = createDummyBlock(factory, 1, 10);
@@ -569,7 +552,7 @@ describe('Pending block manager', async () => {
             assert.isNotOk(result);
         });
 
-        it('should reach the FINALITY (majority of 1)', async function() {
+        it('should reach the FINALITY (majority of 1)', async function () {
             this.timeout(15000);
 
             const block1 = createDummyBlock(factory, 1);
@@ -586,9 +569,7 @@ describe('Pending block manager', async () => {
         it('should reach the FINALITY (simple chain produced by 2 witnesses)', async () => {
             const block1 = createDummyBlock(factory, 1);
             const block2 = createDummyBlock(factory, 2);
-            block2.parentHashes = [
-                block1.getHash()
-            ];
+            block2.parentHashes = [block1.getHash()];
 
             await pbm.addBlock(block1, new factory.PatchDB(0));
             await pbm.addBlock(block2, new factory.PatchDB(0));
@@ -625,7 +606,6 @@ describe('Pending block manager', async () => {
         });
 
         it('should reach the FINALITY (3 conciliums. conflicting branches)', async () => {
-
             const numOfConcilium = 3;
 
             // see illustration page "rejected block consensus"
@@ -682,7 +662,8 @@ describe('Pending block manager', async () => {
                 await pbm.addBlock(block7, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(block7.getHash(),
+                const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(
+                    block7.getHash(),
                     numOfConcilium
                 );
 
@@ -707,7 +688,8 @@ describe('Pending block manager', async () => {
                 await pbm.addBlock(block8, new factory.PatchDB(0));
 
                 // finality!
-                const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(block8.getHash(),
+                const {setStableBlocks, setBlocksToRollback} = await pbm.checkFinality(
+                    block8.getHash(),
                     numOfConcilium
                 );
 
@@ -717,7 +699,6 @@ describe('Pending block manager', async () => {
                 // it's block 7 & 1
                 assert.equal(setStableBlocks.size, 2);
             }
-
         });
     });
 
@@ -802,7 +783,6 @@ describe('Pending block manager', async () => {
             // block4 is winner (don't confuse with winner tip, which is block5) as latest for concilium 0
             const {patch} = pbm._dag.readObj(arrHashes[3]);
             assert.isOk(patch.getContract.calledOnce);
-
         });
 
         it('should return true. Patch found. Contract found', async () => {
