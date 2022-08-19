@@ -9,7 +9,6 @@ const {sleep} = require('../utils');
  * Может эмулировать задержку через options.delay
  */
 
-
 module.exports = (Serializer, MessageAssembler, Constants) =>
     class Connection extends EventEmitter {
         constructor(options) {
@@ -23,15 +22,14 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
             this._remoteAddress = options.remoteAddress;
 
             if (!this._socket) throw new Error('No socket!');
-//            this._socket.write = util.promisify(this._socket.write);
+            //            this._socket.write = util.promisify(this._socket.write);
 
             this._nonce = parseInt(Math.random() * 10000);
             this._socket.on('data', this._incomingMessage.bind(this));
             this._socket.on('end', this.close.bind(this));
             this._socket.on('error', this.close.bind(this));
 
-
-            this._messageAssembler = new MessageAssembler;
+            this._messageAssembler = new MessageAssembler();
         }
 
         get myAddress() {
@@ -121,5 +119,4 @@ module.exports = (Serializer, MessageAssembler, Constants) =>
             const bytestoPadd = buffer.length > 16 ? 0 : 16 - buffer.length;
             return bytestoPadd ? Buffer.concat([Buffer.alloc(bytestoPadd), buffer]) : buffer;
         }
-
     };

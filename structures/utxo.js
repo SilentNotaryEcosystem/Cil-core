@@ -54,8 +54,7 @@ module.exports = ({Coins}, {utxoProto}) =>
          */
         isEmpty() {
             if (this._data.arrIndexes.length !== this._data.arrOutputs.length) {
-                throw new Error(
-                    'UTXO integrity check failed!');
+                throw new Error('UTXO integrity check failed!');
             }
             return !this._data.arrIndexes.length;
         }
@@ -136,8 +135,10 @@ module.exports = ({Coins}, {utxoProto}) =>
          * @returns {*|boolean}
          */
         equals(utxo) {
-            return arrayEquals(this.getIndexes(), utxo.getIndexes()) &&
-                   this.getIndexes().every(idx => this.coinsAtIndex(idx).equals(utxo.coinsAtIndex(idx)));
+            return (
+                arrayEquals(this.getIndexes(), utxo.getIndexes()) &&
+                this.getIndexes().every(idx => this.coinsAtIndex(idx).equals(utxo.coinsAtIndex(idx)))
+            );
         }
 
         /**
@@ -178,7 +179,7 @@ module.exports = ({Coins}, {utxoProto}) =>
             address = Buffer.from(address, 'hex');
 
             return this._data.arrIndexes
-                .filter((idx) => {
+                .filter(idx => {
                     const coin = this.coinsAtIndex(idx);
                     return coin.getReceiverAddr().equals(address);
                 })

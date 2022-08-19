@@ -14,7 +14,7 @@ const PEERMANAGER_BACKUP_TIMER_NAME = 'peerManagerBackupTimer';
  *
  * @emits 'message' {peer, message}
  */
-module.exports = (factory) => {
+module.exports = factory => {
     const {Constants, Messages, Peer /*Transport*/} = factory;
 
     const {PeerInfo} = Messages;
@@ -51,7 +51,9 @@ module.exports = (factory) => {
             this._mapBannedAddresses = new Map();
 
             this._backupTimer = new Tick(this);
-            this._backupTimer.setInterval(PEERMANAGER_BACKUP_TIMER_NAME, this._backupTick.bind(this),
+            this._backupTimer.setInterval(
+                PEERMANAGER_BACKUP_TIMER_NAME,
+                this._backupTick.bind(this),
                 Constants.PEERMANAGER_BACKUP_TIMEOUT
             );
 
@@ -66,15 +68,11 @@ module.exports = (factory) => {
          * @return {Array} of connected peers with specified tag.
          */
         getConnectedPeers(tag) {
-            return Array
-                .from(this._mapAllPeers.values())
-                .filter(peer => !peer.disconnected && peer.hasTag(tag));
+            return Array.from(this._mapAllPeers.values()).filter(peer => !peer.disconnected && peer.hasTag(tag));
         }
 
         getBannedPeers() {
-            return Array
-                .from(this._mapAllPeers.values())
-                .filter(peer => peer.isBanned());
+            return Array.from(this._mapAllPeers.values()).filter(peer => peer.isBanned());
         }
 
         /**
@@ -87,9 +85,9 @@ module.exports = (factory) => {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
             // it's senseless to store peer with private addresses. we couldn't connect them anyway
-//            if (!Transport.isRoutableAddress(peer.address)) {
-//                return peer;
-//            }
+            //            if (!Transport.isRoutableAddress(peer.address)) {
+            //                return peer;
+            //            }
 
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
@@ -124,7 +122,8 @@ module.exports = (factory) => {
          * @param {Connection} connection - TCP connection
          */
         addCandidateConnection(connection) {
-            assert(!this.isBannedAddress(connection.remoteAddress),
+            assert(
+                !this.isBannedAddress(connection.remoteAddress),
                 `Incoming connection from ${connection.remoteAddress} dropped. Peer is banned`
             );
 
@@ -208,7 +207,6 @@ module.exports = (factory) => {
          * @private
          */
         _incomingMessage(thisPeer, msg) {
-
             // just bubble message to Node
             if (!msg || msg.signature) {
                 this.emit('witnessMessage', thisPeer, msg);
@@ -238,9 +236,11 @@ module.exports = (factory) => {
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
             for (let [, peer] of this._mapAllPeers.entries()) {
                 if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
-
-                    if (!peer.isBanned() && !peer.isDead() &&
-                        (bIncludeInactive || this._isSeed || (peer.isAlive() && !peer.isRestricted()))) {
+                    if (
+                        !peer.isBanned() &&
+                        !peer.isDead() &&
+                        (bIncludeInactive || this._isSeed || (peer.isAlive() && !peer.isRestricted()))
+                    ) {
                         arrResult.push(peer);
                     }
                 }
@@ -272,23 +272,22 @@ module.exports = (factory) => {
             const pseudorandomSource = message.payload || arrPeers.map((e, i) => i);
 
             if (nCount) {
-
                 // if we need to send at most nCount messages && we have pseudorandom source - use it
                 for (let byte of pseudorandomSource) {
                     const idx = byte % arrPeers.length;
                     if (setIndexes.size >= nCount) break;
-                    if (!setIndexes.has(idx) &&
-                        !peerToExclude || peerToExclude && peerToExclude.address !== arrPeers[idx].address) {
+                    if (
+                        (!setIndexes.has(idx) && !peerToExclude) ||
+                        (peerToExclude && peerToExclude.address !== arrPeers[idx].address)
+                    ) {
                         setIndexes.add(idx);
                     }
                 }
             } else {
-
                 // just send to all except peerToExclude
                 if (peerToExclude) {
-                    setIndexes = new Set(arrPeers
-                        .map((e, i) => i)
-                        .filter(peerIdx => arrPeers[peerIdx].address !== peerToExclude.address)
+                    setIndexes = new Set(
+                        arrPeers.map((e, i) => i).filter(peerIdx => arrPeers[peerIdx].address !== peerToExclude.address)
                     );
                 } else {
                     setIndexes = new Set(arrPeers.map((e, i) => i));
@@ -325,7 +324,6 @@ module.exports = (factory) => {
          * @private
          */
         _createKey(address, port) {
-
             // TODO: implement own key/value store to use binary keys. Maps doesn't work since it's use === operator for keys, now we convert to String. it's memory consuming!
             // it could be ripemd160
             return address + port.toString();
@@ -346,9 +344,9 @@ module.exports = (factory) => {
          */
         _prepareWhitelisted(arrWhitelisted) {
             for (let strAddrOrNet of arrWhitelisted) {
-                const [ipAddr, bitLength] = ipaddr.isValid(strAddrOrNet) ?
-                    [ipaddr.parse(strAddrOrNet), 32] :
-                    ipaddr.parseCIDR(strAddrOrNet);
+                const [ipAddr, bitLength] = ipaddr.isValid(strAddrOrNet)
+                    ? [ipaddr.parse(strAddrOrNet), 32]
+                    : ipaddr.parseCIDR(strAddrOrNet);
                 const ipV6Addr = ipAddr.kind() === 'ipv4' ? ipAddr.toIPv4MappedAddress() : ipAddr;
                 const ipV6BitLength = ipAddr.kind() === 'ipv4' ? 128 - (32 - bitLength) : ipAddr;
                 this._arrWhitelistedNets.push([ipV6Addr, ipV6BitLength]);
@@ -356,7 +354,6 @@ module.exports = (factory) => {
         }
 
         isWhitelisted(strIpAddress) {
-
             // tests contain no whitelist, but non ip addresses, so next line will throw
             if (!this._arrWhitelistedNets.length) return false;
 

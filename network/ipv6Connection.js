@@ -7,7 +7,6 @@ const {sleep} = require('../utils');
 
  */
 
-
 module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
     class Connection extends EventEmitter {
         constructor(options) {
@@ -24,7 +23,7 @@ module.exports = (Serializer, MessageAssembler, Transport, Constants) =>
             this._socket.on('end', this.close.bind(this));
             this._socket.on('error', this.close.bind(this));
 
-            this._messageAssembler = new MessageAssembler;
+            this._messageAssembler = new MessageAssembler();
         }
 
         /**

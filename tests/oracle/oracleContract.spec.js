@@ -11,12 +11,12 @@ const factory = require('../testFactory');
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
 
 describe('Oracle contract', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -130,7 +130,10 @@ describe('Oracle contract', () => {
         });
 
         it('should publishBatch', async () => {
-            oracle.publishBatch([['ETH', 14], ['BTC', 15]]);
+            oracle.publishBatch([
+                ['ETH', 14],
+                ['BTC', 15]
+            ]);
 
             assert.isOk(oracle._data['ETH']);
             assert.isOk(oracle._data['ETH'].timeBase === block.timestamp);
@@ -168,7 +171,10 @@ describe('Oracle contract', () => {
             block.timestamp = nTimeStart + 5;
             oracle.publish('ETH', 24);
 
-            assert.deepEqual(oracle.getDataForTicker('ETH'), [[nTimeStart, 14], [nTimeStart + 5, 24]]);
+            assert.deepEqual(oracle.getDataForTicker('ETH'), [
+                [nTimeStart, 14],
+                [nTimeStart + 5, 24]
+            ]);
         });
 
         it('should get only last published value', async () => {

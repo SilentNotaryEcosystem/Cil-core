@@ -30,7 +30,7 @@ let nodeFour;
 let stepDone = false;
 
 describe('Genesis net tests (it runs one by one!)', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -47,7 +47,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         sinon.restore();
     });
 
-    it('should create genesis node & block', async function() {
+    it('should create genesis node & block', async function () {
         this.timeout(60000);
 
         ({genesis, strConciliumDefContractTx, arrWitnesses, moneyIssueTx} = createGenesisBlock());
@@ -81,7 +81,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should create initial witness and receive genesis (bootstrap via DNS_SEED)', async function() {
+    it('should create initial witness and receive genesis (bootstrap via DNS_SEED)', async function () {
         this.timeout(60000);
 
         const wallet = new factory.Wallet(arrWitnesses[0].privateKey);
@@ -95,15 +95,15 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await witnessConciliumOne.bootstrap();
 
         // wait to receive Genesis block
-        await (new Promise((resolve, reject) => {
-            sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake((block) => {
+        await new Promise((resolve, reject) => {
+            sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake(block => {
                 if (block.getHash() === factory.Constants.GENESIS_BLOCK) {
                     resolve();
                 } else {
                     reject();
                 }
             });
-        }));
+        });
 
         // we have definition for initial witness
         assert.isOk(await witnessConciliumOne._storage.getConciliumById(0));
@@ -112,7 +112,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should create & start another witness concilium', async function() {
+    it('should create & start another witness concilium', async function () {
         this.timeout(300000);
 
         const wallet = new factory.Wallet(arrWitnesses[1].privateKey);
@@ -126,15 +126,15 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await witnessConciliumTwo.bootstrap();
 
         // wait to receive Genesis block
-        await (new Promise((resolve, reject) => {
-            sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
+        await new Promise((resolve, reject) => {
+            sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake(block => {
                 if (block.getHash() === factory.Constants.GENESIS_BLOCK) {
                     resolve();
                 } else {
                     reject();
                 }
             });
-        }));
+        });
         sinon.restore();
 
         const txCode = createAnotherConcilium(wallet.privateKey, wallet.address, moneyIssueTx.hash(), 4);
@@ -142,7 +142,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         // wait for witnessOne receive tx & produce block with new concilium def & send us (witnessConciliumTwo) second block
         const donePromise = new Promise((resolve, reject) => {
-            sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
+            sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake(block => {
                 if (block.txns.length === 2) {
                     resolve();
                 } else {
@@ -171,7 +171,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should produce block for second concilium', async function() {
+    it('should produce block for second concilium', async function () {
         this.timeout(300000);
 
         const wallet = new factory.Wallet(arrWitnesses[1].privateKey);
@@ -188,7 +188,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         {
             // wait for witnessConciliumTwo PRODUCE block concilium ==1
             const donePromise = new Promise((resolve, reject) => {
-                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
+                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake(block => {
                     if (block.txns.length === 2 && block.conciliumId === 1) {
                         resolve();
                     } else {
@@ -203,7 +203,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         {
             // wait for witnessConciliumOne RECEIVE this block for concilium == 1
             const donePromise = new Promise((resolve, reject) => {
-                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake((block) => {
+                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake(block => {
                     if (block.txns.length === 2 && block.conciliumId === 1) {
                         resolve();
                     } else {
@@ -237,7 +237,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should create one more block for each concilium', async function() {
+    it('should create one more block for each concilium', async function () {
         this.timeout(300000);
 
         const wallet = new factory.Wallet(arrWitnesses[0].privateKey);
@@ -255,8 +255,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         {
             // wait for witnessConciliumOne RECEIVE this block for concilium == 0
-            const donePromiseW1 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake((block) => {
+            const donePromiseW1 = new Promise(resolve => {
+                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake(block => {
                     if (block.txns.length === 2 && block.conciliumId === 0) {
                         resolve();
                     }
@@ -264,8 +264,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
             });
 
             // wait for witnessConciliumTwo receive that block
-            const donePromiseW2 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
+            const donePromiseW2 = new Promise(resolve => {
+                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake(block => {
                     if (block.txns.length === 2 && block.conciliumId === 0) {
                         resolve();
                     }
@@ -289,8 +289,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         {
             // wait for witnessConciliumTwo PRODUCE block concilium ==1
-            const donePromiseW2 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake((block) => {
+            const donePromiseW2 = new Promise(resolve => {
+                sinon.stub(witnessConciliumTwo, '_postAcceptBlock').callsFake(block => {
                     if (block.txns.length === 2 && block.conciliumId === 1) {
                         resolve();
                     }
@@ -298,8 +298,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
             });
 
             // wait for witnessConciliumOne receive that block
-            const donePromiseW1 = new Promise((resolve) => {
-                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake((block) => {
+            const donePromiseW1 = new Promise(resolve => {
+                sinon.stub(witnessConciliumOne, '_postAcceptBlock').callsFake(block => {
                     if (block.txns.length === 2 && block.conciliumId === 1) {
                         resolve();
                     }
@@ -322,7 +322,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should create 3d node and load 4 blocks', async function() {
+    it('should create 3d node and load 4 blocks', async function () {
         this.timeout(300000);
 
         nodeThree = new factory.Node({
@@ -334,10 +334,12 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await nodeThree.bootstrap();
 
         // wait 4 blocks: Genesis, with definition of 2nd concilium, of new concilium, and one more
-        const donePromise = new Promise((resolve) => {
+        const donePromise = new Promise(resolve => {
             let i = 0;
             sinon.stub(nodeThree, '_postAcceptBlock').callsFake(() => {
-                if (++i === 4) {resolve();}
+                if (++i === 4) {
+                    resolve();
+                }
             });
         });
 
@@ -349,7 +351,7 @@ describe('Genesis net tests (it runs one by one!)', () => {
         stepDone = true;
     });
 
-    it('should create 4th node, that has Genesis, so it should load 3 blocks', async function() {
+    it('should create 4th node, that has Genesis, so it should load 3 blocks', async function () {
         this.timeout(300000);
 
         nodeFour = new factory.Node({
@@ -366,10 +368,12 @@ describe('Genesis net tests (it runs one by one!)', () => {
         await nodeFour.bootstrap();
 
         // wait 3 blocks: all except Genesis
-        const donePromise = new Promise((resolve) => {
+        const donePromise = new Promise(resolve => {
             let i = 0;
             sinon.stub(nodeFour, '_postAcceptBlock').callsFake(() => {
-                if (++i === 3) {resolve();}
+                if (++i === 3) {
+                    resolve();
+                }
             });
         });
 
@@ -380,7 +384,6 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         stepDone = true;
     });
-
 });
 
 function createGenesisBlock() {
@@ -595,7 +598,8 @@ class ContractConciliums extends Base {
 };
 
 exports=new ContractConciliums(${JSON.stringify(
-        prepareForStringifyObject(initialConcilium.toObject()))}, ${CONCILIUM_CREATE_FEE});
+        prepareForStringifyObject(initialConcilium.toObject())
+    )}, ${CONCILIUM_CREATE_FEE});
 `;
 
     const genesis = new factory.Block(0);
@@ -635,9 +639,7 @@ function createAnotherConcilium(strClaimPrivateKey, witnessAddress, utxo, idx) {
 
     const contractCode = {
         method: 'createConcilium',
-        arrArguments: [
-            concilium.toObject()
-        ]
+        arrArguments: [concilium.toObject()]
     };
 
     // WARNING! it's just test/demo. All coins at this UTXO become fee

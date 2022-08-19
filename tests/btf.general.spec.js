@@ -32,7 +32,7 @@ const createDummyBFT = (conciliumId = 0, numOfKeys = 2) => {
 };
 
 describe('BFT general tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
         // BFT = factory.BFT;
@@ -41,7 +41,7 @@ describe('BFT general tests', () => {
         // myWallet = new factory.Wallet(keyPair.privateKey);
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -50,11 +50,7 @@ describe('BFT general tests', () => {
         const kp2 = factory.Crypto.createKeyPair();
         const newWallet = new factory.Wallet(kp1.privateKey);
 
-        const concilium = factory.ConciliumRr.create(
-            conciliumId,
-            [kp1.address, kp2.address],
-            1
-        );
+        const concilium = factory.ConciliumRr.create(conciliumId, [kp1.address, kp2.address], 1);
 
         const newBft = new factory.BFT({
             concilium,
@@ -71,11 +67,7 @@ describe('BFT general tests', () => {
         const kp2 = factory.Crypto.createKeyPair();
         const newWallet = new factory.Wallet(kp1.privateKey);
 
-        const concilium = factory.ConciliumRr.create(
-            conciliumId,
-            [kp1.address, kp2.address],
-            undefined
-        );
+        const concilium = factory.ConciliumRr.create(conciliumId, [kp1.address, kp2.address], undefined);
 
         const newBft = new factory.BFT({
             concilium,
@@ -234,19 +226,19 @@ describe('BFT general tests', () => {
         newBft._addViewOfNodeWithAddr(myWalletAddress, myWalletAddress, sampleData);
 
         // my node got version of 2nd party
-//        newBft._addViewOfNodeWithAddr(myWalletAddress, anotherAddress, undefined);
+        //        newBft._addViewOfNodeWithAddr(myWalletAddress, anotherAddress, undefined);
 
         // my node got version of 3d party
         newBft._addViewOfNodeWithAddr(myWalletAddress, thirdAddress, sampleData);
 
         // receive 2nd party view my version
-//        newBft._addViewOfNodeWithAddr(anotherAddress, myWalletAddress, undefined);
+        //        newBft._addViewOfNodeWithAddr(anotherAddress, myWalletAddress, undefined);
 
         // receive 2nd party view of own version
-//        newBft._addViewOfNodeWithAddr(anotherAddress, anotherAddress, undefined);
+        //        newBft._addViewOfNodeWithAddr(anotherAddress, anotherAddress, undefined);
 
         // receive from 2nd party version of 3d party
-//        newBft._addViewOfNodeWithAddr(anotherAddress, thirdAddress, undefined);
+        //        newBft._addViewOfNodeWithAddr(anotherAddress, thirdAddress, undefined);
 
         // receive 3d party view my version
         newBft._addViewOfNodeWithAddr(thirdAddress, myWalletAddress, sampleData);
@@ -255,7 +247,7 @@ describe('BFT general tests', () => {
         newBft._addViewOfNodeWithAddr(thirdAddress, thirdAddress, sampleData);
 
         // receive 3d party own version of 2nd party
-//        newBft._addViewOfNodeWithAddr(thirdAddress, anotherAddress, undefined);
+        //        newBft._addViewOfNodeWithAddr(thirdAddress, anotherAddress, undefined);
 
         const value = newBft.runConsensus();
         assert.deepEqual(value, sampleData);
@@ -406,7 +398,7 @@ describe('BFT general tests', () => {
         assert.equal(newBft._views[keyPair2.address][keyPair1.address].roundNo, msg.roundNo);
     });
 
-    it('should reject message with bad signature', async function() {
+    it('should reject message with bad signature', async function () {
         const keyPair3 = factory.Crypto.createKeyPair();
         const {newBft} = createDummyBFT();
 
@@ -426,7 +418,6 @@ describe('BFT general tests', () => {
 
         const wrapper2 = () => newBft.processMessage(msgExpose2);
         assert.throws(wrapper2);
-
     });
 
     it('should reach consensus BUT NOT create block (hold off)', async () => {
@@ -458,7 +449,6 @@ describe('BFT general tests', () => {
         newBft.processMessage(msgPartyExposed);
 
         assert.equal(newBft._state, factory.Constants.consensusStates.BLOCK);
-
     });
 
     it('should advance round', async () => {
@@ -772,44 +762,28 @@ describe('BFT general tests', () => {
         const buffHash = Buffer.from(newBft._block.getHash(), 'hex');
 
         // my node put own version
-        newBft._addViewOfNodeWithAddr(
-            arrKeyPairs[0].address,
-            arrKeyPairs[0].address,
-            {
-                blockHash: buffHash,
-                signature: factory.Crypto.sign(buffHash, arrKeyPairs[0].privateKey, 'hex')
-            }
-        );
+        newBft._addViewOfNodeWithAddr(arrKeyPairs[0].address, arrKeyPairs[0].address, {
+            blockHash: buffHash,
+            signature: factory.Crypto.sign(buffHash, arrKeyPairs[0].privateKey, 'hex')
+        });
 
         // my node got version of party
-        newBft._addViewOfNodeWithAddr(
-            arrKeyPairs[0].address,
-            arrKeyPairs[1].address,
-            {
-                blockHash: buffHash,
-                signature: factory.Crypto.sign(buffHash, arrKeyPairs[1].privateKey, 'hex')
-            }
-        );
+        newBft._addViewOfNodeWithAddr(arrKeyPairs[0].address, arrKeyPairs[1].address, {
+            blockHash: buffHash,
+            signature: factory.Crypto.sign(buffHash, arrKeyPairs[1].privateKey, 'hex')
+        });
 
         // receive party view my version
-        newBft._addViewOfNodeWithAddr(
-            arrKeyPairs[1].address,
-            arrKeyPairs[0].address,
-            {
-                blockHash: buffHash,
-                signature: factory.Crypto.sign(buffHash, arrKeyPairs[0].privateKey, 'hex')
-            }
-        );
+        newBft._addViewOfNodeWithAddr(arrKeyPairs[1].address, arrKeyPairs[0].address, {
+            blockHash: buffHash,
+            signature: factory.Crypto.sign(buffHash, arrKeyPairs[0].privateKey, 'hex')
+        });
 
         // receive party view of own version
-        newBft._addViewOfNodeWithAddr(
-            arrKeyPairs[1].address,
-            arrKeyPairs[1].address,
-            {
-                blockHash: buffHash,
-                signature: factory.Crypto.sign(buffHash, arrKeyPairs[1].privateKey, 'hex')
-            }
-        );
+        newBft._addViewOfNodeWithAddr(arrKeyPairs[1].address, arrKeyPairs[1].address, {
+            blockHash: buffHash,
+            signature: factory.Crypto.sign(buffHash, arrKeyPairs[1].privateKey, 'hex')
+        });
 
         // move this state to "archive". _getSignaturesForBlock works with it
         newBft._resetState();
@@ -841,5 +815,4 @@ describe('BFT general tests', () => {
         const result = newBft._getSignaturesForBlock();
         assert.isNotOk(result);
     });
-
 });

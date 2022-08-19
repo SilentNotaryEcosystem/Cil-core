@@ -10,13 +10,11 @@ module.exports = (Constants, ArrayOfHashes, MessageCommon, GetBlocksPayloadProto
     const {MSG_GET_BLOCKS} = Constants.messageTypes;
 
     return class MessageGetBlocks extends MessageCommon {
-
         /**
          *
          * @param {Object|Buffer} data
          */
         constructor(data) {
-
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
                 if (!this.isGetBlocks()) {
@@ -43,11 +41,11 @@ module.exports = (Constants, ArrayOfHashes, MessageCommon, GetBlocksPayloadProto
          * @returns {string[]}
          */
         get arrHashes() {
-            return (new ArrayOfHashes(this._data.arrHashes)).getArray();
+            return new ArrayOfHashes(this._data.arrHashes).getArray();
         }
 
         set arrHashes(arrHashes) {
-            this._data.arrHashes = (new ArrayOfHashes(arrHashes)).encode();
+            this._data.arrHashes = new ArrayOfHashes(arrHashes).encode();
         }
 
         /**

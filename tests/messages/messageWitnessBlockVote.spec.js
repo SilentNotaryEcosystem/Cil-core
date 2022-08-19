@@ -7,12 +7,12 @@ const {pseudoRandomBuffer} = require('../testUtil');
 const factory = require('../testFactory');
 
 describe('MessageWitnessBlockVote', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -64,5 +64,4 @@ describe('MessageWitnessBlockVote', () => {
         const msg = factory.Messages.MsgWitnessBlockVote.reject('test');
         assert.isOk(msg.isWitnessBlockVote());
     });
-
 });

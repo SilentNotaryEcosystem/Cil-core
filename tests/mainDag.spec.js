@@ -18,7 +18,7 @@ const {createDummyBlockInfo} = require('./testUtil');
 
 // let node;
 describe('Main Dag', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
@@ -29,7 +29,7 @@ describe('Main Dag', () => {
         // };
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 

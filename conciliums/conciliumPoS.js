@@ -53,11 +53,10 @@ module.exports = ({Constants}) =>
             this._totalSharesAmount /= nGcd;
             this._arrShares = this._data.arrMembers.map(m => m.amount / nGcd);
 
-
             // we need 50% +1
             // as _totalSharesAmount = Sum(amounts) / nGcd
-            this._quorum = this._arrShares.length === 1 ?
-                1 : (0.5 * this._totalSharesAmount + 1) / this._totalSharesAmount;
+            this._quorum =
+                this._arrShares.length === 1 ? 1 : (0.5 * this._totalSharesAmount + 1) / this._totalSharesAmount;
 
             // see _getSlot
             this._paramA = 1289;
@@ -70,27 +69,32 @@ module.exports = ({Constants}) =>
                 arguments
             );
 
-            assert(arrMembers.every(objMember => objMember.address && objMember.amount >= nMinAmountToJoin),
+            assert(
+                arrMembers.every(objMember => objMember.address && objMember.amount >= nMinAmountToJoin),
                 'Bad arrMembers'
             );
 
             arrMembers.forEach(
-                objMember => objMember.nHeightToRelease = currentHeight + Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON);
+                objMember => (objMember.nHeightToRelease = currentHeight + Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON)
+            );
 
-            return new this({
-                conciliumId,
-                nMinAmountToJoin,
-                arrMembers,
-                isOpen: !arrMembers.length
-            }, nSeqLength);
-
+            return new this(
+                {
+                    conciliumId,
+                    nMinAmountToJoin,
+                    arrMembers,
+                    isOpen: !arrMembers.length
+                },
+                nSeqLength
+            );
         }
 
         getAddresses(bConvertToBuffer = true) {
             if (!Array.isArray(this._data.arrMembers)) return undefined;
 
-            return this._data.arrMembers.map(objRecord => bConvertToBuffer ?
-                Buffer.from(objRecord.address, 'hex') : objRecord.address.toString('hex'));
+            return this._data.arrMembers.map(objRecord =>
+                bConvertToBuffer ? Buffer.from(objRecord.address, 'hex') : objRecord.address.toString('hex')
+            );
         }
 
         /**
@@ -151,7 +155,7 @@ module.exports = ({Constants}) =>
                 start += this._arrShares[i];
             }
 
-            throw new Error('You aren\'t supposed to be here');
+            throw new Error("You aren't supposed to be here");
         }
 
         _formProposerAddressesSequence(seed) {
@@ -166,7 +170,7 @@ module.exports = ({Constants}) =>
         }
 
         _getSlot(x) {
-            return this._paramA * (x) + this._paramB;
+            return this._paramA * x + this._paramB;
         }
 
         getMembersCount() {

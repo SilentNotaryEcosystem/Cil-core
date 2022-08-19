@@ -6,12 +6,12 @@ const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 const factory = require('./testFactory');
 
 describe('TX Receipt tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -32,7 +32,6 @@ describe('TX Receipt tests', () => {
     it('should get contractAddress', async () => {
         const contractAddress = generateAddress();
         {
-
             // good address
             const receipt = new factory.TxReceipt({
                 contractAddress
@@ -40,7 +39,6 @@ describe('TX Receipt tests', () => {
             assert.isOk(contractAddress.equals(Buffer.from(receipt.getContractAddress(), 'hex')));
         }
         {
-
             // empty address
             const receipt = new factory.TxReceipt({
                 contractAddress: undefined
@@ -135,14 +133,15 @@ describe('TX Receipt tests', () => {
         const receipt = new factory.TxReceipt({});
         const arrInternalTxnsHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
         arrInternalTxnsHashes
-            .map(
-                txHash => new factory.UTXO({txHash}).addCoins(
+            .map(txHash =>
+                new factory.UTXO({txHash}).addCoins(
                     0,
                     factory.Coins.createFromData({
                         amount: 100,
                         receiverAddr: generateAddress()
                     })
-                ))
+                )
+            )
             .forEach(utxo => receipt.addInternalUtxo(utxo));
 
         const arrBuffTxns = receipt.getInternalTxns();
@@ -154,14 +153,15 @@ describe('TX Receipt tests', () => {
         const receipt = new factory.TxReceipt({});
         const arrInternalTxnsHashes = [pseudoRandomBuffer().toString('hex'), pseudoRandomBuffer().toString('hex')];
         arrInternalTxnsHashes
-            .map(
-                txHash => new factory.UTXO({txHash}).addCoins(
+            .map(txHash =>
+                new factory.UTXO({txHash}).addCoins(
                     0,
                     factory.Coins.createFromData({
                         amount: 100,
                         receiverAddr: generateAddress()
                     })
-                ))
+                )
+            )
             .forEach(utxo => receipt.addInternalUtxo(utxo));
 
         assert.isOk(receipt.getCoinsForTx(arrInternalTxnsHashes[0]));
@@ -173,17 +173,15 @@ describe('TX Receipt tests', () => {
             contractAddress: generateAddress(),
             coinsUsed: 1000,
             status: factory.Constants.TX_STATUS_OK,
-            internalTxns: [
-                pseudoRandomBuffer(),
-                pseudoRandomBuffer()
-            ],
+            internalTxns: [pseudoRandomBuffer(), pseudoRandomBuffer()],
             coins: [
                 {amount: 100, receiverAddr: generateAddress()},
                 {amount: 100, receiverAddr: generateAddress()}
             ]
         };
         const receipt2 = new factory.TxReceipt(objReceipt);
-        assert.deepEqual({
+        assert.deepEqual(
+            {
                 ...objReceipt,
                 contractAddress: objReceipt.contractAddress.toString('hex'),
                 internalTxns: objReceipt.internalTxns.map(buffHash => buffHash.toString('hex'))
@@ -200,18 +198,13 @@ describe('TX Receipt tests', () => {
         let receipt2;
 
         beforeEach(async () => {
-
-            arrInternalTxns = [
-                pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer()];
+            arrInternalTxns = [pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer(), pseudoRandomBuffer()];
 
             const objReceipt1 = {
                 contractAddress: generateAddress(),
                 coinsUsed: nCoinUsed1,
                 status: factory.Constants.TX_STATUS_OK,
-                internalTxns: [
-                    arrInternalTxns[0],
-                    arrInternalTxns[1]
-                ],
+                internalTxns: [arrInternalTxns[0], arrInternalTxns[1]],
                 coins: [
                     {amount: 100, receiverAddr: generateAddress()},
                     {amount: 100, receiverAddr: generateAddress()}
@@ -222,10 +215,7 @@ describe('TX Receipt tests', () => {
                 contractAddress: generateAddress(),
                 coinsUsed: nCoinUsed2,
                 status: factory.Constants.TX_STATUS_FAILED,
-                internalTxns: [
-                    arrInternalTxns[2],
-                    arrInternalTxns[3]
-                ],
+                internalTxns: [arrInternalTxns[2], arrInternalTxns[3]],
                 coins: [
                     {amount: 200, receiverAddr: generateAddress()},
                     {amount: 200, receiverAddr: generateAddress()}
@@ -270,5 +260,4 @@ describe('TX Receipt tests', () => {
             assert.isNotOk(receipt1.isSuccessful());
         });
     });
-
 });

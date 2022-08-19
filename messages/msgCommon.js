@@ -23,7 +23,6 @@ module.exports = (Constants, Crypto, MessageProto) => {
     } = Constants.messageTypes;
 
     return class MessageCommon {
-
         constructor(data) {
             if (data instanceof MessageCommon) {
                 this._msg = Object.assign({}, data._msg);
@@ -132,7 +131,6 @@ module.exports = (Constants, Crypto, MessageProto) => {
         }
 
         get payloadHash() {
-
             // payload will be empty for MSG_VERSION && MSG_VERACK ... so, we couldn't hash undefined
             // but we could sign it
             return this.payload ? Buffer.from(Crypto.createHash(this.payload), 'hex') : undefined;
@@ -207,6 +205,5 @@ module.exports = (Constants, Crypto, MessageProto) => {
         isPong() {
             return this.message === MSG_PONG;
         }
-
     };
 };

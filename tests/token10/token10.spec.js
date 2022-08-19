@@ -13,12 +13,12 @@ const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
 let contract;
 
 describe('Token 10', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -86,14 +86,13 @@ describe('Token 10', () => {
 
         it('should throw (bad nTotalSupply: negative)', async () => {
             objTokedParams.nTotalSupply = -100;
-            assert.throws(() => contract.createToken(objTokedParams),
-                `nTotalSupply should be positive`
-            );
+            assert.throws(() => contract.createToken(objTokedParams), `nTotalSupply should be positive`);
         });
 
         it('should throw (bad nTotalSupply: too big)', async () => {
             objTokedParams.nTotalSupply = 1e40;
-            assert.throws(() => contract.createToken(objTokedParams),
+            assert.throws(
+                () => contract.createToken(objTokedParams),
                 `nTotalSupply should be less than ${Number.MAX_SAFE_INTEGER}`
             );
         });
@@ -126,8 +125,7 @@ describe('Token 10', () => {
         });
 
         it('should throw (not existed token)', async () => {
-            assert.throws(() => contract._getTokenData('FAIL'), 'Symbol doesn\'t exists');
-
+            assert.throws(() => contract._getTokenData('FAIL'), "Symbol doesn't exists");
         });
 
         it('should pass', async () => {
@@ -194,9 +192,7 @@ describe('Token 10', () => {
         it('should throw (approve negative amount)', async () => {
             const strAddr = generateAddress().toString('hex');
 
-            assert.throws(() => contract.approve('TST', strAddr, -1),
-                `amount should be positive`
-            );
+            assert.throws(() => contract.approve('TST', strAddr, -1), `amount should be positive`);
         });
 
         it('should approve', async () => {
@@ -338,23 +334,23 @@ describe('Token 10', () => {
         });
 
         it('should throw for _setBalance', async () => {
-            assert.throws(() => contract._setBalance(), 'You aren\'t supposed to be here');
+            assert.throws(() => contract._setBalance(), "You aren't supposed to be here");
         });
 
         it('should throw for _transferFromTo', async () => {
-            assert.throws(() => contract._transferFromTo(), 'You aren\'t supposed to be here');
+            assert.throws(() => contract._transferFromTo(), "You aren't supposed to be here");
         });
 
         it('should throw for _transferFromTo', async () => {
-            assert.throws(() => contract._setAllowance(), 'You aren\'t supposed to be here');
+            assert.throws(() => contract._setAllowance(), "You aren't supposed to be here");
         });
 
         it('should throw for _setTotalSupply', async () => {
-            assert.throws(() => contract._setTotalSupply(), 'You aren\'t supposed to be here');
+            assert.throws(() => contract._setTotalSupply(), "You aren't supposed to be here");
         });
 
         it('should throw for _setFreeze', async () => {
-            assert.throws(() => contract._setTotalSupply(), 'You aren\'t supposed to be here');
+            assert.throws(() => contract._setTotalSupply(), "You aren't supposed to be here");
         });
     });
 
@@ -384,7 +380,6 @@ describe('Token 10', () => {
 
         it('should fail (zero emission)', async () => {
             assert.throws(() => contract.emitMoreTokens('TST', 0), 'amount should be positive');
-
         });
 
         it('should emit', async () => {
@@ -395,7 +390,7 @@ describe('Token 10', () => {
 
             // Increase total supply
             const {nTotalSupply: nNewTotal, arrTxHashChanges} = contract.tokenData('TST');
-            const nExpectedAmount = (nTotalSupply + nAddon);
+            const nExpectedAmount = nTotalSupply + nAddon;
             assert.strictEqual(nNewTotal, nExpectedAmount);
 
             // store TX with token changes
@@ -445,7 +440,8 @@ describe('Token 10', () => {
 
             contract.freeze('TST');
 
-            assert.throws(() => contract.transfer('TST', strAddressReceiver, 1),
+            assert.throws(
+                () => contract.transfer('TST', strAddressReceiver, 1),
                 'Token is frozen. No transfers allowed'
             );
 

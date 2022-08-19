@@ -24,7 +24,6 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
     } = Constants.messageTypes;
 
     return class WitnessMessageCommon extends MessageCommon {
-
         constructor(data) {
             if (data instanceof WitnessMessageCommon) {
                 super(data);
