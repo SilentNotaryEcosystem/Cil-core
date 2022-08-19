@@ -2143,8 +2143,7 @@ describe('Node tests', async () => {
                 nAmountSecondOutput +
                 nMoneysToContract +
                 nFakeCoinsUsed +
-                await node._calculateSizeFee(tx, false)
-            ;
+                await node._calculateSizeFee(tx, false);
             assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
         });
 

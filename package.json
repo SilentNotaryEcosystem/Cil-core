@@ -29,6 +29,7 @@
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.2.1",
+    "husky": "^8.0.1",
     "memdown": "^3.0.0",
     "mocha": "^5.2.0",
     "nock": "^11.9.1",
@@ -42,6 +43,7 @@
     "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
     "lint": "./node_modules/.bin/eslint './**/*.js'",
     "check": "npx prettier --check .",
-    "fix": "npx prettier --write ."
+    "fix": "npx prettier --write .",
+    "prepare": "husky install && ./hookSetup.sh"
   }
 }
