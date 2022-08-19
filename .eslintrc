@@ -12,7 +12,7 @@
     "ecmaVersion": 12
   },
   "rules": {
-    "semi-style": ["error", "last"],
+    "prettier/prettier": ["error"],
     "linebreak-style": ["error", "unix"],
     "no-prototype-builtins": "off",
     "no-async-promise-executor": "off",
