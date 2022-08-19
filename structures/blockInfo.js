@@ -13,9 +13,7 @@ const FINAL_BLOCK = 1 << 3;
 const BAD_BLOCK = 1 << 8;
 // Class to store block header + additional info in DB
 module.exports = ({/*Constants,*/ Crypto}, {blockInfoProto, blockHeaderProto}) =>
-
     class BlockInfo {
-
         /**
          *
          * @param {Object | Buffer} data - block header or serialized data
@@ -72,7 +70,7 @@ module.exports = ({/*Constants,*/ Crypto}, {blockInfoProto, blockHeaderProto}) =
         }
 
         isBad() {
-//            return !!(this._data.flags & BAD_BLOCK);
+            //            return !!(this._data.flags & BAD_BLOCK);
             return this._data.flags === BAD_BLOCK;
         }
 
@@ -99,5 +97,4 @@ module.exports = ({/*Constants,*/ Crypto}, {blockInfoProto, blockHeaderProto}) =
         getState() {
             return this._data.flags;
         }
-
     };

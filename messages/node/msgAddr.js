@@ -9,14 +9,12 @@ module.exports = (Constants, MessageCommon, AddrPayloadProto) => {
     const {MSG_ADDR} = Constants.messageTypes;
 
     return class MessageAddr extends MessageCommon {
-
         /**
          *
          * @param {Object|Buffer} data
          * @param {Number} data.peers - array of peerInfo
          */
         constructor(data) {
-
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
                 if (!this.isAddr()) {

@@ -5,12 +5,12 @@ const factory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 describe('Inventory', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -32,7 +32,6 @@ describe('Inventory', () => {
         inv.addTxHash(txHash);
         assert.isOk(inv.vector[0]);
         assert.isOk(inv.vector[0].type, factory.Constants.INV_TX);
-
     });
 
     it('should add block', async () => {
@@ -54,7 +53,6 @@ describe('Inventory', () => {
         inv.addBlockHash(blockHash);
         assert.isOk(inv.vector[0]);
         assert.isOk(inv.vector[0].type, factory.Constants.INV_BLOCK);
-
     });
 
     it('should encode/decode inventory', async () => {
@@ -79,5 +77,4 @@ describe('Inventory', () => {
         restoredInv.addTx(tx);
         assert.equal(restoredInv.vector.length, 2);
     });
-
 });

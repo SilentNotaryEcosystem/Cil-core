@@ -6,7 +6,7 @@ const Tick = require('tick-tock');
 const debug = require('debug')('bft:app');
 const types = require('../types');
 
-module.exports = (factory) => {
+module.exports = factory => {
     const {Constants, Crypto, Messages} = factory;
     const {MsgWitnessNextRound, MsgWitnessBlockVote} = Messages;
     const States = Constants.consensusStates;
@@ -39,7 +39,10 @@ module.exports = (factory) => {
             if (!wallet) throw new Error('Specify wallet');
             this._wallet = wallet;
 
-            this._arrAddresses = concilium.getAddresses().sort().map(addr => addr.toString('hex'));
+            this._arrAddresses = concilium
+                .getAddresses()
+                .sort()
+                .map(addr => addr.toString('hex'));
 
             this._state = States.ROUND_CHANGE;
             this._concilium.initRounds();
@@ -60,9 +63,9 @@ module.exports = (factory) => {
             this._networkOffset = nNewOffset;
         }
 
-//        get quorum() {
-//            return this._quorum;
-//        }
+        //        get quorum() {
+        //            return this._quorum;
+        //        }
 
         /**
          * Check whether this address belongs to our concilium
@@ -118,7 +121,8 @@ module.exports = (factory) => {
                 debug(`BFT "${this._nonce}" Own data: ${JSON.stringify(witnessMsg.content)}`);
             } else {
                 debug(
-                    `BFT "${this._nonce}" "${addrI}" send us ${senderAddr} data ${JSON.stringify(witnessMsg.content)}`);
+                    `BFT "${this._nonce}" "${addrI}" send us ${senderAddr} data ${JSON.stringify(witnessMsg.content)}`
+                );
             }
             this._addViewOfNodeWithAddr(senderAddr, addrI, {state, ...witnessMsg.content});
             const value = this.runConsensus();
@@ -140,7 +144,6 @@ module.exports = (factory) => {
             this._prevViews = this._views;
             this._views = {};
             this._arrAddresses.forEach(addr => {
-
                 // prepare empty array for data transmitted from addr
                 this._views[addr] = {};
             });
@@ -167,10 +170,8 @@ module.exports = (factory) => {
          * @return {Object|undefined} - consensus value
          */
         runConsensus() {
-
             // i'm a single node (for example Initial witness)
-            if (this._concilium.getMembersCount() === 1 &&
-                this._arrAddresses.includes(this._wallet.address)) {
+            if (this._concilium.getMembersCount() === 1 && this._arrAddresses.includes(this._wallet.address)) {
                 return this._views[this._wallet.address][this._wallet.address];
             }
 
@@ -216,7 +217,6 @@ module.exports = (factory) => {
 
                 const weight = this._concilium.getWitnessWeight(this._arrAddresses[j]);
                 if (typeof objHashes[hash] !== 'object') {
-
                     // new value found
                     objHashes[hash] = {
                         count: weight,
@@ -295,7 +295,6 @@ module.exports = (factory) => {
 
             // remove signature (it will be present for MSG_WITNESS_BLOCK_ACK) it will make items unequal
             if (data.hasOwnProperty('signature')) {
-
                 // make a copy, because we'll modify it
                 // we don't care about deep cloning becuase we'll modify only signature
                 copyData = Object.assign({}, data);
@@ -309,7 +308,6 @@ module.exports = (factory) => {
         }
 
         _adjustTimer() {
-
             // if we didn't turn it off
             if (this._tock.timers) {
                 debug(`BFT "${this._nonce}". Timer restated. State ${this._state}`);
@@ -339,7 +337,6 @@ module.exports = (factory) => {
                     this._roundChangeHandler(isConsensus, consensusValue);
                     break;
                 case States.BLOCK:
-
                     // if we are here - timeout reached
                     this._blockStateHandler(false);
                     break;
@@ -353,7 +350,10 @@ module.exports = (factory) => {
             if (prevState !== this._state) {
                 this._adjustTimer();
                 debug(
-                    `BFT "${this._nonce}" STATE changed! prev: "${prevState}" new "${this._state}" Round: ${this._concilium.getRound()}`);
+                    `BFT "${this._nonce}" STATE changed! prev: "${prevState}" new "${
+                        this._state
+                    }" Round: ${this._concilium.getRound()}`
+                );
             }
         }
 
@@ -424,28 +424,29 @@ module.exports = (factory) => {
                         if (!arrSignatures || !arrSignatures.length) {
                             logger.error(
                                 `Consensus reached for block ${consensusValue.blockHash.toString(
-                                    'hex')}, but fail to get signatures!`);
+                                    'hex'
+                                )}, but fail to get signatures!`
+                            );
                             return this._nextRound();
                         }
 
                         this._block.addWitnessSignatures(arrSignatures);
                         this.emit('commitBlock', this._block, this._patch);
                     } else {
-
                         // Proposer misbehave!! sent us different block than other!
-                        logger.error(`Proposer (address "${
-                            this._concilium.getProposerAddress(
-                                this._concilium.getRound())}") misbehave. Sent different blocks!`);
+                        logger.error(
+                            `Proposer (address "${this._concilium.getProposerAddress(
+                                this._concilium.getRound()
+                            )}") misbehave. Sent different blocks!`
+                        );
                     }
                 }
 
                 // if we missed block (!this._block i.e. late join to consensus) just wait a timeout to keep synced
             } else {
-
                 // no consensus or all witnesses send MSG_WITNESS_BLOCK_REJECT
                 this._nextRound();
             }
-
         }
 
         /**
@@ -459,8 +460,7 @@ module.exports = (factory) => {
             this._block = undefined;
             this._state = States.ROUND_CHANGE;
 
-            debug(
-                `BFT "${this._nonce}" restarting "ROUND_CHANGE" new round: ${this._concilium.getRound()}`);
+            debug(`BFT "${this._nonce}" restarting "ROUND_CHANGE" new round: ${this._concilium.getRound()}`);
 
             const nRoundNo = bShouldAdvanceRound
                 ? this._concilium.nextRound()
@@ -539,13 +539,13 @@ module.exports = (factory) => {
                 const arrDataWitnessI = this._witnessData(addrI, false);
                 const votedValue = this._majority(arrDataWitnessI);
 
-                if (votedValue
-                    && Buffer.isBuffer(votedValue.blockHash)
-                    && votedValue.blockHash.equals(buffBlockHash)
-                    && votedValue.signature
-                    && addrI === Crypto.getAddress(Crypto.recoverPubKey(buffBlockHash, votedValue.signature))
+                if (
+                    votedValue &&
+                    Buffer.isBuffer(votedValue.blockHash) &&
+                    votedValue.blockHash.equals(buffBlockHash) &&
+                    votedValue.signature &&
+                    addrI === Crypto.getAddress(Crypto.recoverPubKey(buffBlockHash, votedValue.signature))
                 ) {
-
                     // this will suppress empty elements in result array
                     arrSignatures.push(votedValue.signature);
                     gatheredWeight += this._concilium.getWitnessWeight(addrI);

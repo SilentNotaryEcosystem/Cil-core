@@ -4,12 +4,12 @@ const {assert} = require('chai');
 const factory = require('../testFactory');
 
 describe('Witness NextRound message', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 

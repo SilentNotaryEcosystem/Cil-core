@@ -105,21 +105,17 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
         }
 
         informWsSubscribersNewBlock(result) {
-            this._server.broadcastToWS('newBlock',
-                {
-                    hash: result.block.getHash(),
-                    block: prepareForStringifyObject(result.block.toObject()),
-                    state: result.state
-                }
-            );
+            this._server.broadcastToWS('newBlock', {
+                hash: result.block.getHash(),
+                block: prepareForStringifyObject(result.block.toObject()),
+                state: result.state
+            });
         }
 
         informWsSubscribersStableBlocks(arrHashes) {
-            this._server.broadcastToWS('stableBlocks',
-                {
-                    arrHashes
-                }
-            );
+            this._server.broadcastToWS('stableBlocks', {
+                arrHashes
+            });
         }
 
         /**
@@ -138,11 +134,13 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
                     event: 'getBlock',
                     content: strBlockHash
                 });
-                return result ? {
-                    hash: result.block.getHash(),
-                    block: prepareForStringifyObject(result.block.toObject()),
-                    state: result.state
-                } : undefined;
+                return result
+                    ? {
+                          hash: result.block.getHash(),
+                          block: prepareForStringifyObject(result.block.toObject()),
+                          state: result.state
+                      }
+                    : undefined;
             } catch (err) {
                 return undefined;
             }
@@ -259,24 +257,25 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
             strAddress = stripAddressPrefix(Constants, strAddress);
 
             const arrStableUtxos = await this._storedWallets.walletListUnspent(strAddress);
-            const arrPendingUtxos = bStableOnly ? []
-                : (await this._nodeInstance
-                    .getPendingUtxos())
-                    .map(utxo => utxo.filterOutputsForAddress(strAddress));
+            const arrPendingUtxos = bStableOnly
+                ? []
+                : (await this._nodeInstance.getPendingUtxos()).map(utxo => utxo.filterOutputsForAddress(strAddress));
 
-            return prepareForStringifyObject([].concat(
-                finePrintUtxos(arrStableUtxos, true),
-                finePrintUtxos(arrPendingUtxos, false)
-            ));
+            return prepareForStringifyObject(
+                [].concat(finePrintUtxos(arrStableUtxos, true), finePrintUtxos(arrPendingUtxos, false))
+            );
         }
 
         async getBalance(args) {
             const arrResult = await this.walletListUnspent(args);
 
-            return arrResult.reduce((accum, {amount, isStable}) => {
-                isStable ? accum.confirmedBalance += amount : accum.unconfirmedBalance += amount;
-                return accum;
-            }, {confirmedBalance: 0, unconfirmedBalance: 0});
+            return arrResult.reduce(
+                (accum, {amount, isStable}) => {
+                    isStable ? (accum.confirmedBalance += amount) : (accum.unconfirmedBalance += amount);
+                    return accum;
+                },
+                {confirmedBalance: 0, unconfirmedBalance: 0}
+            );
         }
 
         async watchAddress(args) {
@@ -308,10 +307,12 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
 
             const objResult = {};
             arrWitnessPeers.forEach(
-                peer => objResult[peer.witnessAddress] = {
-                    address: peer.address,
-                    version: peer.version ? peer.version.toString(16) : undefined
-                });
+                peer =>
+                    (objResult[peer.witnessAddress] = {
+                        address: peer.address,
+                        version: peer.version ? peer.version.toString(16) : undefined
+                    })
+            );
             return objResult;
         }
 
@@ -369,17 +370,20 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
         async getAccountBalance(args) {
             const arrResult = await this.getAccountUnspent(args);
 
-            return arrResult.reduce((accum, {amount, isStable}) => {
-                isStable ? accum.confirmedBalance += amount : accum.unconfirmedBalance += amount;
-                return accum;
-            }, {confirmedBalance: 0, unconfirmedBalance: 0});
+            return arrResult.reduce(
+                (accum, {amount, isStable}) => {
+                    isStable ? (accum.confirmedBalance += amount) : (accum.unconfirmedBalance += amount);
+                    return accum;
+                },
+                {confirmedBalance: 0, unconfirmedBalance: 0}
+            );
         }
 
         async getAccountUnspent(args) {
             const {strAccountName, bStableOnly, strHashSince} = args;
 
             const arrAccountAddresses = await this._storedWallets.getAccountAddresses(strAccountName);
-            assert(Array.isArray(arrAccountAddresses), 'Account doesn\'t exist');
+            assert(Array.isArray(arrAccountAddresses), "Account doesn't exist");
 
             const mapUtxoAddr = new Map();
             for (let strAddress of arrAccountAddresses) {
@@ -394,8 +398,8 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
 
             if (strHashSince) {
                 for (let [utxo] of mapUtxoAddr) {
-                    const buffSourceTx = await storage.findInternalTx(utxo.getTxHash()) ||
-                                         Buffer.from(utxo.getTxHash(), 'hex');
+                    const buffSourceTx =
+                        (await storage.findInternalTx(utxo.getTxHash())) || Buffer.from(utxo.getTxHash(), 'hex');
                     const strBlockHash = (await storage.getTxBlock(buffSourceTx)).toString('hex');
                     if (this._nodeInstance.sortBlocks(strBlockHash, strHashSince) > 0) {
                         arrFilteredArrayOfStableUtxos.push(utxo);
@@ -426,7 +430,8 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
                 [].concat(
                     finePrintUtxos(arrFilteredArrayOfStableUtxos, true, mapUtxoAddr),
                     finePrintUtxos([].concat.apply([], arrOfArrayOfPendingUtxos), false, mapUtxoAddr)
-                ));
+                )
+            );
         }
 
         async nodeStatus() {

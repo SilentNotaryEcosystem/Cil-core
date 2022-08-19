@@ -68,16 +68,13 @@ process.on('warning', e => console.warn(e.stack));
 
     // it's a witness node
     if (typeof node.start === 'function') {
-
         // if it returns false, than we still have no definition for our witness,
         // possibly it's because we haven't loaded respective block. let's loop until we got it
-        while (!await node.start()) await sleep(1000);
+        while (!(await node.start())) await sleep(1000);
     }
-
-})()
-    .catch(err => {
-        console.error(err);
-    });
+})().catch(err => {
+    console.error(err);
+});
 
 async function rebuildDb(objCmdLineParams) {
     const {rebuildDb} = objCmdLineParams;

@@ -15,7 +15,6 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessBlockVoteProto
 
     return class WitnessMessageBlockAck extends WitnessMessageCommon {
         constructor(data) {
-
             super(data);
             if (data instanceof WitnessMessageCommon || Buffer.isBuffer(super.content)) {
                 this._data = {...WitnessBlockVoteProto.decode(super.content)};
@@ -35,7 +34,6 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessBlockVoteProto
                     blockHash: data.blockHash,
                     signature: null
                 };
-
             }
             this.message = MSG_WITNESS_BLOCK_VOTE;
         }
@@ -61,7 +59,6 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessBlockVoteProto
         }
 
         sign(privateKey) {
-
             // sign blockHash
             if (!this.blockHash) throw new Error('Set blockHash first!');
             typeforce(BLOCK_HASH, this.blockHash);
@@ -75,6 +72,5 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessBlockVoteProto
             super.content = WitnessBlockVoteProto.encode(this._data).finish();
             return super.encode();
         }
-
     };
 };

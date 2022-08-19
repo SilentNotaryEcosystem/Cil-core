@@ -8,12 +8,12 @@ const factory = require('./testFactory');
 const {createDummyPeer} = require('./testUtil');
 
 describe('Peer manager', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -67,27 +67,20 @@ describe('Peer manager', () => {
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
         });
         const peerInfo2 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null}
-            ],
+            capabilities: [{service: factory.Constants.NODE, data: null}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
         });
         const peerInfo3 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('1111')}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
         });
         const peerInfo4 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('2222')}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
         });
         for (let peerInfo of [peerInfo1, peerInfo2, peerInfo3, peerInfo4]) {
             await pm.addPeer(peerInfo);
         }
-        ;
         const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 4);
 
@@ -108,9 +101,7 @@ describe('Peer manager', () => {
         const pm = new factory.PeerManager();
         const peer = new factory.Peer({
             peerInfo: new factory.Messages.PeerInfo({
-                capabilities: [
-                    {service: factory.Constants.WITNESS, data: Buffer.from(keyPair.getPublic(), 'hex')}
-                ],
+                capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from(keyPair.getPublic(), 'hex')}],
                 address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
             })
         });
@@ -129,7 +120,7 @@ describe('Peer manager', () => {
         assert.equal(msgEmitted, message);
     });
 
-    it('should keep only one peer in array', async function() {
+    it('should keep only one peer in array', async function () {
         const pm = new factory.PeerManager();
         assert.isOk(pm);
         const peer = new factory.Peer({
@@ -191,9 +182,7 @@ describe('Peer manager', () => {
         const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const peerDisconnected = new factory.Peer({
             peerInfo: new factory.Messages.PeerInfo({
-                capabilities: [
-                    {service: factory.Constants.WITNESS, data: Buffer.from('pubKey')}
-                ],
+                capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('pubKey')}],
                 address
             })
         });
@@ -254,9 +243,7 @@ describe('Peer manager', () => {
         const address = factory.Transport.strToAddress(factory.Transport.generateAddress());
         const newPeer = new factory.Peer({
             peerInfo: new factory.Messages.PeerInfo({
-                capabilities: [
-                    {service: factory.Constants.NODE, data: null}
-                ],
+                capabilities: [{service: factory.Constants.NODE, data: null}],
                 address
             })
         });
@@ -434,9 +421,7 @@ describe('Peer manager', () => {
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
         });
         peerInfos[1] = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null}
-            ],
+            capabilities: [{service: factory.Constants.NODE, data: null}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
         });
 
@@ -446,7 +431,6 @@ describe('Peer manager', () => {
         const arrPeers = await pm.loadPeers();
 
         assert.isOk(arrPeers.length === 2);
-
     });
 
     it('should addCandidateConnection', async () => {
@@ -642,6 +626,5 @@ describe('Peer manager', () => {
 
             assert.equal(fakePeers.filter(p => p.pushMessage.calledOnce).length, fakePeers.length);
         });
-
     });
 });

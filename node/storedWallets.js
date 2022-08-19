@@ -6,7 +6,7 @@ const {finePrintUtxos, createObjInvocationCode, stripAddressPrefix} = require('.
 
 const checkRequiredParameters = (objParams, arrRequired) => {
     for (let key of arrRequired) {
-        if (!objParams.hasOwnProperty(key)) throw (`Required parameter ${key} is missing`);
+        if (!objParams.hasOwnProperty(key)) throw `Required parameter ${key} is missing`;
     }
 };
 
@@ -68,7 +68,7 @@ module.exports = ({Crypto, Constants, Transaction}) =>
         }
 
         async _ensureAccount(strAccountName) {
-            if (!await this._storage.hasAccount(strAccountName)) {
+            if (!(await this._storage.hasAccount(strAccountName))) {
                 await this._storage.createAccount(strAccountName);
             }
         }
@@ -127,12 +127,13 @@ module.exports = ({Crypto, Constants, Transaction}) =>
 
             const nRequired = nReqPlusOutputs + arrAddressesOwners.length * this._nFeePerInput;
             if (nTotalGathered < nRequired) {
-                throw(`Not enough coins to send. Required (with fee): ${nRequired}. Have: ${nTotalGathered}`);
+                throw `Not enough coins to send. Required (with fee): ${nRequired}. Have: ${nTotalGathered}`;
             }
 
             tx.addReceiver(nAmount, Buffer.from(stripAddressPrefix(Constants, strAddressTo), 'hex'));
             if (nTotalGathered - nRequired) {
-                tx.addReceiver(nTotalGathered - nRequired,
+                tx.addReceiver(
+                    nTotalGathered - nRequired,
                     Buffer.from(stripAddressPrefix(Constants, strChangeAddress), 'hex')
                 );
             }
@@ -192,11 +193,11 @@ module.exports = ({Crypto, Constants, Transaction}) =>
 
             const arrAccountAddresses = await this.getAccountAddresses(strAccountName);
             if (strSignerAddress && !arrAccountAddresses.includes(strSignerAddress)) {
-                throw(`Signer address specified BUT not found in account`);
+                throw `Signer address specified BUT not found in account`;
             }
 
-            const nReqPlusOutputs = nAmount + nCoinLimit +
-                                    this._nFeePerReceiver + this._estimateSizeContractInvoke(objCodeInvoke);
+            const nReqPlusOutputs =
+                nAmount + nCoinLimit + this._nFeePerReceiver + this._estimateSizeContractInvoke(objCodeInvoke);
             const [nTotalGathered, arrAddressesOwners] = await this._formTxInputs(
                 tx,
                 arrAccountAddresses,
@@ -205,11 +206,12 @@ module.exports = ({Crypto, Constants, Transaction}) =>
 
             const nRequired = nReqPlusOutputs + arrAddressesOwners.length * this._nFeePerInput;
             if (nTotalGathered < nRequired) {
-                throw(`Not enough coins to send. Required (with fee): ${nRequired}. Have: ${nTotalGathered}`);
+                throw `Not enough coins to send. Required (with fee): ${nRequired}. Have: ${nTotalGathered}`;
             }
 
             if (nTotalGathered - nRequired) {
-                tx.addReceiver(nTotalGathered - nRequired,
+                tx.addReceiver(
+                    nTotalGathered - nRequired,
                     Buffer.from(stripAddressPrefix(Constants, strChangeAddress), 'hex')
                 );
             }
@@ -237,15 +239,11 @@ module.exports = ({Crypto, Constants, Transaction}) =>
          * @private
          */
         async _claimFundsAndSignTx(tx, arrAddressesOwners, mapAddrKeystore, strPassword, strAddrToSign) {
-            const mapUnencryptedKeys = this._ensurePk(
-                strPassword,
-                arrAddressesOwners,
-                mapAddrKeystore
-            );
+            const mapUnencryptedKeys = this._ensurePk(strPassword, arrAddressesOwners, mapAddrKeystore);
             for (let i = 0; i < arrAddressesOwners.length; i++) {
                 const strAddress = arrAddressesOwners[i];
                 const pk = mapUnencryptedKeys.get(strAddress);
-                if (!pk) throw(`Private key for ${strAddress} not found`);
+                if (!pk) throw `Private key for ${strAddress} not found`;
                 tx.claim(i, pk);
             }
 
@@ -293,7 +291,7 @@ module.exports = ({Crypto, Constants, Transaction}) =>
 
                 const {arrCoins, gathered, bDone} = this._gatherInputsForAmount(
                     arrResult,
-                    restOfAmount + this._nFeePerInput * (arrAddressesOwners.length)
+                    restOfAmount + this._nFeePerInput * arrAddressesOwners.length
                 );
                 for (let objCoin of arrCoins) {
                     tx.addInput(objCoin.hash, objCoin.nOut);

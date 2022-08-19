@@ -13,13 +13,13 @@ let stubWrite;
 // let stubRead;
 
 describe('Mempool tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
         // keyPair = factory.Crypto.createKeyPair();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -46,7 +46,6 @@ describe('Mempool tests', () => {
     });
 
     it('should FAIL add tx to mempool (already exists)', async () => {
-
         // addTx
         {
             const mempool = new factory.Mempool();
@@ -142,7 +141,7 @@ describe('Mempool tests', () => {
         assert.equal(arrTxns.length, 3);
     });
 
-    it('should remove oldest txns with age > TX_LIFETIME(5s.)', async function() {
+    it('should remove oldest txns with age > TX_LIFETIME(5s.)', async function () {
         const clock = sinon.useFakeTimers();
 
         const mempool = new factory.Mempool();
@@ -163,7 +162,7 @@ describe('Mempool tests', () => {
         assert.isOk(mempool.hasTx(tx3.hash()));
     });
 
-    it('should remove outdated bad TXns', async function() {
+    it('should remove outdated bad TXns', async function () {
         const clock = sinon.useFakeTimers();
 
         const mempool = new factory.Mempool();
@@ -236,9 +235,11 @@ describe('Mempool tests', () => {
         const mempool = new factory.Mempool({testStorage: false});
 
         sinon.restore();
-        sinon.stub(fs, 'readFileSync')
+        sinon
+            .stub(fs, 'readFileSync')
             .returns(
-                '{"0a48cb13f67da62195d60dc2ace499a97ec29537b86bbf161ca6cd1998b006c3": "0a4c0a250a20ed000000000000000000000000000000000000000000000070706e0300000000109307121f095b010000000000001214dc6b50030000000040706e030000000007f5152e180120001220ec6c50030000000088706e03000000007f24aa3e04000000c8726e0300000000"}');
+                '{"0a48cb13f67da62195d60dc2ace499a97ec29537b86bbf161ca6cd1998b006c3": "0a4c0a250a20ed000000000000000000000000000000000000000000000070706e0300000000109307121f095b010000000000001214dc6b50030000000040706e030000000007f5152e180120001220ec6c50030000000088706e03000000007f24aa3e04000000c8726e0300000000"}'
+            );
 
         mempool.loadLocalTxnsFromDisk();
 
@@ -308,17 +309,32 @@ describe('Mempool tests', () => {
             const mempool = new factory.Mempool({testStorage: true});
 
             {
-                const sampleMap = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap = new Map([
+                    [1, 'a'],
+                    [2, 'b'],
+                    [3, 'c'],
+                    [4, 'd']
+                ]);
                 mempool._purgeMaps([sampleMap], 3);
                 assert.equal(sampleMap.size, 3);
             }
             {
-                const sampleMap = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap = new Map([
+                    [1, 'a'],
+                    [2, 'b'],
+                    [3, 'c'],
+                    [4, 'd']
+                ]);
                 mempool._purgeMaps([sampleMap], 0);
                 assert.equal(sampleMap.size, 0);
             }
             {
-                const sampleMap = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap = new Map([
+                    [1, 'a'],
+                    [2, 'b'],
+                    [3, 'c'],
+                    [4, 'd']
+                ]);
                 mempool._purgeMaps([sampleMap], 4);
                 assert.equal(sampleMap.size, 4);
             }
@@ -328,21 +344,36 @@ describe('Mempool tests', () => {
             const mempool = new factory.Mempool({testStorage: true});
 
             {
-                const sampleMap1 = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap1 = new Map([
+                    [1, 'a'],
+                    [2, 'b'],
+                    [3, 'c'],
+                    [4, 'd']
+                ]);
                 const sampleMap2 = new Map([[1, 'a']]);
                 mempool._purgeMaps([sampleMap1, sampleMap2], 4);
                 assert.equal(sampleMap1.size, 3);
                 assert.equal(sampleMap2.size, 1);
             }
             {
-                const sampleMap1 = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap1 = new Map([
+                    [1, 'a'],
+                    [2, 'b'],
+                    [3, 'c'],
+                    [4, 'd']
+                ]);
                 const sampleMap2 = new Map([[1, 'a']]);
                 mempool._purgeMaps([sampleMap1, sampleMap2], 3);
                 assert.equal(sampleMap1.size, 2);
                 assert.equal(sampleMap2.size, 1);
             }
             {
-                const sampleMap1 = new Map([[1, 'a'], [2, 'b'], [3, 'c'], [4, 'd']]);
+                const sampleMap1 = new Map([
+                    [1, 'a'],
+                    [2, 'b'],
+                    [3, 'c'],
+                    [4, 'd']
+                ]);
                 const sampleMap2 = new Map([[1, 'a']]);
                 mempool._purgeMaps([sampleMap1, sampleMap2], 2);
                 assert.equal(sampleMap1.size, 2);

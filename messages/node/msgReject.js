@@ -9,14 +9,12 @@ module.exports = (Constants, MessageCommon, RejectProto) => {
     const {MSG_REJECT} = Constants.messageTypes;
 
     return class MessageReject extends MessageCommon {
-
         /**
          *
          * @param {Object|Buffer} data
          * @param {Number} data.peers - array of peerInfo
          */
         constructor(data) {
-
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
                 if (!this.isReject()) {

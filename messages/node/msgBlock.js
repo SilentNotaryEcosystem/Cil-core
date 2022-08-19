@@ -10,13 +10,11 @@ module.exports = (Constants, Crypto, MessageCommon, Block) => {
     const {MSG_BLOCK} = Constants.messageTypes;
 
     return class MessageBlock extends MessageCommon {
-
         /**
          *
          * @param {Block | Buffer} data
          */
         constructor(data) {
-
             if (data instanceof MessageCommon || Buffer.isBuffer(data)) {
                 super(data);
                 if (!this.isBlock()) {

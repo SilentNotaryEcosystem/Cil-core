@@ -48,7 +48,6 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
             if (!patchForBlock) patchForBlock || new PatchDB();
 
             for (let i = 0; i < txInputs.length; i++) {
-
                 // now it's equals txHash, but if you plan to implement SIGHASH_SINGLE & SIGHASH_NONE it will be different
                 const buffInputHash = Buffer.from(tx.hash(i), 'hex');
                 const input = txInputs[i];
@@ -61,9 +60,8 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                 const coins = utxo.coinsAtIndex(input.nTxOutput);
 
                 // Verify coins possession
-                const claimProof = Array.isArray(claimProofs) && claimProofs.length
-                    ? claimProofs[i]
-                    : tx.getTxSignature();
+                const claimProof =
+                    Array.isArray(claimProofs) && claimProofs.length ? claimProofs[i] : tx.getTxSignature();
                 this._verifyPayToAddr(coins.getReceiverAddr(), claimProof, buffInputHash);
 
                 // spend it
@@ -125,7 +123,6 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
             let contract;
 
             try {
-
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
                 const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
@@ -139,9 +136,12 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                 // strigify code
                 const strCodeExportedFunctions = JSON.stringify(retVal.objCode);
 
-                contract =
-                    this._newContract(environment.contractAddr, objData, strCodeExportedFunctions, nContractVersion);
-
+                contract = this._newContract(
+                    environment.contractAddr,
+                    objData,
+                    strCodeExportedFunctions,
+                    nContractVersion
+                );
             } finally {
                 this._execDone(contract);
             }
@@ -184,14 +184,7 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
          * @returns {Promise<result>}
          */
         async runContract(objInvocationCode, contract, environment, context = undefined, isConstantCall = false) {
-            typeforce(
-                typeforce.tuple(
-                    typeforce.Object,
-                    types.Contract,
-                    typeforce.Object
-                ),
-                arguments
-            );
+            typeforce(typeforce.tuple(typeforce.Object, types.Contract, typeforce.Object), arguments);
 
             this._execStarted(contract);
 
@@ -224,18 +217,10 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     ...environment,
                     [CONTEXT_NAME]: Object.assign({}, contract.getData()),
                     send: (strAddress, amount) => this._send(strAddress, amount),
-                    call: async (strAddress, objParams) => await this._callWithContext(
-                        strAddress,
-                        objParams,
-                        undefined,
-                        environment
-                    ),
-                    delegatecall: async (strAddress, objParams) => await this._callWithContext(
-                        strAddress,
-                        objParams,
-                        thisContext,
-                        environment
-                    )
+                    call: async (strAddress, objParams) =>
+                        await this._callWithContext(strAddress, objParams, undefined, environment),
+                    delegatecall: async (strAddress, objParams) =>
+                        await this._callWithContext(strAddress, objParams, thisContext, environment)
                 };
 
                 const vm = new VM({
@@ -295,7 +280,6 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
         _prepareCode(objFuncCode) {
             let arrCode = [];
             for (let methodName in objFuncCode) {
-
                 // is it async function?
                 let strAsync = '';
                 if (objFuncCode[methodName].startsWith('<')) {
@@ -334,27 +318,25 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
 
             if (Buffer.isBuffer) contractAddr = contractAddr.toString('hex');
 
-            const contract = new Contract({
-                contractCode: strCodeExportedFunctions,
-                contractData: data
-            }, contractAddr, nContractVersion);
+            const contract = new Contract(
+                {
+                    contractCode: strCodeExportedFunctions,
+                    contractData: data
+                },
+                contractAddr,
+                nContractVersion
+            );
 
             return contract;
         }
 
         _send(strAddress, amount) {
-
             // if it will throw (not enough) - no assignment will be made
             this._nCoinsLimit = _spendCoins(this._nCoinsLimit, this._objFees.nFeeInternalTx);
             this._objCallbacks.sendCoins(strAddress, amount, this._getCurrentContract());
         }
 
-        async _callWithContext(
-            strAddress,
-            {method, arrArguments, coinsLimit: coinsToPass},
-            callContext,
-            environment
-        ) {
+        async _callWithContext(strAddress, {method, arrArguments, coinsLimit: coinsToPass}, callContext, environment) {
             if (typeof coinsToPass === 'number') {
                 if (coinsToPass < 0) throw new Error('coinsLimit should be positive');
                 if (coinsToPass > this._nCoinsLimit) throw new Error('Trying to pass more coins than have');

@@ -7,10 +7,10 @@ const sinon = require('sinon');
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
-const generateSeed = (nTotalRound) => (Math.random() * nTotalRound) % 8192;
+const generateSeed = nTotalRound => (Math.random() * nTotalRound) % 8192;
 
 describe('Conciliums', async () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
@@ -24,7 +24,7 @@ describe('Conciliums', async () => {
         });
     });
     describe('ConciliumRr', () => {
-        after(async function() {
+        after(async function () {
             this.timeout(15000);
         });
 
@@ -155,12 +155,10 @@ describe('Conciliums', async () => {
     describe('ConciliumPoS', () => {
         let concilium;
         beforeEach(async () => {
-            concilium = factory.ConciliumPos.create(11, 1e3, 100,
-                [
-                    {amount: 1e3, address: generateAddress().toString('hex')},
-                    {amount: 1e5, address: generateAddress().toString('hex')}
-                ]
-            );
+            concilium = factory.ConciliumPos.create(11, 1e3, 100, [
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ]);
         });
 
         it('should FAIL to create', async () => {
@@ -168,36 +166,31 @@ describe('Conciliums', async () => {
         });
 
         it('should _formProposerAddressesSequence', async () => {
-
             concilium._formProposerAddressesSequence(11);
             assert.isOk(concilium._arrProposers.length === concilium._nSeqLength);
         });
 
-        describe('quorum', function() {
+        describe('quorum', function () {
             it('should be less than one ', async () => {
                 assert.isOk(concilium.getQuorum() < 1);
             });
 
             it('should be equal to one', async () => {
-                concilium = factory.ConciliumPos.create(11, 1e3, 100,
-                    [
-                        {amount: 3e8, address: generateAddress().toString('hex')}
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 1e3, 100, [
+                    {amount: 3e8, address: generateAddress().toString('hex')}
+                ]);
 
                 assert.isOk(concilium.getQuorum() === 1);
             });
 
             it('should be a bit more than half', async () => {
-                concilium = factory.ConciliumPos.create(11, 1e3, 100,
-                    [
-                        {amount: 1e3, address: generateAddress().toString('hex')},
-                        {amount: 1e5, address: generateAddress().toString('hex')},
-                        {amount: 1e5, address: generateAddress().toString('hex')},
-                        {amount: 1e5, address: generateAddress().toString('hex')},
-                        {amount: 1e5, address: generateAddress().toString('hex')}
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 1e3, 100, [
+                    {amount: 1e3, address: generateAddress().toString('hex')},
+                    {amount: 1e5, address: generateAddress().toString('hex')},
+                    {amount: 1e5, address: generateAddress().toString('hex')},
+                    {amount: 1e5, address: generateAddress().toString('hex')},
+                    {amount: 1e5, address: generateAddress().toString('hex')}
+                ]);
 
                 assert.isOk(concilium.getQuorum() > 0.5 && concilium.getQuorum() < 1);
             });
@@ -236,13 +229,11 @@ describe('Conciliums', async () => {
         describe('_findIdxByRound', async () => {
             let concilium;
             beforeEach(async () => {
-                concilium = factory.ConciliumPos.create(11, 1, 100,
-                    [
-                        {amount: 3, address: generateAddress().toString('hex')},
-                        {amount: 15, address: generateAddress().toString('hex')},
-                        {amount: 1000, address: generateAddress().toString('hex')}
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 1, 100, [
+                    {amount: 3, address: generateAddress().toString('hex')},
+                    {amount: 15, address: generateAddress().toString('hex')},
+                    {amount: 1000, address: generateAddress().toString('hex')}
+                ]);
             });
 
             it('should be equal 0', async () => {
@@ -270,13 +261,10 @@ describe('Conciliums', async () => {
 
         describe('fair proposer selection', async () => {
             it('should work for 2 equal node', async () => {
-                concilium = factory.ConciliumPos.create(
-                    11, 10, 100,
-                    [
-                        {amount: 10, address: 'addr1'},
-                        {amount: 10, address: 'addr2'}
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 10, 100, [
+                    {amount: 10, address: 'addr1'},
+                    {amount: 10, address: 'addr2'}
+                ]);
 
                 const objCounters = {};
 
@@ -299,14 +287,11 @@ describe('Conciliums', async () => {
             });
 
             it('should work for 2 of 3 equal node', async () => {
-                concilium = factory.ConciliumPos.create(
-                    11, 1, 100,
-                    [
-                        {amount: 1000, address: 'addr1'},
-                        {amount: 100, address: 'addr2'},
-                        {amount: 1000, address: 'addr3'}
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 1, 100, [
+                    {amount: 1000, address: 'addr1'},
+                    {amount: 100, address: 'addr2'},
+                    {amount: 1000, address: 'addr3'}
+                ]);
 
                 const objCounters = {};
 
@@ -330,15 +315,11 @@ describe('Conciliums', async () => {
             });
 
             it('should work for 3 unequal node', async () => {
-                concilium = factory.ConciliumPos.create(
-                    11, 1, 100,
-                    [
-                        {amount: 1, address: 'addr1'},
-                        {amount: 999, address: 'addr2'},
-                        {amount: 10000, address: 'addr3'}
-
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 1, 100, [
+                    {amount: 1, address: 'addr1'},
+                    {amount: 999, address: 'addr2'},
+                    {amount: 10000, address: 'addr3'}
+                ]);
 
                 const objCounters = {};
 
@@ -362,13 +343,10 @@ describe('Conciliums', async () => {
             });
 
             it('should work for 2 very big amount', async () => {
-                concilium = factory.ConciliumPos.create(
-                    11, 1, 100,
-                    [
-                        {amount: 1180049356, address: 'addr1'},
-                        {amount: 1201634894, address: 'addr2'}
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 1, 100, [
+                    {amount: 1180049356, address: 'addr1'},
+                    {amount: 1201634894, address: 'addr2'}
+                ]);
 
                 const objCounters = {};
 
@@ -394,14 +372,11 @@ describe('Conciliums', async () => {
             });
 
             it('should work for 3 very big amount', async () => {
-                concilium = factory.ConciliumPos.create(
-                    11, 1, 100,
-                    [
-                        {amount: 1180049356, address: 'addr1'},
-                        {amount: 1201634894, address: 'addr2'},
-                        {amount: 100000000, address: 'addr3'}
-                    ]
-                );
+                concilium = factory.ConciliumPos.create(11, 1, 100, [
+                    {amount: 1180049356, address: 'addr1'},
+                    {amount: 1201634894, address: 'addr2'},
+                    {amount: 100000000, address: 'addr3'}
+                ]);
 
                 const objCounters = {};
 
@@ -428,6 +403,5 @@ describe('Conciliums', async () => {
                 assert.isOk(nRatio2 < 13 && nRatio2 > 11);
             });
         });
-
     });
 });

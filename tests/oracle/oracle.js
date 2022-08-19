@@ -5,11 +5,14 @@ class Base {
 
     __getCode() {
         const arrFunctionsToPropagateFromBase = [
-            '_checkOwner', '_transferOwnership', '_validateAddress', 'addManager', 'removeManager'
+            '_checkOwner',
+            '_transferOwnership',
+            '_validateAddress',
+            'addManager',
+            'removeManager'
         ];
 
-        const methods = Object
-            .getOwnPropertyNames(Object.getPrototypeOf(this))
+        const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
             .filter(name => name !== 'constructor' && typeof this[name] === 'function')
             .concat(arrFunctionsToPropagateFromBase);
         const objCode = {};
@@ -27,11 +30,11 @@ class Base {
     }
 
     _validateAddress(strAddress) {
-        if (strAddress.length !== 40) throw ('Bad address');
+        if (strAddress.length !== 40) throw 'Bad address';
     }
 
     _checkOwner() {
-        if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
+        if (this._ownerAddress !== callerAddress) throw 'Unauthorized call';
     }
 
     _transferOwnership(strNewAddress) {
@@ -60,13 +63,12 @@ class Base {
     _checkManager() {
         if (this._ownerAddress === callerAddress) return;
 
-        if (!this._managers) throw ('Unauthorized call');
-        if (!~this._managers.findIndex(strAddr => strAddr === callerAddress)) throw ('Unauthorized call');
+        if (!this._managers) throw 'Unauthorized call';
+        if (!~this._managers.findIndex(strAddr => strAddr === callerAddress)) throw 'Unauthorized call';
     }
 }
 
 class RatesOracle extends Base {
-
     // TODO: add purger for old data?
     constructor() {
         super();
@@ -101,12 +103,12 @@ class RatesOracle extends Base {
     }
 
     getDataForTicker(strTicker, nCount = 1440) {
-        if (!this._data[strTicker]) throw (`Ticker ${strTicker} not found`);
+        if (!this._data[strTicker]) throw `Ticker ${strTicker} not found`;
 
         const nTimeBase = this._data[strTicker].timeBase;
         return this._data[strTicker].arrData.slice(0 - nCount).map(([nOffset, value]) => [nTimeBase + nOffset, value]);
     }
-};
+}
 
 module.exports = {
     Base,

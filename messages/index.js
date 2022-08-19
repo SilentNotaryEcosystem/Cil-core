@@ -18,15 +18,9 @@ const MsgWitnessBlockWrapper = require('./witness/msgWitnessBlock.js');
 const MsgWitnessBlockVoteWrapper = require('./witness/msgWitnessBlockVote.js');
 
 module.exports = (factory, objPrototypes) => {
-
     const {Constants, Crypto, Block, Transaction, Inventory, ArrayOfHashes} = factory;
-    const {
-        messageProto,
-        versionPayloadProto,
-        addrPayloadProto,
-        rejectPayloadProto,
-        getBlocksPayloadProto
-    } = objPrototypes;
+    const {messageProto, versionPayloadProto, addrPayloadProto, rejectPayloadProto, getBlocksPayloadProto} =
+        objPrototypes;
     const {witnessMessageProto, witnessNextRoundProto, witnessBlockVoteProto} = objPrototypes;
     const {peerInfoProto} = objPrototypes;
 
