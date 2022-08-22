@@ -309,7 +309,7 @@ function mapEnvToOptions() {
         announcePort: parseInt(ANNOUNCE_PORT),
 
         listenAddr: LISTEN_ADDR,
-        port: parseInt(LISTEN_PORT),
+        listenPort: parseInt(LISTEN_PORT),
 
         // if you plan to send TXns through your node
         rpcUser: RPC_USER,
@@ -354,7 +354,6 @@ function mapOptionsToNodeParameters(objUserParams) {
 
         // non matching names
         buildTxIndex: objUserParams.txIndex,
-        listenPort: objUserParams.port,
         arrSeedAddresses: objUserParams.seedAddr ? [objUserParams.seedAddr] : [],
         isSeed: objUserParams.seed
     };
@@ -401,7 +400,7 @@ module.exports = {
             {name: 'announceAddr', type: String, multiple: false},
             {name: 'announcePort', type: Number, multiple: false},
             {name: 'listenAddr', type: String, multiple: false},
-            {name: 'port', type: Number, multiple: false},
+            {name: 'listenPort', type: Number, multiple: false},
             {name: 'seedAddr', type: String, multiple: false},
             {name: 'rpcUser', type: String, multiple: false},
             {name: 'rpcPass', type: String, multiple: false},

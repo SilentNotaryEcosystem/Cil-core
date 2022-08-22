@@ -275,9 +275,9 @@ describe('Utils', () => {
                 WHITELISTED_ADDR: arrAddrs.join(' '),
                 ANNOUNCE_PORT: '322'
             };
-            const {port, whitelistedAddr, announcePort} = mapEnvToOptions();
+            const {listenPort, whitelistedAddr, announcePort} = mapEnvToOptions();
 
-            assert.equal(port, parseInt(process.env.LISTEN_PORT));
+            assert.equal(listenPort, parseInt(process.env.LISTEN_PORT));
             assert.deepEqual(whitelistedAddr, arrAddrs);
             assert.equal(announcePort, parseInt(process.env.ANNOUNCE_PORT));
         });

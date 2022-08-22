@@ -45,7 +45,7 @@ The default options are set in file [prod.conf.js](https://github.com/SilentNota
 | Parameter            | Description                                                                                                                         |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | listenAddr           | URL                                                                                                                                 |
-| port                 | Specified port                                                                                                                      |
+| listenPort           | Use specific port (instead of predefined)                                                                                           |
 | seedAddr             | Seed address to run Node                                                                                                            |
 | rpcUser              | Username used to call the functions from Node                                                                                       |
 | rpcPass              | Password used to call the functions from Node                                                                                       |

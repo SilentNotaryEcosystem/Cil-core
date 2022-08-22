@@ -47,6 +47,10 @@ module.exports = factory => {
             return this._port;
         }
 
+        static generateAddress() {
+            return '127.0.0.1';
+        }
+
         /**
          * @param {String} address
          * @return {Buffer}
