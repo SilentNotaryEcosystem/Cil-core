@@ -5,7 +5,7 @@ const {assert} = require('chai');
 
 const factory = require('../testFactory');
 const {pseudoRandomBuffer} = require('../testUtil');
-const {arrayEquals} = require('../../utils');
+const {arrayEquals} = require('../../../utils');
 
 describe('MessageGetBlocks', () => {
     before(async function () {

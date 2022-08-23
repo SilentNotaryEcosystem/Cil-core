@@ -3,7 +3,7 @@ const {assert} = require('chai');
 const debug = require('debug')('transport:');
 
 const factory = require('./testFactory');
-const {sleep} = require('../utils');
+const {sleep} = require('../../utils');
 
 let msgCommon;
 

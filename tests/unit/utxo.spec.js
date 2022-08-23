@@ -4,7 +4,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
 const factory = require('./testFactory');
-const {arrayEquals} = require('../utils');
+const {arrayEquals} = require('../../utils');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 const createDummyUtxo = arrIndexes => {

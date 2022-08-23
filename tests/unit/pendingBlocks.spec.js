@@ -7,7 +7,7 @@ const sinon = require('sinon');
 const factory = require('./testFactory');
 
 const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('./testUtil');
-const {arrayEquals} = require('../utils');
+const {arrayEquals} = require('../../utils');
 
 const createNonEmptyBlock = nConciliumId => {
     const block = createDummyBlock(factory, nConciliumId);

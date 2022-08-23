@@ -9,7 +9,7 @@ const sinon = require('sinon');
 const Contract = require('./conciliumContract');
 const factory = require('../testFactory');
 
-const {arrayEquals} = require('../../utils');
+const {arrayEquals} = require('../../../utils');
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
 
 let contract;

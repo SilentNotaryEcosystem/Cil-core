@@ -38,7 +38,7 @@
     "sinon": "^6.3.5"
   },
   "scripts": {
-    "unit": "mocha --exclude tests/integration/bft.integration.spec.js --exclude tests/integration/node.integration.spec.js --exclude tests/integration/contract.integration.spec.js --exclude tests/integration/witness.integration.spec.js --exclude tests/integration/genesis.integration.spec.js --exclude tests/integration/genesis.integration.pos.2witness.spec.js --exclude tests/integration/genesis.integration.proxy.contract.spec.js --exit tests/*.spec.js tests/**/*.spec.js",
+    "unit": "mocha --exit tests/unit/*.spec.js tests/unit/**/*.spec.js",
     "bft": "mocha --exit tests/integration/bft.integration.spec.js",
     "node": "mocha --exit tests/integration/node.integration.spec.js",
     "contract": "mocha --exit tests/integration/contract.integration.spec.js",

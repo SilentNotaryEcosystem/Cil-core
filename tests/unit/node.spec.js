@@ -4,7 +4,7 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 const {assert} = chai;
 const sinon = require('sinon').createSandbox();
-const {arrayEquals, prepareForStringifyObject} = require('../utils');
+const {arrayEquals, prepareForStringifyObject} = require('../../utils');
 
 chai.use(require('chai-as-promised'));
 
