@@ -2542,9 +2542,8 @@ module.exports = (factory, factoryOptions) => {
 
         _getContractBillingForkVersion() {
             if (
-                !this._processedBlock ||
-                (this._processedBlock &&
-                    this._processedBlock.getHeight() > Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1)
+                this._processedBlock &&
+                this._processedBlock.getHeight() > Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1
             ) {
                 return 1;
             }
