@@ -5,9 +5,9 @@ const {assert} = require('chai');
 const sinon = require('sinon');
 const debug = require('debug')('witness:');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
-const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('../testUtil');
 
 let wallet;
 

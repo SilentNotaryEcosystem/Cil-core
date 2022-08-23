@@ -1,8 +1,8 @@
 const Mutex = require('mutex');
 const debugLib = require('debug');
 
-const config = require('../../config/test.conf');
-const BaseFactory = require('../../baseFactory');
+const config = require('../config/test.conf');
+const BaseFactory = require('../baseFactory');
 
 // Uncomment in prod!!
 const error = console.error;
@@ -25,7 +25,7 @@ global.logger = {
  * Class to easy replacement used components
  */
 
-const Ipv6TransportWrapper = require('../../network/ipv6Transport');
+const Ipv6TransportWrapper = require('../network/ipv6Transport');
 
 class TestIpV6Factory extends BaseFactory {
     constructor(options, objConstants) {

@@ -3,8 +3,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('../testFactory');
-const {pseudoRandomBuffer} = require('../testUtil');
+const factory = require('../../testFactory');
+const {pseudoRandomBuffer} = require('../../testUtil');
 const {arrayEquals} = require('../../../utils');
 
 describe('MessageGetBlocks', () => {

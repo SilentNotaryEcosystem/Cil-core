@@ -3,8 +3,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactory');
-const {generateAddress} = require('./testUtil');
+const factory = require('../testFactory');
+const {generateAddress} = require('../testUtil');
 
 describe('Coins', () => {
     before(async function () {

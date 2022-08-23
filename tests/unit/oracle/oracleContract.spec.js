@@ -6,9 +6,9 @@ chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
 const {Base, RatesOracle} = require('./oracle');
-const factory = require('../testFactory');
+const factory = require('../../testFactory');
 
-const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
+const {generateAddress, pseudoRandomBuffer} = require('../../testUtil');
 
 describe('Oracle contract', () => {
     before(async function () {

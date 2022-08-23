@@ -4,7 +4,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const nock = require('nock');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 const {
     getBoolEnvParameter,
     deStringifyObject,

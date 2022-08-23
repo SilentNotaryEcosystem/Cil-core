@@ -4,8 +4,8 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 
-const factory = require('./testFactory');
-const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const factory = require('../testFactory');
+const {pseudoRandomBuffer, generateAddress} = require('../testUtil');
 
 const generateSeed = nTotalRound => (Math.random() * nTotalRound) % 8192;
 

@@ -3,8 +3,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactory');
-const {createDummyBlockInfo} = require('./testUtil');
+const factory = require('../testFactory');
+const {createDummyBlockInfo} = require('../testUtil');
 
 // let fakeResult = {
 //     fake: 1,

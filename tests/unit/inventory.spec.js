@@ -1,8 +1,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactory');
-const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const factory = require('../testFactory');
+const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('../testUtil');
 
 describe('Inventory', () => {
     before(async function () {

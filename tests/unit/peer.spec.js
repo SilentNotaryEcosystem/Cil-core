@@ -3,9 +3,9 @@ const {assert} = require('chai');
 const sinon = require('sinon');
 
 const {sleep} = require('../../utils');
-const {createDummyPeer} = require('./testUtil');
+const {createDummyPeer} = require('../testUtil');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
 let peerInfo;
 let address;

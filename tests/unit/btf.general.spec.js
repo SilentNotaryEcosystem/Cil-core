@@ -2,9 +2,9 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 
-const {pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock} = require('../testUtil');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
 // let myWallet;
 const conciliumId = 0;

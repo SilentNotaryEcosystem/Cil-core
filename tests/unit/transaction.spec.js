@@ -3,13 +3,13 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('../testUtil');
 
 let keyPair;
 // let privateKey;
 // let publicKey;
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
 describe('Transaction tests', () => {
     before(async function () {

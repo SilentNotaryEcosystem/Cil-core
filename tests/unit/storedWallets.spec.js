@@ -5,8 +5,8 @@ const chai = require('chai');
 const {assert} = chai;
 const sinon = require('sinon').createSandbox();
 
-const factory = require('./testFactory');
-const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const factory = require('../testFactory');
+const {pseudoRandomBuffer, generateAddress} = require('../testUtil');
 
 chai.use(require('chai-as-promised'));
 

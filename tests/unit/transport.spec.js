@@ -1,7 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactoryIpV6');
+const factory = require('../testFactoryIpV6');
 const sinon = require('sinon').createSandbox();
 
 let msgCommon;
