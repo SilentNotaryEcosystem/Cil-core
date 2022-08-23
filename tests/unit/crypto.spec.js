@@ -1,8 +1,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const Crypto = require('../crypto/crypto');
-const {prepareForStringifyObject} = require('../utils');
+const Crypto = require('../../crypto/crypto');
+const {prepareForStringifyObject} = require('../../utils');
 
 describe('Crypto library', () => {
     before(async function () {

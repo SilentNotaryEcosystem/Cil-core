@@ -8,7 +8,7 @@ const factory = require('./testFactory');
 
 const {assert} = chai;
 const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
-const {prepareForStringifyObject} = require('../utils');
+const {prepareForStringifyObject} = require('../../utils');
 
 let fakeResult = {
     fake: 1,

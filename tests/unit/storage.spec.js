@@ -12,7 +12,7 @@ process.env['DEBUG'] = `${debugChannel},` + process.env['DEBUG'];
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
-const {timestamp, arrayEquals, prepareForStringifyObject} = require('../utils');
+const {timestamp, arrayEquals, prepareForStringifyObject} = require('../../utils');
 
 const createBlockInfo = () => {
     return new factory.BlockInfo({

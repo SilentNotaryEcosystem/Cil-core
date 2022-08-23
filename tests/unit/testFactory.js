@@ -1,6 +1,6 @@
 const Mutex = require('mutex');
-const BaseFactory = require('../baseFactory');
-const config = require('../config/test.conf');
+const BaseFactory = require('../../baseFactory');
+const config = require('../../config/test.conf');
 
 global.logger = console;
 global.logger.debug = console.log;
@@ -10,7 +10,7 @@ global.logger.error = console.error;
  * Class to easy replacement used components
  */
 
-const TransportWrapper = require('../network/testTransport');
+const TransportWrapper = require('../../network/testTransport');
 
 class TestFactory extends BaseFactory {
     constructor(options, objConstants) {

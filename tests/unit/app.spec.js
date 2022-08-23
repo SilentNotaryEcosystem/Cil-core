@@ -9,7 +9,7 @@ const {assert} = chai;
 
 const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
-const {arrayEquals} = require('../utils');
+const {arrayEquals} = require('../../utils');
 
 const createGenesis = async (factory, utxoHash) => {
     const patch = new factory.PatchDB(0);

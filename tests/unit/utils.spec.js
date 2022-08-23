@@ -17,7 +17,7 @@ const {
     mapEnvToOptions,
     ExceptionDebug,
     ExceptionLog
-} = require('../utils');
+} = require('../../utils');
 
 describe('Utils', () => {
     before(async () => {
