@@ -3,8 +3,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactory');
-const {createDummyBlock} = require('./testUtil');
+const factory = require('../testFactory');
+const {createDummyBlock} = require('../testUtil');
 
 describe('BlockInfo tests', () => {
     let blockInfo;

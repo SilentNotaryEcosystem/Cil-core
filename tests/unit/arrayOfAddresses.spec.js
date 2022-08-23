@@ -3,8 +3,8 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactory');
-const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const factory = require('../testFactory');
+const {pseudoRandomBuffer, generateAddress} = require('../testUtil');
 
 describe('Array of addresses (serialization)', () => {
     before(async function () {

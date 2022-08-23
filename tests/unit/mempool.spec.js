@@ -3,10 +3,10 @@
 const fs = require('fs');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+const {createDummyTx, pseudoRandomBuffer} = require('../testUtil');
 const sinon = require('sinon').createSandbox();
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
 // let keyPair;
 let stubWrite;

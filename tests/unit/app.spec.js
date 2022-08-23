@@ -7,8 +7,8 @@ const debug = require('debug')('application:test');
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
-const factory = require('./testFactory');
-const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const factory = require('../testFactory');
+const {pseudoRandomBuffer, generateAddress} = require('../testUtil');
 const {arrayEquals} = require('../../utils');
 
 const createGenesis = async (factory, utxoHash) => {

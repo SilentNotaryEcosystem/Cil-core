@@ -2,7 +2,7 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const debug = require('debug')('transport:');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 const {sleep} = require('../../utils');
 
 let msgCommon;

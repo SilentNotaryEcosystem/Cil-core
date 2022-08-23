@@ -3,7 +3,7 @@ const {assert} = require('chai');
 const {inspect} = require('util');
 const debug = require('debug')('serializer');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
 describe('Serializer', () => {
     before(async function () {

@@ -1,4 +1,4 @@
-const factory = require('../testFactory');
+const factory = require('../../testFactory');
 
 class Base {
     constructor() {

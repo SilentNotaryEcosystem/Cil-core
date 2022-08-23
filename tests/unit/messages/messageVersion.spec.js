@@ -1,7 +1,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('../testFactory');
+const factory = require('../../testFactory');
 
 let msgTemplate;
 

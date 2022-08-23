@@ -6,9 +6,9 @@ chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
 const Contract = require('./token10').Token10;
-const factory = require('../testFactory');
+const factory = require('../../testFactory');
 
-const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
+const {generateAddress, pseudoRandomBuffer} = require('../../testUtil');
 
 let contract;
 

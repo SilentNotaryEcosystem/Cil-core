@@ -2,9 +2,9 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyTx, createDummyBlock} = require('../testUtil');
+const {createDummyTx, createDummyBlock} = require('../../testUtil');
 
-const factory = require('../testFactory');
+const factory = require('../../testFactory');
 
 describe('MessageGetData', () => {
     before(async function () {

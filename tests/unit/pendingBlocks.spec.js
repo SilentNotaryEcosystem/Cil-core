@@ -4,9 +4,9 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
-const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('./testUtil');
+const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('../testUtil');
 const {arrayEquals} = require('../../utils');
 
 const createNonEmptyBlock = nConciliumId => {

@@ -10,7 +10,7 @@ chai.use(require('chai-as-promised'));
 
 process.on('warning', e => console.warn(e.stack));
 
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 const {
     createDummyTx,
     createDummyPeer,
@@ -19,7 +19,7 @@ const {
     createDummyBlockInfo,
     pseudoRandomBuffer,
     generateAddress
-} = require('./testUtil');
+} = require('../testUtil');
 
 let seedAddress;
 let seedNode;

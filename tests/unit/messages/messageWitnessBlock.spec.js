@@ -2,9 +2,9 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {createDummyBlock} = require('../testUtil');
+const {createDummyBlock} = require('../../testUtil');
 
-const factory = require('../testFactory');
+const factory = require('../../testFactory');
 
 describe('MessageWitnessBlock', () => {
     before(async function () {

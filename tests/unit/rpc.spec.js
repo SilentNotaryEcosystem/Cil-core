@@ -4,10 +4,10 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 const sinon = require('sinon').createSandbox();
 chai.use(require('chai-as-promised'));
-const factory = require('./testFactory');
+const factory = require('../testFactory');
 
 const {assert} = chai;
-const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
+const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('../testUtil');
 const {prepareForStringifyObject} = require('../../utils');
 
 let fakeResult = {

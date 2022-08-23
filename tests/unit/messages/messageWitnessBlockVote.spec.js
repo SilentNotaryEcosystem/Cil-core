@@ -2,9 +2,9 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {pseudoRandomBuffer} = require('../testUtil');
+const {pseudoRandomBuffer} = require('../../testUtil');
 
-const factory = require('../testFactory');
+const factory = require('../../testFactory');
 
 describe('MessageWitnessBlockVote', () => {
     before(async function () {

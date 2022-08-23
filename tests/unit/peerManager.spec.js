@@ -4,8 +4,8 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 
-const factory = require('./testFactory');
-const {createDummyPeer} = require('./testUtil');
+const factory = require('../testFactory');
+const {createDummyPeer} = require('../testUtil');
 
 describe('Peer manager', () => {
     before(async function () {
