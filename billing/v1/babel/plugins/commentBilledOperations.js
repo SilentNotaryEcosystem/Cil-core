@@ -1,17 +1,17 @@
 'use strict';
 
-const {ADD, MUL, SUB, DIV, MOD, EXP, CALLCODE, LOOPITER} = require('../billingPrice');
+const fees = require('../billingFees');
 
 module.exports = babel => {
-    const billCoins = (cost, comment) =>
+    const billCoins = (fee, comment) =>
         babel.parse(`
-            // #BILL#${cost}#${comment}
+            // #BILL#${fee}#${comment}
         `);
 
     const loopInjection = path => {
         const bodyType = path.get('body').type;
         if (bodyType === 'BlockStatement') {
-            path.get('body').unshiftContainer('body', billCoins(LOOPITER, 'LOOPITER'));
+            path.get('body').unshiftContainer('body', billCoins(fees.LOOPITER, 'LOOPITER'));
         }
     };
 
@@ -46,28 +46,55 @@ module.exports = babel => {
             case '+':
             case '++':
             case '+=':
-                injectCode(billCoins(ADD, 'ADD'));
+                injectCode(billCoins(fees.ADD, 'ADD'));
                 break;
             case '-':
             case '--':
             case '-=':
-                injectCode(billCoins(SUB, 'SUB'));
+                injectCode(billCoins(fees.SUB, 'SUB'));
                 break;
             case '*':
             case '*=':
-                injectCode(billCoins(MUL, 'MUL'));
+                injectCode(billCoins(fees.MUL, 'MUL'));
                 break;
             case '/':
             case '/=':
-                injectCode(billCoins(DIV, 'DIV'));
+                injectCode(billCoins(fees.DIV, 'DIV'));
                 break;
             case '%':
             case '%=':
-                injectCode(billCoins(MOD, 'MOD'));
+                injectCode(billCoins(fees.MOD, 'MOD'));
                 break;
             case '**':
             case '**=':
-                injectCode(billCoins(EXP, 'EXP'));
+                injectCode(billCoins(fees.EXP, 'EXP'));
+                break;
+
+            case '>':
+                injectCode(billCoins(fees.GT, 'GT'));
+                break;
+            case '>=':
+                injectCode(billCoins(fees.SGT, 'SGT'));
+                break;
+            case '<':
+                injectCode(billCoins(fees.GT, 'LT'));
+                break;
+            case '<=':
+                injectCode(billCoins(fees.SLT, 'SLT'));
+                break;
+            case '==':
+            case '===':
+                injectCode(billCoins(fees.EQ, 'EQ'));
+                break;
+            case '!=':
+            case '!==':
+                injectCode(billCoins(fees.NOT, 'NOT'));
+                break;
+            case '&&':
+                injectCode(billCoins(fees.AND, 'AND'));
+                break;
+            case '||':
+                injectCode(billCoins(fees.OR, 'OR'));
                 break;
         }
     };
@@ -76,7 +103,7 @@ module.exports = babel => {
         visitor: {
             CallExpression: path => {
                 if (path.node.callee.type !== 'Super') {
-                    path.insertBefore(billCoins(CALLCODE, 'CALLCODE'));
+                    path.insertBefore(billCoins(fees.CALLCODE, 'CALLCODE'));
                 }
             },
             WhileStatement: path => {

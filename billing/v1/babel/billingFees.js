@@ -6,8 +6,16 @@ module.exports = {
     MUL: 5,
     SUB: 3,
     DIV: 5,
-    MOD: 10,
-    EXP: 20,
+    MOD: 5,
+    EXP: 10,
+    LT: 3,
+    GT: 3,
+    SLT: 3,
+    SGT: 3,
+    EQ: 3,
+    AND: 3,
+    OR: 3,
+    NOT: 3,
     CALLCODE: 20,
     LOOPITER: 10
 };

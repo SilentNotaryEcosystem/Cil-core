@@ -7,7 +7,7 @@ chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
 const {generateAddress} = require('../../testUtil');
-const {LOOPITER} = require('../../../billing/v1/babel/billingPrice');
+const {LOOPITER} = require('../../../billing/v1/babel/billingFees');
 
 const factory = require('../../testFactory');
 
