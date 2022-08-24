@@ -359,18 +359,18 @@ describe('Peer tests', () => {
     it('should increase attemts to connect to peer counter for a swithed off node', async () => {
         const newPeer = new factory.Peer({peerInfo});
 
-        const failedConnectionCount = newPeer._peerInfo.failedConnectionCount;
+        const failedConnectionsCount = newPeer._peerInfo.failedConnectionsCount;
         newPeer._transport.connect = sinon.fake.throws(new Error('Sone network error'));
 
         await newPeer.connect();
 
-        assert.equal(newPeer._peerInfo.failedConnectionCount, failedConnectionCount + 1);
+        assert.equal(newPeer._peerInfo.failedConnectionsCount, failedConnectionsCount + 1);
     });
 
     it('should mark node as dead if we have reached PEER_FAILED_CONNECTIONS_LIMIT of attempts', async () => {
         const newPeer = new factory.Peer({peerInfo});
 
-        newPeer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT;
+        newPeer._peerInfo.failedConnectionsCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT;
         newPeer._transport.connect = sinon.fake.throws(new Error('Sone network error'));
 
         await newPeer.connect();
@@ -380,7 +380,7 @@ describe('Peer tests', () => {
 
     it('should not be able to connect to a dead node', async () => {
         const newPeer = new factory.Peer({peerInfo});
-        newPeer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
+        newPeer._peerInfo.failedConnectionsCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
 
         await newPeer.connect();
 

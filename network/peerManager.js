@@ -97,7 +97,7 @@ module.exports = factory => {
 
             if (existingPeer && existingPeer.isDead()) {
                 if (!peer.inbound) return Constants.REJECT_REWRITE_DEAD;
-                existingPeer.resetFailedConnectionCount();
+                existingPeer.resetFailedConnectionsCount();
             }
 
             // both peers are connected.

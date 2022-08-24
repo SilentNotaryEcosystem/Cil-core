@@ -251,7 +251,7 @@ describe('Peer manager', () => {
 
         assert.equal(pm.filterPeers(undefined, true).length, 1);
         // set counter to a dead state
-        newPeer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
+        newPeer._peerInfo.failedConnectionsCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
         assert.equal(pm.filterPeers(undefined, true).length, 0);
     });
 
@@ -274,7 +274,7 @@ describe('Peer manager', () => {
         const peer = new factory.Peer(createDummyPeer(factory));
 
         const result = await pm.addPeer(peer);
-        peer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
+        peer._peerInfo.failedConnectionsCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
         assert.isOk(result instanceof factory.Peer);
         {
             const newPeer = new factory.Peer(createDummyPeer(factory));
@@ -306,7 +306,7 @@ describe('Peer manager', () => {
     it('should reset attemts to connect to peer counter if node established an incoming connection', async () => {
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
-        peer._peerInfo.failedConnectionCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
+        peer._peerInfo.failedConnectionsCount = factory.Constants.PEER_FAILED_CONNECTIONS_LIMIT + 1;
         assert.isTrue(peer.isDead());
 
         const result = await pm.addPeer(peer);
@@ -335,7 +335,7 @@ describe('Peer manager', () => {
         peer._updateTransmitted(250);
         peer._updateReceived(400);
         peer.misbehave(10);
-        peer._peerInfo.failedConnectionCount = 2;
+        peer._peerInfo.failedConnectionsCount = 2;
         await pm.savePeers([peer]);
 
         let arrPeers = await pm.loadPeers();
@@ -351,7 +351,7 @@ describe('Peer manager', () => {
         assert.equal(peer.misbehaveScore, arrPeers[0].peerInfo.lifetimeMisbehaveScore);
         assert.equal(peer.transmittedBytes, arrPeers[0].peerInfo.lifetimeTransmittedBytes);
         assert.equal(peer.receivedBytes, arrPeers[0].peerInfo.lifetimeReceivedBytes);
-        assert.equal(peer._peerInfo.failedConnectionCount, arrPeers[0].peerInfo.failedConnectionCount);
+        assert.equal(peer._peerInfo.failedConnectionsCount, arrPeers[0].peerInfo.failedConnectionsCount);
     });
 
     it('should load peers from storage', async () => {
