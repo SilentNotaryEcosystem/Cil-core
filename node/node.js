@@ -110,7 +110,7 @@ module.exports = (factory, factoryOptions) => {
                     port
                 });
 
-                this._debugAddress = this._transport.myAddress;
+                this._debugAddress = `${this._transport.myAddress}:${port}`;
 
                 this._peerManager = new PeerManager({transport: this._transport, storage: this._storage, ...options});
 
@@ -195,9 +195,9 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _connectToPeer(peer) {
-            debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}"`);
+            debugNode(`(address: "${this._debugAddress}") connecting to "${peer.address}:${peer.port}"`);
             if (!peer.isBanned()) await peer.connect(this._transport.listenAddress);
-            debugNode(`(address: "${this._debugAddress}") CONNECTED to "${peer.address}"`);
+            debugNode(`(address: "${this._debugAddress}") CONNECTED to "${peer.address}:${peer.port}"`);
         }
 
         /**
@@ -274,7 +274,7 @@ module.exports = (factory, factoryOptions) => {
         async _incomingMessage(peer, message) {
             try {
                 debugMsg(
-                    `(address: "${this._debugAddress}") received message "${message.message}" from "${peer.address}"`
+                    `(address: "${this._debugAddress}") received message "${message.message}" from "${peer.address}:${peer.port}"`
                 );
 
                 if (message.isPong()) {
@@ -496,7 +496,7 @@ module.exports = (factory, factoryOptions) => {
                             const msgGetMempool = new MsgCommon();
                             msgGetMempool.getMempoolMessage = true;
                             debugMsg(
-                                `(address: "${this._debugAddress}") sending "${MSG_GET_MEMPOOL}" to "${peer.address}"`
+                                `(address: "${this._debugAddress}") sending "${MSG_GET_MEMPOOL}" to "${peer.address}:${peer.port}"`
                             );
                             await peer.pushMessage(msgGetMempool);
                         }
@@ -528,12 +528,14 @@ module.exports = (factory, factoryOptions) => {
                 inventory.addBlockHash(hash);
             }
             debugMsg(
-                `(address: "${this._debugAddress}") sending ${inventory.vector.length} blocks to "${peer.address}"`
+                `(address: "${this._debugAddress}") sending ${inventory.vector.length} blocks to "${peer.address}:${peer.port}"`
             );
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
-            debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+            debugMsg(
+                `(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}:${peer.port}"`
+            );
             await peer.pushMessage(msgInv);
         }
 
@@ -543,13 +545,15 @@ module.exports = (factory, factoryOptions) => {
             const arrLocalTxHashes = this._mempool.getLocalTxnHashes();
             arrLocalTxHashes.forEach(hash => inventory.addTxHash(hash));
             debugMsg(
-                `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} mempool TXns to "${peer.address}"`
+                `(address: "${this._debugAddress}") sending ${arrLocalTxHashes.length} mempool TXns to "${peer.address}:${peer.port}"`
             );
 
             const msgInv = new MsgInv();
             msgInv.inventory = inventory;
             if (inventory.vector.length) {
-                debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}:${peer.port}"`
+                );
                 await peer.pushMessage(msgInv);
             }
         }
@@ -661,7 +665,7 @@ module.exports = (factory, factoryOptions) => {
                     debugMsg(
                         `(address: "${this._debugAddress}") sending "${msg.message}" with "${objVector.hash.toString(
                             'hex'
-                        )}" to "${peer.address}"`
+                        )}" to "${peer.address}:${peer.port}"`
                     );
                     await peer.pushMessage(msg);
                 } catch (e) {
@@ -694,7 +698,7 @@ module.exports = (factory, factoryOptions) => {
                     reason
                 });
                 debugMsg(
-                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`
+                    `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}:${peer.port}"`
                 );
                 await peer.pushMessage(message);
                 await sleep(1000);
@@ -729,7 +733,7 @@ module.exports = (factory, factoryOptions) => {
                     if (result instanceof Peer) {
                         // send own version
                         debugMsg(
-                            `(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}"`
+                            `(address: "${this._debugAddress}") sending own "${MSG_VERSION}" to "${peer.address}:${peer.port}"`
                         );
                         await peer.pushMessage(this._createMsgVersion());
                     } else {
@@ -750,7 +754,7 @@ module.exports = (factory, factoryOptions) => {
                             reason
                         });
                         debugMsg(
-                            `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}"`
+                            `(address: "${this._debugAddress}") sending message "${message.message}" to "${peer.address}:${peer.port}"`
                         );
                         await peer.pushMessage(message);
                         await sleep(1000);
@@ -768,7 +772,9 @@ module.exports = (factory, factoryOptions) => {
 
                 const msgVerack = new MsgCommon();
                 msgVerack.verAckMessage = true;
-                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}"`);
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending "${MSG_VERACK}" to "${peer.address}:${peer.port}"`
+                );
                 await peer.pushMessage(msgVerack);
             } else {
                 const reason = `Has incompatible protocol version ${message.protocolVersion.toString(16)}`;
@@ -794,7 +800,9 @@ module.exports = (factory, factoryOptions) => {
 
                 // next stage
                 const msgGetAddr = this._createGetAddrMessage();
-                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}" to "${peer.address}"`);
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending "${MSG_GET_ADDR}" to "${peer.address}:${peer.port}"`
+                );
                 await peer.pushMessage(msgGetAddr);
             }
         }
@@ -835,11 +843,13 @@ module.exports = (factory, factoryOptions) => {
             message = new MsgAddr(message);
             for (let peerInfo of message.peers) {
                 // don't add own address
-                if (this._myPeerInfo.address.equals(PeerInfo.toAddress(peerInfo.address))) continue;
+                if (this._myPeerInfo.equals(peerInfo)) continue;
 
                 const newPeer = await this._peerManager.addPeer(peerInfo, false);
                 if (newPeer instanceof Peer) {
-                    debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
+                    debugNode(
+                        `(address: "${this._debugAddress}") added peer "${newPeer.address}:${newPeer.port}" to peerManager`
+                    );
                 }
             }
 
@@ -850,7 +860,9 @@ module.exports = (factory, factoryOptions) => {
                 peer.markAsPossiblyAhead();
             } else {
                 msg = await this._createGetBlocksMsg();
-                debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+                debugMsg(
+                    `(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}:${peer.port}"`
+                );
             }
             await peer.pushMessage(msg);
 
@@ -2163,7 +2175,9 @@ module.exports = (factory, factoryOptions) => {
             const arrConnectedPeers = this._peerManager.getConnectedPeers();
             for (let peer of arrConnectedPeers) {
                 if (peer.isAhead() && !peer.isGetBlocksSent()) {
-                    debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
+                    debugMsg(
+                        `(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}:${peer.port}"`
+                    );
                     await peer.pushMessage(msg);
                 }
             }

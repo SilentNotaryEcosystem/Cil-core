@@ -139,4 +139,11 @@ module.exports = (Constants, PeerInfoProto) =>
         encode() {
             return PeerInfoProto.encode(this._data).finish();
         }
+
+        equals(peerInfo) {
+            return (
+                this.constructor.toAddress(this._data.address).equals(this.constructor.toAddress(peerInfo.address)) &&
+                this._data.port === peerInfo.port
+            );
+        }
     };

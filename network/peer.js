@@ -344,13 +344,13 @@ module.exports = factory => {
 
             // we have pending messages
             if (Array.isArray(this._queue)) {
-                debug(`Queue message "${msg.message}" to "${this.address}"`);
+                debug(`Queue message "${msg.message}" to "${this.address}:${this.port}"`);
                 this._queue.push(msg);
             } else {
                 this._queue = [msg];
                 let nextMsg;
                 while ((nextMsg = this._queue.shift())) {
-                    debug(`Sending message "${nextMsg.message}" to "${this.address}"`);
+                    debug(`Sending message "${nextMsg.message}" to "${this.address}:${this.port}"`);
 
                     // possibly, peer was disconnected between messages
                     if (this._connection && typeof this._connection.sendMessage === 'function') {

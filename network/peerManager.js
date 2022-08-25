@@ -158,10 +158,10 @@ module.exports = factory => {
             return this.addPeer(peer, true);
         }
 
-        storeOutboundPeer(peer, peerInfo) {
-            peer.peerInfo.port = peerInfo.port;
-            peer.capabilities = peerInfo.port;
-        }
+        //        storeOutboundPeer(peer, peerInfo) {
+        //            peer.peerInfo.port = peerInfo.port;
+        //            peer.capabilities = peerInfo.port;
+        //        }
 
         /**
          *
