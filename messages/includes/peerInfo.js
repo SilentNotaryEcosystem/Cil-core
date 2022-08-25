@@ -95,12 +95,12 @@ module.exports = (Constants, PeerInfoProto) =>
             this._data.lifetimeReceivedBytes = bytesCount;
         }
 
-        get failedConnectionCount() {
-            return this._data.failedConnectionCount;
+        get failedConnectionsCount() {
+            return this._data.failedConnectionsCount;
         }
 
-        set failedConnectionCount(count) {
-            this._data.failedConnectionCount = count;
+        set failedConnectionsCount(count) {
+            this._data.failedConnectionsCount = count;
         }
 
         /**

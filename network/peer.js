@@ -240,7 +240,7 @@ module.exports = factory => {
         }
 
         isDead() {
-            return this._peerInfo.failedConnectionCount > Constants.PEER_FAILED_CONNECTIONS_LIMIT;
+            return this._peerInfo.failedConnectionsCount > Constants.PEER_FAILED_CONNECTIONS_LIMIT;
         }
 
         async loaded() {
@@ -285,7 +285,7 @@ module.exports = factory => {
             try {
                 this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
             } catch (e) {
-                this._peerInfo.failedConnectionCount++;
+                this._peerInfo.failedConnectionsCount++;
                 logger.error(`Connection error: ${e}`);
                 return;
             }
@@ -488,8 +488,8 @@ module.exports = factory => {
             this._misbehaveScore += score;
         }
 
-        resetFailedConnectionCount() {
-            this.peerInfo.failedConnectionCount = 0;
+        resetFailedConnectionsCount() {
+            this.peerInfo.failedConnectionsCount = 0;
         }
 
         markAsPossiblyAhead() {
