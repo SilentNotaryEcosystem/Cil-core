@@ -27,6 +27,12 @@ class ExceptionLog extends Error {
     }
 }
 
+class UnsupportedException extends Error {
+    constructor(strMsg) {
+        super(strMsg);
+    }
+}
+
 /**
  *
  * @param {Array} arrNumbers
@@ -474,5 +480,6 @@ module.exports = {
     finePrintUtxos,
     getBoolEnvParameter,
     ExceptionDebug,
-    ExceptionLog
+    ExceptionLog,
+    UnsupportedException
 };
