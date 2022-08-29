@@ -69,7 +69,7 @@ describe('Contract billing integration tests', () => {
     it('should deploy a contract (after 1st contract billing fork)', async () => {
         // data serialized to V8
         node._processedBlock = {
-            getHeight: () => factory.Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1 + 1,
+            getHeight: () => factory.Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1,
             getHash: () => pseudoRandomBuffer().toString('hex'),
             timestamp: parseInt(Date.now() / 1000)
         };
@@ -148,7 +148,7 @@ describe('Contract billing integration tests', () => {
 
         const patchTx = new factory.PatchDB();
         node._processedBlock = {
-            getHeight: () => factory.Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1 + 1,
+            getHeight: () => factory.Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1,
             getHash: () => pseudoRandomBuffer().toString('hex'),
             timestamp: parseInt(Date.now() / 1000)
         };

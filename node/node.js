@@ -1448,7 +1448,14 @@ module.exports = (factory, factoryOptions) => {
                 balance: cNestedContract.getBalance()
             };
 
-            const result = await this._app.runContract({method, arrArguments}, cNestedContract, newEnv, context);
+            const result = await this._app.runContract(
+                {method, arrArguments},
+                cNestedContract,
+                newEnv,
+                context,
+                false,
+                this._getContractBillingForkVersion()
+            );
 
             if (this._isTimeToForkSerializer3()) {
                 cNestedContract.dirtyWorkaround();
@@ -2332,7 +2339,14 @@ module.exports = (factory, factoryOptions) => {
                 nCoinsDummy
             });
 
-            return await this._app.runContract({method, arrArguments}, contract, newEnv, undefined, true);
+            return await this._app.runContract(
+                {method, arrArguments},
+                contract,
+                newEnv,
+                undefined,
+                true,
+                this._getContractBillingForkVersion()
+            );
         }
 
         /**
@@ -2557,7 +2571,7 @@ module.exports = (factory, factoryOptions) => {
         _getContractBillingForkVersion() {
             if (
                 this._processedBlock &&
-                this._processedBlock.getHeight() > Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1
+                this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1
             ) {
                 return 1;
             }
