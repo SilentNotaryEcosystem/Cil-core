@@ -114,6 +114,11 @@ module.exports = ({Constants}, {contractProto}) =>
             return result > 0 ? result : 0;
         }
 
+        getSize() {
+            const code = this.getCode();
+            return (code ? JSON.stringify(code).length : 0) + JSON.stringify(this.getData()).length;
+        }
+
         /**
          * It used in 2 places, so i see no reason to duplicate it
          * Invalidate stored data

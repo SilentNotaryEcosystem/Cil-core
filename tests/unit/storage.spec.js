@@ -391,6 +391,64 @@ describe('Storage tests', () => {
         assert.deepEqual(contract.getCode(), JSON.parse(contractCode));
     });
 
+    it('should use cache to store/read contract', async () => {
+        const testArray = new Array(factory.Constants.CONTRACT_MIN_CASHING_SIZE).fill(1);
+        const contractData = {a: testArray};
+        const contractCode = '{"test": "(a){this.test=a;}"}';
+        const contractAddress = generateAddress();
+
+        const patch = new factory.PatchDB();
+        {
+            const contract = new factory.Contract({
+                contractData,
+                contractCode,
+                conciliumId: 0
+            });
+            contract.storeAddress(contractAddress);
+            patch.setContract(contract);
+        }
+        const storage = new factory.Storage();
+        await storage.applyPatch(patch);
+
+        assert.equal(Object.keys(storage._cachedContracts.object).length, 0);
+        await storage.getContract(contractAddress);
+
+        assert.equal(Object.keys(storage._cachedContracts.object).length, 1);
+        const contract = await storage.getContract(contractAddress);
+        assert.isOk(contract);
+        assert.deepEqual(contract.getData(), contractData);
+        assert.deepEqual(contract.getCode(), JSON.parse(contractCode));
+    });
+
+    it('should use not use cache to store/read contract', async () => {
+        const testArray = new Array(100).fill(1);
+        const contractData = {a: testArray};
+        const contractCode = '{"test": "(a){this.test=a;}"}';
+        const contractAddress = generateAddress();
+
+        const patch = new factory.PatchDB();
+        {
+            const contract = new factory.Contract({
+                contractData,
+                contractCode,
+                conciliumId: 0
+            });
+            contract.storeAddress(contractAddress);
+            patch.setContract(contract);
+        }
+        const storage = new factory.Storage();
+        await storage.applyPatch(patch);
+
+        assert.equal(Object.keys(storage._cachedContracts.object).length, 0);
+        await storage.getContract(contractAddress);
+
+        assert.equal(Object.keys(storage._cachedContracts.object).length, 0);
+        const contract = await storage.getContract(contractAddress);
+        assert.isOk(contract);
+        assert.deepEqual(contract.getData(), contractData);
+        assert.deepEqual(contract.getCode(), JSON.parse(contractCode));
+    });
+
     it('should read concilium definitions', async () => {
         const contractAddress = generateAddress();
         factory.Constants.CONCILIUM_DEFINITION_CONTRACT_ADDRESS = contractAddress;
