@@ -6,16 +6,17 @@ const commentBilledOperations = require('./plugins/commentBilledOperations');
 const hasUnsupportedOperation = require('./hasUnsupportedOperation');
 const {UnsupportedException} = require('./../../../utils');
 
-const billCoins = (cost, comment) =>
-    `if (__nTotalCoins >= ${cost}) { __nTotalCoins -= ${cost}; } else throw new Error('Contract run out of coins#' + __nTotalCoins); // ${comment}`;
+const billCoins = (strTotalCoinsHash, cost, comment) =>
+    `if (__nTotalCoins_${strTotalCoinsHash} >= ${cost}) { __nTotalCoins_${strTotalCoinsHash} -= ${cost}; } else throw new Error('Contract run out of coins#' + __nTotalCoins_${strTotalCoinsHash}); // ${comment}`;
 
 /**
  * Should inject smart contract billing code for v1
  * @param {String} strCode - original smart contract code
+ * @param {String} strTotalCoinsHash - hash suffix for __nTotalCoins_ varriable
  * @returns {String}
  * @throws An unsupported operation error in case if strCode contains any dangerous operation
  */
-module.exports = strCode => {
+module.exports = (strCode, strTotalCoinsHash) => {
     if (hasUnsupportedOperation(strCode)) {
         throw new UnsupportedException('Found unsupported operation in the contract!');
     }
@@ -29,7 +30,7 @@ module.exports = strCode => {
     });
 
     const finalCode = commentedCode.code.replace(/\/\/ #BILL#(?<COST>\d+)#(?<COMMENT>\w+)/g, (all, cost, comment) =>
-        billCoins(cost, comment)
+        billCoins(strTotalCoinsHash, cost, comment)
     );
 
     return finalCode;
