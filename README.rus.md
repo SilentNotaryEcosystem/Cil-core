@@ -15,7 +15,7 @@ git checkout tags/latest
 ```
 npm install
 node index.js //запуск ноды
-node savePrivateKey.js` //запись приватного ключа в файл (аналог keystore)
+node scripts/savePrivateKey.js` //запись приватного ключа в файл (аналог keystore)
 ```
 
 ## Процесс установки (Docker):
