@@ -83,12 +83,21 @@ NODE_ENV=Devel DEBUG=peer:*,node:* node index.js
 
 #### Running tests
 
-`npm test`
+```
+npm test
+npm run test2
+```
 
 #### Running tests with debug output (\*nix)
 
-`npm run-script testDebugNix`
+```
+npm run testDebugNix
+npm run testDebugNix2
+```
 
 #### Running tests with debug output (Windows)
 
-`npm run-script testDebugWin`
+```
+npm run testDebugWin
+npm run testDebugWin2
+```
