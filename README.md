@@ -17,7 +17,7 @@ git checkout tags/latest
 ```
 npm install
 node index.js // node install
-node scripts/savePrivateKey.js` //write private key to file (keystore analog)
+node savePrivateKey.js` //write private key to file (keystore analog)
 ```
 
 ## The installation process (Docker):
