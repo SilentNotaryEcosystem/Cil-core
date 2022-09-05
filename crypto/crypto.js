@@ -246,7 +246,7 @@ class CryptoLib {
 
     static pbkdf2(password, salt, hashLength = 32, hashOptions) {
         const {iterations} = hashOptions;
-        return crypto.pbkdf2Sync(password, salt, iterations, hashLength, null);
+        return crypto.pbkdf2Sync(password, salt, iterations, hashLength, 'sha1');
     }
 
     /**
