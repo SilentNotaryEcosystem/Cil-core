@@ -1,5 +1,4 @@
 module.exports = {
-
     // some of constants will be injected from prototypes in Factory!
     constants: {
         LOCAL_TX_FILE_NAME: 'txns.json',
@@ -54,6 +53,9 @@ module.exports = {
 
         PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
 
+        // exclude node from node an active list if we fail N times to connect it
+        PEER_FAILED_CONNECTIONS_LIMIT: 10,
+
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 
         // maximum block hashes in MSG_INV
@@ -107,7 +109,6 @@ module.exports = {
 
         // fees
         fees: {
-
             // money send fee per Kbyte
             TX_FEE: 4000,
 

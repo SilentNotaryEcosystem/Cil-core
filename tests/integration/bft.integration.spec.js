@@ -1,22 +1,21 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {sleep} = require('../../utils');
 const factory = require('../testFactory');
 
 const conciliumId = 11;
 
 const createDummyBFT = (conciliumId = 0, numOfKeys = 2) => {
     const arrKeyPairs = [];
-    const arrPublicKeys = [];
+    const arrAddresses = [];
     for (let i = 0; i < numOfKeys; i++) {
         const keyPair = factory.Crypto.createKeyPair();
         arrKeyPairs.push(keyPair);
-        arrPublicKeys.push(keyPair.publicKey);
+        arrAddresses.push(keyPair.address);
     }
     const newWallet = new factory.Wallet(arrKeyPairs[0].privateKey);
 
-    const concilium = factory.ConciliumRr.create(conciliumId, arrPublicKeys);
+    const concilium = factory.ConciliumRr.create(conciliumId, arrAddresses);
 
     const newBft = new factory.BFT({
         concilium,
@@ -34,19 +33,23 @@ const createBlockAckMessage = (conciliumId, privateKey, blockHash) => {
 };
 
 describe('BFT consensus integration tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
 
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
     it('should fail to get signatures (voted for different blocks)', async () => {
-        const {arrKeyPairs, newBft} = createDummyBFT();
-        const [keyPair1, keyPair2] = arrKeyPairs;
+        const {
+            newBft,
+            concilium,
+            arrKeyPairs: [keyPair1, keyPair2]
+        } = createDummyBFT();
+        const [myWalletAddress, anotherAddress] = concilium.getAddresses();
 
         const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
         const fakeBlockHash2 = Buffer.from(factory.Crypto.randomBytes(32));
@@ -64,25 +67,29 @@ describe('BFT consensus integration tests', () => {
 
         // Message received from party
         const msgParty = createBlockAckMessage(conciliumId, keyPair2.privateKey, fakeBlockHash);
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
+        newBft._addViewOfNodeWithAddr(anotherAddress, anotherAddress, {...msgParty.content});
 
         // My message
         const msgMy = createBlockAckMessage(conciliumId, keyPair1.privateKey, fakeBlockHash2);
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
+        newBft._addViewOfNodeWithAddr(myWalletAddress, myWalletAddress, {...msgMy.content});
 
         // My message returned by party
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
+        newBft._addViewOfNodeWithAddr(anotherAddress, myWalletAddress, {...msgMy.content});
 
         // Party message exposed by me
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
+        newBft._addViewOfNodeWithAddr(myWalletAddress, anotherAddress, {...msgParty.content});
 
         const arrSignatures = newBft._getSignaturesForBlock();
         assert.isNotOk(arrSignatures);
     });
 
     it('should get signatures', async () => {
-        const {arrKeyPairs, newBft} = createDummyBFT();
-        const [keyPair1, keyPair2] = arrKeyPairs;
+        const {
+            newBft,
+            concilium,
+            arrKeyPairs: [keyPair1, keyPair2]
+        } = createDummyBFT();
+        const [myWalletAddress, anotherAddress] = concilium.getAddresses();
 
         const fakeBlockHash = Buffer.from(factory.Crypto.randomBytes(32));
 
@@ -93,17 +100,17 @@ describe('BFT consensus integration tests', () => {
 
         // Message received from party
         const msgParty = createBlockAckMessage(conciliumId, keyPair2.privateKey, fakeBlockHash);
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair2.publicKey, {...msgParty.content});
+        newBft._addViewOfNodeWithAddr(anotherAddress, anotherAddress, {...msgParty.content});
 
         // My message
         const msgMy = createBlockAckMessage(conciliumId, keyPair1.privateKey, fakeBlockHash);
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair1.publicKey, {...msgMy.content});
+        newBft._addViewOfNodeWithAddr(myWalletAddress, myWalletAddress, {...msgMy.content});
 
         // My message returned by party
-        newBft._addViewOfNodeWithPubKey(keyPair2.publicKey, keyPair1.publicKey, {...msgMy.content});
+        newBft._addViewOfNodeWithAddr(anotherAddress, myWalletAddress, {...msgMy.content});
 
         // Party message exposed by me
-        newBft._addViewOfNodeWithPubKey(keyPair1.publicKey, keyPair2.publicKey, {...msgParty.content});
+        newBft._addViewOfNodeWithAddr(myWalletAddress, anotherAddress, {...msgParty.content});
 
         // emulate workflow, state will be reset and _getSignaturesForBlock will use stored _prevViews
         newBft._resetState();

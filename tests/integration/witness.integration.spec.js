@@ -1,7 +1,5 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const os = require('os');
-const debugLib = require('debug');
 const sinon = require('sinon');
 
 const factory = require('../testFactory');
@@ -39,12 +37,11 @@ const createDummyDefinition = (conciliumId = 0, numOfKeys = 2) => {
     return {arrKeyPairs, concilium};
 };
 
-let witnesNo = 1;
+// let witnesNo = 1;
 const createWitnesses = (num, seedAddress) => {
     const arrWitnesses = [];
 
     for (let i = 0; i < num; i++) {
-
         // we use arrKeyPairs that filled in beforeEach -> createDummyDefinition
         const witnessWallet = new factory.Wallet(arrKeyPairs[i].getPrivate());
         const witness = new factory.Witness({
@@ -56,7 +53,7 @@ const createWitnesses = (num, seedAddress) => {
         patchNodeForWitnesses(witness, concilium);
         arrWitnesses.push(witness);
     }
-    witnesNo += num;
+    // witnesNo += num;
 
     return arrWitnesses;
 };
@@ -99,20 +96,20 @@ const createGenesisBlockAndSpendingTx = (conciliumId = 0) => {
 };
 
 describe('Witness integration tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    beforeEach(async function() {
+    beforeEach(async function () {
         ({arrKeyPairs, concilium} = createDummyDefinition(conciliumId, maxConnections));
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
-    it('should ACT same as regular node (get peers from seedNode)', async function() {
+    it('should ACT same as regular node (get peers from seedNode)', async function () {
         this.timeout(maxConnections * 60000);
 
         const genesis = createGenesisBlock();
@@ -125,15 +122,11 @@ describe('Witness integration tests', () => {
 
         // Peers already known by seedNode
         const peerInfo1 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null}
-            ],
+            capabilities: [{service: factory.Constants.NODE, data: null}],
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo2 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('2222')}],
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         for (let peerInfo of [peerInfo1, peerInfo2]) {
@@ -153,7 +146,7 @@ describe('Witness integration tests', () => {
         await Promise.all(arrWitnesses.map(witness => witness.start()));
     });
 
-    it('should NOT commit block (empty mempool)', async function() {
+    it('should NOT commit block (empty mempool)', async function () {
         this.timeout(maxConnections * 60000);
         factory.Constants.WITNESS_HOLDOFF = 2 * maxConnections * 60000;
 
@@ -173,10 +166,12 @@ describe('Witness integration tests', () => {
         for (let i = 0; i < arrWitnesses.length; i++) {
             await arrWitnesses[i].ensureLoaded();
             await processBlock(arrWitnesses[i], genesis);
-            arrSuppressedBlocksPromises.push(new Promise(resolve => {
-                arrWitnesses[i]._suppressedBlockHandler = resolve;
-                arrWitnesses[i]._acceptBlock = createBlockFake;
-            }));
+            arrSuppressedBlocksPromises.push(
+                new Promise(resolve => {
+                    arrWitnesses[i]._suppressedBlockHandler = resolve;
+                    arrWitnesses[i]._acceptBlock = createBlockFake;
+                })
+            );
         }
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
         const arrStartPromises = [];
@@ -192,7 +187,7 @@ describe('Witness integration tests', () => {
         assert.equal(createBlockFake.callCount, 0);
     });
 
-    it('should commit one block (tx in mempool)', async function() {
+    it('should commit one block (tx in mempool)', async function () {
         this.timeout(maxConnections * 60000);
 
         const {genesis, tx} = createGenesisBlockAndSpendingTx(conciliumId);
@@ -218,16 +213,20 @@ describe('Witness integration tests', () => {
             await arrWitnesses[i].ensureLoaded();
             await processBlock(arrWitnesses[i], genesis);
 
-            arrBlocksPromises.push(new Promise(resolve => {
-                arrWitnesses[i]._postAcceptBlock = resolve;
-            }));
+            arrBlocksPromises.push(
+                new Promise(resolve => {
+                    arrWitnesses[i]._postAcceptBlock = resolve;
+                })
+            );
             arrWitnesses[i]._canExecuteBlock = sinon.fake.returns(true);
         }
 
         // add seed to array also
-        arrBlocksPromises.push(new Promise(resolve => {
-            seedNode._postAcceptBlock = resolve;
-        }));
+        arrBlocksPromises.push(
+            new Promise(resolve => {
+                seedNode._postAcceptBlock = resolve;
+            })
+        );
         seedNode._canExecuteBlock = sinon.fake.returns(true);
 
         // run
@@ -246,7 +245,7 @@ describe('Witness integration tests', () => {
         await Promise.all(arrBlocksPromises);
     });
 
-    it('should work for SINGLE WITNESS (commit one block tx in mempool)', async function() {
+    it('should work for SINGLE WITNESS (commit one block tx in mempool)', async function () {
         this.timeout(maxConnections * 60000);
 
         ({arrKeyPairs, concilium} = createDummyDefinition(conciliumId, 1));
@@ -270,15 +269,19 @@ describe('Witness integration tests', () => {
         await processBlock(witness, genesis);
 
         const arrBlocksPromises = [];
-        arrBlocksPromises.push(new Promise(resolve => {
-            witness._postAcceptBlock = resolve;
-        }));
+        arrBlocksPromises.push(
+            new Promise(resolve => {
+                witness._postAcceptBlock = resolve;
+            })
+        );
         witness._canExecuteBlock = sinon.fake.returns(true);
 
         // add seed to array also
-        arrBlocksPromises.push(new Promise(resolve => {
-            seedNode._postAcceptBlock = resolve;
-        }));
+        arrBlocksPromises.push(
+            new Promise(resolve => {
+                seedNode._postAcceptBlock = resolve;
+            })
+        );
         seedNode._canExecuteBlock = sinon.fake.returns(true);
 
         // run
@@ -292,7 +295,7 @@ describe('Witness integration tests', () => {
         await Promise.all(arrBlocksPromises);
     });
 
-    it('should NOT commit block (there is TX in mempool, but wrong conciliumId)', async function() {
+    it('should NOT commit block (there is TX in mempool, but wrong conciliumId)', async function () {
         this.timeout(maxConnections * 60000);
 
         // this will prevent generating empty block while we run this test
@@ -309,7 +312,7 @@ describe('Witness integration tests', () => {
             rpcPass: 'test',
             isSeed: true
         });
-//        patchNodeForWitnesses(seedNode, concilium);
+        //        patchNodeForWitnesses(seedNode, concilium);
         await seedNode.ensureLoaded();
         await processBlock(seedNode, genesis);
 
@@ -322,10 +325,12 @@ describe('Witness integration tests', () => {
         for (let i = 0; i < arrWitnesses.length; i++) {
             await arrWitnesses[i].ensureLoaded();
             await processBlock(arrWitnesses[i], genesis);
-            arrSuppressedBlocksPromises.push(new Promise(resolve => {
-                arrWitnesses[i]._suppressedBlockHandler = resolve;
-                arrWitnesses[i]._acceptBlock = acceptBlockFake;
-            }));
+            arrSuppressedBlocksPromises.push(
+                new Promise(resolve => {
+                    arrWitnesses[i]._suppressedBlockHandler = resolve;
+                    arrWitnesses[i]._acceptBlock = acceptBlockFake;
+                })
+            );
         }
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
         const arrStartPromises = [];
@@ -349,7 +354,7 @@ describe('Witness integration tests', () => {
         let txHash2;
         let coinbaseTxHash;
 
-        beforeEach(async function() {
+        beforeEach(async function () {
             this.timeout(60000);
 
             const amount = 1e6;
@@ -389,7 +394,6 @@ describe('Witness integration tests', () => {
             // create child block2
             let block2;
             {
-
                 // create Tx
                 const tx = new factory.Transaction();
                 tx.conciliumId = 0;
@@ -405,7 +409,7 @@ describe('Witness integration tests', () => {
                 block2.setHeight(witness._calcHeight(block2.parentHashes));
                 block2.finish(1e6 - 2e3, kpReceiver.getAddress());
 
-                coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
+                coinbaseTxHash = new factory.Transaction(block2.txns[0]).getHash();
             }
             await processBlock(witness, block2);
 
@@ -420,8 +424,7 @@ describe('Witness integration tests', () => {
             await processBlock(witness, block3);
         });
 
-        it('should create one block with join TX (immediate stabilization)', async function() {
-
+        it('should create one block with join TX (immediate stabilization)', async function () {
             const {block: block4} = await witness._createBlock(0);
 
             assert.equal(block4.txns.length, 2);
@@ -448,7 +451,7 @@ describe('Witness integration tests', () => {
             await processBlock(witness, block6);
         });
 
-        it('should create one block with join TX (non immediate stabilization)', async function() {
+        it('should create one block with join TX (non immediate stabilization)', async function () {
             witness._storage.getConciliumsCount = () => 3;
 
             const {block: block4} = await witness._createBlock(0);
@@ -477,5 +480,4 @@ describe('Witness integration tests', () => {
             await processBlock(witness, block6);
         });
     });
-
 });

@@ -29,7 +29,7 @@ message PeerInfo {
     uint32 lifetimeMisbehaveScore = 4;
     uint32 lifetimeTransmittedBytes = 5;
     uint32 lifetimeReceivedBytes = 6;
-
+    uint32 failedConnectionsCount = 7;
 }
 
 enum Services {
@@ -68,6 +68,7 @@ enum RejectCodes {
     REJECT_BANNED = 3;
     REJECT_TIMEOFFSET = 4;
     REJECT_RESTRICTED = 5;
+    REJECT_REWRITE_DEAD = 6;
 }
 
 message RejectPayload {

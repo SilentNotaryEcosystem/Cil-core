@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === 'Devel') {
 }
 
 main()
-    .then(_ => {
+    .then(() => {
         process.exit(0);
     })
     .catch(err => {
@@ -34,5 +34,3 @@ async function main() {
     const strStatus = nSecDiff < 600 ? 'Alive' : 'Syncing or DEAD';
     console.log(`Status: ${strStatus}`);
 }
-
-

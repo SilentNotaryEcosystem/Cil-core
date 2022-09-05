@@ -14,12 +14,11 @@ const publicAddressesRange = require('./publicAddresses');
 const dnsResolve4 = util.promisify(dns.resolve4);
 const dnsResolve6 = util.promisify(dns.resolve6);
 
-module.exports = (factory) => {
+module.exports = factory => {
     const {Serializer, MessageAssembler, Constants} = factory;
     const Ipv6Connection = ConnectionWrapper(Serializer, MessageAssembler, Constants);
 
     return class Ipv6Transport extends EventEmitter {
-
         /**
          *
          * @param {Object} options
@@ -46,6 +45,10 @@ module.exports = (factory) => {
 
         get port() {
             return this._port;
+        }
+
+        static generateAddress() {
+            return '127.0.0.1';
         }
 
         /**
@@ -150,7 +153,7 @@ module.exports = (factory) => {
         static isRoutableAddress(strAddr) {
             const addr = ipaddr.parse(strAddr);
             return this.isRoutableIpV6Address(addr) || this.isRoutableIpV4Address(addr);
-        };
+        }
 
         /**
          *
@@ -174,23 +177,26 @@ module.exports = (factory) => {
             if (!this._pmClient) this._pmClient = natUpnp.createClient();
 
             return new Promise((resolve, reject) => {
-                this._pmClient.portMapping({
-                    public: this._port,
-                    private: {port: this._port, host: this._address}
-                }, (err) => {
-                    if (err) {
-                        debug(`portMapping error`, err);
-                        return reject(err);
-                    }
-
-                    this._pmClient.externalIp((err, ip) => {
+                this._pmClient.portMapping(
+                    {
+                        public: this._port,
+                        private: {port: this._port, host: this._address}
+                    },
+                    err => {
                         if (err) {
-                            debug(`externalIp error`, err);
+                            debug(`portMapping error`, err);
                             return reject(err);
                         }
-                        resolve(ip);
-                    });
-                });
+
+                        this._pmClient.externalIp((err, ip) => {
+                            if (err) {
+                                debug(`externalIp error`, err);
+                                return reject(err);
+                            }
+                            resolve(ip);
+                        });
+                    }
+                );
             });
         }
 
@@ -202,13 +208,10 @@ module.exports = (factory) => {
          */
         connect(address, port, localAddress) {
             return new Promise((resolve, reject) => {
-                const socket = net.createConnection(
-                    {port, host: address, localAddress},
-                    async (err) => {
-                        if (err) return reject(err);
-                        resolve(new Ipv6Connection({socket, timeout: this._timeout}));
-                    }
-                );
+                const socket = net.createConnection({port, host: address, localAddress}, async err => {
+                    if (err) return reject(err);
+                    resolve(new Ipv6Connection({socket, timeout: this._timeout}));
+                });
                 socket.on('error', err => reject(err));
             });
         }
@@ -236,9 +239,9 @@ module.exports = (factory) => {
 
                 // it will be outbound only node (failed to NAT traversal or nonRoutable IPv6)
             } else {
-
                 // have routable IPv6 address
-                const [ipV6Address] = this.constructor.getInterfacesIpV6Addresses()
+                const [ipV6Address] = this.constructor
+                    .getInterfacesIpV6Addresses()
                     .filter(addr => this.constructor.isRoutableIpV6Address(addr));
                 if (ipV6Address) {
                     this._address = ipV6Address;
@@ -281,19 +284,15 @@ module.exports = (factory) => {
         _startListen() {
             debug(`Listen on ${this._address}:${this._port}`);
             return new Promise((resolve, reject) => {
-                const server = net.createServer(async (socket) => {
-                    this.emit('connect',
-                        new Ipv6Connection({socket, timeout: this._timeout})
-                    );
+                const server = net.createServer(async socket => {
+                    this.emit('connect', new Ipv6Connection({socket, timeout: this._timeout}));
                 });
 
                 server.on('error', e => reject(e));
-                server.on('listening', _ => resolve());
+                server.on('listening', () => resolve());
 
                 server.listen({port: this._port, host: this._address});
             });
-
         }
     };
 };
-

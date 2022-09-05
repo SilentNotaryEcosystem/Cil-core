@@ -37,17 +37,19 @@ function GCD(arrNumbers) {
     let x = Math.abs(arrNumbers[0]);
     for (let i = 1; i < arrNumbers.length; i++) {
         let y = Math.abs(arrNumbers[i]);
-        while (x && y) { x > y ? x %= y : y %= x; }
+        while (x && y) {
+            x > y ? (x %= y) : (y %= x);
+        }
         x += y;
     }
     return x;
 }
 
-const createPeerTag = (nConciliumId) => {
+const createPeerTag = nConciliumId => {
     return `wg${nConciliumId}`;
 };
 
-const deepCloneObject = (objToClone) => {
+const deepCloneObject = objToClone => {
     return v8.deserialize(v8.serialize(objToClone));
 };
 
@@ -57,11 +59,10 @@ const arrayIntersection = (array1, array2) => {
 };
 
 const queryRpc = async (url, strMethod, objParams = {}) => {
-
     const options = {
-        method: "POST",
+        method: 'POST',
         headers: {
-            "Content-Type": "application/json"
+            'Content-Type': 'application/json'
         }
     };
 
@@ -75,17 +76,17 @@ const queryRpc = async (url, strMethod, objParams = {}) => {
     const chunks = [];
     const {result} = await new Promise((resolve, reject) => {
         const req = http.request(url, options, res => {
-            res.on("data", (chunk) => {
+            res.on('data', chunk => {
                 chunks.push(chunk);
             });
 
-            res.on("end", () => {
+            res.on('end', () => {
                 const buffBody = Buffer.concat(chunks);
                 const result = buffBody.length ? JSON.parse(buffBody.toString()) : {result: null};
                 resolve(result);
             });
 
-            req.on('error', (e) => {
+            req.on('error', e => {
                 reject(e);
             });
         });
@@ -97,11 +98,11 @@ const queryRpc = async (url, strMethod, objParams = {}) => {
     return result;
 };
 
-const getHttpData = async (url) => {
+const getHttpData = async url => {
     const options = {
-        method: "GET",
+        method: 'GET',
         headers: {
-            "Content-Type": "application/json"
+            'Content-Type': 'application/json'
         },
 
         // test-explorer has an issue with cert
@@ -113,17 +114,17 @@ const getHttpData = async (url) => {
     const chunks = [];
     const result = await new Promise((resolve, reject) => {
         const req = transport.request(url, options, res => {
-            res.on("data", (chunk) => {
+            res.on('data', chunk => {
                 chunks.push(chunk);
             });
 
-            res.on("end", () => {
+            res.on('end', () => {
                 const buffBody = Buffer.concat(chunks);
                 const result = buffBody.length ? JSON.parse(buffBody.toString()) : {};
                 resolve(result);
             });
 
-            req.on('error', (e) => {
+            req.on('error', e => {
                 reject(e);
             });
         });
@@ -134,7 +135,7 @@ const getHttpData = async (url) => {
     return result;
 };
 
-const prepareForStringifyObject = (obj) => {
+const prepareForStringifyObject = obj => {
     if (!(obj instanceof Object)) return obj;
 
     if (Buffer.isBuffer(obj)) return obj.toString('hex');
@@ -191,7 +192,7 @@ const finePrintUtxos = (arrUtxos, bStable, mapUtxoAddr) => {
  * @param {Object} obj
  * @returns {Buffer|*}
  */
-const deStringifyObject = (obj) => {
+const deStringifyObject = obj => {
     if (typeof obj === 'string') {
         const buff = Buffer.from(obj, 'hex');
         if (buff.length * 2 === obj.length) return buff;
@@ -250,7 +251,6 @@ function decryptPkFileContent(Crypto, fileContent, password) {
     try {
         objEncodedData = JSON.parse(fileContent);
     } catch (e) {
-
         // V1: concatenated salt, iv, base64Encoded
         const salt = fileContent.substr(0, 32);
         const iv = fileContent.substr(32, 32);
@@ -278,12 +278,25 @@ function decryptPkFileContent(Crypto, fileContent, password) {
  * @returns Object
  */
 function mapEnvToOptions() {
-
     const {
-        TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, ANNOUNCE_PORT, LISTEN_ADDR, LISTEN_PORT,
-        SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS, RPC_RATE,
-        GENESIS_HASH, CONCILIUM_CONTRACT,
-        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX, FIX_LEVEL_DB,
+        TRUST_ANNOUNCE,
+        ANNOUNCE_ADDRESS,
+        ANNOUNCE_PORT,
+        LISTEN_ADDR,
+        LISTEN_PORT,
+        SEED_ADDRESS,
+        RPC_ADDRESS,
+        RPC_USER,
+        RPC_PASS,
+        RPC_RATE,
+        GENESIS_HASH,
+        CONCILIUM_CONTRACT,
+        WITNESS_NODE,
+        SEED_NODE,
+        BUILD_TX_INDEX,
+        WALLET_SUPPORT,
+        SUPPRESS_JOIN_TX,
+        FIX_LEVEL_DB,
         WHITELISTED_ADDR,
         KEYSTORE_NAME
     } = process.env;
@@ -296,7 +309,7 @@ function mapEnvToOptions() {
         announcePort: parseInt(ANNOUNCE_PORT),
 
         listenAddr: LISTEN_ADDR,
-        port: parseInt(LISTEN_PORT),
+        listenPort: parseInt(LISTEN_PORT),
 
         // if you plan to send TXns through your node
         rpcUser: RPC_USER,
@@ -325,10 +338,7 @@ function mapEnvToOptions() {
 }
 
 function getBoolEnvParameter(value) {
-    return !!(
-        value && typeof value === 'string' &&
-        (value.trim().toLowerCase() === 'true' || parseInt(value) === 1)
-    );
+    return !!(value && typeof value === 'string' && (value.trim().toLowerCase() === 'true' || parseInt(value) === 1));
 }
 
 /**
@@ -339,20 +349,18 @@ function getBoolEnvParameter(value) {
  */
 function mapOptionsToNodeParameters(objUserParams) {
     return {
-
         // if command line parameter have same name as option name, like "rpcUser"
         ...objUserParams,
 
         // non matching names
         buildTxIndex: objUserParams.txIndex,
-        listenPort: objUserParams.port,
         arrSeedAddresses: objUserParams.seedAddr ? [objUserParams.seedAddr] : [],
         isSeed: objUserParams.seed
     };
 }
 
 module.exports = {
-    sleep: (delay) => {
+    sleep: delay => {
         return new Promise(resolve => {
             setTimeout(resolve, delay);
         });
@@ -387,33 +395,33 @@ module.exports = {
 
     readCmdLineOptions: () => {
         const optionDefinitions = [
-            {name: "fixLevelDb", type: Boolean, multiple: false},
-            {name: "trustAnnounce", type: Boolean, multiple: false},
-            {name: "announceAddr", type: String, multiple: false},
-            {name: "announcePort", type: Number, multiple: false},
-            {name: "listenAddr", type: String, multiple: false},
-            {name: "port", type: Number, multiple: false},
-            {name: "seedAddr", type: String, multiple: false},
-            {name: "rpcUser", type: String, multiple: false},
-            {name: "rpcPass", type: String, multiple: false},
-            {name: "rpcPort", type: Number, multiple: false},
-            {name: "rpcRate", type: Number, multiple: false},
-            {name: "rpcAddress", type: String, multiple: false},
-            {name: "genesisHash", type: String, multiple: false},
-            {name: "conciliumDefContract", type: String, multiple: false},
-            {name: "privateKey", type: String, multiple: false},
-            {name: "dbPath", type: String, multiple: false},
-            {name: "seed", type: Boolean, multiple: false},
-            {name: "strictAddresses", type: Boolean, multiple: false},
-            {name: "txIndex", type: Boolean, multiple: false},
-            {name: "watchAddress", type: String, multiple: true},
-            {name: "reIndexWallet", type: Boolean, multiple: false},
-            {name: "walletSupport", type: Boolean, multiple: false},
-            {name: "listWallets", type: Boolean, multiple: false},
-            {name: "localDevNode", type: Boolean, multiple: false},
-            {name: "rebuildDb", type: Boolean, multiple: false},
-            {name: "whitelistedAddr", type: String, multiple: true},
-            {name: "suppressJoinTx", type: Boolean, multiple: false}
+            {name: 'fixLevelDb', type: Boolean, multiple: false},
+            {name: 'trustAnnounce', type: Boolean, multiple: false},
+            {name: 'announceAddr', type: String, multiple: false},
+            {name: 'announcePort', type: Number, multiple: false},
+            {name: 'listenAddr', type: String, multiple: false},
+            {name: 'listenPort', type: Number, multiple: false},
+            {name: 'seedAddr', type: String, multiple: false},
+            {name: 'rpcUser', type: String, multiple: false},
+            {name: 'rpcPass', type: String, multiple: false},
+            {name: 'rpcPort', type: Number, multiple: false},
+            {name: 'rpcRate', type: Number, multiple: false},
+            {name: 'rpcAddress', type: String, multiple: false},
+            {name: 'genesisHash', type: String, multiple: false},
+            {name: 'conciliumDefContract', type: String, multiple: false},
+            {name: 'privateKey', type: String, multiple: false},
+            {name: 'dbPath', type: String, multiple: false},
+            {name: 'seed', type: Boolean, multiple: false},
+            {name: 'strictAddresses', type: Boolean, multiple: false},
+            {name: 'txIndex', type: Boolean, multiple: false},
+            {name: 'watchAddress', type: String, multiple: true},
+            {name: 'reIndexWallet', type: Boolean, multiple: false},
+            {name: 'walletSupport', type: Boolean, multiple: false},
+            {name: 'listWallets', type: Boolean, multiple: false},
+            {name: 'localDevNode', type: Boolean, multiple: false},
+            {name: 'rebuildDb', type: Boolean, multiple: false},
+            {name: 'whitelistedAddr', type: String, multiple: true},
+            {name: 'suppressJoinTx', type: Boolean, multiple: false}
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },
@@ -428,13 +436,12 @@ module.exports = {
     getHttpData,
 
     pick(obj, keys) {
-        return keys.map(k => k in obj ? {[k]: obj[k]} : {})
-            .reduce((res, o) => Object.assign(res, o), {});
+        return keys.map(k => (k in obj ? {[k]: obj[k]} : {})).reduce((res, o) => Object.assign(res, o), {});
     },
 
     stripAddressPrefix(Constants, strAddr) {
-        return strAddr && strAddr.startsWith(Constants.ADDRESS_PREFIX) ?
-            strAddr.substring(Constants.ADDRESS_PREFIX.length)
+        return strAddr && strAddr.startsWith(Constants.ADDRESS_PREFIX)
+            ? strAddr.substring(Constants.ADDRESS_PREFIX.length)
             : strAddr;
     },
 
@@ -443,7 +450,6 @@ module.exports = {
 
         let password;
         if (typeof process.env.PK_PASSWORD !== 'string') {
-
             // TODO suppress echo
             password = await questionAsync('Enter password to decrypt private key: ', true);
         } else {

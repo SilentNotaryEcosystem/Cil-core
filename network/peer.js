@@ -13,12 +13,9 @@ const PEER_HEARTBEAT_TIMER_NAME = 'peerHeartbeatTimer';
  * @emits 'message' {this, message}
  */
 
-module.exports = (factory) => {
+module.exports = factory => {
     const {Messages, Transport, Constants, FactoryOptions} = factory;
-    const {
-        MsgCommon,
-        PeerInfo
-    } = Messages;
+    const {MsgCommon, PeerInfo} = Messages;
     //const {PeerInfo} = Messages;
     return class Peer extends EventEmitter {
         constructor(options = {}) {
@@ -108,8 +105,10 @@ module.exports = (factory) => {
         }
 
         get isWitness() {
-            return Array.isArray(this._peerInfo.capabilities) &&
-                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+            return (
+                Array.isArray(this._peerInfo.capabilities) &&
+                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS)
+            );
         }
 
         get lastActionTimestamp() {
@@ -168,8 +167,10 @@ module.exports = (factory) => {
         }
 
         get quality() {
-            return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
-                   / (this._peerInfo.lifetimeMisbehaveScore + this.misbehaveScore + 1);
+            return (
+                (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes) /
+                (this._peerInfo.lifetimeMisbehaveScore + this.misbehaveScore + 1)
+            );
         }
 
         get bannedTill() {
@@ -235,7 +236,11 @@ module.exports = (factory) => {
 
         isAlive() {
             const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
-            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive;
+            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive && !this.isDead();
+        }
+
+        isDead() {
+            return this._peerInfo.failedConnectionsCount > Constants.PEER_FAILED_CONNECTIONS_LIMIT;
         }
 
         async loaded() {
@@ -266,13 +271,25 @@ module.exports = (factory) => {
                 logger.error('Trying to connect to temporary restricted peer!');
                 return;
             }
+            if (this.isDead()) {
+                logger.error('Trying to connect to a dead peer!');
+                return;
+            }
             if (!this.disconnected) {
                 logger.error(`Peer ${this.address} already connected`);
                 return;
             }
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
-            this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
+
+            try {
+                this._connection = await this._transport.connect(this.address, this.port, strLocalAddress);
+            } catch (e) {
+                this._peerInfo.failedConnectionsCount++;
+                logger.error(`Connection error: ${e}`);
+                return;
+            }
+
             this._connectedTill = new Date(Date.now() + Constants.PEER_CONNECTION_LIFETIME);
             this._setConnectionHandlers();
 
@@ -293,7 +310,6 @@ module.exports = (factory) => {
         }
 
         async _onMessageHandler(msg) {
-
             // count incoming bytes
             if (msg.payload && Buffer.isBuffer(msg.payload)) {
                 this._updateReceived(msg.payload.length);
@@ -306,7 +322,6 @@ module.exports = (factory) => {
             this._lastActionTimestamp = Date.now();
 
             if (msg.signature) {
-
                 // if message signed: check signature
                 if (this.isWitness && msg.address === this.witnessAddress) {
                     this.emit('witnessMessage', this, msg);
@@ -324,19 +339,18 @@ module.exports = (factory) => {
 
         // TODO: for MsgGetData - make a cache for already requested hashes!
         async pushMessage(msg) {
-
             // part of node bootstrap mechanism
             if (msg.isGetBlocks()) this.getBlocksSent();
 
             // we have pending messages
             if (Array.isArray(this._queue)) {
-                debug(`Queue message "${msg.message}" to "${this.address}"`);
+                debug(`Queue message "${msg.message}" to "${this.address}:${this.port}"`);
                 this._queue.push(msg);
             } else {
                 this._queue = [msg];
                 let nextMsg;
                 while ((nextMsg = this._queue.shift())) {
-                    debug(`Sending message "${nextMsg.message}" to "${this.address}"`);
+                    debug(`Sending message "${nextMsg.message}" to "${this.address}:${this.port}"`);
 
                     // possibly, peer was disconnected between messages
                     if (this._connection && typeof this._connection.sendMessage === 'function') {
@@ -402,11 +416,11 @@ module.exports = (factory) => {
             this._handshakeDone = false;
             this._version = undefined;
 
-//            this._bannedTill = Date.now();
-//            this._restrictedTill = Date.now();
-//            this._misbehavedAt = Date.now();
-//            this._misbehaveScore = 0;
-//            this._lastActionTimestamp = Date.now();
+            //            this._bannedTill = Date.now();
+            //            this._restrictedTill = Date.now();
+            //            this._misbehavedAt = Date.now();
+            //            this._misbehaveScore = 0;
+            //            this._lastActionTimestamp = Date.now();
 
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
@@ -422,7 +436,6 @@ module.exports = (factory) => {
         }
 
         async _tick() {
-
             // stop timer if peer disconnected. disconnect == dead. dead == no heartbeat
             if (this.disconnected) {
                 this._heartBeatTimer.clear(this._timerName);
@@ -451,13 +464,13 @@ module.exports = (factory) => {
          * @returns {peerInfo} with zero counters
          */
         toObject() {
-
             // TODO: create separate definition for peerInfo & peerAddressBookEntry
             return {
                 ...this.peerInfo.data,
                 lifetimeMisbehaveScore: 0,
                 lifetimeTransmittedBytes: 0,
-                lifetimeReceivedBytes: 0
+                lifetimeReceivedBytes: 0,
+                failedConnectionsCount: 0
             };
         }
 
@@ -474,6 +487,10 @@ module.exports = (factory) => {
         _updateMisbehave(score) {
             this.peerInfo.lifetimeMisbehaveScore += score;
             this._misbehaveScore += score;
+        }
+
+        resetFailedConnectionsCount() {
+            this.peerInfo.failedConnectionsCount = 0;
         }
 
         markAsPossiblyAhead() {

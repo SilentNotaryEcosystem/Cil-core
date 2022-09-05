@@ -60,7 +60,6 @@ class KeyPair {
     getAddress(needBuffer = true) {
         return CryptoLib.getAddress(this.getPublic(), needBuffer);
     }
-
 }
 
 // algorithm used to symmtrical encryption/decryption (for storing privateKeys)
@@ -70,7 +69,6 @@ const SCRYPT_OPTIONS = {N: 262144, p: 1, r: 8};
 const PBKDF2_OPTIONS = {iterations: 1e5};
 
 class CryptoLib {
-
     /**
      *
      * @return {KeyPair}
@@ -176,7 +174,7 @@ class CryptoLib {
 
         // @see node_modules/elliptic/lib/elliptic/ec/index.js:198
         // "new BN(msg);" - no base used, so we convert it to dec
-        const hexToDecimal = (x) => ec.keyFromPrivate(x, 'hex').getPrivate().toString(10);
+        const hexToDecimal = x => ec.keyFromPrivate(x, 'hex').getPrivate().toString(10);
 
         // ec.recoverPubKey returns Point. encode('hex', true) will convert it to hex string compact key
         // @see node_modules/elliptic/lib/elliptic/curve/base.js:302 BasePoint.prototype.encode
@@ -228,9 +226,9 @@ class CryptoLib {
      * @param {Number} hashLength - in BYTES!
      * @returns {Buffer}
      */
-    static argon2(password, salt, hashLength = 32) {
+    static argon2(/*password, salt, hashLength = 32*/) {
         // raw: true - mandatory!
-//        const key = await argon2.hash(password, {salt, type: argon2id, raw: true, hashLength});
+        //        const key = await argon2.hash(password, {salt, type: argon2id, raw: true, hashLength});
         throw new Error('Not implemented yet');
     }
 
@@ -289,16 +287,10 @@ class CryptoLib {
             case 'scrypt':
                 options = {...SCRYPT_OPTIONS, ...hashOptions};
                 options.maxmem = 129 * options.N * options.r;
-                key = this.scrypt(
-                    password,
-                    salt,
-                    32,
-                    options
-                );
+                key = this.scrypt(password, salt, 32, options);
                 break;
             default:
                 throw new Error(`Hash function ${passwordHashFunction} is unknown`);
-                break;
         }
         return {key: Buffer.from(key, 'hex'), options};
     }
@@ -316,12 +308,7 @@ class CryptoLib {
         encrypted = Buffer.from(encrypted, 'hex');
         salt = !salt || Buffer.from(salt, 'hex');
 
-        const {key} = this.createKey(
-            keyAlgo,
-            password,
-            salt,
-            hashOptions
-        );
+        const {key} = this.createKey(keyAlgo, password, salt, hashOptions);
 
         const decipher = crypto.createDecipheriv(ALGO, key, iv);
         try {
@@ -342,7 +329,6 @@ class CryptoLib {
      * @return {Object}
      */
     static async encrypt(password, buffer, keyAlgo = 'scrypt') {
-
         // generate salt for 'scrypt' & 'argon2'
         const salt = this.randomBytes(LENGTH);
 

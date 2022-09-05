@@ -26,15 +26,30 @@
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "debug": "^3.2.7",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "husky": "^8.0.1",
     "memdown": "^3.0.0",
     "mocha": "^5.2.0",
     "nock": "^11.9.1",
     "node-uuid": "^1.4.8",
+    "prettier": "^2.7.1",
     "sinon": "^6.3.5"
   },
   "scripts": {
-    "test": "mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "unit": "mocha --exit tests/unit/*.spec.js tests/unit/**/*.spec.js",
+    "bft": "mocha --exit tests/integration/bft.integration.spec.js",
+    "node": "mocha --exit tests/integration/node.integration.spec.js",
+    "contract": "mocha --exit tests/integration/contract.integration.spec.js",
+    "witness": "mocha --exit tests/integration/witness.integration.spec.js",
+    "test": "npm run unit && npm run bft && npm run node && npm run contract && npm run witness",
+    "test2": "mocha --exit tests/integration/genesis.integration*.spec.js",
     "testDebugWin": "set DEBUG=*,-mocha:* && mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
-    "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js"
+    "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "lint": "./node_modules/.bin/eslint './**/*.js'",
+    "check": "npx prettier --check .",
+    "fix": "npx prettier --write .",
+    "prepare": "husky install && ./hookSetup.sh"
   }
 }

@@ -17,7 +17,7 @@ const nConciliumId = process.env.CONCILIUM_ID ? parseInt(process.env.CONCILIUM_I
 const nMinAmount = process.env.MIN_AMOUNT ? parseFloat(process.env.MIN_AMOUNT) : 2e7;
 
 main()
-    .then(_ => {
+    .then(() => {
         process.exit(0);
     })
     .catch(err => {
@@ -39,10 +39,9 @@ async function main() {
     const {arrCoins} = gatherInputsForAmount(arrUtxos, amount + fees);
 
     const tx = joinConcilium(nConciliumId, amount, wallet, arrCoins);
-    console.error(
-        `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
+    console.error(`Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
     console.log(`Tx hash ${tx.getHash()}`);
-//    console.log(tx.encode().toString('hex'));
+    //    console.log(tx.encode().toString('hex'));
     await sendTx(tx.encode().toString('hex'));
 }
 
@@ -111,5 +110,3 @@ function gatherInputsForAmount(arrUtxos, amount) {
     }
     throw new Error('Not enough coins!');
 }
-
-

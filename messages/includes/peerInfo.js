@@ -6,12 +6,10 @@
  */
 module.exports = (Constants, PeerInfoProto) =>
     class PeerInfo {
-
         constructor(data) {
             if (Buffer.isBuffer(data)) {
                 this._data = {...PeerInfoProto.decode(data)};
             } else if (typeof data === 'object') {
-
                 // transform address to internal representation
                 if (Buffer.isBuffer(data.address)) {
                     data.address = this.constructor.fromAddress(data.address);
@@ -37,7 +35,6 @@ module.exports = (Constants, PeerInfoProto) =>
          * @return {Buffer}
          */
         get address() {
-
             // TODO add cache for address?
             if (!this._data || !this._data.address) throw new Error('PeerInfo not initialized!');
             return this.constructor.toAddress(this._data.address);
@@ -97,6 +94,15 @@ module.exports = (Constants, PeerInfoProto) =>
         set lifetimeReceivedBytes(bytesCount) {
             this._data.lifetimeReceivedBytes = bytesCount;
         }
+
+        get failedConnectionsCount() {
+            return this._data.failedConnectionsCount;
+        }
+
+        set failedConnectionsCount(count) {
+            this._data.failedConnectionsCount = count;
+        }
+
         /**
          *
          * @param {Object} objAddress - {addr0, addr1, addr2, addr3}
@@ -132,5 +138,12 @@ module.exports = (Constants, PeerInfoProto) =>
          */
         encode() {
             return PeerInfoProto.encode(this._data).finish();
+        }
+
+        equals(peerInfo) {
+            return (
+                this.constructor.toAddress(this._data.address).equals(this.constructor.toAddress(peerInfo.address)) &&
+                this._data.port === peerInfo.port
+            );
         }
     };

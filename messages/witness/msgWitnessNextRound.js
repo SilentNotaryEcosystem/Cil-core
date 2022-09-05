@@ -16,7 +16,6 @@ module.exports = (Constants, Crypto, WitnessMessageCommon, WitnessNextRoundProto
     const {MSG_WITNESS_NEXT_ROUND} = Constants.messageTypes;
 
     return class WitnessNextRound extends WitnessMessageCommon {
-
         constructor(data) {
             super(data);
 
