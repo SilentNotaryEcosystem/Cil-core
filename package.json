@@ -11,7 +11,7 @@
     "elliptic": "^6.5.4",
     "ipaddr.js": "^1.9.1",
     "js-sha3": "^0.8.0",
-    "json-rpc2": "git+https://github.com/msklyarov/node-jsonrpc2.git",
+    "json-rpc2": "git+https://github.com/trueshura/node-jsonrpc2.git",
     "leveldown": "^6.1.1",
     "levelup": "^5.1.1",
     "merkletreejs": "0.0.11",
