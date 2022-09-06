@@ -9,7 +9,7 @@
     "command-line-args": "^5.1.1",
     "dagjs": "git+https://github.com/trueshura/DAG.git",
     "elliptic": "^6.5.4",
-    "ipaddr.js": "^1.9.1",
+    "ipaddr.js": "^2.0.1",
     "js-sha3": "^0.8.0",
     "json-rpc2": "git+https://github.com/trueshura/node-jsonrpc2.git",
     "leveldown": "^6.1.1",
@@ -17,7 +17,7 @@
     "merkletreejs": "0.0.11",
     "mutex": "git+https://github.com/trueshura/MUTEX.git",
     "nat-upnp": "^1.1.1",
-    "protobufjs": "^6.11.3",
+    "protobufjs": "^7.1.0",
     "tick-tock": "^1.0.0",
     "typeforce": "^1.18.0",
     "vm2": "^3.9.10"
@@ -25,17 +25,17 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "debug": "^3.2.7",
-    "eslint": "^7.32.0",
+    "debug": "^4.3.4",
+    "eslint": "^8.23.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.2.1",
     "husky": "^8.0.1",
-    "memdown": "^3.0.0",
-    "mocha": "^5.2.0",
-    "nock": "^11.9.1",
+    "memdown": "^5.1.0",
+    "mocha": "^10.0.0",
+    "nock": "^13.2.9",
     "node-uuid": "^1.4.8",
     "prettier": "^2.7.1",
-    "sinon": "^6.3.5"
+    "sinon": "^14.0.0"
   },
   "scripts": {
     "unit": "mocha --exit tests/unit/*.spec.js tests/unit/**/*.spec.js",
