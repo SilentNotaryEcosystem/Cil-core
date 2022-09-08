@@ -15,7 +15,17 @@ module.exports = Serializer =>
             const arrMessagesBuffers = [];
             if (!this._messageBuffer) {
                 // new message, let's assemby it
-                const {length, dataOffset} = Serializer.readMsgLength(data);
+                let objMsgLength;
+
+                try {
+                    objMsgLength = Serializer.readMsgLength(data);
+                } catch (error) {
+                    console.error('msgassembler:serializer:error', data, error);
+                    return null;
+                }
+
+                const {length, dataOffset} = objMsgLength;
+
                 const totalMsgBufferLength = length + dataOffset;
                 debug(`New message. Total length: ${totalMsgBufferLength}. Chunk length: ${data.length}.`);
 
