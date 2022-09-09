@@ -1,7 +1,7 @@
 {
   "name": "chain-in-law",
   "engines": {
-    "node": "10.17.0"
+    "node": "16.17.0"
   },
   "version": "0.7.3",
   "main": "factory.js",
@@ -12,8 +12,8 @@
     "ipaddr.js": "^1.9.1",
     "js-sha3": "^0.8.0",
     "json-rpc2": "git+https://github.com/trueshura/node-jsonrpc2.git",
-    "leveldown": "^4.0.2",
-    "levelup": "^4.4.0",
+    "leveldown": "^6.1.1",
+    "levelup": "^5.1.1",
     "merkletreejs": "0.0.11",
     "mutex": "git+https://github.com/trueshura/MUTEX.git",
     "nat-upnp": "^1.1.1",
@@ -45,8 +45,10 @@
     "witness": "mocha --exit tests/integration/witness.integration.spec.js",
     "test": "npm run unit && npm run bft && npm run node && npm run contract && npm run witness",
     "test2": "mocha --exit tests/integration/genesis.integration*.spec.js",
-    "testDebugWin": "set DEBUG=*,-mocha:* && mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
-    "testDebugNix": "DEBUG=*,-mocha:* mocha --exit ./tests/*.spec.js ./tests/**/*.spec.js",
+    "testDebugWin": "set DEBUG=*,-mocha:* && npm test",
+    "testDebugWin2": "set DEBUG=*,-mocha:* && npm run test2",
+    "testDebugNix": "DEBUG=*,-mocha:* npm test",
+    "testDebugNix2": "DEBUG=*,-mocha:* npm run test2",
     "lint": "./node_modules/.bin/eslint './**/*.js'",
     "check": "npx prettier --check .",
     "fix": "npx prettier --write .",

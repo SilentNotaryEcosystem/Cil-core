@@ -67,12 +67,21 @@ NODE_ENV=Devel DEBUG=peer:*,node:* node index.js
 
 #### Запуск тестов
 
-`npm test`
+```
+npm test
+npm run test2
+```
 
 #### Запуск тестов c выводом отладочной информации (\*nix)
 
-`npm run-script testDebugNix`
+```
+npm run testDebugNix
+npm run testDebugNix2
+```
 
 #### Запуск тестов c выводом отладочной информации (Windows)
 
-`npm run-script testDebugWin`
+```
+npm run testDebugWin
+npm run testDebugWin2
+```
