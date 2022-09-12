@@ -16,8 +16,9 @@ git checkout tags/latest
 
 ```
 npm install
-node index.js // node install
-node savePrivateKey.js` //write private key to file (keystore analog)
+npm run husky // install git hooks
+node index.js // node start
+node savePrivateKey.js // write private key to file (keystore analog)
 ```
 
 ## The installation process (Docker):
