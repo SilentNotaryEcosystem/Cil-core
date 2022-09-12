@@ -18,7 +18,7 @@ module.exports = (PersistentStorage, factory) =>
          */
         async getContract(address, raw = false) {
             const contracts = raw ? this._cachedContracts.raw : this._cachedContracts.object;
-            if (contracts[address]) {
+            if (contracts[address] !== undefined) {
                 return contracts[address];
             }
 
