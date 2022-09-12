@@ -4,7 +4,8 @@ ARG REFRESHED_AT
 ENV REFRESHED_AT $REFRESHED_AT
 
 RUN apk -U upgrade \
-  && apk add --no-cache \
+    && apk add --no-cache \
+    procps \
     git \
     openssh \
     bash
