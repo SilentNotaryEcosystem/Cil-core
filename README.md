@@ -16,7 +16,7 @@ git checkout tags/latest
 
 ```
 npm install
-npm run husky // install git hooks
+npm run husky // install git hooks for dev mode
 node index.js // node start
 node savePrivateKey.js // write private key to file (keystore analog)
 ```
