@@ -115,8 +115,8 @@ module.exports = ({Constants}, {contractProto}) =>
         }
 
         getSize() {
-            const code = this.getCode();
-            return (code ? JSON.stringify(code).length : 0) + JSON.stringify(this.getData()).length;
+            const serializedCode = this._cacheCode ? JSON.stringify(this._cacheCode) : this._data.contractCode || '';
+            return serializedCode.length + this.getDataSize();
         }
 
         /**
