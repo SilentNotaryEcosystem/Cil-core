@@ -524,9 +524,9 @@ module.exports = (factory, factoryOptions) => {
                 const buffData = await this._db.get(key).catch(err => debug(err));
                 if (!buffData) return undefined;
 
-                const contract = new Contract(buffData, address.toString('hex'));
+                if (raw) return buffData;
 
-                return raw ? buffData : contract;
+                return new Contract(buffData, address.toString('hex'));
             });
         }
 

@@ -24,6 +24,7 @@ const RpcWrapper = require('./node/rpc');
 const AppWrapper = require('./node/app');
 
 const StorageWrapper = require('./storage/persistentStorage');
+const StorageWithCacheWrapper = require('./storage/storageWithCache');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
@@ -118,7 +119,7 @@ class BaseFactory {
                     this._peerImplementation = PeerWrapper(this);
                     this._peerManagerImplemetation = PeerManagerWrapper(this);
                     this._patchImplementation = PatchWrapper(this);
-                    this._storageImplementation = StorageWrapper(this, options);
+                    this._storageImplementation = StorageWithCacheWrapper(StorageWrapper(this, options), this);
                     this._bftImplementation = BftWrapper(this);
                     this._mempoolImplementation = MempoolWrapper(this, options);
                     this._rpcImplementation = RpcWrapper(this);
