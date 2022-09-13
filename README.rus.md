@@ -8,13 +8,13 @@ cd Cil-core
 git checkout tags/latest
 ```
 
-#### 2. Установить [Node.js (10.15.2) и npm](https://nodejs.org/dist/v10.15.2/node-v10.15.2.pkg)
+#### 2. Установить [Node.js (16.17.0) и npm](https://nodejs.org/dist/v16.17.0/node-v16.17.0.pkg)
 
 #### 3. Установить зависимости и запустить ноду
 
 ```
 npm install
-npm run husky // установка git hooks для dev режима
+npm run husky // опционально. только если вы хотите развивать проект: установка git hooks для dev режима
 node index.js // запуск ноды
 node savePrivateKey.js // запись приватного ключа в файл (аналог keystore)
 ```
