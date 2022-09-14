@@ -28,7 +28,7 @@ module.exports = (PersistentStorage, factory) =>
 
             const objContract = raw ? new factory.Contract(contract) : contract;
 
-            if (objContract.getDataSize() <= factory.Constants.CONTRACT_MIN_CASHING_SIZE) {
+            if (objContract.getSize() <= factory.Constants.CONTRACT_MIN_CASHING_SIZE) {
                 return contract;
             }
 

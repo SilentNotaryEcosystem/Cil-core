@@ -105,7 +105,7 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
          * @param {Number} nContractVersion - @see contract constructor
          * @returns {contract}
          */
-        createContract(strCode, environment, nContractVersion) {
+        createContract(strCode, environment, nContractVersion, isContractSizeFork = false) {
             typeforce(typeforce.tuple(typeforce.String, typeforce.Object), arguments);
 
             this._execStarted();
@@ -143,7 +143,7 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     nContractVersion
                 );
             } finally {
-                this._execDone(contract);
+                this._execDone(contract, isContractSizeFork);
             }
 
             return contract;
@@ -183,7 +183,14 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
          * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
          * @returns {Promise<result>}
          */
-        async runContract(objInvocationCode, contract, environment, context = undefined, isConstantCall = false) {
+        async runContract(
+            objInvocationCode,
+            contract,
+            environment,
+            context = undefined,
+            isConstantCall = false,
+            isContractSizeFork = false
+        ) {
             typeforce(typeforce.tuple(typeforce.Object, types.Contract, typeforce.Object), arguments);
 
             this._execStarted(contract);
@@ -251,7 +258,7 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     contract.updateData(objData);
                 }
             } finally {
-                this._execDone(contract);
+                this._execDone(contract, isContractSizeFork);
             }
 
             return result;
@@ -375,13 +382,16 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
             this._arrContracts.push(contract);
         }
 
-        _execDone(contract) {
+        _execDone(contract, isContractSizeFork) {
             if (!this._arrContractDataSize.length) throw new Error('App. Recursion error');
 
             this._arrContracts.pop();
 
             const nPrevDataSize = this._arrContractDataSize.pop();
-            if (contract) this._nDataDelta += contract.getDataSize() - nPrevDataSize;
+
+            if (contract) {
+                this._nDataDelta += (isContractSizeFork ? contract.getSize() : contract.getDataSize()) - nPrevDataSize;
+            }
 
             if (!this._arrContractDataSize.length) this._arrContractDataSize = undefined;
         }
