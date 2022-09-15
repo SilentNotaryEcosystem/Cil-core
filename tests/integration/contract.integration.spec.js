@@ -420,13 +420,17 @@ describe('Contract integration tests', () => {
             assert.equal(objBeforeExec.version, factory.Constants.CONTRACT_V_JSON);
             assert.equal(objAfterExec.version, factory.Constants.CONTRACT_V_JSON);
         });
+    });
+
+    describe('Contract size calculation', async () => {
+        const contractCode = `{"test":"(){ const a = [${new Array(100).fill(1)}]; }"}`;
+        const nCoinsInLimit = factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx;
+
+        beforeEach(() => {
+            node._getFeeStorage = sinon.fake.resolves(nFakeFeeDataSize * 1000);
+        });
 
         it('should run a contract (before 1st contract size fork)', async () => {
-            const contractCode = `{"test": "(){ const a = [${new Array(100).fill(1)}];}"}`;
-            const nCoinsInLimit = factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx;
-
-            node._getFeeStorage = sinon.fake.resolves(nFakeFeeDataSize * 1000);
-
             let strContractAddress = generateAddress().toString('hex');
             let contract = new factory.Contract(
                 {
@@ -461,11 +465,6 @@ describe('Contract integration tests', () => {
         });
 
         it('should run a contract and return an error (after 1st contract size fork)', async () => {
-            const contractCode = `{"test":"(){ const a = [${new Array(100).fill(1)}]; }"}`;
-            const nCoinsInLimit = factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx;
-
-            node._getFeeStorage = sinon.fake.resolves(nFakeFeeDataSize * 1000);
-
             let strContractAddress = generateAddress().toString('hex');
             let contract = new factory.Contract(
                 {
