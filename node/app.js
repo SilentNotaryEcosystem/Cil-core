@@ -7,20 +7,18 @@ const path = require('path');
 const typeforce = require('typeforce');
 const debugLib = require('debug');
 const util = require('util');
-const crypto = require('crypto');
-
 const types = require('../types');
 const billingCodeWrapper = require('../billing');
 
 const debug = debugLib('application:');
 
-const strCodePrefix = (nTotalCoins, strTotalCoinsHash) => `
+const strCodePrefix = nTotalCoins => `
     'use strict';
     let exports;
-    let __nTotalCoins_${strTotalCoinsHash} = ${nTotalCoins || 0};
+    let __nTotalCoins = ${nTotalCoins || 0};
 `;
 
-const strBillingCall = strTotalCoinsHash => `updateExecutionCoinsBalance(__nTotalCoins_${strTotalCoinsHash});`;
+const strBillingCall = 'updateExecutionCoinsBalance(__nTotalCoins);';
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
     ;
@@ -41,10 +39,6 @@ function _spendCoins(nCurrent, nAmount) {
 
 module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxReceipt,*/ Contract}) =>
     class Application {
-        constructor() {
-            this._strTotalCoinsHash = crypto.randomBytes(10).toString('hex');
-        }
-
         /**
          *
          * @param {Transaction} tx
@@ -150,10 +144,10 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     strPreparedCode = strPredefinedClassesCode + strCode + strCodeSuffix;
                 } else {
                     strPreparedCode = `
-                        ${strCodePrefix(this._nCoinsLimit, this._strTotalCoinsHash)}
+                        ${strCodePrefix(this._nCoinsLimit)}
                         ${strPredefinedClassesCode}
-                        ${billingCodeWrapper(strCode, this._strTotalCoinsHash, nContractBillingVersion)}
-                        ${strBillingCall(this._strTotalCoinsHash)}
+                        ${billingCodeWrapper(strCode, nContractBillingVersion)}
+                        ${strBillingCall}
                         ${strCodeSuffix}
                     `;
                 }
@@ -298,10 +292,10 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     `;
                 } else {
                     strPreparedCode = `
-                        ${strCodePrefix(this._nCoinsLimit, this._strTotalCoinsHash)}
+                        ${strCodePrefix(this._nCoinsLimit)}
                         ${this._prepareCode(objMethods, nContractBillingVersion)}
                         ${objInvocationCode.method}(${strArgs});
-                        ${strBillingCall(this._strTotalCoinsHash)}
+                        ${strBillingCall}
                     `;
                 }
 
@@ -370,7 +364,7 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                 ];
                 objFuncCode[methodName] = [
                     codeParts[0],
-                    billingCodeWrapper(codeParts[1], this._strTotalCoinsHash, nContractBillingVersion)
+                    billingCodeWrapper(codeParts[1], nContractBillingVersion)
                 ].join(')');
 
                 // temporary name
