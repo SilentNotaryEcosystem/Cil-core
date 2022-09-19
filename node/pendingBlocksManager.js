@@ -473,7 +473,9 @@ module.exports = (factory, factoryOptions) => {
             return arrParents.find(hash => {
 
                 // no reason to create block upon own previous
-                if (this._dag.readObj(hash).conciliumId === block.conciliumId) return false;
+                const {blockHeader, bIsEmpty} = this._dag.readObj(hash);
+                if (blockHeader.conciliumId === block.conciliumId && bIsEmpty) return false;
+
                 const arrPaths = this._dag.findPathsDown(hash);
                 for (let path of arrPaths) {
                     for (let vertex of path) {
