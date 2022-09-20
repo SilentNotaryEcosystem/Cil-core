@@ -101,7 +101,7 @@ describe('Contract billing integration tests', () => {
         let contract = new factory.Contract(
             {
                 contractData: {},
-                contractCode: `{"test": "(){ 1+1; }"}`,
+                contractCode: `{"test": "(){ 1 + 1; }"}`,
                 conciliumId: 0
             },
             strContractAddress,
