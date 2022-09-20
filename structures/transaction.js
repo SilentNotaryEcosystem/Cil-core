@@ -103,6 +103,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @param {String} strCode
          * @param {Address} addrChangeReceiver
          * @returns {Transaction}
+         * @throws unsupported operation error in case if strCode contains any dangerous operation
          */
         static createContract(strCode, addrChangeReceiver) {
             typeforce(typeforce.String, strCode);

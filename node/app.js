@@ -8,9 +8,17 @@ const typeforce = require('typeforce');
 const debugLib = require('debug');
 const util = require('util');
 const types = require('../types');
+const billingCodeWrapper = require('../billing');
 
 const debug = debugLib('application:');
 
+const strCodePrefix = nTotalCoins => `
+    'use strict';
+    let exports;
+    let __nTotalCoins = ${nTotalCoins || 0};
+`;
+
+const strBillingCall = 'updateExecutionCoinsBalance(__nTotalCoins);';
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
     ;
@@ -20,9 +28,11 @@ const strCodeSuffix = `
 const CONTEXT_NAME = '__MyContext';
 const defaultFunctionName = '_default';
 
+const ContractRunOutOfCoinsText = 'Contract run out of coins';
+
 function _spendCoins(nCurrent, nAmount) {
     const nRemained = nCurrent - nAmount;
-    if (nRemained < 0) throw new Error('Contract run out of coins');
+    if (nRemained < 0) throw new Error(ContractRunOutOfCoinsText);
 
     return nRemained;
 }
@@ -103,9 +113,11 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
          * @param {String} strCode - contract code
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Number} nContractVersion - @see contract constructor
+         * @param {Number|undefined} nContractBillingVersion - supported contract billing version
+         * @throws unsupported operation error in case if strCode contains any dangerous operation
          * @returns {contract}
          */
-        createContract(strCode, environment, nContractVersion) {
+        createContract(strCode, environment, nContractVersion, nContractBillingVersion = undefined) {
             typeforce(typeforce.tuple(typeforce.String, typeforce.Object), arguments);
 
             this._execStarted();
@@ -113,7 +125,10 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
             const vm = new VM({
                 timeout: Constants.TIMEOUT_CODE,
                 sandbox: {
-                    ...environment
+                    ...environment,
+                    updateExecutionCoinsBalance: coins => {
+                        this._nCoinsLimit = coins;
+                    }
                 }
             });
 
@@ -123,8 +138,22 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
             let contract;
 
             try {
+                let strPreparedCode;
+
+                if (!nContractBillingVersion) {
+                    strPreparedCode = strPredefinedClassesCode + strCode + strCodeSuffix;
+                } else {
+                    strPreparedCode = `
+                        ${strCodePrefix(this._nCoinsLimit)}
+                        ${strPredefinedClassesCode}
+                        ${billingCodeWrapper(strCode, nContractBillingVersion)}
+                        ${strBillingCall}
+                        ${strCodeSuffix}
+                    `;
+                }
+
                 // run code (timeout could terminate code on slow nodes!! it's not good, but we don't need weak ones!)
-                const retVal = vm.run(strPredefinedClassesCode + strCode + strCodeSuffix);
+                const retVal = vm.run(strPreparedCode);
                 assert(retVal, 'Unexpected empty result from contract constructor!');
                 assert(retVal.objCode, 'No contract methods exported!');
                 assert(retVal.data, 'No contract data exported!');
@@ -142,6 +171,14 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     strCodeExportedFunctions,
                     nContractVersion
                 );
+            } catch (error) {
+                if (error.message.startsWith(`${ContractRunOutOfCoinsText}#`)) {
+                    const messageParts = error.message.split('#');
+                    this._nCoinsLimit = +messageParts[1];
+                    throw new Error(ContractRunOutOfCoinsText);
+                } else {
+                    throw error;
+                }
             } finally {
                 this._execDone(contract);
             }
@@ -181,9 +218,18 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
          * @param {Object} environment - global variables for contract (like contractAddr)
          * @param {Object} context - within we'll execute code, contain: contractData, global functions, environment
          * @param {Boolean} isConstantCall - constant function call. we need result not TxReceipt. used only by RPC
+         * @param {Number|undefined} nContractBillingVersion - supported contract billing version
+         * @throws unsupported operation error in case if strCode contains any dangerous operation
          * @returns {Promise<result>}
          */
-        async runContract(objInvocationCode, contract, environment, context = undefined, isConstantCall = false) {
+        async runContract(
+            objInvocationCode,
+            contract,
+            environment,
+            context = undefined,
+            isConstantCall = false,
+            nContractBillingVersion = undefined
+        ) {
             typeforce(typeforce.tuple(typeforce.Object, types.Contract, typeforce.Object), arguments);
 
             this._execStarted(contract);
@@ -220,7 +266,10 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     call: async (strAddress, objParams) =>
                         await this._callWithContext(strAddress, objParams, undefined, environment),
                     delegatecall: async (strAddress, objParams) =>
-                        await this._callWithContext(strAddress, objParams, thisContext, environment)
+                        await this._callWithContext(strAddress, objParams, thisContext, environment),
+                    updateExecutionCoinsBalance: coins => {
+                        this._nCoinsLimit = coins;
+                    }
                 };
 
                 const vm = new VM({
@@ -233,9 +282,13 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                 }
 
                 const strArgs = objInvocationCode.arrArguments.map(arg => JSON.stringify(arg)).join(',');
-                const strPreparedCode = `
-                    ${this._prepareCode(objMethods)}
-                    ${objInvocationCode.method}(${strArgs});`;
+
+                let strPreparedCode = nContractBillingVersion ? strCodePrefix(this._nCoinsLimit) : '';
+
+                strPreparedCode += `
+                    ${this._prepareCode(objMethods, nContractBillingVersion)}
+                    ${objInvocationCode.method}(${strArgs});
+                `;
 
                 result = await vm.run(strPreparedCode);
 
@@ -249,6 +302,14 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     // this will keep only data (strip proxies & member functions that we inject to call like this.method)
                     const objData = JSON.parse(JSON.stringify(newContractState));
                     contract.updateData(objData);
+                }
+            } catch (error) {
+                if (error.message.startsWith(`${ContractRunOutOfCoinsText}#`)) {
+                    const messageParts = error.message.split('#');
+                    this._nCoinsLimit = +messageParts[1];
+                    throw new Error(ContractRunOutOfCoinsText);
+                } else {
+                    throw error;
                 }
             } finally {
                 this._execDone(contract);
@@ -277,7 +338,7 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
          * @return {String} code of contract. just need to append invocation code
          * @private
          */
-        _prepareCode(objFuncCode) {
+        _prepareCode(objFuncCode, nContractBillingVersion = undefined) {
             let arrCode = [];
             for (let methodName in objFuncCode) {
                 // is it async function?
@@ -285,6 +346,15 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                 if (objFuncCode[methodName].startsWith('<')) {
                     objFuncCode[methodName] = objFuncCode[methodName].substr(1);
                     strAsync = 'async ';
+                }
+
+                if (nContractBillingVersion) {
+                    const bracketIndex = objFuncCode[methodName].indexOf(')') + 1;
+                    const codeParts = [
+                        objFuncCode[methodName].substr(0, bracketIndex),
+                        objFuncCode[methodName].substr(bracketIndex)
+                    ];
+                    objFuncCode[methodName] = `${codeParts[0]}{ try ${codeParts[1]} finally {${strBillingCall}} }`;
                 }
 
                 // temporary name

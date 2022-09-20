@@ -1277,7 +1277,8 @@ module.exports = (factory, factoryOptions) => {
                     contract = await this._app.createContract(
                         tx.getContractCode(),
                         environment,
-                        Constants.CONTRACT_V_V8
+                        Constants.CONTRACT_V_V8,
+                        this._getContractBillingForkVersion()
                     );
 
                     bNewContract = true;
@@ -1304,7 +1305,10 @@ module.exports = (factory, factoryOptions) => {
                     await this._app.runContract(
                         invocationCode && invocationCode.length ? JSON.parse(tx.getContractCode()) : {},
                         contract,
-                        environment
+                        environment,
+                        undefined,
+                        false,
+                        this._getContractBillingForkVersion()
                     );
                 }
 
@@ -1444,7 +1448,14 @@ module.exports = (factory, factoryOptions) => {
                 balance: cNestedContract.getBalance()
             };
 
-            const result = await this._app.runContract({method, arrArguments}, cNestedContract, newEnv, context);
+            const result = await this._app.runContract(
+                {method, arrArguments},
+                cNestedContract,
+                newEnv,
+                context,
+                false,
+                this._getContractBillingForkVersion()
+            );
 
             if (this._isTimeToForkSerializer3()) {
                 cNestedContract.dirtyWorkaround();
@@ -2328,7 +2339,14 @@ module.exports = (factory, factoryOptions) => {
                 nCoinsDummy
             });
 
-            return await this._app.runContract({method, arrArguments}, contract, newEnv, undefined, true);
+            return await this._app.runContract(
+                {method, arrArguments},
+                contract,
+                newEnv,
+                undefined,
+                true,
+                this._getContractBillingForkVersion()
+            );
         }
 
         /**
@@ -2548,6 +2566,17 @@ module.exports = (factory, factoryOptions) => {
                 !this._processedBlock ||
                 (this._processedBlock && this._processedBlock.getHeight() < Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3)
             );
+        }
+
+        _getContractBillingForkVersion() {
+            if (
+                this._processedBlock &&
+                this._processedBlock.getHeight() >= Constants.forks.HEIGHT_FORK_CONTRACT_BILLING1
+            ) {
+                return 1;
+            }
+
+            return undefined;
         }
     };
 };
