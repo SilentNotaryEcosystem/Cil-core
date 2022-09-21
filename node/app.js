@@ -19,6 +19,15 @@ const strCodePrefix = nTotalCoins => `
 `;
 
 const strBillingCall = 'updateExecutionCoinsBalance(__nTotalCoins);';
+
+const billingCodeWrapperTryFinally = (strCode, nContractBillingVersion) => `
+    try {
+        ${billingCodeWrapper(strCode, nContractBillingVersion)}
+    } finally {
+        ${strBillingCall}
+    }
+`;
+
 const strPredefinedClassesCode = fs.readFileSync(path.resolve(__dirname + '/../proto/predefinedClasses.js'));
 const strCodeSuffix = `
     ;
@@ -146,8 +155,7 @@ module.exports = ({Constants, /*Transaction,*/ Crypto, PatchDB, /*Coins, TxRecei
                     strPreparedCode = `
                         ${strCodePrefix(this._nCoinsLimit)}
                         ${strPredefinedClassesCode}
-                        ${billingCodeWrapper(strCode, nContractBillingVersion)}
-                        ${strBillingCall}
+                        ${billingCodeWrapperTryFinally(strCode, nContractBillingVersion)}
                         ${strCodeSuffix}
                     `;
                 }

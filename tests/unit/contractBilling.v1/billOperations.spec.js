@@ -57,6 +57,27 @@ describe('Contract billing: bill operations', () => {
         assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - fees.ADD, app._nCoinsLimit);
     });
 
+    it('should reduce balance by ADD operation cost with an exception', async () => {
+        const errorName = 'some error';
+        const strCode = `{
+            1 + 1;
+            throw new Error('${errorName}');
+        }`;
+
+        const contract = new factory.Contract({
+            contractCode: JSON.stringify({test: `()${billingCodeWrapper(strCode, nContractBillingVersion)}`}),
+            conciliumId: 10
+        });
+
+        const initialCoins = app._nCoinsLimit;
+        assert.isRejected(
+            app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, false, 1),
+            errorName
+        );
+
+        assert.equal(initialCoins - CONTRACT_INVOCATION_FEE - fees.ADD, app._nCoinsLimit);
+    });
+
     it('should reduce balance by unary ADD operation cost', async () => {
         const contract = new factory.Contract({
             contractCode: JSON.stringify({
@@ -285,10 +306,10 @@ describe('Contract billing: bill operations', () => {
 
     it('should reduce balance by "for" loop iterations cost', async () => {
         const loopIterations = 7;
-        const code = `{ for (let i=0; i<${loopIterations}; i++); }`;
+        const strCode = `{ for (let i=0; i<${loopIterations}; i++); }`;
         const contract = new factory.Contract({
             contractCode: JSON.stringify({
-                test: `()${billingCodeWrapper(code, nContractBillingVersion)}`
+                test: `()${billingCodeWrapper(strCode, nContractBillingVersion)}`
             }),
             conciliumId: 10
         });
@@ -304,10 +325,10 @@ describe('Contract billing: bill operations', () => {
 
     it('should reduce balance by "while" loop iterations cost', async () => {
         const loopIterations = 5;
-        const code = `{ let i = 0; while (i++ < ${loopIterations}); }`;
+        const strCode = `{ let i = 0; while (i++ < ${loopIterations}); }`;
         const contract = new factory.Contract({
             contractCode: JSON.stringify({
-                test: `()${billingCodeWrapper(code, nContractBillingVersion)}`
+                test: `()${billingCodeWrapper(strCode, nContractBillingVersion)}`
             }),
             conciliumId: 10
         });
@@ -323,10 +344,10 @@ describe('Contract billing: bill operations', () => {
 
     it('should reduce balance by "do while" loop iterations cost', async () => {
         const loopIterations = 9;
-        const code = `{ let i = 0; do ; while (i++ < ${loopIterations}) }`;
+        const strCode = `{ let i = 0; do ; while (i++ < ${loopIterations}) }`;
         const contract = new factory.Contract({
             contractCode: JSON.stringify({
-                test: `()${billingCodeWrapper(code, nContractBillingVersion)}`
+                test: `()${billingCodeWrapper(strCode, nContractBillingVersion)}`
             }),
             conciliumId: 10
         });
@@ -354,6 +375,28 @@ describe('Contract billing: bill operations', () => {
 
         const initialCoins = app._nCoinsLimit;
         app.createContract(strCode, {contractAddr: 'hash', callerAddress}, undefined, 1);
+        assert.equal(initialCoins - CONTRACT_CREATION_FEE - fees.ADD, app._nCoinsLimit);
+    });
+
+    it('should reduce balance by ADD operation cost for an object with an exception', async () => {
+        const errorName = 'some error';
+
+        const strCode = `
+            class A extends Base {
+                constructor(){
+                    super();
+                    1 + 1;
+                    throw new Error('${errorName}');
+                }
+            }
+            exports=new A();
+            `;
+        const callerAddress = generateAddress().toString('hex');
+
+        const initialCoins = app._nCoinsLimit;
+        const createContract = () => app.createContract(strCode, {contractAddr: 'hash', callerAddress}, undefined, 1);
+        assert.throws(createContract, errorName);
+
         assert.equal(initialCoins - CONTRACT_CREATION_FEE - fees.ADD, app._nCoinsLimit);
     });
 
