@@ -251,7 +251,7 @@ module.exports = factory => {
 
         findBestPeers() {
             return Array.from(this._mapAllPeers.values())
-                .filter(peer => !peer.isRestricted() || !peer.isBanned() || !peer.isDead())
+                .filter(peer => !peer.isRestricted() && !peer.isBanned() && !peer.isDead())
                 .sort((a, b) => b.quality - a.quality)
                 .slice(0, Constants.MAX_PEERS);
         }
