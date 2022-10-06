@@ -393,6 +393,14 @@ module.exports = {
             .catch(cb);
     },
 
+    wrapRpc: fn => (objArgs, cb) => {
+        fn(objArgs, cb)
+            .then(result => cb(null, result))
+            .catch(err => {
+                cb({code: -32603, message: err.message});
+            });
+    },
+
     readCmdLineOptions: () => {
         const optionDefinitions = [
             {name: 'fixLevelDb', type: Boolean, multiple: false},

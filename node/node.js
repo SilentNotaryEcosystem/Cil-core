@@ -1609,7 +1609,7 @@ module.exports = (factory, factoryOptions) => {
             await this._storage.removeBadBlocks(setBlocksToRollback);
 
             if (this._rpc) {
-                this._rpc.informWsSubscribersStableBlocks(Array.from(setStableBlocks.keys()));
+                this._rpc._informWsSubscribersStableBlocks(Array.from(setStableBlocks.keys()));
             }
         }
 
@@ -1679,7 +1679,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._rpc) {
                 const blockAndState = await this._getBlockAndState(block.hash()).catch(err => debugNode(err));
-                this._rpc.informWsSubscribersNewBlock(blockAndState);
+                this._rpc._informWsSubscribersNewBlock(blockAndState);
             }
         }
 

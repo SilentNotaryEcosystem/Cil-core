@@ -3,9 +3,7 @@ const typeforce = require('typeforce');
 const assert = require('assert');
 const {version} = require('../package');
 
-const rpc = require('json-rpc2');
-
-const {asyncRPC, prepareForStringifyObject, stripAddressPrefix, finePrintUtxos} = require('../utils');
+const {wrapRpc, prepareForStringifyObject, stripAddressPrefix, finePrintUtxos} = require('../utils');
 const types = require('../types');
 
 module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
@@ -22,52 +20,49 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
             this._nodeInstance = cNodeInstance;
             this._storedWallets = new StoredWallet({storage: cNodeInstance.storage});
 
-            const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1', rpcRate = 20} = options;
-            this._server = rpc.Server.$create({
-                websocket: true,
-                headers: {
-                    'Access-Control-Allow-Origin': '*'
-                },
+            const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
 
-                ratelimit: {maxPerInterval: rpcRate, msInterval: 1000},
+            const setMethodsExclude = new Set(['constructor']);
+            const objMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
+                .filter(name => !setMethodsExclude.has(name) || name.startsWith('_'))
+                .reduce((obj, name) => {
+                    //                    obj[name] = asyncRPC(this[name].bind(this));
+                    obj[name] = wrapRpc(this[name].bind(this));
+                    return obj;
+                }, {});
 
+            const jayson = require('jayson/promise');
+            const cors = require('cors');
+            const express = require('express');
+            const helmet = require('helmet');
+
+            this._server = new jayson.Server(objMethods, {
                 // this allow override defaults above
                 ...options
             });
-            if (rpcUser && rpcPass) this._server.enableAuth(rpcUser, rpcPass);
 
-            this._server.expose('sendRawTx', asyncRPC(this.sendRawTx.bind(this)));
-            this._server.expose('getTxReceipt', asyncRPC(this.getTxReceipt.bind(this)));
-            this._server.expose('getBlock', asyncRPC(this.getBlock.bind(this)));
-            this._server.expose('getTips', asyncRPC(this.getTips.bind(this)));
-            this._server.expose('getNext', asyncRPC(this.getNext.bind(this)));
-            this._server.expose('getPrev', asyncRPC(this.getPrev.bind(this)));
-            this._server.expose('getTx', asyncRPC(this.getTx.bind(this)));
-            this._server.expose('constantMethodCall', asyncRPC(this.constantMethodCall.bind(this)));
-            this._server.expose('getContractData', asyncRPC(this.getContractData.bind(this)));
-            this._server.expose('getUnspent', asyncRPC(this.getUnspent.bind(this)));
+            const app = express();
+            if (rpcUser) {
+                const passport = require('passport');
+                const BasicStrategy = require('passport-http').BasicStrategy;
 
-            this._server.expose('walletListUnspent', asyncRPC(this.walletListUnspent.bind(this)));
-            this._server.expose('accountListUnspent', asyncRPC(this.getAccountUnspent.bind(this)));
-            this._server.expose('getBalance', asyncRPC(this.getBalance.bind(this)));
-            this._server.expose('getAccountBalance', asyncRPC(this.getAccountBalance.bind(this)));
+                passport.use(
+                    new BasicStrategy(function (username, password, cb) {
+                        if (rpcUser === username && rpcPass === password) {
+                            return cb(null, username);
+                        }
+                        return cb(null, false);
+                    })
+                );
+                app.use(passport.authenticate('basic', {session: false}));
+            }
 
-            this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
-            this._server.expose('getWalletsAddresses', asyncRPC(this.getWalletsAddresses.bind(this)));
-            this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
-            this._server.expose('countWallets', asyncRPC(this.countWallets.bind(this)));
-            this._server.expose('getLastBlockByConciliumId', asyncRPC(this.getLastBlockByConciliumId.bind(this)));
+            app.use(cors({methods: ['POST']}));
+            app.use(helmet({crossOriginEmbedderPolicy: false}));
+            app.use(express.json());
+            app.use(this._server.middleware());
 
-            this._server.expose('unlockAccount', asyncRPC(this.unlockAccount.bind(this)));
-            this._server.expose('importPrivateKey', asyncRPC(this.importPrivateKey.bind(this)));
-            this._server.expose('getNewAddress', asyncRPC(this.getNewAddress.bind(this)));
-
-            this._server.expose('sendToAddress', asyncRPC(this.sendToAddress.bind(this)));
-            this._server.expose('callContract', asyncRPC(this.callContract.bind(this)));
-
-            this._server.expose('nodeStatus', asyncRPC(this.nodeStatus.bind(this)));
-
-            this._server.listen(rpcPort, rpcAddress);
+            app.listen(rpcPort, rpcAddress);
         }
 
         /**
@@ -104,19 +99,9 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
             return prepareForStringifyObject(cReceipt ? cReceipt.toObject() : undefined);
         }
 
-        informWsSubscribersNewBlock(result) {
-            this._server.broadcastToWS('newBlock', {
-                hash: result.block.getHash(),
-                block: prepareForStringifyObject(result.block.toObject()),
-                state: result.state
-            });
-        }
+        _informWsSubscribersNewBlock() {}
 
-        informWsSubscribersStableBlocks(arrHashes) {
-            this._server.broadcastToWS('stableBlocks', {
-                arrHashes
-            });
-        }
+        _informWsSubscribersStableBlocks() {}
 
         /**
          *
