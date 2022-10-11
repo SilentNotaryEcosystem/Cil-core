@@ -41,28 +41,30 @@ module.exports = ({Constants, Transaction, StoredWallet /*UTXO*/}) =>
                 ...options
             });
 
-            const app = express();
-            if (rpcUser) {
-                const passport = require('passport');
-                const BasicStrategy = require('passport-http').BasicStrategy;
+            if (rpcPort) {
+                const app = express();
+                if (rpcUser) {
+                    const passport = require('passport');
+                    const BasicStrategy = require('passport-http').BasicStrategy;
 
-                passport.use(
-                    new BasicStrategy(function (username, password, cb) {
-                        if (rpcUser === username && rpcPass === password) {
-                            return cb(null, username);
-                        }
-                        return cb(null, false);
-                    })
-                );
-                app.use(passport.authenticate('basic', {session: false}));
+                    passport.use(
+                        new BasicStrategy(function (username, password, cb) {
+                            if (rpcUser === username && rpcPass === password) {
+                                return cb(null, username);
+                            }
+                            return cb(null, false);
+                        })
+                    );
+                    app.use(passport.authenticate('basic', {session: false}));
+                }
+
+                app.use(cors({methods: ['POST']}));
+                app.use(helmet({crossOriginEmbedderPolicy: false}));
+                app.use(express.json());
+                app.use(this._server.middleware());
+
+                app.listen(rpcPort, rpcAddress);
             }
-
-            app.use(cors({methods: ['POST']}));
-            app.use(helmet({crossOriginEmbedderPolicy: false}));
-            app.use(express.json());
-            app.use(this._server.middleware());
-
-            app.listen(rpcPort, rpcAddress);
         }
 
         /**
