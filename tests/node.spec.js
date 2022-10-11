@@ -889,8 +889,8 @@ describe('Node tests', async () => {
             node._peerManager.addPeer(peer);
         });
         await node._reconnectPeers();
-        assert.equal(connectToPeer.callCount, 3);
-        assert.equal(pushMessage.callCount, 3);
+        assert.isBelow(connectToPeer.callCount, factory.Constants.MIN_PEERS);
+        assert.isBelow(pushMessage.callCount, factory.Constants.MIN_PEERS);
     });
 
     it('should create internal TX', async () => {
@@ -1205,7 +1205,7 @@ describe('Node tests', async () => {
             assert.isOk(node._mempool.addLocalTx.calledOnce);
         });
 
-        it('fails to send TX (confilct with existing)', async () => {
+        it('fails to send TX (conflict with existing)', async () => {
             node._acceptLocalTx = sinon.fake.rejects('Failed');
 
             return assert.isRejected(node.rpcHandler({
