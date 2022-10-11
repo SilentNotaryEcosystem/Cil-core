@@ -52,6 +52,6 @@
     "lint": "./node_modules/.bin/eslint './**/*.js'",
     "check": "npx prettier --check .",
     "fix": "npx prettier --write .",
-    "prepare": "husky install && ./hookSetup.sh"
+    "husky": "husky install && ./hookSetup.sh"
   }
 }

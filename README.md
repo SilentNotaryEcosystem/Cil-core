@@ -10,14 +10,15 @@ cd Cil-core
 git checkout tags/latest
 ```
 
-#### 2. Setup [Node.js (10.15.2) и npm](https://nodejs.org/dist/v10.15.2/node-v10.15.2.pkg)
+#### 2. Setup [Node.js (16.17.0) and npm](https://nodejs.org/dist/v16.17.0/node-v16.17.0.pkg)
 
 #### 3. Setup dependencies and run a Node.js App
 
 ```
 npm install
-node index.js // node install
-node savePrivateKey.js` //write private key to file (keystore analog)
+npm run husky // optional. only if you want to contribute the project install git hooks for dev mode
+node index.js // node start
+node savePrivateKey.js // write private key to file (keystore analog)
 ```
 
 ## The installation process (Docker):

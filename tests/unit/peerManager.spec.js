@@ -398,6 +398,74 @@ describe('Peer manager', () => {
         }
     });
 
+    it('should find best peers except banned, restricted and dead', async () => {
+        const pm = new factory.PeerManager();
+
+        // proper & alive peer
+        const peer1 = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
+
+        peer1.isRestricted = sinon.fake.returns(false);
+        peer1.isBanned = sinon.fake.returns(false);
+        peer1.isDead = sinon.fake.returns(false);
+
+        await pm.addPeer(peer1);
+
+        // restricted peer
+        const peer2 = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
+
+        peer2.isRestricted = sinon.fake.returns(true);
+        peer2.isBanned = sinon.fake.returns(false);
+        peer2.isDead = sinon.fake.returns(false);
+
+        await pm.addPeer(peer2);
+
+        // banned peer
+        const peer3 = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
+
+        peer3.isRestricted = sinon.fake.returns(false);
+        peer3.isBanned = sinon.fake.returns(true);
+        peer3.isDead = sinon.fake.returns(false);
+
+        await pm.addPeer(peer3);
+
+        // dead peer
+        const peer4 = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: () => 0,
+                on: () => {}
+            }
+        });
+
+        peer4.isRestricted = sinon.fake.returns(false);
+        peer4.isBanned = sinon.fake.returns(false);
+        peer4.isDead = sinon.fake.returns(true);
+
+        await pm.addPeer(peer2);
+
+        const bestPeers = pm.findBestPeers();
+
+        assert.equal(bestPeers.length, 1);
+    });
+
     it('should remove peer', async () => {
         const pm = new factory.PeerManager();
         const peer = new factory.Peer(createDummyPeer(factory));
