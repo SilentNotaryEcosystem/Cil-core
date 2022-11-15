@@ -27,7 +27,9 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
             this._server = rpc.Server.$create({
                 websocket: true,
                 headers: {
-                    'Access-Control-Allow-Origin': '*'
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
+                    'Access-Control-Allow-Headers': '*'
                 },
 
                 ratelimit: {maxPerInterval: rpcRate, msInterval: 1000},
