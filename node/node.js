@@ -1015,7 +1015,6 @@ module.exports = (factory, factoryOptions) => {
                 // all merges passed - accept new tx
                 this._mempool.addLocalTx(newTx, patchNewTx);
 
-                // inform 2 pseudorandom neighbours about new Tx
                 await this._informNeighbors(newTx);
             } catch (e) {
                 logger.error(e);
@@ -1042,7 +1041,6 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._mempool.hasTx(tx.hash())) return;
 
-            let patchThisTx;
             try {
                 await this._storage.checkTxCollision([strTxHash]);
                 await this._validateTxLight(tx);
@@ -2327,34 +2325,38 @@ module.exports = (factory, factoryOptions) => {
                 [method, arrArguments, contractAddress]
             );
 
-            let contract = await this._storage.getContract(contractAddress);
+            const lock = await this._mutex.acquire(['transaction']);
+            try {
+                let contract = await this._storage.getContract(contractAddress);
 
-            if (!completed) {
-                const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getConciliumId());
-                if (pendingContract) contract = pendingContract;
+                if (!completed) {
+                    const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getConciliumId());
+                    if (pendingContract) contract = pendingContract;
+                }
+
+                if (!contract) throw new Error(`Contract ${contractAddress} not found`);
+
+                const newEnv = {
+                    contractAddr: contract.getStoredAddress(),
+                    balance: contract.getBalance()
+                };
+
+                const nCoinsDummy = Number.MAX_SAFE_INTEGER;
+                this._app.setCallbacks(this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64)));
+                this._app.setupVariables({
+                    objFees: { nFeeContractInvocation: nCoinsDummy },
+                    nCoinsDummy
+                });
+                return await this._app.runContract(
+                    { method, arrArguments },
+                    contract,
+                    newEnv,
+                    undefined,
+                    true
+                );
+            } finally {
+                this._mutex.release(lock);
             }
-
-            if (!contract) throw new Error(`Contract ${contractAddress} not found`);
-
-            const newEnv = {
-                contractAddr: contract.getStoredAddress(),
-                balance: contract.getBalance()
-            };
-
-            const nCoinsDummy = Number.MAX_SAFE_INTEGER;
-            this._app.setCallbacks(this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64)));
-            this._app.setupVariables({
-                objFees: {nFeeContractInvocation: nCoinsDummy},
-                nCoinsDummy
-            });
-
-            return await this._app.runContract(
-                {method, arrArguments},
-                contract,
-                newEnv,
-                undefined,
-                true
-            );
         }
 
         /**
