@@ -92,6 +92,8 @@ describe('Witness tests', () => {
         const result = await witness._getConciliumPeers(concilium);
         assert.isOk(Array.isArray(result));
         assert.equal(result.length, 2);
+        assert.equal(result[0].witnessAddress, keyPair1.address);
+        assert.equal(result[1].witnessAddress, keyPair2.address);
     });
 
     it('should reject message with wrong signature prom peer', async () => {

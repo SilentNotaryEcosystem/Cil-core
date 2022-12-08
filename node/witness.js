@@ -220,17 +220,10 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _getConciliumPeers(concilium) {
-            const arrConciliumAddresses = concilium.getAddresses();
-            const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS}, true);
-            const arrPeers = [];
-            for (let peer of arrAllWitnessesPeers) {
-                if (~arrConciliumAddresses.findIndex(addr => {
-                    const strAddr = addr.toString('hex');
-                    return strAddr === peer.witnessAddress;
-                })) {
-                    arrPeers.push(peer);
-                }
-            }
+            const arrConciliumAddresses = concilium.getAddresses(false);
+            const arrPeers = this._peerManager
+                .filterPeers({service: Constants.WITNESS}, true)
+                .filter(peer => ~arrConciliumAddresses.findIndex(walletAddr => walletAddr === peer.witnessAddress));
             return arrPeers;
         }
 

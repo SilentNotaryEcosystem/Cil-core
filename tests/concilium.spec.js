@@ -174,6 +174,19 @@ describe('Conciliums', async () => {
             assert.isOk(concilium._arrProposers.length === concilium._nSeqLength);
         });
 
+        it('should sort members from most staked', async () => {
+            const arrMembers=[
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ];
+            concilium = factory.ConciliumPos.create(11, 1e3, 100, arrMembers);
+
+            assert.deepEqual(concilium.getAddresses(false), [
+                arrMembers[1].address,
+                arrMembers[0].address
+            ]);
+        });
+
         describe('quorum', function() {
             it('should be less than one ', async () => {
                 assert.isOk(concilium.getQuorum() < 1);
