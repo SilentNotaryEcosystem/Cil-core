@@ -81,7 +81,6 @@ describe('UbixNS', () => {
                 () => contract.create({...objUnsData, strDidAddress: null}),
                 'strDidAddress should be a string'
             );
-            7;
         });
 
         it('should throw (create twice)', async () => {
@@ -89,8 +88,6 @@ describe('UbixNS', () => {
             assert.throws(() => contract.create(objUnsData), 'Hash has already defined');
         });
     });
-
-    // TODO!!!! тут давать удалять только если это его!!!!
 
     describe('remove Ubix NS record', async () => {
         let objUnsData;
@@ -123,7 +120,7 @@ describe('UbixNS', () => {
             assert.throws(() => contract.remove(objUnsData), 'You should sign TX');
         });
 
-        it('should throw (low create fee)', async () => {
+        it('should throw (low remove fee)', async () => {
             global.value = 130000 - 1;
             assert.throws(() => contract.remove(objUnsData), 'Update fee is 130000');
         });
@@ -213,6 +210,102 @@ describe('UbixNS', () => {
             assert.throws(() => contract.createBatch(null), 'Must be a Map instance');
         });
 
+        it('should throw (unsigned TX)', async () => {
+            global.callerAddress = undefined;
+
+            const objDidDocument = {
+                ubix: 'my_ubix_nick',
+                email: 'my@best.mail',
+                tg: 'john_doe'
+            };
+            const strIssuerName = 'Me';
+            const strDidAddress = '0x121212121212';
+
+            const keyMap = new Map(
+                Object.entries(objDidDocument).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            assert.throws(() => contract.createBatch(keyMap), 'You should sign TX');
+        });
+
+        it('should throw (low create fee)', async () => {
+            global.value = 130000 - 1;
+
+            const objDidDocument = {
+                ubix: 'my_ubix_nick',
+                email: 'my@best.mail',
+                tg: 'john_doe'
+            };
+            const strIssuerName = 'Me';
+            const strDidAddress = '0x121212121212';
+
+            const keyMap = new Map(
+                Object.entries(objDidDocument).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            assert.throws(() => contract.createBatch(keyMap), 'Update fee is 130000');
+        });
+
+        it('should throw (strName should be a string)', async () => {
+            const objDidDocument = {
+                ubix: null,
+                email: 'my@best.mail',
+                tg: 'john_doe'
+            };
+            const strIssuerName = 'Me';
+            const strDidAddress = '0x121212121212';
+
+            const keyMap = new Map(
+                Object.entries(objDidDocument).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            assert.throws(() => contract.createBatch(keyMap), 'strName should be a string');
+        });
+
+        it('should throw (strAddress should be a string)', async () => {
+            const objDidDocument = {
+                ubix: 'my_ubix_nick',
+                email: 'my@best.mail',
+                tg: 'john_doe'
+            };
+            const strIssuerName = 'Me';
+            const strDidAddress = null;
+
+            const keyMap = new Map(
+                Object.entries(objDidDocument).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            assert.throws(() => contract.createBatch(keyMap), 'strDidAddress should be a string');
+        });
+
         it('should throw (create twice)', async () => {
             const objDidDocument = {
                 ubix: 'my_ubix_nick',
@@ -274,6 +367,100 @@ describe('UbixNS', () => {
             assert.throws(() => contract.removeBatch({}, strAddress), 'Must be a Map instance');
         });
 
+        it('should throw (unsigned TX)', async () => {
+            const objDidDocument = {
+                ubix: 'my_ubix_nick',
+                email: 'my@best.mail',
+                tg: 'john_doe'
+            };
+            const strIssuerName = 'Me';
+            const strDidAddress = '0x121212121212';
+
+            const keyMap = new Map(
+                Object.entries(objDidDocument).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            contract.createBatch(keyMap);
+
+            global.callerAddress = undefined;
+            assert.throws(() => contract.removeBatch(keyMap), 'You should sign TX');
+        });
+
+        it('should throw (low remove fee)', async () => {
+            const objDidDocument = {
+                ubix: 'my_ubix_nick',
+                email: 'my@best.mail',
+                tg: 'john_doe'
+            };
+            const strIssuerName = 'Me';
+            const strDidAddress = '0x121212121212';
+
+            const keyMap = new Map(
+                Object.entries(objDidDocument).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            contract.createBatch(keyMap);
+
+            global.value = 130000 - 1;
+            assert.throws(() => contract.removeBatch(keyMap), 'Update fee is 130000');
+        });
+
+        it('should throw (strName should be a string)', async () => {
+            const objDidDocument = {
+                ubix: 'my_ubix_nick',
+                email: 'my@best.mail',
+                tg: 'john_doe'
+            };
+
+            const objDidDocument2 = {
+                ubix: 'my_ubix_nick',
+                email: null,
+                tg: 'john_doe'
+            };
+
+            const strIssuerName = 'Me';
+            const strDidAddress = '0x121212121212';
+
+            const keyMap = new Map(
+                Object.entries(objDidDocument).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            const keyMap2 = new Map(
+                Object.entries(objDidDocument2).map(([strProvider, strName]) => [
+                    strProvider,
+                    {
+                        strName,
+                        strIssuerName,
+                        strDidAddress
+                    }
+                ])
+            );
+
+            contract.createBatch(keyMap);
+            assert.throws(() => contract.removeBatch(keyMap2), 'strName should be a string');
+        });
+
         it('should throw (Unauthorized call)', () => {
             const objDidDocument = {
                 ubix: 'my_ubix_nick',
@@ -298,7 +485,6 @@ describe('UbixNS', () => {
             assert.equal(Object.keys(contract._data).length, Object.keys(objDidDocument).length);
 
             global.callerAddress = generateAddress().toString('hex');
-
             assert.throws(() => contract.removeBatch(keyMap), 'Unauthorized call');
         });
     });
