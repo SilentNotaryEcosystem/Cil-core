@@ -1254,6 +1254,7 @@ module.exports = (factory, factoryOptions) => {
                 coinsLimit
             });
 
+            const lock = await this._mutex.acquire(['application']);
             try {
                 if (!contract) {
                     if (coinsLimit < nFeeContractCreation) {
@@ -1308,6 +1309,8 @@ module.exports = (factory, factoryOptions) => {
                 logger.error('Error in contract!', err);
                 status = Constants.TX_STATUS_FAILED;
                 message = err.message ? err.message : err.toString();
+            }finally {
+                this._mutex.release(lock);
             }
 
             receipt = new TxReceipt({
@@ -2325,7 +2328,7 @@ module.exports = (factory, factoryOptions) => {
                 [method, arrArguments, contractAddress]
             );
 
-            const lock = await this._mutex.acquire(['transaction']);
+            const lock = await this._mutex.acquire(['transaction', 'application']);
             try {
                 let contract = await this._storage.getContract(contractAddress);
 
