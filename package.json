@@ -1,7 +1,7 @@
 {
   "name": "chain-in-law",
   "engines": {
-    "node": "16.17.0"
+    "node": "^16.17.0"
   },
   "version": "0.7.3",
   "main": "factory.js",
