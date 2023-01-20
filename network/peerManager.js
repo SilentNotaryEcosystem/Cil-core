@@ -31,7 +31,7 @@ module.exports = (factory) => {
             this._strictAddresses = strictAddresses || false;
 
             // don't use source address from tcp connection, always use MSG_VERSION
-            this._trustAnnounce = trustAnnounce || true;
+            this._trustAnnounce = trustAnnounce === undefined ? true : trustAnnounce;
 
             // to pass it to peers
             this._transport = transport;
