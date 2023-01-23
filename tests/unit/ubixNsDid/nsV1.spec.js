@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {UbixNSv1Test1: UnsContract} = require('./nsV1');
+const {UbixNSv1Test1: UnsContract} = require('./didNsV1');
 const factory = require('../../testFactory');
 
 const {generateAddress, pseudoRandomBuffer} = require('../../testUtil');
@@ -24,6 +24,7 @@ describe('Ubix NS', () => {
         global.value = 0;
         global.callerAddress = generateAddress().toString('hex');
         global.contractTx = pseudoRandomBuffer().toString('hex');
+        global.createHash = str => factory.Crypto.createHash(str);
         contract = new UnsContract();
     });
 
@@ -32,7 +33,6 @@ describe('Ubix NS', () => {
 
         beforeEach(async () => {
             global.value = 130000;
-
             objUnsData = {
                 strProvider: 'ubix',
                 strName: 'mytestname',

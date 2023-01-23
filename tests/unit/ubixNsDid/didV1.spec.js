@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {DidV1Test1: DidContract} = require('./didV1');
+const {DidV1Test1: DidContract} = require('./didNsV1');
 
 const factory = require('../../testFactory');
 
@@ -24,7 +24,7 @@ describe('Ubix DID', () => {
     beforeEach(async () => {
         global.value = 0;
         global.callerAddress = generateAddress().toString('hex');
-
+        global.createHash = str => factory.Crypto.createHash(str);
         contract = new DidContract();
     });
 
@@ -71,6 +71,32 @@ describe('Ubix DID', () => {
         it('should throw (create twice)', async () => {
             contract.create(objData);
             assert.throws(() => contract.create(objData), 'Hash has already defined');
+        });
+    });
+
+    describe('remove Ubix NS record', async () => {
+        let objData;
+
+        beforeEach(async () => {
+            global.value = 130000;
+
+            objData = {
+                objDidDocument: {
+                    tg: 'my-tele-nick',
+                    email: 'my-email@test.com'
+                },
+                strIssuerName: 'Me'
+            };
+        });
+
+        it('should remove', async () => {
+            const strDidAddress = contract.create(objData);
+
+            assert.equal(Object.keys(contract._dids).length, 1);
+
+            contract.remove(strDidAddress);
+
+            assert.equal(Object.keys(contract._dids).length, 0);
         });
     });
 });
