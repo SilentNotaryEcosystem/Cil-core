@@ -1537,7 +1537,7 @@ module.exports = (factory, factoryOptions) => {
 
             // process coinbase tx
             if (!isGenesis) {
-                this._processBlockCoinbaseTX(block, blockFees, patchState);
+                await this._processBlockCoinbaseTX(block, blockFees, patchState);
             }
 
             debugNode(`Block ${block.getHash()} being executed`);
@@ -1551,8 +1551,9 @@ module.exports = (factory, factoryOptions) => {
          * @param {PatchDB} patchState - patch to add coins
          * @private
          */
-        _processBlockCoinbaseTX(block, blockFees, patchState) {
+        async _processBlockCoinbaseTX(block, blockFees, patchState) {
             const coinbase = new Transaction(block.txns[0]);
+            await this._storage.checkTxCollision([coinbase.getHash()]);
             if (!this.isGenesisBlock(block)) coinbase.verifyCoinbase(blockFees);
             const coins = coinbase.getOutCoins();
             for (let i = 0; i < coins.length; i++) {

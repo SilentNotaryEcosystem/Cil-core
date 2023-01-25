@@ -688,7 +688,7 @@ describe('Node tests', async () => {
 
         //
         await node._storage.updatePendingBlocks(arrHashes);
-        node._processBlockCoinbaseTX = sinon.fake();
+        node._processBlockCoinbaseTX = sinon.fake.resolves();
         node._checkHeight = sinon.fake.returns(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
@@ -715,7 +715,7 @@ describe('Node tests', async () => {
         await node._storage.updatePendingBlocks(
             [arrBlocks[0].getHash(), arrBlocks[1].getHash(), arrBlocks[2].getHash(), arrBlocks[3].getHash()]
         );
-        node._processBlockCoinbaseTX = sinon.fake();
+        node._processBlockCoinbaseTX = sinon.fake.resolves();
         node._checkHeight = sinon.fake.returns(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();

@@ -424,6 +424,10 @@ module.exports = (factory, factoryOptions) => {
                 let lockBlock;
 
                 try {
+                    if (await this._isBlockKnown(block.hash())) {
+                        throw new Error(`"commitBlock": block ${block.hash()} already known!`);
+                    }
+
                     const arrContracts = [...patch.getContracts()];
                     if (arrContracts.length) {
 
@@ -585,7 +589,7 @@ module.exports = (factory, factoryOptions) => {
                 if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
                 block.finish(totalFee, this._wallet.address, await this._getFeeSizePerInput(conciliumId));
-                this._processBlockCoinbaseTX(block, totalFee, patchMerged);
+                await this._processBlockCoinbaseTX(block, totalFee, patchMerged);
 
                 debugWitness(
                     `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
