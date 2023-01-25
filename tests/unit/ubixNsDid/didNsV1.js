@@ -4,6 +4,8 @@ const HASH_HAS_DIFFERENT_ADDRESS = 'Hash belongs to a different address';
 const MUST_BE_MAP_INSTANCE = 'Must be a Map instance';
 const DID_DOCUMENT_HASH_ALREADY_DEFINED = 'DID document hash has already defined';
 const DID_DOCUMENT_DOESNT_HAVE_UNS_KEYS = 'DID document does not have Ubix NS keys';
+const DID_OBJ_DATA_HAS_WRONG_FORMAT = 'objData has wrong format';
+const ADDRESS_SHOULD_BE_STRING = 'strDidAddress should be a string';
 
 const DID_PREFIX = 'did:ubix';
 
@@ -176,6 +178,8 @@ class DidV1Test1 extends Base {
 
     create(objData) {
         this._validatePermissions();
+        this._validateObjData(objData, true);
+
         const strDidDocument = JSON.stringify(objData.objDidDocument);
 
         const strDidAddress = createHash(strDidDocument); // eslint-disable-line
@@ -191,12 +195,14 @@ class DidV1Test1 extends Base {
 
         this._ns.createBatch(keyMap);
 
-        this._dids[strDidAddress] = objData.objDidDocument;
+        this._dids[strDidAddress] = {objDidDocument: objData.objDidDocument, strIssuerName: objData.strIssuerName};
 
         return strDidAddress;
     }
 
     remove(strDidAddress) {
+        this._validateDidAddress(strDidAddress);
+
         const objDidDocument = this._dids[strDidAddress];
         if (!objDidDocument) throw new Error(HASH_IS_NOT_FOUND);
 
@@ -210,6 +216,9 @@ class DidV1Test1 extends Base {
     }
 
     replace(strDidAddress, objNewData) {
+        this._validateDidAddress(strDidAddress);
+        this._validateObjData(objNewData, true);
+
         const oldDidDocument = this._dids[strDidAddress];
         if (!oldDidDocument) {
             throw new Error(HASH_IS_NOT_FOUND);
@@ -217,7 +226,7 @@ class DidV1Test1 extends Base {
 
         const oldKeyMap = this._object2KeyMap({objDidDocument: oldDidDocument, strDidAddress});
 
-        const keyMap = this._object2KeyMap(objNewData);
+        const keyMap = this._object2KeyMap({...objNewData, strDidAddress});
 
         this._checkForUnsKeys(keyMap);
 
@@ -288,6 +297,28 @@ class DidV1Test1 extends Base {
     _validatePermissions() {
         if (!callerAddress) throw new Error('You should sign TX');
         if (value < this._updateFee) throw new Error(`Update fee is ${this._updateFee}`);
+    }
+
+    _validateDidAddress(strDidAddress) {
+        if (typeof strDidAddress !== 'string') throw new Error(ADDRESS_SHOULD_BE_STRING);
+    }
+
+    _validateObjData(objData, skipDidAddressCheck = false) {
+        if (
+            typeof objData !== 'object' ||
+            !objData.objDidDocument ||
+            typeof objData.objDidDocument !== 'object' ||
+            !objData.strIssuerName ||
+            typeof objData.strIssuerName !== 'string'
+        ) {
+            throw new Error(DID_OBJ_DATA_HAS_WRONG_FORMAT);
+        }
+
+        if (!skipDidAddressCheck) {
+            if (!objData.strDidAddress || typeof objData.strDidAddress !== 'string') {
+                throw new Error(DID_OBJ_DATA_HAS_WRONG_FORMAT);
+            }
+        }
     }
 }
 
