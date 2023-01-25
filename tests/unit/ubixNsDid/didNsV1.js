@@ -36,15 +36,12 @@ class UbixNSv1Test1 {
     create(objUnsData) {
         this._validateParameters(objUnsData);
 
-        const {strProvider, strName, strIssuerName, strDidAddress} = objUnsData;
+        const {strProvider, strName, strDidAddress} = objUnsData;
 
         const hash = UbixNSv1Test1.createHash(strProvider, strName);
         if (this._data[hash]) throw new Error(HASH_HAS_ALREADY_DEFINED);
 
-        this._data[hash] = {
-            strIssuerName,
-            strDidAddress
-        };
+        this._data[hash] = strDidAddress;
     }
 
     remove(objUnsData) {
@@ -56,7 +53,7 @@ class UbixNSv1Test1 {
 
         if (!record) throw new Error(HASH_IS_NOT_FOUND);
 
-        if (strDidAddress !== record.strDidAddress) {
+        if (strDidAddress !== record) {
             throw new Error(HASH_HAS_DIFFERENT_ADDRESS);
         }
 

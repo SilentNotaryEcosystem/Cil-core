@@ -47,10 +47,7 @@ describe('Ubix NS', () => {
             contract.create(objUnsData);
 
             assert.equal(Object.keys(contract._data).length, 1);
-            assert.equal(
-                contract.resolve(objUnsData.strProvider, objUnsData.strName).strDidAddress,
-                objUnsData.strDidAddress
-            );
+            assert.equal(contract.resolve(objUnsData.strProvider, objUnsData.strName), objUnsData.strDidAddress);
         });
 
         it('should throw (strProvider should be a string)', async () => {
@@ -138,9 +135,8 @@ describe('Ubix NS', () => {
         });
 
         it('should pass', async () => {
-            const {strIssuerName, strDidAddress} = contract.resolve(objUnsData.strProvider, objUnsData.strName);
+            const strDidAddress = contract.resolve(objUnsData.strProvider, objUnsData.strName);
 
-            assert.isOk(strIssuerName);
             assert.isOk(strDidAddress);
         });
     });
