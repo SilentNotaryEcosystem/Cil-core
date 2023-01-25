@@ -11,7 +11,7 @@ const {generateAddress} = require('../../testUtil');
 
 let contract;
 
-describe.skip('Ubix DID', () => {
+describe('Ubix DID', () => {
     before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -96,7 +96,7 @@ describe.skip('Ubix DID', () => {
 
             contract.remove(strDidAddress);
 
-            // assert.equal(Object.keys(contract._dids).length, 0);
+            assert.equal(Object.keys(contract._dids).length, 0);
         });
 
         it('should throw (strDidAddress must be a string)', async () => {
@@ -140,16 +140,15 @@ describe.skip('Ubix DID', () => {
 
             assert.equal(Object.keys(contract._dids).length, 1);
 
-            console.log('EEE', contract._dids[strDidAddress]);
-            // assert.equal(contract._dids[strDidAddress].strIssuerName, 'Not me');
+            assert.equal(contract._dids[strDidAddress].strIssuerName, 'Not me');
         });
 
-        // it('should throw (strDidAddress must be a string)', async () => {
-        //     assert.throws(() => contract.remove(null), 'strDidAddress must be a string');
-        // });
+        it('should throw (strDidAddress must be a string)', async () => {
+            assert.throws(() => contract.remove(null), 'strDidAddress should be a string');
+        });
 
-        // it('should throw (Hash is not found)', async () => {
-        //     assert.throws(() => contract.remove(''), 'Hash is not found');
-        // });
+        it('should throw (Hash is not found)', async () => {
+            assert.throws(() => contract.remove(''), 'Hash is not found');
+        });
     });
 });

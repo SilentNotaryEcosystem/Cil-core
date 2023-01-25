@@ -203,7 +203,10 @@ class DidV1Test1 extends Base {
         const objDidDocument = this._dids[strDidAddress];
         if (!objDidDocument) throw new Error(HASH_IS_NOT_FOUND);
 
-        const keyMap = this._object2KeyMap({objDidDocument, strDidAddress});
+        const keyMap = this._object2KeyMap({
+            ...objDidDocument,
+            strDidAddress
+        });
 
         this._checkForUnsKeys(keyMap);
 
@@ -221,18 +224,17 @@ class DidV1Test1 extends Base {
             throw new Error(HASH_IS_NOT_FOUND);
         }
 
-        const oldKeyMap = this._object2KeyMap({objDidDocument: oldDidDocument, strDidAddress});
+        const oldKeyMap = this._object2KeyMap({...oldDidDocument, strDidAddress});
 
         const keyMap = this._object2KeyMap({...objNewData, strDidAddress});
 
         this._checkForUnsKeys(keyMap);
-
         this._checkKeysAvailability(keyMap);
 
         this._ns.removeBatch(oldKeyMap);
         this._ns.createBatch(keyMap);
 
-        this._dids[strDidAddress] = objNewData.objDidDocument;
+        this._dids[strDidAddress] = {...objNewData.objDidDocument, strIssuerName: objNewData.strIssuerName};
     }
 
     _object2KeyMap(objData) {
