@@ -192,7 +192,11 @@ class DidV1Test1 extends Base {
 
         this._ns.createBatch(keyMap);
 
-        this._dids[strDidAddress] = {objDidDocument: objData.objDidDocument, strIssuerName: objData.strIssuerName};
+        this._dids[strDidAddress] = {
+            strOwner: callerAddress,
+            objDidDocument: objData.objDidDocument,
+            strIssuerName: objData.strIssuerName
+        };
 
         return strDidAddress;
     }
@@ -202,6 +206,8 @@ class DidV1Test1 extends Base {
 
         const objDidDocument = this._dids[strDidAddress];
         if (!objDidDocument) throw new Error(HASH_IS_NOT_FOUND);
+
+        if (callerAddress !== objDidDocument.strOwner) throw 'You are not the owner';
 
         const keyMap = this._object2KeyMap({
             ...objDidDocument,
@@ -223,6 +229,8 @@ class DidV1Test1 extends Base {
         if (!oldDidDocument) {
             throw new Error(HASH_IS_NOT_FOUND);
         }
+
+        if (callerAddress !== oldDidDocument.strOwner) throw 'You are not the owner';
 
         const oldKeyMap = this._object2KeyMap({...oldDidDocument, strDidAddress});
 

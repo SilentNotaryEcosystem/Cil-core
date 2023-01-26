@@ -106,6 +106,14 @@ describe('Ubix DID', () => {
         it('should throw (Hash is not found)', async () => {
             assert.throws(() => contract.remove(''), 'Hash is not found');
         });
+
+        it('should fail (not owner)', async () => {
+            const strDidAddress = contract.create(objData);
+
+            callerAddress = generateAddress().toString('hex');
+
+            assert.throws(() => contract.remove(strDidAddress), 'You are not the owner');
+        });
     });
 
     describe('replace Ubix NS record', async () => {
@@ -149,6 +157,14 @@ describe('Ubix DID', () => {
 
         it('should throw (Hash is not found)', async () => {
             assert.throws(() => contract.remove(''), 'Hash is not found');
+        });
+
+        it('should fail (not owner)', async () => {
+            const strDidAddress = contract.create(objData);
+
+            callerAddress = generateAddress().toString('hex');
+
+            assert.throws(() => contract.replace(strDidAddress, objNewData), 'You are not the owner');
         });
     });
 });
