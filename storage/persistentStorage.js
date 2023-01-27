@@ -30,7 +30,7 @@ const INTENRAL_TX_INDEX_PREFIX = 'I';
 
 const BANNED_BLOCKS_FILE = '.bannedBlocks.json';
 
-const N_OPS_BEFORE_DB_REOPEN = 1e5;
+const N_OPS_BEFORE_DB_REOPEN = 2e4;
 
 const levelDbDestroy = util.promisify(leveldown.destroy);
 
