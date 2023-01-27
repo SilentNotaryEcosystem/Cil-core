@@ -156,7 +156,7 @@ describe('Ubix DID', () => {
 
             assert.equal(Object.keys(contract._dids).length, 1);
 
-            assert.equal(contract._dids[strDidAddress].strIssuerName, 'Not me');
+            assert.equal(contract._dids[strDidAddress][1], 'Not me');
         });
 
         it('should replace (with merge)', async () => {
@@ -168,7 +168,7 @@ describe('Ubix DID', () => {
 
             assert.equal(Object.keys(contract._dids).length, 1);
 
-            assert.equal(contract._dids[strDidAddress].strIssuerName, 'Not me');
+            assert.equal(contract._dids[strDidAddress][1], 'Not me');
         });
 
         it('should throw (strDidAddress must be a string)', async () => {

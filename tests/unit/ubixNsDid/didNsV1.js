@@ -169,7 +169,7 @@ class DidV1Test1 extends Base {
     get(strDidAddress) {
         return {
             id: `${DID_PREFIX}:${strDidAddress}`,
-            ...this._dids[strDidAddress]
+            ...this._dids[strDidAddress][2]
         };
     }
 
@@ -192,11 +192,7 @@ class DidV1Test1 extends Base {
 
         this._ns.createBatch(keyMap);
 
-        this._dids[strDidAddress] = {
-            strOwner: callerAddress,
-            objDidDocument: objData.objDidDocument,
-            strIssuerName: objData.strIssuerName
-        };
+        this._dids[strDidAddress] = [callerAddress, objData.strIssuerName, objData.objDidDocument];
 
         return strDidAddress;
     }
@@ -204,13 +200,15 @@ class DidV1Test1 extends Base {
     remove(strDidAddress) {
         this._validateDidAddress(strDidAddress);
 
-        const objDidDocument = this._dids[strDidAddress];
-        if (!objDidDocument) throw new Error(HASH_IS_NOT_FOUND);
+        const record = this._dids[strDidAddress];
+        if (!record) throw new Error(HASH_IS_NOT_FOUND);
 
-        if (callerAddress !== objDidDocument.strOwner) throw 'You are not the owner';
+        const objData = this._deserializeToObject(record);
+
+        if (callerAddress !== objData.strOwner) throw 'You are not the owner';
 
         const keyMap = this._object2KeyMap({
-            ...objDidDocument,
+            ...objData,
             strDidAddress
         });
 
@@ -225,14 +223,16 @@ class DidV1Test1 extends Base {
         this._validateDidAddress(strDidAddress);
         this._validateObjData(objNewData, true);
 
-        const oldDidDocument = this._dids[strDidAddress];
-        if (!oldDidDocument) {
+        const record = this._dids[strDidAddress];
+        if (!record) {
             throw new Error(HASH_IS_NOT_FOUND);
         }
 
-        if (callerAddress !== oldDidDocument.strOwner) throw 'You are not the owner';
+        const objOldData = this._deserializeToObject(record);
 
-        const oldKeyMap = this._object2KeyMap({...oldDidDocument, strDidAddress});
+        if (callerAddress !== objOldData.strOwner) throw 'You are not the owner';
+
+        const oldKeyMap = this._object2KeyMap({...objOldData, strDidAddress});
 
         const keyMap = this._object2KeyMap({...objNewData, strDidAddress});
 
@@ -242,7 +242,7 @@ class DidV1Test1 extends Base {
         this._ns.removeBatch(oldKeyMap);
         this._ns.createBatch(keyMap);
 
-        this._dids[strDidAddress] = {...objNewData.objDidDocument, strIssuerName: objNewData.strIssuerName};
+        this._dids[strDidAddress] = [callerAddress, objNewData.strIssuerName, objNewData.objDidDocument];
     }
 
     _object2KeyMap(objData) {
@@ -326,6 +326,16 @@ class DidV1Test1 extends Base {
                 throw new Error(DID_OBJ_DATA_HAS_WRONG_FORMAT);
             }
         }
+    }
+
+    _serializeToArray() {}
+
+    _deserializeToObject(record) {
+        return {
+            strOwner: record[0],
+            strIssuerName: record[1],
+            objDidDocument: record[2]
+        };
     }
 }
 
