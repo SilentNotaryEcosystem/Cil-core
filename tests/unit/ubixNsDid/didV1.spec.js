@@ -117,7 +117,7 @@ describe('Ubix DID', () => {
     });
 
     describe('replace Ubix NS record', async () => {
-        let objData, objNewData;
+        let objData, objNewData, objNewData2;
 
         beforeEach(async () => {
             global.value = 130000;
@@ -137,6 +137,14 @@ describe('Ubix DID', () => {
                 },
                 strIssuerName: 'Not me'
             };
+
+            objNewData2 = {
+                objDidDocument: {
+                    tg: 'my-tele-nick',
+                    email: 'new-email@test.com'
+                },
+                strIssuerName: 'Not me'
+            };
         });
 
         it('should replace', async () => {
@@ -145,6 +153,18 @@ describe('Ubix DID', () => {
             assert.equal(Object.keys(contract._dids).length, 1);
 
             contract.replace(strDidAddress, objNewData);
+
+            assert.equal(Object.keys(contract._dids).length, 1);
+
+            assert.equal(contract._dids[strDidAddress].strIssuerName, 'Not me');
+        });
+
+        it('should replace (with merge)', async () => {
+            const strDidAddress = contract.create(objData);
+
+            assert.equal(Object.keys(contract._dids).length, 1);
+
+            contract.replace(strDidAddress, objNewData2);
 
             assert.equal(Object.keys(contract._dids).length, 1);
 

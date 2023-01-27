@@ -166,10 +166,10 @@ class DidV1Test1 extends Base {
         this._providers = Object.values(PROVIDER);
     }
 
-    get(strAddress) {
+    get(strDidAddress) {
         return {
-            id: `${DID_PREFIX}:${strAddress}`,
-            ...this._dids[strAddress]
+            id: `${DID_PREFIX}:${strDidAddress}`,
+            ...this._dids[strDidAddress]
         };
     }
 
