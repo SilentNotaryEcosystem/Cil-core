@@ -192,7 +192,10 @@ class DidV1Test1 extends Base {
 
         this._ns.createBatch(keyMap);
 
-        this._dids[strDidAddress] = [callerAddress, objData.strIssuerName, objData.objDidDocument];
+        this._dids[strDidAddress] = this._serializeToArray({
+            ...objData,
+            strOwner: callerAddress
+        });
 
         return strDidAddress;
     }
@@ -328,13 +331,15 @@ class DidV1Test1 extends Base {
         }
     }
 
-    _serializeToArray() {}
+    _serializeToArray(objData) {
+        return [objData.strOwner, objData.strIssuerName, Object.entries(objData.objDidDocument)];
+    }
 
     _deserializeToObject(record) {
         return {
             strOwner: record[0],
             strIssuerName: record[1],
-            objDidDocument: record[2]
+            objDidDocument: Object.fromEntries(record[2])
         };
     }
 }
