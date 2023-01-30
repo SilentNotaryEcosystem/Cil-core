@@ -304,17 +304,15 @@ describe('Utils', () => {
         });
     });
 
-    it('should read RPC_RATE, FIX_LEVEL_DB', async () => {
+    it('should read RPC_RATE', async () => {
         process.env = {
             ...process.env,
             RPC_RATE: '1000',
-            FIX_LEVEL_DB: 'true'
         };
 
-        const {rpcRate, fixLevelDb} = mapEnvToOptions();
+        const {rpcRate} = mapEnvToOptions();
 
         assert.equal(rpcRate, parseInt(process.env.RPC_RATE));
-        assert.isOk(fixLevelDb);
     });
 
     describe('Exceptions', async () => {

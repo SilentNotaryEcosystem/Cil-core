@@ -69,7 +69,7 @@ module.exports = (factory, factoryOptions) => {
 
             super();
 
-            const {testStorage, buildTxIndex, walletSupport, dbPath, mutex, fixLevelDb, nOpsBeforeReopen} = options;
+            const {testStorage, buildTxIndex, walletSupport, dbPath, mutex} = options;
             assert(mutex, 'Storage constructor requires Mutex instance!');
 
             if (testStorage) {
@@ -82,9 +82,6 @@ module.exports = (factory, factoryOptions) => {
 
             this._pathPrefix = path.resolve(dbPath || Constants.DB_PATH_PREFIX);
             this._buildTxIndex = buildTxIndex;
-            this._bFixDb = fixLevelDb;
-            this._nPutCount = 0;
-            this._nOpsBeforeReopen = nOpsBeforeReopen || N_OPS_BEFORE_DB_REOPEN;
 
             this._initMainDb();
             this._initBlockDb();
@@ -330,7 +327,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._db.put(blockInfoKey, blockInfo.encode());
             } finally {
                 this._mutex.release(lock);
-                await this._fixMainDb();
             }
         }
 
@@ -346,7 +342,6 @@ module.exports = (factory, factoryOptions) => {
 
             const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX, buffHash);
             await this._db.del(blockInfoKey);
-            await this._fixMainDb();
         }
 
         /**
@@ -480,7 +475,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._db.batch(arrOps);
             } finally {
                 this._mutex.release(lock);
-                await this._fixMainDb(arrOps.length);
                 if (!this._arrConciliumDefinition) this.emit('conciliumsChanged');
             }
         }
@@ -560,7 +554,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._db.put(key, cArr.encode());
             } finally {
                 this._mutex.release(lock);
-                await this._fixMainDb();
             }
         }
 
@@ -589,7 +582,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._db.put(key, (new ArrayOfHashes(arrBlockHashes)).encode());
             } finally {
                 this._mutex.release(lock);
-                await this._fixMainDb();
             }
         }
 
@@ -1170,19 +1162,6 @@ module.exports = (factory, factoryOptions) => {
 
         _initPeerDb() {
             this._peerStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
-        }
-
-        async _fixMainDb(count = 1) {
-
-            // levelDb keep doesn't purge deleted data
-            // only upon startup, so database grows uncontrollably
-            // here is a workaround
-            this._nPutCount += count;
-            if (this._bFixDb && this._nPutCount > this._nOpsBeforeReopen) {
-                logger.log('Reopening "chainstate" db');
-                await this._reInitMainDb();
-                this._nPutCount = 0;
-            }
         }
     };
 };

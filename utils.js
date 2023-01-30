@@ -283,7 +283,7 @@ function mapEnvToOptions() {
         TRUST_ANNOUNCE, ANNOUNCE_ADDRESS, ANNOUNCE_PORT, LISTEN_ADDR, LISTEN_PORT,
         SEED_ADDRESS, RPC_ADDRESS, RPC_USER, RPC_PASS, RPC_RATE,
         GENESIS_HASH, CONCILIUM_CONTRACT,
-        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX, FIX_LEVEL_DB,
+        WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX,
         WHITELISTED_ADDR,
         KEYSTORE_NAME
     } = process.env;
@@ -319,8 +319,6 @@ function mapEnvToOptions() {
         seedAddr: SEED_ADDRESS,
         genesisHash: GENESIS_HASH,
         conciliumDefContract: CONCILIUM_CONTRACT,
-
-        fixLevelDb: getBoolEnvParameter(FIX_LEVEL_DB)
     };
 }
 
@@ -387,7 +385,6 @@ module.exports = {
 
     readCmdLineOptions: () => {
         const optionDefinitions = [
-            {name: "fixLevelDb", type: Boolean, multiple: false},
             {name: "trustAnnounce", type: Boolean, multiple: false},
             {name: "announceAddr", type: String, multiple: false},
             {name: "announcePort", type: Number, multiple: false},
