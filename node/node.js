@@ -998,7 +998,8 @@ module.exports = (factory, factoryOptions) => {
             newTx.verify();
 
             const strNewTxHash = newTx.getHash();
-            assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
+            if(this._mempool.hasTx(strNewTxHash)) throw new Error('Tx already in mempool');
+            if(this._mempool.isBadTx(strNewTxHash)) throw new Error('Tx already marked as bad');
 
             const lock = await this._mutex.acquire(['blockExec']);
 
@@ -1018,6 +1019,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._informNeighbors(newTx);
             } catch (e) {
                 logger.error(e);
+                this._mempool.storeBadTxHash(strNewTxHash);
                 throw new Error(`Tx ${strNewTxHash} is not accepted: ${e.message}`);
             } finally {
                 this._mutex.release(lock);
