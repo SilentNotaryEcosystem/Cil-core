@@ -1018,7 +1018,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._informNeighbors(newTx);
             } catch (e) {
                 logger.error(e);
-                throw new Error(`Tx is not accepted: ${e.message}`);
+                throw new Error(`Tx ${strNewTxHash} is not accepted: ${e.message}`);
             } finally {
                 this._mutex.release(lock);
             }
