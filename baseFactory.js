@@ -139,11 +139,7 @@ class BaseFactory {
                 });
         });
 
-        try {
-            this._options = require('./factoryOptions.json');
-        } catch (e) {
-            this._options = {};
-        }
+        this._options = options;
 
         this._constants = {
             ...objConstants

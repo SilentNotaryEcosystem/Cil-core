@@ -26,7 +26,8 @@ module.exports = new TestFactory(
     {
         testStorage: true,
         mutex: new Mutex(),
-        workerSuspended: true
+        workerSuspended: true,
+        bDev: true
     },
     config.constants
 );
