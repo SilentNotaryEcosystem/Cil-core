@@ -15,7 +15,7 @@ const PEERMANAGER_BACKUP_TIMER_NAME = 'peerManagerBackupTimer';
  * @emits 'message' {peer, message}
  */
 module.exports = (factory) => {
-    const {Constants, Messages, Peer, Transport} = factory;
+    const {Constants, Messages, Peer, Transport, FactoryOptions} = factory;
 
     const {PeerInfo} = Messages;
 
@@ -57,6 +57,8 @@ module.exports = (factory) => {
 
             this._arrWhitelistedNets = [];
             this._prepareWhitelisted(whitelistedAddr || []);
+
+            this._bDev = FactoryOptions.bDev;
         }
 
         /**
@@ -148,7 +150,8 @@ module.exports = (factory) => {
             }
 
             // TODO rethink "canonical" addresses for multihome nodes
-            peer.updatePeerFromPeerInfo(cPeerInfo, this._trustAnnounce);
+            const bShouldUpdate=this._trustAnnounce && (this._bDev || (!this._bDev && Transport.isRoutableAddress(peer.address)));
+            peer.updatePeerFromPeerInfo(cPeerInfo, bShouldUpdate);
             this._mapCandidatePeers.delete(keyCandidate);
 
             return this.addPeer(peer, true);

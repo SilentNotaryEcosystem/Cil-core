@@ -2,7 +2,7 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon');
+const sinon = require('sinon').createSandbox();
 const {sleep} = require('../utils');
 
 const factory = require('./testFactory');
@@ -20,7 +20,14 @@ describe('Peer manager', () => {
 
     it('should create empty PeerManager', async () => {
         const pm = new factory.PeerManager();
+
         assert.isOk(pm);
+    });
+
+    it('should be "bDev"', async () => {
+        const pm = new factory.PeerManager();
+
+        assert.isOk(pm._bDev);
     });
 
     it('should add peer to PeerManager from PeerInfo', async () => {
@@ -420,23 +427,96 @@ describe('Peer manager', () => {
         assert.equal(pm._mapCandidatePeers.size, 1);
     });
 
-    it('should associatePeer', async () => {
-        const storage = new factory.Storage({});
-        const pm = new factory.PeerManager({storage});
+    describe("associatePeer (trustAnnounce=true)", async () =>{
+        it('should associatePeer', async () => {
+            const storage = new factory.Storage({});
+            const pm = new factory.PeerManager({storage});
 
-        const connection = {
-            remoteAddress: () => 'edaa',
-            listenerCount: () => 1
-        };
-        pm.addCandidateConnection(connection);
-        const peer = new factory.Peer({connection});
-        pm.addPeer = sinon.fake();
+            const connection = {
+                remoteAddress: () => 'edaa',
+                listenerCount: () => 1
+            };
+            pm.addCandidateConnection(connection);
+            const peer = new factory.Peer({connection});
+            pm.addPeer = sinon.fake();
 
-        pm.associatePeer(peer, createDummyPeer(factory).peerInfo);
+            pm.associatePeer(peer, createDummyPeer(factory).peerInfo);
 
-        assert.equal(pm._mapCandidatePeers.size, 0);
-        assert.isOk(pm.addPeer.calledOnce);
-    });
+            assert.equal(pm._mapCandidatePeers.size, 0);
+            assert.isOk(pm.addPeer.calledOnce);
+        });
+
+        describe('trustAnnounce', async () =>{
+            let peer;
+            let pm;
+
+            afterEach(async () => {
+                sinon.restore();
+            });
+
+            beforeEach(async() =>{
+                const storage = new factory.Storage({});
+                pm = new factory.PeerManager({storage});
+                pm._trustAnnounce=true;
+
+                const connection = {
+                    remoteAddress: () => 'edaa',
+                    listenerCount: () => 1
+                };
+                pm.addCandidateConnection(connection);
+                pm.addPeer = sinon.fake();
+                peer = new factory.Peer({connection});
+                peer.updatePeerFromPeerInfo=sinon.fake();
+            });
+
+            it('should updatePeerFromPeerInfo (prodNet net, routable addr)', async () => {
+                pm._bDev=false;
+                assert.isOk(factory.Transport.isRoutableAddress())
+
+                pm.associatePeer(peer, createDummyPeer(factory).peerInfo);
+
+                assert.isOk(peer.updatePeerFromPeerInfo.calledOnce);
+                const [,bUpdate]=peer.updatePeerFromPeerInfo.args[0];
+                assert.isOk(bUpdate);
+            });
+
+            it('should updatePeerFromPeerInfo (prodNet net, private addr)', async () => {
+                pm._bDev=false;
+                sinon.stub(factory.Transport, 'isRoutableAddress').returns(false);
+                assert.isNotOk(factory.Transport.isRoutableAddress())
+
+                pm.associatePeer(peer, createDummyPeer(factory).peerInfo);
+
+                assert.isOk(peer.updatePeerFromPeerInfo.calledOnce);
+                const [,bUpdate]=peer.updatePeerFromPeerInfo.args[0];
+                assert.isNotOk(bUpdate);
+            });
+
+            it('should updatePeerFromPeerInfo (dev net, routable addr)', async () => {
+                pm._bDev=true;
+                assert.isOk(factory.Transport.isRoutableAddress())
+
+                pm.associatePeer(peer, createDummyPeer(factory).peerInfo);
+
+                assert.isOk(peer.updatePeerFromPeerInfo.calledOnce);
+                const [,bUpdate]=peer.updatePeerFromPeerInfo.args[0];
+                assert.isOk(bUpdate);
+            });
+
+            it('should updatePeerFromPeerInfo (dev net, private addr)', async () => {
+                pm._bDev=true;
+                sinon.stub(factory.Transport, 'isRoutableAddress').returns(false);
+                assert.isNotOk(factory.Transport.isRoutableAddress())
+
+                pm.associatePeer(peer, createDummyPeer(factory).peerInfo);
+
+                assert.isOk(peer.updatePeerFromPeerInfo.calledOnce);
+                const [,bUpdate]=peer.updatePeerFromPeerInfo.args[0];
+                assert.isOk(bUpdate);
+            });
+        })
+
+    })
 
     it('should getConnectedPeers (incoming connection)', async () => {
         const storage = new factory.Storage({});
