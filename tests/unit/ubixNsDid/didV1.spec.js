@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {DidV1Test1: DidContract} = require('./didNsV1');
+const {DidV1Test2: DidContract} = require('./didNsV1');
 
 const factory = require('../../testFactory');
 

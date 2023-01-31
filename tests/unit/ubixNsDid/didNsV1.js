@@ -1,121 +1,3 @@
-const HASH_IS_NOT_FOUND = 'Hash is not found';
-const HASH_HAS_ALREADY_DEFINED = 'Hash has already defined';
-const HASH_HAS_DIFFERENT_ADDRESS = 'Hash belongs to a different address';
-const MUST_BE_MAP_INSTANCE = 'Must be a Map instance';
-const DID_DOCUMENT_HASH_ALREADY_DEFINED = 'DID document hash has already defined';
-const DID_DOCUMENT_DOESNT_HAVE_UNS_KEYS = 'DID document does not have Ubix NS keys';
-const DID_OBJ_DATA_HAS_WRONG_FORMAT = 'objData has wrong format';
-const ADDRESS_SHOULD_BE_STRING = 'strDidAddress should be a string';
-
-const DID_PREFIX = 'did:ubix';
-
-const PROVIDER = {
-    UBIX: 'ubix',
-    TELEGRAM: 'tg',
-    INSTAGRAM: 'ig',
-    EMAIL: 'email'
-};
-
-class UbixNSv1Test1 {
-    constructor() {
-        this._data = {};
-    }
-
-    get Data() {
-        return this._data;
-    }
-
-    resolve(strProvider, strName) {
-        this._validateKeyParameters(strProvider, strName);
-
-        const hash = UbixNSv1Test1.createHash(strProvider, strName);
-        if (!this._data[hash]) throw new Error(HASH_IS_NOT_FOUND);
-        return this._data[hash];
-    }
-
-    create(objUnsData) {
-        this._validateParameters(objUnsData);
-
-        const {strProvider, strName, strDidAddress} = objUnsData;
-
-        const hash = UbixNSv1Test1.createHash(strProvider, strName);
-        if (this._data[hash]) throw new Error(HASH_HAS_ALREADY_DEFINED);
-
-        this._data[hash] = strDidAddress;
-    }
-
-    remove(objUnsData) {
-        const {strProvider, strName, strDidAddress} = objUnsData;
-        this._validateKeyParameters(strProvider, strName);
-
-        const hash = UbixNSv1Test1.createHash(strProvider, strName);
-        const record = this._data[hash];
-
-        if (!record) throw new Error(HASH_IS_NOT_FOUND);
-
-        if (strDidAddress !== record) {
-            throw new Error(HASH_HAS_DIFFERENT_ADDRESS);
-        }
-
-        delete this._data[hash];
-    }
-
-    createBatch(keyMap) {
-        this._validateKeyMap(keyMap);
-
-        const keys = keyMap.keys();
-        for (const key of keys) {
-            const {strName, strIssuerName, strDidAddress} = keyMap.get(key);
-
-            this.create({strProvider: key, strName, strIssuerName, strDidAddress});
-        }
-    }
-
-    removeBatch(keyMap) {
-        this._validateKeyMap(keyMap);
-
-        const keys = keyMap.keys();
-        for (const key of keys) {
-            const {strName, strDidAddress} = keyMap.get(key);
-            this.remove({strProvider: key, strName, strDidAddress});
-        }
-    }
-
-    hasKeys(keyMap) {
-        this._validateKeyMap(keyMap);
-
-        // if we have strAddress, then skip own keys
-        const keys = keyMap.keys();
-        for (const key of keys) {
-            const {strName, strDidAddress} = keyMap.get(key);
-            const strUnsAddress = this.resolve(key, strName);
-            if ((!strDidAddress && strUnsAddress) || (strUnsAddress && strDidAddress !== strUnsAddress)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    static createHash(strProvider, strName) {
-        return createHash(`${strName}.${strProvider}`); // eslint-disable-line
-    }
-
-    _validateKeyParameters(strProvider, strName) {
-        if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
-        if (typeof strName !== 'string') throw new Error('strName should be a string');
-    }
-
-    _validateParameters({strProvider, strName, strIssuerName, strDidAddress}, checkAddress = true) {
-        this._validateKeyParameters(strProvider, strName);
-        if (typeof strIssuerName !== 'string') throw Error('strIssuerName should be a string');
-        if (checkAddress && typeof strDidAddress !== 'string') throw new Error('strDidAddress should be a string');
-    }
-
-    _validateKeyMap(keyMap) {
-        if (!(keyMap instanceof Map)) throw new Error(MUST_BE_MAP_INSTANCE);
-    }
-}
-
 class Base {
     constructor() {
         this._ownerAddress = callerAddress;
@@ -157,18 +39,142 @@ class Base {
     }
 }
 
-class DidV1Test1 extends Base {
+class DidV1Test2 extends Base {
     constructor() {
         super();
         this._updateFee = 13e4;
         this._dids = {};
-        this._ns = new UbixNSv1Test1();
-        this._providers = Object.values(PROVIDER);
+        this._ns = new DidV1Test2.UbixNS();
+        this._providers = Object.values(DidV1Test2.PROVIDER);
+    }
+
+    getNs() {
+        return this._ns._data;
+    }
+
+    getDids() {
+        return this._dids;
+    }
+
+    static get UbixNS() {
+        return class UbixNSv1Test2 {
+            constructor() {
+                this._data = {};
+            }
+
+            get Data() {
+                return this._data;
+            }
+
+            resolve(strProvider, strName) {
+                this._validateKeyParameters(strProvider, strName);
+
+                const hash = UbixNSv1Test2.createHash(strProvider, strName);
+                if (!this._data[hash]) throw new Error(DidV1Test2.HASH_IS_NOT_FOUND);
+                return this._data[hash];
+            }
+
+            create(objUnsData) {
+                this._validateParameters(objUnsData);
+
+                const {strProvider, strName, strDidAddress} = objUnsData;
+
+                const hash = UbixNSv1Test2.createHash(strProvider, strName);
+                if (this._data[hash]) throw new Error('Hash has already defined');
+
+                this._data[hash] = strDidAddress;
+            }
+
+            remove(objUnsData) {
+                const {strProvider, strName, strDidAddress} = objUnsData;
+                this._validateKeyParameters(strProvider, strName);
+
+                const hash = UbixNSv1Test2.createHash(strProvider, strName);
+                const record = this._data[hash];
+
+                if (!record) throw new Error(DidV1Test2.HASH_IS_NOT_FOUND);
+
+                if (strDidAddress !== record) {
+                    throw new Error('Hash belongs to a different address');
+                }
+
+                delete this._data[hash];
+            }
+
+            createBatch(keyMap) {
+                this._validateKeyMap(keyMap);
+
+                const keys = keyMap.keys();
+                for (const key of keys) {
+                    const {strName, strIssuerName, strDidAddress} = keyMap.get(key);
+
+                    this.create({strProvider: key, strName, strIssuerName, strDidAddress});
+                }
+            }
+
+            removeBatch(keyMap) {
+                this._validateKeyMap(keyMap);
+
+                const keys = keyMap.keys();
+                for (const key of keys) {
+                    const {strName, strDidAddress} = keyMap.get(key);
+                    this.remove({strProvider: key, strName, strDidAddress});
+                }
+            }
+
+            hasKeys(keyMap) {
+                this._validateKeyMap(keyMap);
+
+                // if we have strAddress, then skip own keys
+                const keys = keyMap.keys();
+                for (const key of keys) {
+                    const {strName, strDidAddress} = keyMap.get(key);
+                    const strUnsAddress = this.resolve(key, strName);
+                    if ((!strDidAddress && strUnsAddress) || (strUnsAddress && strDidAddress !== strUnsAddress)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            static createHash(strProvider, strName) {
+                return createHash(`${strName}.${strProvider}`); // eslint-disable-line
+            }
+
+            _validateKeyParameters(strProvider, strName) {
+                if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
+                if (typeof strName !== 'string') throw new Error('strName should be a string');
+            }
+
+            _validateParameters({strProvider, strName, strIssuerName, strDidAddress}, checkAddress = true) {
+                this._validateKeyParameters(strProvider, strName);
+                if (typeof strIssuerName !== 'string') throw Error('strIssuerName should be a string');
+                if (checkAddress && typeof strDidAddress !== 'string')
+                    throw new Error('strDidAddress should be a string');
+            }
+
+            _validateKeyMap(keyMap) {
+                if (!(keyMap instanceof Map)) throw new Error('Must be a Map instance');
+            }
+        };
+    }
+
+    static get PROVIDER() {
+        return {
+            UBIX: 'ubix',
+            TELEGRAM: 'tg',
+            INSTAGRAM: 'ig',
+            EMAIL: 'email'
+        };
+    }
+
+    static get HASH_IS_NOT_FOUND() {
+        return 'Hash is not found';
     }
 
     get(strDidAddress) {
         return {
-            id: `${DID_PREFIX}:${strDidAddress}`,
+            id: `did:ubix:${strDidAddress}`,
             ...this._dids[strDidAddress][2]
         };
     }
@@ -181,7 +187,7 @@ class DidV1Test1 extends Base {
 
         const strDidAddress = createHash(strDidDocument); // eslint-disable-line
         if (this._ns.Data[strDidAddress]) {
-            throw new Error(DID_DOCUMENT_HASH_ALREADY_DEFINED);
+            throw new Error('DID document hash has already defined');
         }
 
         const keyMap = this._object2KeyMap({...objData, strDidAddress});
@@ -204,7 +210,7 @@ class DidV1Test1 extends Base {
         this._validateDidAddress(strDidAddress);
 
         const record = this._dids[strDidAddress];
-        if (!record) throw new Error(HASH_IS_NOT_FOUND);
+        if (!record) throw new Error(DidV1Test2.HASH_IS_NOT_FOUND);
 
         const objData = this._deserializeToObject(record);
 
@@ -228,7 +234,7 @@ class DidV1Test1 extends Base {
 
         const record = this._dids[strDidAddress];
         if (!record) {
-            throw new Error(HASH_IS_NOT_FOUND);
+            throw new Error(DidV1Test2.HASH_IS_NOT_FOUND);
         }
 
         const objOldData = this._deserializeToObject(record);
@@ -273,7 +279,7 @@ class DidV1Test1 extends Base {
         }
 
         if (!hasKeys) {
-            throw new Error(DID_DOCUMENT_DOESNT_HAVE_UNS_KEYS);
+            throw new Error('DID document does not have Ubix NS keys');
         }
 
         // if (this._hasUnsKeys(didDocument)) {
@@ -284,7 +290,7 @@ class DidV1Test1 extends Base {
     _checkKeysAvailability(keyMap) {
         // тут если ключи и так нам принадлежат их не считать
         for (const key in keyMap.keys()) {
-            if (this._providers.includes(key) && this._ns.Data[DidV1Test1.createHash(key, keyMap[key])]) {
+            if (this._providers.includes(key) && this._ns.Data[DidV1Test2.createHash(key, keyMap[key])]) {
                 return true;
             }
         }
@@ -293,10 +299,10 @@ class DidV1Test1 extends Base {
 
     static crateHash(provider, name) {
         switch (provider) {
-            case PROVIDER.UBIX:
-            case PROVIDER.TELEGRAM:
-            case PROVIDER.INSTAGRAM:
-            case PROVIDER.EMAIL:
+            case DidV1Test2.PROVIDER.UBIX:
+            case DidV1Test2.PROVIDER.TELEGRAM:
+            case DidV1Test2.PROVIDER.INSTAGRAM:
+            case DidV1Test2.PROVIDER.EMAIL:
                 return createHash(`${name}.${provider}`); // eslint-disable-line
 
             default:
@@ -310,7 +316,7 @@ class DidV1Test1 extends Base {
     }
 
     _validateDidAddress(strDidAddress) {
-        if (typeof strDidAddress !== 'string') throw new Error(ADDRESS_SHOULD_BE_STRING);
+        if (typeof strDidAddress !== 'string') throw new Error('strDidAddress should be a string');
     }
 
     _validateObjData(objData, skipDidAddressCheck = false) {
@@ -321,12 +327,12 @@ class DidV1Test1 extends Base {
             !objData.strIssuerName ||
             typeof objData.strIssuerName !== 'string'
         ) {
-            throw new Error(DID_OBJ_DATA_HAS_WRONG_FORMAT);
+            throw new Error('objData has wrong format');
         }
 
         if (!skipDidAddressCheck) {
             if (!objData.strDidAddress || typeof objData.strDidAddress !== 'string') {
-                throw new Error(DID_OBJ_DATA_HAS_WRONG_FORMAT);
+                throw new Error('objData has wrong format');
             }
         }
     }
@@ -345,9 +351,8 @@ class DidV1Test1 extends Base {
 }
 
 module.exports = {
-    UbixNSv1Test1,
     Base,
-    DidV1Test1
+    DidV1Test2
 };
 
 // global.value = 0;
