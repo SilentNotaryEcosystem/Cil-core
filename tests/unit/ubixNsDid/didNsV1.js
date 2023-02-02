@@ -1,4 +1,4 @@
-class BaseNew3 {
+class BaseNew4 {
     constructor() {
         this._ownerAddress = callerAddress;
     }
@@ -39,13 +39,13 @@ class BaseNew3 {
     }
 }
 
-class DidV1Test3 extends BaseNew3 {
+class DidV1Test4 extends BaseNew4 {
     constructor() {
         super();
         this._updateFee = 13e4;
         this._dids = {};
-        this._ns = new (DidV1Test3.UbixNS(DidV1Test3.md5))();
-        this._providers = Object.values(DidV1Test3.PROVIDER);
+        this._ns = new (this.UbixNS(this.md5))();
+        this._providers = Object.values(this.PROVIDER());
     }
 
     getNs() {
@@ -56,7 +56,7 @@ class DidV1Test3 extends BaseNew3 {
         return this._dids;
     }
 
-    static UbixNS(createHash) {
+    UbixNS(createHash) {
         return class UbixNSv1Test3 {
             constructor() {
                 this._data = {};
@@ -71,7 +71,7 @@ class DidV1Test3 extends BaseNew3 {
                 this._validateKeyParameters(strProvider, strName);
 
                 const hash = this._createHash(strProvider, strName);
-                if (!this._data[hash]) throw new Error(DidV1Test3.HASH_IS_NOT_FOUND);
+                if (!this._data[hash]) throw new Error('Hash is not found');
                 return this._data[hash];
             }
 
@@ -93,7 +93,7 @@ class DidV1Test3 extends BaseNew3 {
                 const hash = this._createHash(strProvider, strName);
                 const record = this._data[hash];
 
-                if (!record) throw new Error(DidV1Test3.HASH_IS_NOT_FOUND);
+                if (!record) throw new Error('Hash is not found');
 
                 if (strDidAddress !== record) {
                     throw new Error('Hash belongs to a different address');
@@ -138,8 +138,8 @@ class DidV1Test3 extends BaseNew3 {
                 return false;
             }
 
-            static createHash(strProvider, strName) {
-                return UbixNSv1Test3.md5(`${strName}.${strProvider}`);
+            createHash(strProvider, strName) {
+                return this.md5(`${strName}.${strProvider}`);
             }
 
             _validateKeyParameters(strProvider, strName) {
@@ -160,17 +160,13 @@ class DidV1Test3 extends BaseNew3 {
         };
     }
 
-    static get PROVIDER() {
+    PROVIDER() {
         return {
             UBIX: 'ubix',
             TELEGRAM: 'tg',
             INSTAGRAM: 'ig',
             EMAIL: 'email'
         };
-    }
-
-    static get HASH_IS_NOT_FOUND() {
-        return 'Hash is not found';
     }
 
     get(strDidAddress) {
@@ -186,7 +182,7 @@ class DidV1Test3 extends BaseNew3 {
 
         const strDidDocument = JSON.stringify(objData.objDidDocument);
 
-        const strDidAddress = DidV1Test3.md5(strDidDocument);
+        const strDidAddress = this.md5(strDidDocument);
         if (this._ns.Data[strDidAddress]) {
             throw new Error('DID document hash has already defined');
         }
@@ -211,7 +207,7 @@ class DidV1Test3 extends BaseNew3 {
         this._validateDidAddress(strDidAddress);
 
         const record = this._dids[strDidAddress];
-        if (!record) throw new Error(DidV1Test3.HASH_IS_NOT_FOUND);
+        if (!record) throw new Error('Hash is not found');
 
         const objData = this._deserializeToObject(record);
 
@@ -235,7 +231,7 @@ class DidV1Test3 extends BaseNew3 {
 
         const record = this._dids[strDidAddress];
         if (!record) {
-            throw new Error(DidV1Test3.HASH_IS_NOT_FOUND);
+            throw new Error('Hash is not found');
         }
 
         const objOldData = this._deserializeToObject(record);
@@ -291,19 +287,19 @@ class DidV1Test3 extends BaseNew3 {
     _checkKeysAvailability(keyMap) {
         // тут если ключи и так нам принадлежат их не считать
         for (const key in keyMap.keys()) {
-            if (this._providers.includes(key) && this._ns.Data[DidV1Test3.createHash(key, keyMap[key])]) {
+            if (this._providers.includes(key) && this._ns.Data[this.createHash(key, keyMap[key])]) {
                 return true;
             }
         }
         return false;
     }
 
-    static crateHash(provider, name) {
+    crateHash(provider, name) {
         switch (provider) {
-            case DidV1Test3.PROVIDER.UBIX:
-            case DidV1Test3.PROVIDER.TELEGRAM:
-            case DidV1Test3.PROVIDER.INSTAGRAM:
-            case DidV1Test3.PROVIDER.EMAIL:
+            case this.PROVIDER().UBIX:
+            case this.PROVIDER().TELEGRAM:
+            case this.PROVIDER().INSTAGRAM:
+            case this.PROVIDER().EMAIL:
                 return createHash(`${name}.${provider}`); // eslint-disable-line
 
             default:
@@ -350,7 +346,7 @@ class DidV1Test3 extends BaseNew3 {
         };
     }
 
-    static md5(inputString) {
+    md5(inputString) {
         var hc = '0123456789abcdef';
         function rh(n) {
             var j,
@@ -480,8 +476,8 @@ class DidV1Test3 extends BaseNew3 {
 }
 
 module.exports = {
-    BaseNew3,
-    DidV1Test3
+    BaseNew4,
+    DidV1Test4
 };
 
 // global.value = 0;
