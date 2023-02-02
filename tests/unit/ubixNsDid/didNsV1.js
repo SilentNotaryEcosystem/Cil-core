@@ -1,4 +1,4 @@
-class BaseNew4 {
+class BaseNew5 {
     constructor() {
         this._ownerAddress = callerAddress;
     }
@@ -39,125 +39,92 @@ class BaseNew4 {
     }
 }
 
-class DidV1Test4 extends BaseNew4 {
+class DidV1Test5 extends BaseNew5 {
     constructor() {
         super();
         this._updateFee = 13e4;
+        this._ns = {};
         this._dids = {};
-        this._ns = new (this.UbixNS(this.md5))();
         this._providers = Object.values(this.PROVIDER());
     }
 
     getNs() {
-        return this._ns._data;
+        return this._ns;
     }
 
     getDids() {
         return this._dids;
     }
 
-    UbixNS(createHash) {
-        return class UbixNSv1Test3 {
-            constructor() {
-                this._data = {};
-                this._createHash = createHash;
+    resolveNs(strProvider, strName) {
+        this._validateKeyParametersNs(strProvider, strName);
+
+        const hash = this.createHash(strProvider, strName);
+        if (!this._ns[hash]) throw new Error('Hash is not found');
+        return this._ns[hash];
+    }
+
+    createNs(objUnsData) {
+        this._validateParametersNs(objUnsData);
+
+        const {strProvider, strName, strDidAddress} = objUnsData;
+
+        const hash = this.createHash(strProvider, strName);
+        if (this._ns[hash]) throw new Error('Hash has already defined');
+
+        this._ns[hash] = strDidAddress;
+    }
+
+    removeNs(objUnsData) {
+        const {strProvider, strName, strDidAddress} = objUnsData;
+        this._validateKeyParametersNs(strProvider, strName);
+
+        const hash = this.createHash(strProvider, strName);
+        const record = this._ns[hash];
+
+        if (!record) throw new Error('Hash is not found');
+
+        if (strDidAddress !== record) {
+            throw new Error('Hash belongs to a different address');
+        }
+
+        delete this._ns[hash];
+    }
+
+    createBatchNs(keyMap) {
+        this._validateKeyMapNs(keyMap);
+
+        const keys = keyMap.keys();
+        for (const key of keys) {
+            const {strName, strIssuerName, strDidAddress} = keyMap.get(key);
+
+            this.createNs({strProvider: key, strName, strIssuerName, strDidAddress});
+        }
+    }
+
+    removeBatchNs(keyMap) {
+        this._validateKeyMapNs(keyMap);
+
+        const keys = keyMap.keys();
+        for (const key of keys) {
+            const {strName, strDidAddress} = keyMap.get(key);
+            this.removeNs({strProvider: key, strName, strDidAddress});
+        }
+    }
+
+    hasKeysNs(keyMap) {
+        this._validateKeyMapNs(keyMap);
+
+        // if we have strAddress, then skip own keys
+        const keys = keyMap.keys();
+        for (const key of keys) {
+            const {strName, strDidAddress} = keyMap.get(key);
+            const strUnsAddress = this.resolveNs(key, strName);
+            if ((!strDidAddress && strUnsAddress) || (strUnsAddress && strDidAddress !== strUnsAddress)) {
+                return true;
             }
-
-            get Data() {
-                return this._data;
-            }
-
-            resolve(strProvider, strName) {
-                this._validateKeyParameters(strProvider, strName);
-
-                const hash = this._createHash(strProvider, strName);
-                if (!this._data[hash]) throw new Error('Hash is not found');
-                return this._data[hash];
-            }
-
-            create(objUnsData) {
-                this._validateParameters(objUnsData);
-
-                const {strProvider, strName, strDidAddress} = objUnsData;
-
-                const hash = this._createHash(strProvider, strName);
-                if (this._data[hash]) throw new Error('Hash has already defined');
-
-                this._data[hash] = strDidAddress;
-            }
-
-            remove(objUnsData) {
-                const {strProvider, strName, strDidAddress} = objUnsData;
-                this._validateKeyParameters(strProvider, strName);
-
-                const hash = this._createHash(strProvider, strName);
-                const record = this._data[hash];
-
-                if (!record) throw new Error('Hash is not found');
-
-                if (strDidAddress !== record) {
-                    throw new Error('Hash belongs to a different address');
-                }
-
-                delete this._data[hash];
-            }
-
-            createBatch(keyMap) {
-                this._validateKeyMap(keyMap);
-
-                const keys = keyMap.keys();
-                for (const key of keys) {
-                    const {strName, strIssuerName, strDidAddress} = keyMap.get(key);
-
-                    this.create({strProvider: key, strName, strIssuerName, strDidAddress});
-                }
-            }
-
-            removeBatch(keyMap) {
-                this._validateKeyMap(keyMap);
-
-                const keys = keyMap.keys();
-                for (const key of keys) {
-                    const {strName, strDidAddress} = keyMap.get(key);
-                    this.remove({strProvider: key, strName, strDidAddress});
-                }
-            }
-
-            hasKeys(keyMap) {
-                this._validateKeyMap(keyMap);
-
-                // if we have strAddress, then skip own keys
-                const keys = keyMap.keys();
-                for (const key of keys) {
-                    const {strName, strDidAddress} = keyMap.get(key);
-                    const strUnsAddress = this.resolve(key, strName);
-                    if ((!strDidAddress && strUnsAddress) || (strUnsAddress && strDidAddress !== strUnsAddress)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            createHash(strProvider, strName) {
-                return this.md5(`${strName}.${strProvider}`);
-            }
-
-            _validateKeyParameters(strProvider, strName) {
-                if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
-                if (typeof strName !== 'string') throw new Error('strName should be a string');
-            }
-
-            _validateParameters({strProvider, strName, strIssuerName, strDidAddress}, checkAddress = true) {
-                this._validateKeyParameters(strProvider, strName);
-                if (typeof strIssuerName !== 'string') throw Error('strIssuerName should be a string');
-                if (checkAddress && typeof strDidAddress !== 'string')
-                    throw new Error('strDidAddress should be a string');
-            }
-
-            _validateKeyMap(keyMap) {
-                if (!(keyMap instanceof Map)) throw new Error('Must be a Map instance');
-            }
-        };
+        }
+        return false;
     }
 
     PROVIDER() {
@@ -183,7 +150,7 @@ class DidV1Test4 extends BaseNew4 {
         const strDidDocument = JSON.stringify(objData.objDidDocument);
 
         const strDidAddress = this.md5(strDidDocument);
-        if (this._ns.Data[strDidAddress]) {
+        if (this._ns[strDidAddress]) {
             throw new Error('DID document hash has already defined');
         }
 
@@ -193,7 +160,7 @@ class DidV1Test4 extends BaseNew4 {
 
         this._checkKeysAvailability(keyMap);
 
-        this._ns.createBatch(keyMap);
+        this.createBatchNs(keyMap);
 
         this._dids[strDidAddress] = this._serializeToArray({
             ...objData,
@@ -220,7 +187,7 @@ class DidV1Test4 extends BaseNew4 {
 
         this._checkForUnsKeys(keyMap);
 
-        this._ns.removeBatch(keyMap);
+        this.removeBatchNs(keyMap);
 
         delete this._dids[strDidAddress];
     }
@@ -245,8 +212,8 @@ class DidV1Test4 extends BaseNew4 {
         this._checkForUnsKeys(keyMap);
         this._checkKeysAvailability(keyMap);
 
-        this._ns.removeBatch(oldKeyMap);
-        this._ns.createBatch(keyMap);
+        this.removeBatchNs(oldKeyMap);
+        this.createBatchNs(keyMap);
 
         this._dids[strDidAddress] = [callerAddress, objNewData.strIssuerName, objNewData.objDidDocument];
     }
@@ -294,13 +261,13 @@ class DidV1Test4 extends BaseNew4 {
         return false;
     }
 
-    crateHash(provider, name) {
-        switch (provider) {
+    createHash(strProvider, strName) {
+        switch (strProvider) {
             case this.PROVIDER().UBIX:
             case this.PROVIDER().TELEGRAM:
             case this.PROVIDER().INSTAGRAM:
             case this.PROVIDER().EMAIL:
-                return createHash(`${name}.${provider}`); // eslint-disable-line
+                return this.md5(`${strName}.${strProvider}`);
 
             default:
                 return null;
@@ -344,6 +311,21 @@ class DidV1Test4 extends BaseNew4 {
             strIssuerName: record[1],
             objDidDocument: Object.fromEntries(record[2])
         };
+    }
+
+    _validateKeyParametersNs(strProvider, strName) {
+        if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
+        if (typeof strName !== 'string') throw new Error('strName should be a string');
+    }
+
+    _validateParametersNs({strProvider, strName, strIssuerName, strDidAddress}, checkAddress = true) {
+        this._validateKeyParametersNs(strProvider, strName);
+        if (typeof strIssuerName !== 'string') throw Error('strIssuerName should be a string');
+        if (checkAddress && typeof strDidAddress !== 'string') throw new Error('strDidAddress should be a string');
+    }
+
+    _validateKeyMapNs(keyMap) {
+        if (!(keyMap instanceof Map)) throw new Error('Must be a Map instance');
     }
 
     md5(inputString) {
@@ -476,8 +458,7 @@ class DidV1Test4 extends BaseNew4 {
 }
 
 module.exports = {
-    BaseNew4,
-    DidV1Test4
+    DidV1Test5
 };
 
 // global.value = 0;
