@@ -3,7 +3,7 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const {DidV1Test5: DidContract} = require('./didNsV1');
+const {NsV1Test1: DidContract} = require('./nsV1');
 
 const factory = require('../../testFactory');
 
@@ -30,11 +30,11 @@ describe('Ubix NS', () => {
     });
 
     describe('create Ubix NS record', async () => {
-        let objUnsData;
+        let objData;
 
         beforeEach(async () => {
-            global.value = 130000;
-            objUnsData = {
+            global.value = 1000;
+            objData = {
                 strProvider: 'ubix',
                 strName: 'mytestname',
                 strIssuerName: 'Me',
@@ -43,45 +43,49 @@ describe('Ubix NS', () => {
         });
 
         it('should create', async () => {
-            assert.equal(Object.keys(contract._ns).length, 0);
+            assert.equal(Object.keys(contract._data).length, 0);
 
-            contract.createNs(objUnsData);
+            contract.create(objData);
 
-            assert.equal(Object.keys(contract._ns).length, 1);
-            assert.equal(contract.resolveNs(objUnsData.strProvider, objUnsData.strName), objUnsData.strDidAddress);
+            assert.equal(Object.keys(contract._data).length, 1);
+            assert.equal(contract.resolve(objData.strProvider, objData.strName), objData.strDidAddress);
+        });
+
+        it('should throw (unsigned TX)', async () => {
+            global.callerAddress = undefined;
+            assert.throws(() => contract.create(objData), 'You should sign TX');
+        });
+
+        it('should throw (low create fee)', async () => {
+            global.value = 1e3 - 1;
+            assert.throws(() => contract.create(objData), 'Update fee is 1000');
         });
 
         it('should throw (strProvider should be a string)', async () => {
-            assert.throws(
-                () => contract.createNs({...objUnsData, strProvider: null}),
-                'strProvider should be a string'
-            );
+            assert.throws(() => contract.create({...objData, strProvider: null}), 'strProvider should be a string');
         });
 
         it('should throw (strName should be a string)', async () => {
-            assert.throws(() => contract.createNs({...objUnsData, strName: null}), 'strName should be a string');
+            assert.throws(() => contract.create({...objData, strName: null}), 'strName should be a string');
         });
 
         it('should throw (strAddress should be a string)', async () => {
-            assert.throws(
-                () => contract.createNs({...objUnsData, strDidAddress: null}),
-                'strDidAddress should be a string'
-            );
+            assert.throws(() => contract.create({...objData, strDidAddress: null}), 'strDidAddress should be a string');
         });
 
         it('should throw (create twice)', async () => {
-            contract.createNs(objUnsData);
-            assert.throws(() => contract.createNs(objUnsData), 'Hash has already defined');
+            contract.create(objData);
+            assert.throws(() => contract.create(objData), 'Hash has already defined');
         });
     });
 
     describe('remove Ubix NS record', async () => {
-        let objUnsData;
+        let objData;
 
         beforeEach(async () => {
-            global.value = 130000;
+            global.value = 1000;
 
-            objUnsData = {
+            objData = {
                 strProvider: 'ubix',
                 strName: 'mytestname',
                 strIssuerName: 'Me',
@@ -90,59 +94,56 @@ describe('Ubix NS', () => {
         });
 
         it('should remove', async () => {
-            contract.createNs(objUnsData);
+            contract.create(objData);
 
-            assert.equal(Object.keys(contract._ns).length, 1);
-            contract.removeNs(objUnsData);
-            assert.equal(Object.keys(contract._ns).length, 0);
+            assert.equal(Object.keys(contract._data).length, 1);
+            contract.remove(objData);
+            assert.equal(Object.keys(contract._data).length, 0);
         });
 
         it('should throw (Hash is not found)', async () => {
-            assert.throws(() => contract.removeNs(objUnsData), 'Hash is not found');
+            assert.throws(() => contract.remove(objData), 'Hash is not found');
         });
 
         it('should throw (strProvider should be a string)', async () => {
-            assert.throws(
-                () => contract.removeNs({...objUnsData, strProvider: null}),
-                'strProvider should be a string'
-            );
+            assert.throws(() => contract.remove({...objData, strProvider: null}), 'strProvider should be a string');
         });
 
         it('should throw (strName should be a string)', async () => {
-            assert.throws(() => contract.removeNs({...objUnsData, strName: null}), 'strName should be a string');
+            assert.throws(() => contract.remove({...objData, strName: null}), 'strName should be a string');
         });
     });
 
     describe('resolve Ubix NS record', async () => {
-        let objUnsData;
+        let objData;
 
         beforeEach(async () => {
-            global.value = 130000;
+            global.value = 1000;
 
-            objUnsData = {
+            objData = {
                 strProvider: 'ubix',
                 strName: 'mytestname',
                 strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
-            contract.createNs(objUnsData);
+            contract.create(objData);
         });
 
         it('should throw (Hash is not found)', async () => {
-            assert.throws(() => contract.resolveNs('NO', 'NAME'), 'Hash is not found');
+            assert.throws(() => contract.resolve('NO', 'NAME'), 'Hash is not found');
         });
 
         it('should throw (strProvider should be a string)', async () => {
-            assert.throws(() => contract.resolveNs(null, objUnsData.strName), 'strProvider should be a string');
+            assert.throws(() => contract.resolve(null, objData.strName), 'strProvider should be a string');
         });
 
         it('should throw (strName should be a string)', async () => {
-            assert.throws(() => contract.resolveNs(objUnsData.strProvider, null), 'strName should be a string');
+            assert.throws(() => contract.resolve(objData.strProvider, null), 'strName should be a string');
         });
 
         it('should pass', async () => {
-            const strDidAddress = contract.resolveNs(objUnsData.strProvider, objUnsData.strName);
+            const strDidAddress = contract.resolve(objData.strProvider, objData.strName);
 
             assert.isOk(strDidAddress);
         });
@@ -150,7 +151,7 @@ describe('Ubix NS', () => {
 
     describe('create Ubix NS records in a batch mode', async () => {
         beforeEach(async () => {
-            global.value = 130000;
+            global.value = 1000;
         });
 
         it('should create', () => {
@@ -173,12 +174,12 @@ describe('Ubix NS', () => {
                 ])
             );
 
-            contract.createBatchNs(keyMap);
-            assert.equal(Object.keys(contract._ns).length, Object.keys(objDidDocument).length);
+            contract.createBatch(keyMap);
+            assert.equal(Object.keys(contract._data).length, Object.keys(objDidDocument).length);
         });
 
         it('should throw (Must be a Map instance)', () => {
-            assert.throws(() => contract.createBatchNs(null), 'Must be a Map instance');
+            assert.throws(() => contract.createBatch(null), 'Must be a Map instance');
         });
 
         it('should throw (strName should be a string)', async () => {
@@ -201,7 +202,7 @@ describe('Ubix NS', () => {
                 ])
             );
 
-            assert.throws(() => contract.createBatchNs(keyMap), 'strName should be a string');
+            assert.throws(() => contract.createBatch(keyMap), 'strName should be a string');
         });
 
         it('should throw (strAddress should be a string)', async () => {
@@ -224,7 +225,7 @@ describe('Ubix NS', () => {
                 ])
             );
 
-            assert.throws(() => contract.createBatchNs(keyMap), 'strDidAddress should be a string');
+            assert.throws(() => contract.createBatch(keyMap), 'strDidAddress should be a string');
         });
 
         it('should throw (create twice)', async () => {
@@ -247,14 +248,14 @@ describe('Ubix NS', () => {
                 ])
             );
 
-            contract.createBatchNs(keyMap);
-            assert.throws(() => contract.createBatchNs(keyMap), 'Hash has already defined');
+            contract.createBatch(keyMap);
+            assert.throws(() => contract.createBatch(keyMap), 'Hash has already defined');
         });
     });
 
     describe('remove Ubix NS records in a batch mode', async () => {
         beforeEach(async () => {
-            global.value = 130000;
+            global.value = 1000;
         });
 
         it('should remove', () => {
@@ -277,15 +278,15 @@ describe('Ubix NS', () => {
                 ])
             );
 
-            contract.createBatchNs(keyMap);
-            assert.equal(Object.keys(contract._ns).length, Object.keys(objDidDocument).length);
-            contract.removeBatchNs(keyMap);
-            assert.equal(Object.keys(contract._ns).length, 0);
+            contract.createBatch(keyMap);
+            assert.equal(Object.keys(contract._data).length, Object.keys(objDidDocument).length);
+            contract.removeBatch(keyMap);
+            assert.equal(Object.keys(contract._data).length, 0);
         });
 
         it('should throw (Must be a Map instance)', () => {
             const strAddress = 0x121212121212;
-            assert.throws(() => contract.removeBatchNs({}, strAddress), 'Must be a Map instance');
+            assert.throws(() => contract.removeBatch({}, strAddress), 'Must be a Map instance');
         });
 
         it('should throw (strName should be a string)', async () => {
@@ -326,8 +327,8 @@ describe('Ubix NS', () => {
                 ])
             );
 
-            contract.createBatchNs(keyMap);
-            assert.throws(() => contract.removeBatchNs(keyMap2), 'strName should be a string');
+            contract.createBatch(keyMap);
+            assert.throws(() => contract.removeBatch(keyMap2), 'strName should be a string');
         });
     });
 });
