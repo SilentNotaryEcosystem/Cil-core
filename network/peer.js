@@ -191,8 +191,7 @@ module.exports = (factory) => {
 
             if (bUpdateAddress) {
                 const cPeerInfo = peerInfo instanceof PeerInfo ? peerInfo : new PeerInfo(peerInfo);
-                const strAddrPeerInfo = Transport.addressToString(cPeerInfo.address);
-                if (Transport.isRoutableAddress(strAddrPeerInfo)) this._peerInfo.address = cPeerInfo.address;
+                this._peerInfo.address = cPeerInfo.address;
             }
         }
 

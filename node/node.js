@@ -776,7 +776,7 @@ module.exports = (factory, factoryOptions) => {
                     }
                 } else {
                     peer.updatePeerFromPeerInfo(message.peerInfo);
-                    const result = this._peerManager.addPeer(peer, true);
+                    this._peerManager.addPeer(peer, true);
                 }
 
                 this._adjustNetworkTime(_offset);

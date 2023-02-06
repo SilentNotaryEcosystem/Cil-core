@@ -388,14 +388,6 @@ describe('Peer tests', () => {
             assert.strictEqual(newPeer.address, strAddress);
         });
 
-        it('should not update (address not routable)', async () => {
-            sinon.stub(factory.Transport, 'isRoutableAddress').returns(false);
-
-            newPeer.updatePeerFromPeerInfo(peerInfo2, true);
-
-            assert.notEqual(newPeer.address, strAddress);
-        });
-
         it('should not update (disallow to rewrite)', async () => {
             newPeer.updatePeerFromPeerInfo(peerInfo2, false);
 
