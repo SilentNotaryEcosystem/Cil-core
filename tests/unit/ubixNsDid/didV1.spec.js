@@ -1,9 +1,12 @@
 'use strict';
 
 const {describe, it} = require('mocha');
-const {assert} = require('chai');
+const chai = require('chai');
+const sinon = require('sinon').createSandbox();
+chai.use(require('chai-as-promised'));
+const {assert} = chai;
 
-const {DidV1Test5: DidContract} = require('./didNsV1');
+const {DidV1Test1: DidContract} = require('./didV1');
 
 const factory = require('../../testFactory');
 
@@ -24,6 +27,7 @@ describe('Ubix DID', () => {
     beforeEach(async () => {
         global.value = 0;
         global.callerAddress = generateAddress().toString('hex');
+        global.delegatecall = sinon.fake();
         global.createHash = str => factory.Crypto.createHash(str);
         contract = new DidContract();
     });
@@ -44,33 +48,33 @@ describe('Ubix DID', () => {
         });
 
         it('should create', async () => {
-            assert.equal(Object.keys(contract._dids).length, 0);
+            assert.equal(Object.keys(contract._data).length, 0);
 
-            contract.create(objData);
+            await contract.create(objData);
 
-            assert.equal(Object.keys(contract._dids).length, 1);
+            assert.equal(Object.keys(contract._data).length, 1);
         });
 
         it('should throw (unsigned TX)', async () => {
             global.callerAddress = undefined;
-            assert.throws(() => contract.create(objData), 'You should sign TX');
+            assert.isRejected(contract.create(objData), 'You should sign TX');
         });
 
         it('should throw (low create fee)', async () => {
             global.value = 130000 - 1;
-            assert.throws(() => contract.create(objData), 'Update fee is 130000');
+            assert.isRejected(contract.create(objData), 'Update fee is 130000');
         });
 
         it('should throw (DID document does not have Ubix NS keys)', async () => {
-            assert.throws(
-                () => contract.create({objDidDocument: {}, strIssuerName: 'Me'}),
+            assert.isRejected(
+                contract.create({objDidDocument: {}, strIssuerName: 'Me'}),
                 'DID document does not have Ubix NS keys'
             );
         });
 
         it('should throw (create twice)', async () => {
-            contract.create(objData);
-            assert.throws(() => contract.create(objData), 'Hash has already defined');
+            await contract.create(objData);
+            assert.isRejected(contract.create(objData), 'DID document hash has already defined');
         });
     });
 
@@ -90,29 +94,29 @@ describe('Ubix DID', () => {
         });
 
         it('should remove', async () => {
-            const strDidAddress = contract.create(objData);
+            const strDidAddress = await contract.create(objData);
 
-            assert.equal(Object.keys(contract._dids).length, 1);
+            assert.equal(Object.keys(contract._data).length, 1);
 
-            contract.remove(strDidAddress);
+            await contract.remove(strDidAddress);
 
-            assert.equal(Object.keys(contract._dids).length, 0);
+            assert.equal(Object.keys(contract._data).length, 0);
         });
 
         it('should throw (strDidAddress must be a string)', async () => {
-            assert.throws(() => contract.remove(null), 'strDidAddress should be a string');
+            assert.isRejected(contract.remove(null), 'strDidAddress should be a string');
         });
 
         it('should throw (Hash is not found)', async () => {
-            assert.throws(() => contract.remove(''), 'Hash is not found');
+            assert.isRejected(contract.remove(''), 'Hash is not found');
         });
 
         it('should fail (not owner)', async () => {
-            const strDidAddress = contract.create(objData);
+            const strDidAddress = await contract.create(objData);
 
             callerAddress = generateAddress().toString('hex');
 
-            assert.throws(() => contract.remove(strDidAddress), 'You are not the owner');
+            assert.isRejected(contract.remove(strDidAddress), 'You are not the owner');
         });
     });
 
@@ -148,43 +152,43 @@ describe('Ubix DID', () => {
         });
 
         it('should replace', async () => {
-            const strDidAddress = contract.create(objData);
+            const strDidAddress = await contract.create(objData);
 
-            assert.equal(Object.keys(contract._dids).length, 1);
+            assert.equal(Object.keys(contract._data).length, 1);
 
-            contract.replace(strDidAddress, objNewData);
+            await contract.replace(strDidAddress, objNewData);
 
-            assert.equal(Object.keys(contract._dids).length, 1);
+            assert.equal(Object.keys(contract._data).length, 1);
 
-            assert.equal(contract._dids[strDidAddress][1], 'Not me');
+            assert.equal(contract._data[strDidAddress][1], 'Not me');
         });
 
         it('should replace (with merge)', async () => {
-            const strDidAddress = contract.create(objData);
+            const strDidAddress = await contract.create(objData);
 
-            assert.equal(Object.keys(contract._dids).length, 1);
+            assert.equal(Object.keys(contract._data).length, 1);
 
-            contract.replace(strDidAddress, objNewData2);
+            await contract.replace(strDidAddress, objNewData2);
 
-            assert.equal(Object.keys(contract._dids).length, 1);
+            assert.equal(Object.keys(contract._data).length, 1);
 
-            assert.equal(contract._dids[strDidAddress][1], 'Not me');
+            assert.equal(contract._data[strDidAddress][1], 'Not me');
         });
 
         it('should throw (strDidAddress must be a string)', async () => {
-            assert.throws(() => contract.remove(null), 'strDidAddress should be a string');
+            assert.isRejected(contract.remove(null), 'strDidAddress should be a string');
         });
 
         it('should throw (Hash is not found)', async () => {
-            assert.throws(() => contract.remove(''), 'Hash is not found');
+            assert.isRejected(contract.remove(''), 'Hash is not found');
         });
 
         it('should fail (not owner)', async () => {
-            const strDidAddress = contract.create(objData);
+            const strDidAddress = await contract.create(objData);
 
             callerAddress = generateAddress().toString('hex');
 
-            assert.throws(() => contract.replace(strDidAddress, objNewData), 'You are not the owner');
+            assert.isRejected(contract.replace(strDidAddress, objNewData), 'You are not the owner');
         });
     });
 });
