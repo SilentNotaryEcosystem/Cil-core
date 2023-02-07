@@ -883,7 +883,7 @@ module.exports = (factory, factoryOptions) => {
             const msg = new MsgGetBlocks();
             const arrLastApplied = await this._storage.getLastAppliedBlockHashes();
             const arrTips = this._pendingBlocks.getTips();
-            msg.arrHashes = arrLastApplied.concat(arrTips);
+            msg.arrHashes = arrTips.length ? arrTips : arrLastApplied;
             return msg;
         }
 
