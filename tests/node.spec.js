@@ -2942,7 +2942,8 @@ describe('Node tests', async () => {
                 pushMessage: sinon.fake(),
                 markAsEven: sinon.fake(),
                 singleBlockRequested: sinon.fake(),
-                isGetBlocksSent: sinon.fake.returns(false)
+                isGetBlocksSent: sinon.fake.returns(false),
+                isAhead: () => false
             };
             node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
 
@@ -2971,7 +2972,8 @@ describe('Node tests', async () => {
                 pushMessage: sinon.fake(),
                 markAsEven: sinon.fake(),
                 singleBlockRequested: sinon.fake(),
-                isGetBlocksSent: sinon.fake.returns(false)
+                isGetBlocksSent: sinon.fake.returns(false),
+                isAhead: () => false
             };
             node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
 

@@ -469,7 +469,8 @@ module.exports = (factory, factoryOptions) => {
                     let bShouldRequest = false;
                     if (objVector.type === Constants.INV_TX) {
 
-                        bShouldRequest = !this._mempool.hasTx(objVector.hash);
+                        bShouldRequest = !this._mempool.hasTx(objVector.hash) &&
+                                         !this._isInitialBlockLoading();
                         if (bShouldRequest) {
                             try {
                                 await this._storage.getUtxo(objVector.hash, true).catch();
@@ -478,10 +479,17 @@ module.exports = (factory, factoryOptions) => {
                             }
                         }
                     } else if (objVector.type === Constants.INV_BLOCK) {
-                        bShouldRequest = !this._storage.isBlockBanned(objVector.hash) &&
-                                         !this._requestCache.isRequested(objVector.hash) &&
-                                         !await this._isBlockKnown(objVector.hash.toString('hex'));
+                        const strHash=objVector.hash.toString('hex');
+                        const bBlockKnown=await this._isBlockKnown(strHash);
+                        bShouldRequest = !this._storage.isBlockBanned(strHash) &&
+                                         !this._requestCache.isRequested(strHash) &&
+                                         !bBlockKnown;
                         if (bShouldRequest) nBlockToRequest++;
+
+                        // i.e. we store it, it somehow missed dag
+                        if(bBlockKnown && this._mainDag.getBlockInfo(strHash)) {
+                            this._queueBlockExec(strHash, peer);
+                        }
                     }
 
                     if (bShouldRequest) {
@@ -1875,6 +1883,11 @@ module.exports = (factory, factoryOptions) => {
         async _isBlockKnown(hash) {
             const blockInfo = this._mainDag.getBlockInfo(hash);
             return blockInfo || await this._storage.hasBlock(hash);
+        }
+
+        async _couldBeResurrected(hash) {
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            return !blockInfo && await this._storage.hasBlock(hash);
         }
 
         /**
