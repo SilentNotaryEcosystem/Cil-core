@@ -68,25 +68,19 @@ class DidV1Test1 extends Base {
             throw new Error('DID document hash has already defined');
         }
 
-        const keyMap = this._object2KeyMap({...objData, strDidAddress});
+        this._checkForUnsKeys(objData.objDidDocument);
 
-        this._checkForUnsKeys(keyMap);
-
-        const objResult = await delegatecall(this._nsContractAddress, {
+        await delegatecall(this._nsContractAddress, {
             method: 'createBatch',
-            arrArguments: [keyMap]
+            arrArguments: [objData]
         });
 
-        // if error??
-        // console.log('objResult####', objResult);
-        // // тут если исключение не создавать - проверить что там вернулось в итоге
-        // // не создавать, если ошибка
         this._data[strDidAddress] = this._serializeToArray({
             ...objData,
             strOwnerAddress: callerAddress
         });
 
-        return {strDidAddress, objResult};
+        return strDidAddress;
     }
 
     async remove(strDidAddress) {
@@ -101,21 +95,12 @@ class DidV1Test1 extends Base {
             throw new Error('You are not the owner');
         }
 
-        const keyMap = this._object2KeyMap({
-            ...objData,
-            strDidAddress
-        });
+        this._checkForUnsKeys(objData.objDidDocument);
 
-        this._checkForUnsKeys(keyMap);
-
-        // this.removeBatchNs(keyMap);
-
-        const objResult = await delegatecall(this._nsContractAddress, {
+        await delegatecall(this._nsContractAddress, {
             method: 'removeBatch',
-            arrArguments: [keyMap]
+            arrArguments: [objData]
         });
-
-        // console.log('objResult####', objResult);
 
         delete this._data[strDidAddress];
     }
@@ -133,48 +118,21 @@ class DidV1Test1 extends Base {
 
         if (callerAddress !== objOldData.strOwnerAddress) throw 'You are not the owner';
 
-        const oldKeyMap = this._object2KeyMap({...objOldData, strDidAddress});
-
-        const keyMap = this._object2KeyMap({...objNewData, strDidAddress});
-
-        this._checkForUnsKeys(keyMap);
-        // this._checkKeysAvailability(keyMap); это переписать надо будет на одну операцию
+        this._checkForUnsKeys(objNewData.objDidDocument);
 
         await delegatecall(this._nsContractAddress, {
-            method: 'removeBatch',
-            arrArguments: [oldKeyMap]
+            method: 'replaceBatch',
+            arrArguments: [objOldData, objNewData]
         });
-
-        await delegatecall(this._nsContractAddress, {
-            method: 'createBatch',
-            arrArguments: [keyMap]
-        });
-
-        // this.removeBatchNs(oldKeyMap);
-        // this.createBatchNs(keyMap);
 
         this._data[strDidAddress] = [callerAddress, objNewData.strIssuerName, objNewData.objDidDocument];
     }
 
-    _object2KeyMap(objData) {
-        const keyMap = new Map(
-            Object.entries(objData.objDidDocument).map(([strProvider, strName]) => [
-                strProvider,
-                {
-                    strName,
-                    strIssuerName: objData.strIssuerName,
-                    strDidAddress: objData.strDidAddress
-                }
-            ])
-        );
-        return keyMap;
-    }
-
-    _checkForUnsKeys(keyMap) {
+    _checkForUnsKeys(objDidDocument) {
         let hasKeys = false;
 
-        for (const item of keyMap) {
-            if (this._providers.includes(item[0])) {
+        for (const key in objDidDocument) {
+            if (this._providers.includes(key)) {
                 hasKeys = true;
                 break;
             }

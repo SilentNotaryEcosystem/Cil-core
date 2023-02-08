@@ -34,6 +34,7 @@ describe('Ubix NS', () => {
 
         beforeEach(async () => {
             global.value = 1000;
+
             objData = {
                 strProvider: 'ubix',
                 strName: 'mytestname',
@@ -155,101 +156,65 @@ describe('Ubix NS', () => {
         });
 
         it('should create', () => {
-            const objDidDocument = {
-                ubix: 'my_ubix_nick',
-                email: 'my@best.mail',
-                tg: 'john_doe'
+            const objData = {
+                objDidDocument: {
+                    ubix: 'my_ubix_nick',
+                    email: 'my@best.mail',
+                    tg: 'john_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: '0x121212121212'
             };
-            const strIssuerName = 'Me';
-            const strDidAddress = '0x121212121212';
 
-            const keyMap = new Map(
-                Object.entries(objDidDocument).map(([strProvider, strName]) => [
-                    strProvider,
-                    {
-                        strName,
-                        strIssuerName,
-                        strDidAddress
-                    }
-                ])
-            );
-
-            contract.createBatch(keyMap);
-            assert.equal(Object.keys(contract._data).length, Object.keys(objDidDocument).length);
+            contract.createBatch(objData);
+            assert.equal(Object.keys(contract._data).length, Object.keys(objData.objDidDocument).length);
         });
 
         it('should throw (Must be a Map instance)', () => {
-            assert.throws(() => contract.createBatch(null), 'Must be a Map instance');
+            assert.throws(() => contract.createBatch(null), 'Must be an Object instance');
         });
 
         it('should throw (strName should be a string)', async () => {
-            const objDidDocument = {
-                ubix: null,
-                email: 'my@best.mail',
-                tg: 'john_doe'
+            const objData = {
+                objDidDocument: {
+                    ubix: null,
+                    email: 'my@best.mail',
+                    tg: 'john_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: '0x121212121212'
             };
-            const strIssuerName = 'Me';
-            const strDidAddress = '0x121212121212';
 
-            const keyMap = new Map(
-                Object.entries(objDidDocument).map(([strProvider, strName]) => [
-                    strProvider,
-                    {
-                        strName,
-                        strIssuerName,
-                        strDidAddress
-                    }
-                ])
-            );
-
-            assert.throws(() => contract.createBatch(keyMap), 'strName should be a string');
+            assert.throws(() => contract.createBatch(objData), 'strName should be a string');
         });
 
         it('should throw (strAddress should be a string)', async () => {
-            const objDidDocument = {
-                ubix: 'my_ubix_nick',
-                email: 'my@best.mail',
-                tg: 'john_doe'
+            const objData = {
+                objDidDocument: {
+                    ubix: 'my_ubix_nick',
+                    email: 'my@best.mail',
+                    tg: 'john_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: null
             };
-            const strIssuerName = 'Me';
-            const strDidAddress = null;
 
-            const keyMap = new Map(
-                Object.entries(objDidDocument).map(([strProvider, strName]) => [
-                    strProvider,
-                    {
-                        strName,
-                        strIssuerName,
-                        strDidAddress
-                    }
-                ])
-            );
-
-            assert.throws(() => contract.createBatch(keyMap), 'strDidAddress should be a string');
+            assert.throws(() => contract.createBatch(objData), 'strDidAddress should be a string');
         });
 
         it('should throw (create twice)', async () => {
-            const objDidDocument = {
-                ubix: 'my_ubix_nick',
-                email: 'my@best.mail',
-                tg: 'john_doe'
+            const objData = {
+                objDidDocument: {
+                    ubix: 'my_ubix_nick',
+                    email: 'my@best.mail',
+                    tg: 'john_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: '0x121212121212'
             };
-            const strIssuerName = 'Me';
-            const strDidAddress = '0x121212121212';
 
-            const keyMap = new Map(
-                Object.entries(objDidDocument).map(([strProvider, strName]) => [
-                    strProvider,
-                    {
-                        strName,
-                        strIssuerName,
-                        strDidAddress
-                    }
-                ])
-            );
-
-            contract.createBatch(keyMap);
-            assert.throws(() => contract.createBatch(keyMap), 'Hash has already defined');
+            contract.createBatch(objData);
+            assert.throws(() => contract.createBatch(objData), 'Hash has already defined');
         });
     });
 
@@ -259,76 +224,55 @@ describe('Ubix NS', () => {
         });
 
         it('should remove', () => {
-            const objDidDocument = {
-                ubix: 'my_ubix_nick',
-                email: 'my@best.mail',
-                tg: 'john_doe'
+            const objData = {
+                objDidDocument: {
+                    ubix: 'my_ubix_nick',
+                    email: 'my@best.mail',
+                    tg: 'john_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: '0x121212121212'
             };
-            const strIssuerName = 'Me';
-            const strDidAddress = '0x121212121212';
 
-            const keyMap = new Map(
-                Object.entries(objDidDocument).map(([strProvider, strName]) => [
-                    strProvider,
-                    {
-                        strName,
-                        strIssuerName,
-                        strDidAddress
-                    }
-                ])
-            );
-
-            contract.createBatch(keyMap);
-            assert.equal(Object.keys(contract._data).length, Object.keys(objDidDocument).length);
-            contract.removeBatch(keyMap);
+            contract.createBatch(objData);
+            assert.equal(Object.keys(contract._data).length, Object.keys(objData.objDidDocument).length);
+            contract.removeBatch(objData);
             assert.equal(Object.keys(contract._data).length, 0);
         });
 
         it('should throw (Must be a Map instance)', () => {
             const strAddress = 0x121212121212;
-            assert.throws(() => contract.removeBatch({}, strAddress), 'Must be a Map instance');
+            assert.throws(() => contract.removeBatch(null, strAddress), 'Must be an Object instance');
+        });
+
+        it('should throw (Must be a Map instance)', () => {
+            const strAddress = 0x121212121212;
+            assert.throws(() => contract.removeBatch({}, strAddress), 'DID document be an Object instance');
         });
 
         it('should throw (strName should be a string)', async () => {
-            const objDidDocument = {
-                ubix: 'my_ubix_nick',
-                email: 'my@best.mail',
-                tg: 'john_doe'
+            const objData = {
+                objDidDocument: {
+                    ubix: 'my_ubix_nick',
+                    email: 'my@best.mail',
+                    tg: 'john_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: '0x121212121212'
             };
 
-            const objDidDocument2 = {
-                ubix: 'my_ubix_nick',
-                email: null,
-                tg: 'john_doe'
+            const objData2 = {
+                objDidDocument: {
+                    ubix: 'my_ubix_nick',
+                    email: null,
+                    tg: 'john_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: '0x121212121212'
             };
 
-            const strIssuerName = 'Me';
-            const strDidAddress = '0x121212121212';
-
-            const keyMap = new Map(
-                Object.entries(objDidDocument).map(([strProvider, strName]) => [
-                    strProvider,
-                    {
-                        strName,
-                        strIssuerName,
-                        strDidAddress
-                    }
-                ])
-            );
-
-            const keyMap2 = new Map(
-                Object.entries(objDidDocument2).map(([strProvider, strName]) => [
-                    strProvider,
-                    {
-                        strName,
-                        strIssuerName,
-                        strDidAddress
-                    }
-                ])
-            );
-
-            contract.createBatch(keyMap);
-            assert.throws(() => contract.removeBatch(keyMap2), 'strName should be a string');
+            contract.createBatch(objData);
+            assert.throws(() => contract.removeBatch(objData2), 'strName should be a string');
         });
     });
 });

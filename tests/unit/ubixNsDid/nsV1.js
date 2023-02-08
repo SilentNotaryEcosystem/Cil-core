@@ -44,6 +44,7 @@ class NsV1Test1 extends Base {
         super();
         this._updateFee = 1000;
         this._data = {};
+        this._providers = ['ubix', 'tg', 'ig', 'email'];
     }
 
     getData() {
@@ -54,7 +55,7 @@ class NsV1Test1 extends Base {
         this._validateKeyParameters(strProvider, strName);
 
         const hash = this._createHash(strProvider, strName);
-        if (!this._data[hash]) throw new Error('Hash is not found');
+        if (!hash || !this._data[hash]) throw new Error('Hash is not found');
         return this._data[hash][2];
     }
 
@@ -65,6 +66,8 @@ class NsV1Test1 extends Base {
         const {strProvider, strName, strIssuerName, strDidAddress} = objData;
 
         const hash = this._createHash(strProvider, strName);
+
+        if (!hash) throw new Error('Not a DID document hash');
         if (this._data[hash]) throw new Error('Hash has already defined');
 
         this._data[hash] = [callerAddress, strIssuerName, strDidAddress];
@@ -76,8 +79,9 @@ class NsV1Test1 extends Base {
         this._validateKeyParameters(strProvider, strName);
 
         const hash = this._createHash(strProvider, strName);
-        const record = this._data[hash];
+        if (!hash) throw new Error('Not a DID document hash');
 
+        const record = this._data[hash];
         if (!record) throw new Error('Hash is not found');
 
         if (callerAddress !== record[0]) {
@@ -91,25 +95,41 @@ class NsV1Test1 extends Base {
         delete this._data[hash];
     }
 
-    createBatch(keyMap) {
-        this._validateKeyMap(keyMap);
+    createBatch(objBatchData) {
+        this._validateBatchData(objBatchData);
 
-        const keys = keyMap.keys();
-        for (const key of keys) {
-            const {strName, strIssuerName, strDidAddress} = keyMap.get(key);
-
-            this.create({strProvider: key, strName, strIssuerName, strDidAddress});
+        for (const strProvider in objBatchData.objDidDocument) {
+            if (this._providers.includes(strProvider)) {
+                this.create({
+                    strProvider,
+                    strName: objBatchData.objDidDocument[strProvider],
+                    strIssuerName: objBatchData.strIssuerName,
+                    strDidAddress: objBatchData.strDidAddress
+                });
+            }
         }
     }
 
-    removeBatch(keyMap) {
-        this._validateKeyMap(keyMap);
+    removeBatch(objBatchData) {
+        this._validateBatchData(objBatchData);
 
-        const keys = keyMap.keys();
-        for (const key of keys) {
-            const {strName, strDidAddress} = keyMap.get(key);
-            this.remove({strProvider: key, strName, strDidAddress});
+        for (const strProvider in objBatchData.objDidDocument) {
+            if (this._providers.includes(strProvider)) {
+                this.remove({
+                    strProvider,
+                    strName: objBatchData.objDidDocument[strProvider],
+                    strDidAddress: objBatchData.strDidAddress
+                });
+            }
         }
+    }
+
+    replaceBatch(oldKeyMap, newKeyMap) {
+        // check availability here
+        // this._checkKeysAvailability(keyMap); это переписать надо будет на одну операцию
+
+        this.removeBatch(oldKeyMap);
+        this.createBatch(newKeyMap);
     }
 
     _createHash(strProvider, strName) {
@@ -137,6 +157,13 @@ class NsV1Test1 extends Base {
 
     _validateKeyMap(keyMap) {
         if (!(keyMap instanceof Map)) throw new Error('Must be a Map instance');
+    }
+
+    _validateBatchData(objBatchData) {
+        if (!(objBatchData instanceof Object)) throw new Error('Must be an Object instance');
+        if (!(objBatchData.objDidDocument instanceof Object)) throw new Error('DID document be an Object instance');
+
+        // if (!(keyMap instanceof Map)) throw new Error('Must be a Map instance');
     }
 
     _md5(inputString) {
