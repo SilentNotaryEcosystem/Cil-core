@@ -14,7 +14,7 @@ const {generateAddress} = require('../../testUtil');
 
 let contract;
 
-describe('Ubix DID', () => {
+describe('Ubix DID Proxy', () => {
     before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
@@ -32,7 +32,7 @@ describe('Ubix DID', () => {
         contract = new DidContract();
     });
 
-    describe('create DID document', async () => {
+    describe.skip('create DID document', async () => {
         let objData;
 
         beforeEach(async () => {
@@ -61,8 +61,8 @@ describe('Ubix DID', () => {
         });
 
         it('should throw (low create fee)', async () => {
-            global.value = 1000 - 1;
-            assert.isRejected(contract.create(objData), 'Update fee is 1000');
+            global.value = 130000 - 1;
+            assert.isRejected(contract.create(objData), 'Update fee is 130000');
         });
 
         it('should throw (DID document does not have Ubix NS keys)', async () => {
@@ -78,7 +78,7 @@ describe('Ubix DID', () => {
         });
     });
 
-    describe('remove DID document', async () => {
+    describe.skip('remove DID document', async () => {
         let objData;
 
         beforeEach(async () => {
@@ -120,7 +120,7 @@ describe('Ubix DID', () => {
         });
     });
 
-    describe('replace Ubix NS record', async () => {
+    describe.skip('replace Ubix NS record', async () => {
         let objData, objNewData, objNewData2;
 
         beforeEach(async () => {

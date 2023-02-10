@@ -97,6 +97,7 @@ class NsV1Test1 extends Base {
 
     createBatch(objBatchData) {
         this._validateBatchData(objBatchData);
+        this._checkKeysAvailability(objBatchData.objDidDocument);
 
         for (const strProvider in objBatchData.objDidDocument) {
             if (this._providers.includes(strProvider)) {
@@ -112,6 +113,7 @@ class NsV1Test1 extends Base {
 
     removeBatch(objBatchData) {
         this._validateBatchData(objBatchData);
+        this._checkKeysAvailability(objBatchData.objDidDocument, false);
 
         for (const strProvider in objBatchData.objDidDocument) {
             if (this._providers.includes(strProvider)) {
@@ -124,12 +126,15 @@ class NsV1Test1 extends Base {
         }
     }
 
-    replaceBatch(oldKeyMap, newKeyMap) {
-        // check availability here
-        // this._checkKeysAvailability(keyMap); это переписать надо будет на одну операцию
+    replaceBatch(objOldBatchData, objNewBatchData) {
+        this._validateBatchData(objOldBatchData);
+        this._validateBatchData(objNewBatchData);
 
-        this.removeBatch(oldKeyMap);
-        this.createBatch(newKeyMap);
+        this._checkKeysAvailability(objOldBatchData.objDidDocument, false);
+        this._checkKeysAvailability(objNewBatchData.objDidDocument);
+
+        this.removeBatch(objOldBatchData);
+        this.createBatch(objNewBatchData);
     }
 
     _createHash(strProvider, strName) {
@@ -162,8 +167,27 @@ class NsV1Test1 extends Base {
     _validateBatchData(objBatchData) {
         if (!(objBatchData instanceof Object)) throw new Error('Must be an Object instance');
         if (!(objBatchData.objDidDocument instanceof Object)) throw new Error('DID document be an Object instance');
+    }
 
-        // if (!(keyMap instanceof Map)) throw new Error('Must be a Map instance');
+    _checkKeysAvailability(objDidDocument, acceptEmpty = true) {
+        // тут если ключи и так нам принадлежат их не считать
+        for (const strProvider in objDidDocument) {
+            if (this._providers.includes(strProvider)) {
+                const objRecord = this._data[this._createHash(strProvider, objDidDocument[strProvider])];
+                if (acceptEmpty) {
+                    if (!objRecord) continue;
+                    if (objRecord[0] !== callerAddress) {
+                        console.log('AAA1', objRecord[0]);
+                        throw new Error('You must be the owner');
+                    }
+                } else {
+                    if (!objRecord || objRecord[0] !== callerAddress) {
+                        console.log('AAA1', objRecord && objRecord[0]);
+                        throw new Error('You must be the owner');
+                    }
+                }
+            }
+        }
     }
 
     _md5(inputString) {

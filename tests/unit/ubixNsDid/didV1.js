@@ -42,9 +42,9 @@ class Base {
 class DidV1Test1 extends Base {
     constructor() {
         super();
-        this._updateFee = 13e4;
+        this._updateFee = 1000;
         this._data = {};
-        this._nsContractAddress = '3c1709023eb7847b940f6acf0cc6651959621f68';
+        this._strNsContractAddress = '3c1709023eb7847b940f6acf0cc6651959621f68';
         this._providers = ['ubix', 'tg', 'ig', 'email'];
     }
 
@@ -59,6 +59,13 @@ class DidV1Test1 extends Base {
         };
     }
 
+    async resolve(strProvider, strName) {
+        return await call(this._strNsContractAddress, {
+            method: 'resolve',
+            arrArguments: [strProvider, strName]
+        });
+    }
+
     async create(objData) {
         this._validatePermissions();
         this._validateObjData(objData, true);
@@ -70,7 +77,7 @@ class DidV1Test1 extends Base {
 
         this._checkForUnsKeys(objData.objDidDocument);
 
-        await call(this._nsContractAddress, {
+        await call(this._strNsContractAddress, {
             method: 'createBatch',
             arrArguments: [{...objData, strDidAddress}]
         });
@@ -84,6 +91,7 @@ class DidV1Test1 extends Base {
     }
 
     async remove(strDidAddress) {
+        this._validatePermissions();
         this._validateDidAddress(strDidAddress);
 
         const record = this._data[strDidAddress];
@@ -97,7 +105,7 @@ class DidV1Test1 extends Base {
 
         this._checkForUnsKeys(objData.objDidDocument);
 
-        await call(this._nsContractAddress, {
+        await call(this._strNsContractAddress, {
             method: 'removeBatch',
             arrArguments: [objData]
         });
@@ -106,6 +114,7 @@ class DidV1Test1 extends Base {
     }
 
     async replace(strDidAddress, objNewData) {
+        this._validatePermissions();
         this._validateDidAddress(strDidAddress);
         this._validateObjData(objNewData, true);
 
@@ -120,7 +129,7 @@ class DidV1Test1 extends Base {
 
         this._checkForUnsKeys(objNewData.objDidDocument);
 
-        await call(this._nsContractAddress, {
+        await call(this._strNsContractAddress, {
             method: 'replaceBatch',
             arrArguments: [objOldData, objNewData]
         });
