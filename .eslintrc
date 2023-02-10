@@ -25,6 +25,7 @@
     "block": true,
     "contractTx": true,
     "delegatecall": true,
+    "call": true,
     "value": true,
     "send": true
   }

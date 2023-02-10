@@ -27,7 +27,7 @@ describe('Ubix DID', () => {
     beforeEach(async () => {
         global.value = 0;
         global.callerAddress = generateAddress().toString('hex');
-        global.delegatecall = sinon.fake();
+        global.call = sinon.fake();
         global.createHash = str => factory.Crypto.createHash(str);
         contract = new DidContract();
     });

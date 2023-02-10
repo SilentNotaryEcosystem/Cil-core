@@ -70,9 +70,9 @@ class DidV1Test1 extends Base {
 
         this._checkForUnsKeys(objData.objDidDocument);
 
-        await delegatecall(this._nsContractAddress, {
+        await call(this._nsContractAddress, {
             method: 'createBatch',
-            arrArguments: [objData]
+            arrArguments: [{...objData, strDidAddress}]
         });
 
         this._data[strDidAddress] = this._serializeToArray({
@@ -97,7 +97,7 @@ class DidV1Test1 extends Base {
 
         this._checkForUnsKeys(objData.objDidDocument);
 
-        await delegatecall(this._nsContractAddress, {
+        await call(this._nsContractAddress, {
             method: 'removeBatch',
             arrArguments: [objData]
         });
@@ -120,7 +120,7 @@ class DidV1Test1 extends Base {
 
         this._checkForUnsKeys(objNewData.objDidDocument);
 
-        await delegatecall(this._nsContractAddress, {
+        await call(this._nsContractAddress, {
             method: 'replaceBatch',
             arrArguments: [objOldData, objNewData]
         });
