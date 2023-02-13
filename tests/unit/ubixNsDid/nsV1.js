@@ -177,13 +177,11 @@ class NsV1Test1 extends Base {
                 if (acceptEmpty) {
                     if (!objRecord) continue;
                     if (objRecord[0] !== callerAddress) {
-                        console.log('AAA1', objRecord[0]);
-                        throw new Error('You must be the owner');
+                        throw new Error('You are not the owner');
                     }
                 } else {
                     if (!objRecord || objRecord[0] !== callerAddress) {
-                        console.log('AAA1', objRecord && objRecord[0]);
-                        throw new Error('You must be the owner');
+                        throw new Error('You are not the owner');
                     }
                 }
             }

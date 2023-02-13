@@ -68,6 +68,8 @@ class DidProxyV1 extends Base {
     }
 
     async get(strDidAddress) {
+        this._validatePermissions();
+
         return await call(this._strActiveDidContractAddress, {
             method: 'get',
             arrArguments: [strDidAddress]
@@ -75,6 +77,9 @@ class DidProxyV1 extends Base {
     }
 
     async create(objData) {
+        this._validatePermissions();
+
+        this._validatePermissions();
         return await call(this._strActiveDidContractAddress, {
             method: 'create',
             arrArguments: [objData]
@@ -82,6 +87,9 @@ class DidProxyV1 extends Base {
     }
 
     async remove(strDidAddress) {
+        this._validatePermissions();
+
+        this._validatePermissions();
         return await call(this._strActiveDidContractAddress, {
             method: 'remove',
             arrArguments: [strDidAddress]
@@ -89,6 +97,8 @@ class DidProxyV1 extends Base {
     }
 
     async replace(strDidAddress, objNewData) {
+        this._validatePermissions();
+
         return await call(this._strActiveDidContractAddress, {
             method: 'replace',
             arrArguments: [strDidAddress, objNewData]

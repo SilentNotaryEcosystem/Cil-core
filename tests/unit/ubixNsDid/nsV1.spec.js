@@ -245,13 +245,18 @@ describe('Ubix NS', () => {
             assert.throws(() => contract.removeBatch(null, strAddress), 'Must be an Object instance');
         });
 
-        it('should throw (Must be an Object instance)', () => {
+        it('should throw (DID document be an Object instance)', () => {
             const strAddress = 0x121212121212;
             assert.throws(() => contract.removeBatch({}, strAddress), 'DID document be an Object instance');
         });
+    });
 
-        it.skip('should throw (strName should be a string)', async () => {
-            const objData = {
+    describe('replace Ubix NS records in a batch mode', async () => {
+        let objOldData, objNewData, objNewData2;
+        beforeEach(async () => {
+            global.value = 1000;
+
+            objOldData = {
                 objDidDocument: {
                     ubix: 'my_ubix_nick',
                     email: 'my@best.mail',
@@ -261,18 +266,62 @@ describe('Ubix NS', () => {
                 strDidAddress: '0x121212121212'
             };
 
-            const objData2 = {
+            objNewData = {
                 objDidDocument: {
-                    ubix: 'my_ubix_nick',
-                    email: null,
-                    tg: 'john_doe'
+                    ubix: 'my_ubix_nick_new',
+                    email: 'my_new@best.mail',
+                    tg: 'jack_doe'
                 },
                 strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
-            contract.createBatch(objData);
-            assert.throws(() => contract.removeBatch(objData2), 'strName should be a string');
+            objNewData2 = {
+                objDidDocument: {
+                    ubix: 'my_ubix_nick_new',
+                    ig: 'jack_doe'
+                },
+                strIssuerName: 'Me',
+                strDidAddress: '0x121212121212'
+            };
+        });
+
+        it('should replace', () => {
+            contract.createBatch(objOldData);
+            assert.equal(Object.keys(contract._data).length, Object.keys(objOldData.objDidDocument).length);
+
+            contract.replaceBatch(objOldData, objNewData);
+
+            const strDidAddress = contract.resolve('email', objNewData.objDidDocument.email);
+
+            assert.isOk(strDidAddress);
+        });
+
+        it('should throw (Must be an Object instance)', () => {
+            assert.throws(() => contract.replaceBatch(null, objNewData), 'Must be an Object instance');
+            assert.throws(() => contract.replaceBatch(objOldData, null), 'Must be an Object instance');
+        });
+
+        it('should throw (DID document be an Object instance)', () => {
+            assert.throws(() => contract.replaceBatch({}, objNewData), 'DID document be an Object instance');
+            assert.throws(() => contract.replaceBatch(objOldData, {}), 'DID document be an Object instance');
+        });
+
+        it('should replace (with merge)', async () => {
+            contract.createBatch(objOldData);
+            contract.replaceBatch(objOldData, objNewData2);
+
+            const strDidAddress = contract.resolve('ig', objNewData2.objDidDocument.ig);
+
+            assert.isOk(strDidAddress);
+        });
+
+        it('should fail (not owner)', async () => {
+            contract.createBatch(objOldData);
+
+            callerAddress = generateAddress().toString('hex');
+
+            assert.throws(() => contract.replaceBatch(objOldData, objNewData), 'You are not the owner');
         });
     });
 });
