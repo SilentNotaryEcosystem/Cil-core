@@ -39,16 +39,18 @@ class Base {
     }
 }
 
+// Must have at least one contract as active
+// Don't want to check it every time
 class DidProxyV1 extends Base {
     constructor() {
         super();
-        this._updateFee = 1000; // TODO: Make it very expencive
-        this._didContracts = []; // latest proxy contract address is the actual
-        this._strActiveDidContractAddress = null;
+        this._updateFee = 1000; // TODO: Make it very expensive
+        this._data = []; // latest proxy contract address is the actual
+        this._strServiceAddress = null;
     }
 
     getData() {
-        return {address: this._strActiveDidContractAddress, data: this._didContracts};
+        return {address: this._strServiceAddress, data: this._data};
     }
 
     add(objData) {
@@ -56,8 +58,8 @@ class DidProxyV1 extends Base {
         this._validateObjData(objData);
 
         // validate here
-        this._didContracts.push([callerAddress, objData.strIssuerName, objData.strDidContractAddress]);
-        this._strActiveDidContractAddress = objData.strDidContractAddress;
+        this._data.push([callerAddress, objData.strIssuerName, objData.strDidContractAddress]);
+        this._strServiceAddress = objData.strDidContractAddress;
     }
 
     async resolve(strProvider, strName) {

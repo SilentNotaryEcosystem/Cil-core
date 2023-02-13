@@ -6,7 +6,7 @@ const sinon = require('sinon').createSandbox();
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
-const {DidV1Test1: DidContract} = require('./didV1');
+const {DidProxyV1: DidProxyContract} = require('./didProxyV1');
 
 const factory = require('../../testFactory');
 
@@ -25,14 +25,28 @@ describe('Ubix DID Proxy', () => {
     });
 
     beforeEach(async () => {
-        global.value = 0;
+        global.value = 1000;
         global.callerAddress = generateAddress().toString('hex');
         global.call = sinon.fake();
         global.createHash = str => factory.Crypto.createHash(str);
-        contract = new DidContract();
+        contract = new DidProxyContract();
     });
 
-    describe.skip('create DID document', async () => {
+    describe('should add a DID contract to proxy', async () => {
+        it('should create', async () => {
+            const objData = {
+                strIssuerName: 'Me',
+                strDidContractAddress: '234556456756784563453464567456456'
+            };
+
+            assert.equal(Object.keys(contract._data).length, 0);
+            contract.add(objData);
+            assert.equal(Object.keys(contract._data).length, 1);
+            assert.equal(contract._strServiceAddress, objData.strDidContractAddress);
+        });
+    });
+
+    describe('create DID document', async () => {
         let objData;
 
         beforeEach(async () => {
@@ -45,14 +59,6 @@ describe('Ubix DID Proxy', () => {
                 },
                 strIssuerName: 'Me'
             };
-        });
-
-        it('should create', async () => {
-            assert.equal(Object.keys(contract._data).length, 0);
-
-            await contract.create(objData);
-
-            assert.equal(Object.keys(contract._data).length, 1);
         });
 
         it('should throw (unsigned TX)', async () => {
@@ -61,78 +67,37 @@ describe('Ubix DID Proxy', () => {
         });
 
         it('should throw (low create fee)', async () => {
-            global.value = 130000 - 1;
-            assert.isRejected(contract.create(objData), 'Update fee is 130000');
-        });
-
-        it('should throw (DID document does not have Ubix NS keys)', async () => {
-            assert.isRejected(
-                contract.create({objDidDocument: {}, strIssuerName: 'Me'}),
-                'DID document does not have Ubix NS keys'
-            );
-        });
-
-        it('should throw (create twice)', async () => {
-            await contract.create(objData);
-            assert.isRejected(contract.create(objData), 'DID document hash has already defined');
+            global.value = 1000 - 1;
+            assert.isRejected(contract.create(objData), 'Update fee is 1000');
         });
     });
 
-    describe.skip('remove DID document', async () => {
-        let objData;
+    describe('remove DID document', async () => {
+        let strDidAddress;
+
+        beforeEach(async () => {
+            global.value = 130000;
+            strDidAddress = '23543465464575675675675';
+        });
+
+        it('should throw (unsigned TX)', async () => {
+            global.callerAddress = undefined;
+            assert.isRejected(contract.remove(strDidAddress), 'You should sign TX');
+        });
+
+        it('should throw (low create fee)', async () => {
+            global.value = 1000 - 1;
+            assert.isRejected(contract.remove(strDidAddress), 'Update fee is 1000');
+        });
+    });
+
+    describe('replace Ubix NS record', async () => {
+        let strDidAddress, objNewData;
 
         beforeEach(async () => {
             global.value = 130000;
 
-            objData = {
-                objDidDocument: {
-                    tg: 'my-tele-nick',
-                    email: 'my-email@test.com'
-                },
-                strIssuerName: 'Me'
-            };
-        });
-
-        it('should remove', async () => {
-            const strDidAddress = await contract.create(objData);
-
-            assert.equal(Object.keys(contract._data).length, 1);
-
-            await contract.remove(strDidAddress);
-
-            assert.equal(Object.keys(contract._data).length, 0);
-        });
-
-        it('should throw (strDidAddress must be a string)', async () => {
-            assert.isRejected(contract.remove(null), 'strDidAddress should be a string');
-        });
-
-        it('should throw (Hash is not found)', async () => {
-            assert.isRejected(contract.remove(''), 'Hash is not found');
-        });
-
-        it('should fail (not owner)', async () => {
-            const strDidAddress = await contract.create(objData);
-
-            callerAddress = generateAddress().toString('hex');
-
-            assert.isRejected(contract.remove(strDidAddress), 'You are not the owner');
-        });
-    });
-
-    describe.skip('replace Ubix NS record', async () => {
-        let objData, objNewData, objNewData2;
-
-        beforeEach(async () => {
-            global.value = 130000;
-
-            objData = {
-                objDidDocument: {
-                    tg: 'my-tele-nick',
-                    email: 'my-email@test.com'
-                },
-                strIssuerName: 'Me'
-            };
+            strDidAddress = '23543465464575675675675';
 
             objNewData = {
                 objDidDocument: {
@@ -141,54 +106,16 @@ describe('Ubix DID Proxy', () => {
                 },
                 strIssuerName: 'Not me'
             };
-
-            objNewData2 = {
-                objDidDocument: {
-                    tg: 'my-tele-nick',
-                    email: 'new-email@test.com'
-                },
-                strIssuerName: 'Not me'
-            };
         });
 
-        it('should replace', async () => {
-            const strDidAddress = await contract.create(objData);
-
-            assert.equal(Object.keys(contract._data).length, 1);
-
-            await contract.replace(strDidAddress, objNewData);
-
-            assert.equal(Object.keys(contract._data).length, 1);
-
-            assert.equal(contract._data[strDidAddress][1], 'Not me');
+        it('should throw (unsigned TX)', async () => {
+            global.callerAddress = undefined;
+            assert.isRejected(contract.replace(strDidAddress, objNewData), 'You should sign TX');
         });
 
-        it('should replace (with merge)', async () => {
-            const strDidAddress = await contract.create(objData);
-
-            assert.equal(Object.keys(contract._data).length, 1);
-
-            await contract.replace(strDidAddress, objNewData2);
-
-            assert.equal(Object.keys(contract._data).length, 1);
-
-            assert.equal(contract._data[strDidAddress][1], 'Not me');
-        });
-
-        it('should throw (strDidAddress must be a string)', async () => {
-            assert.isRejected(contract.remove(null), 'strDidAddress should be a string');
-        });
-
-        it('should throw (Hash is not found)', async () => {
-            assert.isRejected(contract.remove(''), 'Hash is not found');
-        });
-
-        it('should fail (not owner)', async () => {
-            const strDidAddress = await contract.create(objData);
-
-            callerAddress = generateAddress().toString('hex');
-
-            assert.isRejected(contract.replace(strDidAddress, objNewData), 'You are not the owner');
+        it('should throw (low create fee)', async () => {
+            global.value = 1000 - 1;
+            assert.isRejected(contract.replace(strDidAddress, objNewData), 'Update fee is 1000');
         });
     });
 });

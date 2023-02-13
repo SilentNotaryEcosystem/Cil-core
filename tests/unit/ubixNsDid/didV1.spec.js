@@ -103,6 +103,22 @@ describe('Ubix DID', () => {
             assert.equal(Object.keys(contract._data).length, 0);
         });
 
+        it('should throw (unsigned TX)', async () => {
+            const strDidAddress = await contract.create(objData);
+
+            global.callerAddress = undefined;
+
+            assert.isRejected(contract.remove(strDidAddress), 'You should sign TX');
+        });
+
+        it('should throw (low create fee)', async () => {
+            const strDidAddress = await contract.create(objData);
+
+            global.value = 1000 - 1;
+
+            assert.isRejected(contract.remove(strDidAddress), 'Update fee is 1000');
+        });
+
         it('should throw (strDidAddress must be a string)', async () => {
             assert.isRejected(contract.remove(null), 'strDidAddress should be a string');
         });
@@ -161,6 +177,22 @@ describe('Ubix DID', () => {
             assert.equal(Object.keys(contract._data).length, 1);
 
             assert.equal(contract._data[strDidAddress][1], 'Not me');
+        });
+
+        it('should throw (unsigned TX)', async () => {
+            const strDidAddress = await contract.create(objData);
+
+            global.callerAddress = undefined;
+
+            assert.isRejected(contract.replace(strDidAddress, objNewData), 'You should sign TX');
+        });
+
+        it('should throw (low create fee)', async () => {
+            const strDidAddress = await contract.create(objData);
+
+            global.value = 1000 - 1;
+
+            assert.isRejected(contract.replace(strDidAddress, objNewData), 'Update fee is 1000');
         });
 
         it('should replace (with merge)', async () => {
