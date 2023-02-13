@@ -70,8 +70,6 @@ class DidProxyV1 extends Base {
     }
 
     async get(strDidAddress) {
-        this._validatePermissions();
-
         return await call(this._strActiveDidContractAddress, {
             method: 'get',
             arrArguments: [strDidAddress]
