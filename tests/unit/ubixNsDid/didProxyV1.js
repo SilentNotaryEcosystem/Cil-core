@@ -46,7 +46,7 @@ class DidProxyV1 extends Base {
         super();
         this._updateFee = 1000; // TODO: Make it very expensive
         this._data = []; // latest proxy contract address is the actual
-        this._strServiceAddress = null;
+        this._strServiceContractAddress = null;
     }
 
     getData() {
@@ -59,18 +59,18 @@ class DidProxyV1 extends Base {
 
         // validate here
         this._data.push([callerAddress, objData.strIssuerName, objData.strDidContractAddress]);
-        this._strServiceAddress = objData.strDidContractAddress;
+        this._strServiceContractAddress = objData.strDidContractAddress;
     }
 
     async resolve(strProvider, strName) {
-        return await call(this._strActiveDidContractAddress, {
+        return await call(this._strServiceContractAddress, {
             method: 'resolve',
             arrArguments: [strProvider, strName]
         });
     }
 
     async get(strDidAddress) {
-        return await call(this._strActiveDidContractAddress, {
+        return await call(this._strServiceContractAddress, {
             method: 'get',
             arrArguments: [strDidAddress]
         });
@@ -90,7 +90,7 @@ class DidProxyV1 extends Base {
         this._validatePermissions();
 
         this._validatePermissions();
-        return await call(this._strActiveDidContractAddress, {
+        return await call(this._strServiceContractAddress, {
             method: 'remove',
             arrArguments: [strDidAddress]
         });
@@ -99,7 +99,7 @@ class DidProxyV1 extends Base {
     async replace(strDidAddress, objNewData) {
         this._validatePermissions();
 
-        return await call(this._strActiveDidContractAddress, {
+        return await call(this._strServiceContractAddress, {
             method: 'replace',
             arrArguments: [strDidAddress, objNewData]
         });

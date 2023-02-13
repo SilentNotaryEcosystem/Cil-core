@@ -42,7 +42,7 @@ describe('Ubix DID Proxy', () => {
             assert.equal(Object.keys(contract._data).length, 0);
             contract.add(objData);
             assert.equal(Object.keys(contract._data).length, 1);
-            assert.equal(contract._strServiceAddress, objData.strDidContractAddress);
+            assert.equal(contract._strServiceContractAddress, objData.strDidContractAddress);
         });
     });
 
