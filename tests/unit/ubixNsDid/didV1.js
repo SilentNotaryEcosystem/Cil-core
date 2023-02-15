@@ -198,7 +198,7 @@ class DidV1Test1 extends Base {
         return {
             strOwnerAddress: record[0],
             strIssuerName: record[1],
-            objDidDocument: Object.fromEntries(record[2])
+            objDidDocument: record[2].reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
         };
     }
 
