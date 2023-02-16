@@ -107,7 +107,7 @@ class DidV1Test1 extends Base {
 
         await call(this._strNsContractAddress, {
             method: 'removeBatch',
-            arrArguments: [objData]
+            arrArguments: [{...objData, strDidAddress}]
         });
 
         delete this._data[strDidAddress];
