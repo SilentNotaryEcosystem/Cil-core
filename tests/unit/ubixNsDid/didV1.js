@@ -131,10 +131,16 @@ class DidV1Test1 extends Base {
 
         await call(this._strNsContractAddress, {
             method: 'replaceBatch',
-            arrArguments: [objOldData, objNewData]
+            arrArguments: [
+                {...objOldData, strDidAddress},
+                {...objNewData, strDidAddress}
+            ]
         });
 
-        this._data[strDidAddress] = [callerAddress, objNewData.strIssuerName, objNewData.objDidDocument];
+        this._data[strDidAddress] = this._serializeToArray({
+            ...objNewData,
+            strOwnerAddress: callerAddress
+        });
     }
 
     _checkForUnsKeys(objDidDocument) {
