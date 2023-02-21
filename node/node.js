@@ -1009,8 +1009,6 @@ module.exports = (factory, factoryOptions) => {
             if(this._mempool.hasTx(strNewTxHash)) throw new Error('Tx already in mempool');
             if(this._mempool.isBadTx(strNewTxHash)) throw new Error('Tx already marked as bad');
 
-            const lock = await this._mutex.acquire(['blockExec']);
-
             // let's check for patch conflicts with other local txns
             try {
                 await this._ensureLocalTxnsPatch();
@@ -1029,8 +1027,6 @@ module.exports = (factory, factoryOptions) => {
                 logger.error(e);
                 this._mempool.storeBadTxHash(strNewTxHash);
                 throw new Error(`Tx ${strNewTxHash} is not accepted: ${e.message}`);
-            } finally {
-                this._mutex.release(lock);
             }
         }
 
@@ -1259,13 +1255,14 @@ module.exports = (factory, factoryOptions) => {
             let message;
             let bNewContract;
 
-            this._app.setupVariables({
-                objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
-                coinsLimit
-            });
-
             const lock = await this._mutex.acquire(['application']);
+
             try {
+                this._app.setupVariables({
+                    objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
+                    coinsLimit
+                });
+
                 if (!contract) {
                     if (coinsLimit < nFeeContractCreation) {
                         throw new Error(
