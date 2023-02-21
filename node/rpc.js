@@ -469,7 +469,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO}) =>
                     version: '0x' + peer.version.toString(16)
                 })),
                 bannedPeers: arrBannedPeers,
-                mempool: arrHashesTxns
+                mempool: arrHashesTxns,
+                locks: this._nodeInstance.getMutexLocks()
             };
         }
     };

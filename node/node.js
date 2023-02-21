@@ -2532,6 +2532,10 @@ module.exports = (factory, factoryOptions) => {
             this._patchLocalTxns = patchMerged;
         }
 
+        getMutexLocks(){
+            return this._mutex.getLocks();
+        }
+
         /**
          * BlockA behind BlockB ? > 0
          *
