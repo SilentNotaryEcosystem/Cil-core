@@ -191,8 +191,7 @@ module.exports = (factory) => {
 
             if (bUpdateAddress) {
                 const cPeerInfo = peerInfo instanceof PeerInfo ? peerInfo : new PeerInfo(peerInfo);
-                const strAddrPeerInfo = Transport.addressToString(cPeerInfo.address);
-                if (Transport.isRoutableAddress(strAddrPeerInfo)) this._peerInfo.address = cPeerInfo.address;
+                this._peerInfo.address = cPeerInfo.address;
             }
         }
 
@@ -360,7 +359,7 @@ module.exports = (factory) => {
 
             this._updateMisbehave(Constants.BAN_PEER_SCORE);
             this._bannedTill = Date.now() + Constants.BAN_PEER_TIME;
-            logger.log(`Peer banned till ${new Date(this._bannedTill)}`);
+            logger.log(`Peer ${this.address} banned till ${new Date(this._bannedTill)}`);
             if (!this.disconnected) this.disconnect('Peer banned');
             this.emit('peerBanned', this);
         }

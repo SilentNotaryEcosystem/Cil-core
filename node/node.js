@@ -14,6 +14,7 @@ const debugMsg = debugLib('node:messages');
 const debugMsgFull = debugLib('node:messages:full');
 
 const PEER_RECONNECT_TIMER_NAME = 'peerReconnectTimer';
+const MEMPOOL_REANNOUNCE_TIMER_NAME = 'mempoolTimer';
 
 function createPeerKey(peer) {
     return peer.address + peer.port;
@@ -104,6 +105,7 @@ module.exports = (factory, factoryOptions) => {
             this._transport.on('connect', this._incomingConnection.bind(this));
 
             this._reconnectTimer = new Tick(this);
+            this._reannounceTimer = new Tick(this);
             this._requestCache = new RequestCache();
 
             return new Promise(async resolve => {
@@ -113,14 +115,15 @@ module.exports = (factory, factoryOptions) => {
 
                 await this._transport.listen();
 
-                const {announceAddr} = options;
+                const {announceAddr, announcePort} = options;
                 const address = Transport.strToAddress(announceAddr ? announceAddr : this._transport.myAddress);
+                const port = announcePort ? announcePort : this._transport.port;
                 this._myPeerInfo = new PeerInfo({
                     capabilities: [
                         {service: Constants.NODE}
                     ],
                     address,
-                    port: this._transport.port
+                    port
                 });
 
                 this._debugAddress = this._transport.myAddress;
@@ -187,6 +190,12 @@ module.exports = (factory, factoryOptions) => {
                 PEER_RECONNECT_TIMER_NAME,
                 this._reconnectPeers,
                 Constants.PEER_RECONNECT_INTERVAL
+            );
+
+            this._reannounceTimer .setInterval(
+                MEMPOOL_REANNOUNCE_TIMER_NAME,
+                this._reannounceMempool,
+                Constants.MEMPOOL_REANNOUNCE_INTERVAL
             );
         }
 
@@ -468,7 +477,8 @@ module.exports = (factory, factoryOptions) => {
                     let bShouldRequest = false;
                     if (objVector.type === Constants.INV_TX) {
 
-                        bShouldRequest = !this._mempool.hasTx(objVector.hash);
+                        bShouldRequest = !this._mempool.hasTx(objVector.hash) &&
+                                         !this._isInitialBlockLoading();
                         if (bShouldRequest) {
                             try {
                                 await this._storage.getUtxo(objVector.hash, true).catch();
@@ -477,10 +487,17 @@ module.exports = (factory, factoryOptions) => {
                             }
                         }
                     } else if (objVector.type === Constants.INV_BLOCK) {
-                        bShouldRequest = !this._storage.isBlockBanned(objVector.hash) &&
-                                         !this._requestCache.isRequested(objVector.hash) &&
-                                         !await this._isBlockKnown(objVector.hash.toString('hex'));
+                        const strHash=objVector.hash.toString('hex');
+                        const bBlockKnown=await this._isBlockKnown(strHash);
+                        bShouldRequest = !this._storage.isBlockBanned(strHash) &&
+                                         !this._requestCache.isRequested(strHash) &&
+                                         !bBlockKnown;
                         if (bShouldRequest) nBlockToRequest++;
+
+                        // i.e. we store it, it somehow missed dag
+                        if(bBlockKnown && this._mainDag.getBlockInfo(strHash)) {
+                            this._queueBlockExec(strHash, peer);
+                        }
                     }
 
                     if (bShouldRequest) {
@@ -575,6 +592,20 @@ module.exports = (factory, factoryOptions) => {
         }
 
         /**
+         * Send MsgInv with local txns hashes
+         *
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _reannounceMempool(){
+            const arrPeers=this._peerManager.getConnectedPeers();
+            debugMsg(`(address: "${this._debugAddress}") sending mempool to ${arrPeers.length} neighbours`);
+            for(let peer of arrPeers){
+                await this._handleGetMempool(peer);
+            }
+        }
+
+        /**
          * Return Set of hashes that are descendants of arrHashes
          *
          * @param {Array<String>} arrHashes - last known hashes
@@ -611,23 +642,29 @@ module.exports = (factory, factoryOptions) => {
             let currentLevel = [];
             arrKnownHashes.forEach(hash => this._mainDag
                 .getChildren(hash)
+                .filter(strChildHash => this._mainDag.getBlockInfo(strChildHash).getHeight() -
+                                        this._mainDag.getBlockInfo(hash).getHeight() === 1)
                 .forEach(child => !setKnownHashes.has(child) && currentLevel.push(child)));
 
             do {
                 const setNextLevel = new Set();
                 for (let hash of currentLevel) {
                     const biCurrent = this._mainDag.getBlockInfo(hash);
-                    this._mainDag.getChildren(hash).forEach(
-                        child => {
-                            const biChild = this._mainDag.getBlockInfo(child);
+                    this._mainDag
+                        .getChildren(hash)
+                        .filter(strChildHash => this._mainDag.getBlockInfo(strChildHash).getHeight() -
+                                                this._mainDag.getBlockInfo(hash).getHeight() === 1)
+                        .forEach(
+                            strChildHash => {
+                                const biChild = this._mainDag.getBlockInfo(strChildHash);
 
-                            // if we didn't already processed it and it's direct child (height diff === 1) - let's add it
-                            // it not direct child - we'll add it when find direct one
-                            if (!setBlocksToSend.has(child) && !setKnownHashes.has(child)
-                                && biChild.getHeight() - biCurrent.getHeight() === 1) {
-                                setNextLevel.add(child);
-                            }
-                        });
+                                // if we didn't already processed it and it's direct child (height diff === 1) - let's add it
+                                // it not direct child - we'll add it when find direct one
+                                if (!setBlocksToSend.has(strChildHash) && !setKnownHashes.has(strChildHash)
+                                    && biChild.getHeight() - biCurrent.getHeight() === 1) {
+                                    setNextLevel.add(strChildHash);
+                                }
+                            });
                     setBlocksToSend.add(hash);
                     if (setBlocksToSend.size > Constants.MAX_BLOCKS_INV) break;
                 }
@@ -769,7 +806,7 @@ module.exports = (factory, factoryOptions) => {
                     }
                 } else {
                     peer.updatePeerFromPeerInfo(message.peerInfo);
-                    const result = this._peerManager.addPeer(peer, true);
+                    this._peerManager.addPeer(peer, true);
                 }
 
                 this._adjustNetworkTime(_offset);
@@ -874,7 +911,9 @@ module.exports = (factory, factoryOptions) => {
 
         async _createGetBlocksMsg() {
             const msg = new MsgGetBlocks();
-            msg.arrHashes = await this._storage.getLastAppliedBlockHashes();
+            const arrLastApplied = await this._storage.getLastAppliedBlockHashes();
+            const arrTips = this._pendingBlocks.getTips();
+            msg.arrHashes = arrTips.length ? arrTips : arrLastApplied;
             return msg;
         }
 
@@ -989,14 +1028,15 @@ module.exports = (factory, factoryOptions) => {
             newTx.verify();
 
             const strNewTxHash = newTx.getHash();
-            assert(!this._mempool.hasTx(strNewTxHash), 'Tx already in mempool');
-
-            await this._processReceivedTx(newTx, false);
-            const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
+            if(this._mempool.hasTx(strNewTxHash)) throw new Error('Tx already in mempool');
+            if(this._mempool.isBadTx(strNewTxHash)) throw new Error('Tx already marked as bad');
 
             // let's check for patch conflicts with other local txns
             try {
                 await this._ensureLocalTxnsPatch();
+
+                await this._processReceivedTx(newTx, false);
+                const {patchThisTx: patchNewTx} = await this._processTx(undefined, false, newTx);
 
                 // update cache
                 this._patchLocalTxns = this._patchLocalTxns.merge(patchNewTx);
@@ -1004,11 +1044,11 @@ module.exports = (factory, factoryOptions) => {
                 // all merges passed - accept new tx
                 this._mempool.addLocalTx(newTx, patchNewTx);
 
-                // inform 2 pseudorandom neighbours about new Tx
                 await this._informNeighbors(newTx);
             } catch (e) {
                 logger.error(e);
-                throw new Error(`Tx is not accepted: ${e.message}`);
+                this._mempool.storeBadTxHash(strNewTxHash);
+                throw new Error(`Tx ${strNewTxHash} is not accepted: ${e.message}`);
             }
         }
 
@@ -1029,7 +1069,6 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._mempool.hasTx(tx.hash())) return;
 
-            let patchThisTx;
             try {
                 await this._storage.checkTxCollision([strTxHash]);
                 await this._validateTxLight(tx);
@@ -1238,12 +1277,14 @@ module.exports = (factory, factoryOptions) => {
             let message;
             let bNewContract;
 
-            this._app.setupVariables({
-                objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
-                coinsLimit
-            });
+            const lock = await this._mutex.acquire(['application']);
 
             try {
+                this._app.setupVariables({
+                    objFees: {nFeeContractCreation, nFeeContractInvocation, nFeeInternalTx},
+                    coinsLimit
+                });
+
                 if (!contract) {
                     if (coinsLimit < nFeeContractCreation) {
                         throw new Error(
@@ -1297,6 +1338,8 @@ module.exports = (factory, factoryOptions) => {
                 logger.error('Error in contract!', err);
                 status = Constants.TX_STATUS_FAILED;
                 message = err.message ? err.message : err.toString();
+            }finally {
+                this._mutex.release(lock);
             }
 
             receipt = new TxReceipt({
@@ -1373,7 +1416,7 @@ module.exports = (factory, factoryOptions) => {
          */
         _sendCoins(patchTx, strTxHash, strAddress, amount, contract) {
             typeforce(typeforce.tuple(
-                types.Patch, types.Str64, types.Address, typeforce.Number, types.Contract),
+                    types.Patch, types.Str64, types.Address, typeforce.Number, types.Contract),
                 arguments
             );
 
@@ -1524,7 +1567,7 @@ module.exports = (factory, factoryOptions) => {
 
             // process coinbase tx
             if (!isGenesis) {
-                this._processBlockCoinbaseTX(block, blockFees, patchState);
+                await this._processBlockCoinbaseTX(block, blockFees, patchState);
             }
 
             debugNode(`Block ${block.getHash()} being executed`);
@@ -1538,8 +1581,9 @@ module.exports = (factory, factoryOptions) => {
          * @param {PatchDB} patchState - patch to add coins
          * @private
          */
-        _processBlockCoinbaseTX(block, blockFees, patchState) {
+        async _processBlockCoinbaseTX(block, blockFees, patchState) {
             const coinbase = new Transaction(block.txns[0]);
+            await this._storage.checkTxCollision([coinbase.getHash()]);
             if (!this.isGenesisBlock(block)) coinbase.verifyCoinbase(blockFees);
             const coins = coinbase.getOutCoins();
             for (let i = 0; i < coins.length; i++) {
@@ -1860,6 +1904,11 @@ module.exports = (factory, factoryOptions) => {
             return blockInfo || await this._storage.hasBlock(hash);
         }
 
+        async _couldBeResurrected(hash) {
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            return !blockInfo && await this._storage.hasBlock(hash);
+        }
+
         /**
          * Depending of BlockInfo flag - store block & it's info in _mainDag & _storage
          *
@@ -2037,6 +2086,7 @@ module.exports = (factory, factoryOptions) => {
             debugNode(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
 
             this._mempool.loadLocalTxnsFromDisk();
+            await this._ensureLocalTxnsPatch();
         }
 
         async _nodeWorker() {
@@ -2102,13 +2152,9 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Attempting to exec block "${block.getHash()}"`);
 
-            if (await this._canExecuteBlock(block)) {
+            if (this._canExecuteBlock(block)) {
                 if (!this._isBlockExecuted(block.getHash())) {
-                    if (block instanceof Block) {
-                        await this._blockProcessorExecBlock(block, peer);
-                    } else {
-                        await this._blockProcessorExecBlock(block.getHash(), peer);
-                    }
+                    await this._blockProcessorExecBlock(block instanceof Block ? block : block.getHash(), peer);
 
                     const arrChildrenHashes = this._mainDag.getChildren(block.getHash());
                     for (let hash of arrChildrenHashes) {
@@ -2161,11 +2207,11 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Executing block "${block.getHash()}"`);
 
-            const lock = await this._mutex.acquire(['blockExec']);
+            const lock = await this._mutex.acquire(['blockExec', block.getHash()]);
             this._processedBlock = block;
             try {
                 const patchState = await this._execBlock(block);
-                if (patchState) {
+                if (patchState && !this._isBlockExecuted(block.getHash())) {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
                     if (!this._networkSuspended && !this._isInitialBlockLoading()) this._informNeighbors(block, peer);
@@ -2317,34 +2363,38 @@ module.exports = (factory, factoryOptions) => {
                 [method, arrArguments, contractAddress]
             );
 
-            let contract = await this._storage.getContract(contractAddress);
+            const lock = await this._mutex.acquire(['transaction', 'application']);
+            try {
+                let contract = await this._storage.getContract(contractAddress);
 
-            if (!completed) {
-                const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getConciliumId());
-                if (pendingContract) contract = pendingContract;
+                if (!completed) {
+                    const pendingContract = this._pendingBlocks.getContract(contractAddress, contract.getConciliumId());
+                    if (pendingContract) contract = pendingContract;
+                }
+
+                if (!contract) throw new Error(`Contract ${contractAddress} not found`);
+
+                const newEnv = {
+                    contractAddr: contract.getStoredAddress(),
+                    balance: contract.getBalance()
+                };
+
+                const nCoinsDummy = Number.MAX_SAFE_INTEGER;
+                this._app.setCallbacks(this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64)));
+                this._app.setupVariables({
+                    objFees: { nFeeContractInvocation: nCoinsDummy },
+                    nCoinsDummy
+                });
+                return await this._app.runContract(
+                    { method, arrArguments },
+                    contract,
+                    newEnv,
+                    undefined,
+                    true
+                );
+            } finally {
+                this._mutex.release(lock);
             }
-
-            if (!contract) throw new Error(`Contract ${contractAddress} not found`);
-
-            const newEnv = {
-                contractAddr: contract.getStoredAddress(),
-                balance: contract.getBalance()
-            };
-
-            const nCoinsDummy = Number.MAX_SAFE_INTEGER;
-            this._app.setCallbacks(this._createCallbacksForApp(new PatchDB(), new PatchDB(), '1'.repeat(64)));
-            this._app.setupVariables({
-                objFees: {nFeeContractInvocation: nCoinsDummy},
-                nCoinsDummy
-            });
-
-            return await this._app.runContract(
-                {method, arrArguments},
-                contract,
-                newEnv,
-                undefined,
-                true
-            );
         }
 
         /**
@@ -2485,23 +2535,28 @@ module.exports = (factory, factoryOptions) => {
                 if (!patchTx) {
                     const localTx = this._mempool.getTx(strTxHash);
 
-                    let patchThisTx;
                     try {
                         const objResult = await this._processTx(undefined, false, localTx);
-                        patchThisTx = objResult.patchThisTx;
-                    } catch (e) {
-                        this._mempool.removeTxns(strTxHash);
-                    }
+                        const patchThisTx = objResult.patchThisTx;
 
-                    // store it back with patch
-                    this._mempool.addLocalTx(localTx, patchThisTx);
-                    patchTx = patchThisTx;
+                        // store it back with patch
+                        this._mempool.addLocalTx(localTx, patchThisTx);
+                        patchTx = patchThisTx;
+                    } catch (e) {
+                        debugNode(`Removing TX ${strTxHash} conflicting with current chainstate`);
+                        this._mempool.removeTxns([strTxHash]);
+                    }
                 }
 
-                patchMerged = patchMerged.merge(patchTx);
+                // if we were unable to process TX patchTx will be undefined
+                if (patchTx) patchMerged = patchMerged.merge(patchTx);
             }
 
             this._patchLocalTxns = patchMerged;
+        }
+
+        getMutexLocks(){
+            return this._mutex.getLocks();
         }
 
         /**

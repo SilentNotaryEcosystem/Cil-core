@@ -1,7 +1,7 @@
 const assert = require('assert');
 const debugLib = require('debug');
 
-const {createPeerTag} = require('../utils');
+const {createPeerTag, arrayEquals, ExceptionDebug} = require('../utils');
 
 const debugWitness = debugLib('witness:app');
 const debugWitnessMsg = debugLib('witness:messages');
@@ -318,7 +318,8 @@ module.exports = (factory, factoryOptions) => {
 
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
-                    if (await this._canExecuteBlock(block)) {
+                    await this._compareParents(block);
+                    if (this._canExecuteBlock(block)) {
                         this._processedBlock = block;
                         const patch = await this._execBlock(block);
                         consensus.processValidBlock(block, patch);
@@ -328,7 +329,7 @@ module.exports = (factory, factoryOptions) => {
 
                     // no _accept here, because this block should be voted before
                 } catch (e) {
-                    logger.error(e);
+                    e.log();
                     consensus.invalidBlock();
                 } finally {
                     this._mutex.release(lock);
@@ -338,6 +339,15 @@ module.exports = (factory, factoryOptions) => {
                 // we still wait for block from designated proposer or timer for BLOCK state will expire
                 debugWitness(
                     `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not his turn!`);
+            }
+        }
+
+        async _compareParents(block) {
+            const {arrParents} = await this._pendingBlocks.getBestParents(block.getConciliumId());
+
+            if (!arrayEquals(block.parentHashes, arrParents)) {
+                throw new ExceptionDebug(
+                    'Will reject block because of different parents');
             }
         }
 
@@ -386,7 +396,7 @@ module.exports = (factory, factoryOptions) => {
             consensus.on('createBlock', async () => {
                 if (this._mutex.isLocked('commitBlock') || this._isInitialBlockLoading()) return;
 
-                const lock = await this._mutex.acquire(['createBlock']);
+                const lock = await this._mutex.acquire(['createBlock', 'blockExec']);
 
                 try {
                     const {conciliumId} = consensus;
@@ -414,19 +424,25 @@ module.exports = (factory, factoryOptions) => {
                 let lockBlock;
 
                 try {
+                    if (await this._isBlockKnown(block.hash())) {
+                        throw new Error(`"commitBlock": block ${block.hash()} already known!`);
+                    }
+
                     const arrContracts = [...patch.getContracts()];
                     if (arrContracts.length) {
 
                         // we have contracts inside block - we should re-execute block to have proper variables inside block
                         await this._handleArrivedBlock(block);
                     } else if (!this._mutex.isLocked('blockReceived') && !this._isBlockExecuted(block.getHash())) {
-                        lockBlock = await this._mutex.acquire(['blockReceived']);
+                        lockBlock = await this._mutex.acquire(['blockReceived', block.getHash()]);
 
                         // block still hadn't received from more quick (that already commited & announced block) witness
                         // we have only moneys transfers, so we could use patch. this will speed up processing
-                        await this._storeBlockAndInfo(block, new BlockInfo(block.header));
-                        await this._acceptBlock(block, patch);
-                        await this._postAcceptBlock(block);
+                        if (!this._isBlockExecuted(block.getHash())) {
+                            await this._storeBlockAndInfo(block, new BlockInfo(block.header));
+                            await this._acceptBlock(block, patch);
+                            await this._postAcceptBlock(block);
+                        }
 
                         if (!this._networkSuspended) this._informNeighbors(block);
                     }
@@ -573,7 +589,7 @@ module.exports = (factory, factoryOptions) => {
                 if (arrBadHashes.length) this._mempool.removeTxns(arrBadHashes);
 
                 block.finish(totalFee, this._wallet.address, await this._getFeeSizePerInput(conciliumId));
-                this._processBlockCoinbaseTX(block, totalFee, patchMerged);
+                await this._processBlockCoinbaseTX(block, totalFee, patchMerged);
 
                 debugWitness(
                     `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);

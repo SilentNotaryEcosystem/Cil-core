@@ -126,10 +126,15 @@ describe('IPv6 Transport', () => {
             try {
                 await endpoint.listen();
             } catch (e) {
-                console.error(e);
-                return;
+                if (e.message.match(/address not available/)) return;
             }
             throw new Error('Unexpected success');
+        });
+
+        it('should use custom port', async () => {
+            const endpoint = new factory.Transport({listenPort: 1000});
+
+            assert.equal(endpoint._port, 1000);
         });
 
         it('should pass ROUTABLE IPv4 (faked)', async () => {

@@ -49,6 +49,26 @@ const TxReceiptWrapper = require('./structures/txReceipt');
 const utils = require('./utils');
 
 const pack = require('./package');
+const debugLib = require('debug');
+
+const error = console.error;
+const log = console.log;
+const info = console.info;
+info.log = console.info.bind(console);
+
+const debug = debugLib('node:app');
+debug.log = console.log.bind(console);
+
+// simple logger
+global.logger = {
+    error: (...msgs) => error(msgs),
+    log: (...msgs) => log(msgs),
+    info: (...msgs) => info(msgs),
+    debug: (...msgs) => debug(msgs)
+};
+
+// Inject default behavior
+Error.prototype.log = function() {logger.error(this);};
 
 class BaseFactory {
     constructor(options, objConstants) {
@@ -116,16 +136,12 @@ class BaseFactory {
                 })
                 .then(resolve)
                 .catch(err => {
-                    logger.error(err);
+                    err.log();
                     process.exit(10);
                 });
         });
 
-        try {
-            this._options = require('./factoryOptions.json');
-        } catch (e) {
-            this._options = {};
-        }
+        this._options = options;
 
         this._constants = {
             ...objConstants

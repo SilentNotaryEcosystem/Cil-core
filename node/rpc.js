@@ -23,12 +23,16 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
             this._nodeInstance = cNodeInstance;
             this._storedWallets = new StoredWallet({storage: cNodeInstance.storage});
 
-            const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1'} = options;
+            const {rpcUser, rpcPass, rpcPort = Constants.rpcPort, rpcAddress = '::1', rpcRate = 20} = options;
             this._server = rpc.Server.$create({
                 websocket: true,
                 headers: {
-                    'Access-Control-Allow-Origin': '*'
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
+                    'Access-Control-Allow-Headers': '*'
                 },
+
+                ratelimit: {maxPerInterval: rpcRate, msInterval: 1000},
 
                 // this allow override defaults above
                 ...options
@@ -55,7 +59,7 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
             this._server.expose('watchAddress', asyncRPC(this.watchAddress.bind(this)));
             this._server.expose('getWalletsAddresses', asyncRPC(this.getWalletsAddresses.bind(this)));
             this._server.expose('getWitnesses', asyncRPC(this.getWitnesses.bind(this)));
-            this._server.expose('countWallets', asyncRPC(this.countWallets.bind(this)));
+//            this._server.expose('countWallets', asyncRPC(this.countWallets.bind(this)));
             this._server.expose('getLastBlockByConciliumId', asyncRPC(this.getLastBlockByConciliumId.bind(this)));
 
             this._server.expose('unlockAccount', asyncRPC(this.unlockAccount.bind(this)));
@@ -504,7 +508,8 @@ module.exports = ({Constants, Transaction, StoredWallet, UTXO, Coins}) =>
                     version: '0x' + peer.version.toString(16)
                 })),
                 bannedPeers: arrBannedPeers,
-                mempool: arrHashesTxns
+                mempool: arrHashesTxns,
+                locks: this._nodeInstance.getMutexLocks()
             };
         }
     };

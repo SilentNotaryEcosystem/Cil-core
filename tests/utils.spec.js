@@ -8,7 +8,9 @@ const factory = require('./testFactory');
 const {
     getBoolEnvParameter,
     deStringifyObject, prepareForStringifyObject, arrayIntersection,
-    mergeSets, decryptPkFileContent, queryRpc, getHttpData
+    mergeSets, decryptPkFileContent, queryRpc, getHttpData,
+    mapEnvToOptions,
+    ExceptionDebug, ExceptionLog
 } = require('../utils');
 
 describe('Utils', () => {
@@ -244,6 +246,98 @@ describe('Utils', () => {
         it('should be TRUE for "true"', async () => {
             assert.strictEqual(getBoolEnvParameter("true"), true);
             assert.strictEqual(getBoolEnvParameter(" true "), true);
+        });
+    });
+
+    describe('mapEnvToOptions', async () => {
+        it('should undefined for LISTEN_PORT, WHITELISTED_ADDR, ANNOUNCE_PORT', async () => {
+            process.env = {
+                ...process.env,
+                LISTEN_PORT: undefined,
+                WHITELISTED_ADDR: undefined,
+                ANNOUNCE_PORT: undefined
+            };
+            const {port, whitelistedAddr, announcePort} = mapEnvToOptions();
+
+            assert.isNotOk(port);
+            assert.isNotOk(whitelistedAddr);
+            assert.isNotOk(announcePort);
+        });
+
+        it('should get LISTEN_PORT, WHITELISTED_ADDR, ANNOUNCE_PORT', async () => {
+            const arrAddrs = ['1.1.1.1', '8.8.8.8/32'];
+            process.env = {
+                ...process.env,
+                LISTEN_PORT: '100500',
+                WHITELISTED_ADDR: arrAddrs.join(' '),
+                ANNOUNCE_PORT: '322'
+            };
+            const {port, whitelistedAddr, announcePort} = mapEnvToOptions();
+
+            assert.equal(port, parseInt(process.env.LISTEN_PORT));
+            assert.deepEqual(whitelistedAddr, arrAddrs);
+            assert.equal(announcePort, parseInt(process.env.ANNOUNCE_PORT));
+        });
+
+        it('should read default KEYSTORE_NAME', async () => {
+            process.env = {
+                ...process.env,
+                KEYSTORE_NAME: undefined,
+                WITNESS_NODE: 'true'
+            };
+
+            const {privateKey} = mapEnvToOptions();
+
+            assert.equal(privateKey, './private');
+        });
+
+        it('should use KEYSTORE_NAME', async () => {
+            process.env = {
+                ...process.env,
+                KEYSTORE_NAME: '/fake_file_name',
+                WITNESS_NODE: 'true'
+            };
+
+            const {privateKey} = mapEnvToOptions();
+
+            assert.equal(privateKey, process.env.KEYSTORE_NAME);
+        });
+    });
+
+    it('should read RPC_RATE', async () => {
+        process.env = {
+            ...process.env,
+            RPC_RATE: '1000',
+        };
+
+        const {rpcRate} = mapEnvToOptions();
+
+        assert.equal(rpcRate, parseInt(process.env.RPC_RATE));
+    });
+
+    describe('Exceptions', async () => {
+        it('should create ExceptionDebug', async () => {
+            const e = new ExceptionDebug('debug');
+            e.log();
+
+            assert.isOk(e.message);
+            assert.isOk(e.stack);
+        });
+
+        it('should create ExceptionLog', async () => {
+            const e = new ExceptionLog('log');
+            e.log();
+
+            assert.isOk(e.message);
+            assert.isOk(e.stack);
+        });
+
+        it('should create Error', async () => {
+            const e = new Error('error');
+            e.log();
+
+            assert.isOk(e.message);
+            assert.isOk(e.stack);
         });
     });
 });

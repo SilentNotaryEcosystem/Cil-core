@@ -15,7 +15,7 @@ const PEERMANAGER_BACKUP_TIMER_NAME = 'peerManagerBackupTimer';
  * @emits 'message' {peer, message}
  */
 module.exports = (factory) => {
-    const {Constants, Messages, Peer, Transport} = factory;
+    const {Constants, Messages, Peer, Transport, FactoryOptions} = factory;
 
     const {PeerInfo} = Messages;
 
@@ -31,7 +31,7 @@ module.exports = (factory) => {
             this._strictAddresses = strictAddresses || false;
 
             // don't use source address from tcp connection, always use MSG_VERSION
-            this._trustAnnounce = trustAnnounce || true;
+            this._trustAnnounce = trustAnnounce === undefined ? true : trustAnnounce;
 
             // to pass it to peers
             this._transport = transport;
@@ -57,6 +57,8 @@ module.exports = (factory) => {
 
             this._arrWhitelistedNets = [];
             this._prepareWhitelisted(whitelistedAddr || []);
+
+            this._bDev = FactoryOptions.bDev;
         }
 
         /**
@@ -87,9 +89,9 @@ module.exports = (factory) => {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
             // it's senseless to store peer with private addresses. we couldn't connect them anyway
-            if (!Transport.isRoutableAddress(peer.address)) {
-                return peer;
-            }
+//            if (!Transport.isRoutableAddress(peer.address)) {
+//                return peer;
+//            }
 
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
@@ -148,7 +150,8 @@ module.exports = (factory) => {
             }
 
             // TODO rethink "canonical" addresses for multihome nodes
-            peer.updatePeerFromPeerInfo(cPeerInfo, this._trustAnnounce);
+            const bShouldUpdate=this._trustAnnounce && (this._bDev || (!this._bDev && Transport.isRoutableAddress(peer.address)));
+            peer.updatePeerFromPeerInfo(cPeerInfo, bShouldUpdate);
             this._mapCandidatePeers.delete(keyCandidate);
 
             return this.addPeer(peer, true);

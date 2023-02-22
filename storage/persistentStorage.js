@@ -79,20 +79,12 @@ module.exports = (factory, factoryOptions) => {
             }
 
             this._pathPrefix = path.resolve(dbPath || Constants.DB_PATH_PREFIX);
+            this._buildTxIndex = buildTxIndex;
 
-            this._db = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`));
-
-            // it's a good idea to keep blocks separately from UTXO DB
-            // it will allow erase UTXO DB, and rebuild it from block DB
-            // it could be levelDB also, but in different dir
-            this._blockStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
-
-            this._peerStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
-
-            if (buildTxIndex) {
-                this._buildTxIndex = true;
-                this._txIndexStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
-            }
+            this._initMainDb();
+            this._initBlockDb();
+            this._initPeerDb();
+            this._initTxDb();
 
             this._coinHistory = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_COINHISTORY_DIR}`));
 
@@ -326,15 +318,20 @@ module.exports = (factory, factoryOptions) => {
 
          * @param {BlockInfo} blockInfo
          */
-        saveBlockInfo(blockInfo) {
+        async saveBlockInfo(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
 
-            return this._mutex.runExclusive('blockInfoStore', async () => {
-                const blockInfoKey = this.constructor.createKey(BLOCK_INFO_PREFIX,
+            const lock = await this._mutex.acquire(['blockInfoStore']);
+
+            try {
+                const blockInfoKey = this.constructor.createKey(
+                    BLOCK_INFO_PREFIX,
                     Buffer.from(blockInfo.getHash(), 'hex')
                 );
                 await this._db.put(blockInfoKey, blockInfo.encode());
-            });
+            } finally {
+                this._mutex.release(lock);
+            }
         }
 
         /**
@@ -484,7 +481,6 @@ module.exports = (factory, factoryOptions) => {
                 await this._writeCoinHistory(statePatch);
             } finally {
                 this._mutex.release(lock);
-
                 if (!this._arrConciliumDefinition) this.emit('conciliumsChanged');
             }
         }
@@ -582,14 +578,17 @@ module.exports = (factory, factoryOptions) => {
             });
         }
 
-        updatePendingBlocks(arrBlockHashes) {
+        async updatePendingBlocks(arrBlockHashes) {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrBlockHashes);
 
             const key = this.constructor.createKey(PENDING_BLOCKS);
+            const lock = await this._mutex.acquire(['pending_blocks']);
 
-            return this._mutex.runExclusive(['pending_blocks'], async () => {
+            try {
                 await this._db.put(key, (new ArrayOfHashes(arrBlockHashes)).encode());
-            });
+            } finally {
+                this._mutex.release(lock);
+            }
         }
 
         async savePeers(arrPeers) {
@@ -1117,6 +1116,18 @@ module.exports = (factory, factoryOptions) => {
 
         isBlockBanned(hash) {
             return this._setBlocksBad.has(hash.toString('hex'));
+        }
+
+        _reInitMainDb() {
+            const arrSemNames = [
+                'utxo', 'contract', 'receipt', 'conciliums',
+                'pending_blocks', 'blockInfoStore', 'lastAppliedBlock'
+            ];
+
+            return this._mutex.runExclusive(arrSemNames, async () => {
+                await this._db.close();
+                this._db = await this._initMainDb(false);
+            });
         }
 
         _loadBannedBlocks() {

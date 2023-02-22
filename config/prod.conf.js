@@ -29,7 +29,7 @@ module.exports = {
         MAX_PEERS: 10,
 
         // minimum connected peers
-        MIN_PEERS: 3,
+        MIN_PEERS: 6,
 
         // milliseconds
         PEER_QUERY_TIMEOUT: 30000,
@@ -53,6 +53,7 @@ module.exports = {
         PEER_DEAD_TIME: 6 * 60 * 1000,
 
         PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
+        MEMPOOL_REANNOUNCE_INTERVAL: 10 * 60 * 1000,
 
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 

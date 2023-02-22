@@ -3,7 +3,7 @@
   "engines": {
     "node": "10.17.0"
   },
-  "version": "0.7.2-staging",
+  "version": "0.7.4",
   "main": "factory.js",
   "dependencies": {
     "command-line-args": "^5.1.1",
@@ -17,10 +17,10 @@
     "merkletreejs": "0.0.11",
     "mutex": "git+https://github.com/trueshura/MUTEX.git",
     "nat-upnp": "^1.1.1",
-    "protobufjs": "^6.10.2",
+    "protobufjs": "^6.11.3",
     "tick-tock": "^1.0.0",
     "typeforce": "^1.18.0",
-    "vm2": "^3.9.2"
+    "vm2": "^3.9.11"
   },
   "devDependencies": {
     "chai": "^4.2.0",

@@ -171,7 +171,7 @@ describe('Peer tests', () => {
     });
 
     it('should unban peer after BAN_PEER_TIME', async function() {
-        const newPeer = new factory.Peer({peerInfo: createDummyPeer(factory)});
+        const newPeer = new factory.Peer(createDummyPeer(factory));
         newPeer.ban();
         assert.isOk(newPeer.isBanned());
         newPeer._bannedTill = Date.now();
@@ -179,7 +179,7 @@ describe('Peer tests', () => {
     });
 
     it('should not unban peer before BAN_PEER_TIME', async function() {
-        const newPeer = new factory.Peer({peerInfo: createDummyPeer(factory)});
+        const newPeer = new factory.Peer(createDummyPeer(factory));
         newPeer.ban();
         newPeer._bannedTill = Date.now() + factory.Constants.BAN_PEER_TIME / 2;
         assert.isOk(newPeer.isBanned());
@@ -386,14 +386,6 @@ describe('Peer tests', () => {
             newPeer.updatePeerFromPeerInfo(peerInfo2, true);
 
             assert.strictEqual(newPeer.address, strAddress);
-        });
-
-        it('should not update (address not routable)', async () => {
-            sinon.stub(factory.Transport, 'isRoutableAddress').returns(false);
-
-            newPeer.updatePeerFromPeerInfo(peerInfo2, true);
-
-            assert.notEqual(newPeer.address, strAddress);
         });
 
         it('should not update (disallow to rewrite)', async () => {
