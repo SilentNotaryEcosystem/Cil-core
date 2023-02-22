@@ -14,6 +14,7 @@ const debugMsg = debugLib('node:messages');
 const debugMsgFull = debugLib('node:messages:full');
 
 const PEER_RECONNECT_TIMER_NAME = 'peerReconnectTimer';
+const MEMPOOL_REANNOUNCE_TIMER_NAME = 'mempoolTimer';
 
 function createPeerKey(peer) {
     return peer.address + peer.port;
@@ -104,6 +105,7 @@ module.exports = (factory, factoryOptions) => {
             this._transport.on('connect', this._incomingConnection.bind(this));
 
             this._reconnectTimer = new Tick(this);
+            this._reannounceTimer = new Tick(this);
             this._requestCache = new RequestCache();
 
             return new Promise(async resolve => {
@@ -188,6 +190,12 @@ module.exports = (factory, factoryOptions) => {
                 PEER_RECONNECT_TIMER_NAME,
                 this._reconnectPeers,
                 Constants.PEER_RECONNECT_INTERVAL
+            );
+
+            this._reannounceTimer .setInterval(
+                MEMPOOL_REANNOUNCE_TIMER_NAME,
+                this._reannounceMempool,
+                Constants.MEMPOOL_REANNOUNCE_INTERVAL
             );
         }
 
@@ -580,6 +588,20 @@ module.exports = (factory, factoryOptions) => {
             if (inventory.vector.length) {
                 debugMsg(`(address: "${this._debugAddress}") sending "${msgInv.message}" to "${peer.address}"`);
                 await peer.pushMessage(msgInv);
+            }
+        }
+
+        /**
+         * Send MsgInv with local txns hashes
+         *
+         * @returns {Promise<void>}
+         * @private
+         */
+        async _reannounceMempool(){
+            const arrPeers=this._peerManager.getConnectedPeers();
+            debugMsg(`(address: "${this._debugAddress}") sending mempool to ${arrPeers.length} neighbours`);
+            for(let peer of arrPeers){
+                await this._handleGetMempool(peer);
             }
         }
 

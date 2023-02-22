@@ -53,6 +53,7 @@ module.exports = {
         PEER_DEAD_TIME: 6 * 60 * 1000,
 
         PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
+        MEMPOOL_REANNOUNCE_INTERVAL: 10 * 60 * 1000,
 
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
 

@@ -7,6 +7,8 @@ module.exports = {
 
         ...commonConfig.constants,
 
+        MEMPOOL_REANNOUNCE_INTERVAL: 5 * 1000,
+
         CONCILIUM_DEFINITION_CONTRACT_ADDRESS: undefined,
         GENESIS_BLOCK: undefined,
 
