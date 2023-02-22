@@ -1164,7 +1164,7 @@ module.exports = (factory, factoryOptions) => {
             return arrOps.length;
         }
 
-        async getCoinHistory(strAddress) {
+         getCoinHistory(strAddress) {
             const startPrefix = Buffer.from(strAddress, 'hex');
             const endPrefix = Buffer.alloc(startPrefix.length + 32 + 2, 0xff);
             startPrefix.copy(endPrefix);
@@ -1192,6 +1192,37 @@ module.exports = (factory, factoryOptions) => {
                         reject(err);
                     });
             });
+        }
+
+        _initMainDb(bSync = true) {
+            if (bSync) {
+                this._db = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`));
+            } else {
+                return new Promise((resolve, reject) => {
+                    levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_CHAINSTATE_DIR}`), {}, (err, db) => {
+                        if (err) return reject(err);
+                        resolve(db);
+                    });
+                });
+            }
+        }
+
+        _initTxDb() {
+            if (this._buildTxIndex) {
+                this._txIndexStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_TXINDEX_DIR}`));
+            }
+        }
+
+        _initBlockDb() {
+
+            // it's a good idea to keep blocks separately from UTXO DB
+            // it will allow erase UTXO DB, and rebuild it from block DB
+            // it could be levelDB also, but in different dir
+            this._blockStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_BLOCKSTATE_DIR}`));
+        }
+
+        _initPeerDb() {
+            this._peerStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
         }
     };
 };
