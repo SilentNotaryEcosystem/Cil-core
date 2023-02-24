@@ -159,4 +159,16 @@ describe('TestTransport', () => {
         assert.isOk(tsFinished - tsStarted >= 3000);
     });
 
+    it("should mark address as valid", async () => {
+        assert.isOk(factory.Transport.isAddrValid('1za'));
+        assert.isOk(factory.Transport.isAddrValid('9aa'));
+        assert.isOk(factory.Transport.isAddrValid('0'));
+    });
+
+    it("should make address as invalid", async () => {
+        assert.isNotOk(factory.Transport.isAddrValid('za'));
+        assert.isNotOk(factory.Transport.isAddrValid('aa'));
+        assert.isNotOk(factory.Transport.isAddrValid(''));
+        assert.isNotOk(factory.Transport.isAddrValid('@#$'));
+    });
 });

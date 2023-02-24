@@ -184,19 +184,20 @@ describe('Node tests', async () => {
         assert.isOk(node._peerManager);
     });
 
-    it('should resolve DNS seeds', async () => {
-        const node = new factory.Node({arrDnsSeeds: ['a-b', 'c-d']});
-        assert.isOk(node);
-        const arrAddresses = await node._queryDnsRecords(['a-b', 'c-d']);
-        assert.deepEqual(arrAddresses, ['a', 'b', 'c', 'd']);
+    it('should split seed for DNS & ips', async () => {
+        const node = new factory.Node({arrSeedAddresses: ['a-b', 'c-d', '1z', '0b']});
+
+        assert.deepEqual(node._arrSeedAddresses, ['1z', '0b']);
+        assert.deepEqual(node._arrDnsSeeds, ['a-b', 'c-d']);
     });
 
     it('should merge seeds', async () => {
-        const node = new factory.Node({arrDnsSeeds: ['a-b', 'c-d'], arrSeedAddresses: ['e', 'f']});
+        const node = new factory.Node({arrSeedAddresses: ['a-b', 'c-d', 'e', 'f']});
         await node.ensureLoaded();
-        assert.isOk(node);
+
         await node._mergeSeedPeers();
-        assert.deepEqual(node._arrSeedAddresses, ['e', 'f', 'a', 'b', 'c', 'd']);
+
+        assert.deepEqual(node._arrSeedAddresses, [ 'a', 'b', 'c', 'd', 'e', 'f']);
     });
 
     it('should _storeBlockAndInfo', async () => {

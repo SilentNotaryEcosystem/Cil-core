@@ -71,7 +71,7 @@ module.exports = (factory, factoryOptions) => {
 
             this._nMinConnections = Constants.MIN_PEERS;
 
-            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout, workerSuspended, networkSuspended} = options;
+            const {arrSeedAddresses, nMaxPeers, queryTimeout, workerSuspended, networkSuspended} = options;
 
             this._workerSuspended = workerSuspended;
             this._networkSuspended = networkSuspended;
@@ -83,8 +83,8 @@ module.exports = (factory, factoryOptions) => {
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
 
-            this._arrSeedAddresses = arrSeedAddresses || [];
-            this._arrDnsSeeds = arrDnsSeeds || Constants.DNS_SEED;
+            // arrDnsSeeds
+            this._processSeeds(arrSeedAddresses);
 
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
 
@@ -2612,6 +2612,30 @@ module.exports = (factory, factoryOptions) => {
             return !this._processedBlock ||
                    (this._processedBlock && this._processedBlock.getHeight() <
                     Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3);
+        }
+
+        /**
+         * Split arrSeeds (see utils.js/mapEnvToOptions) into seeds (valid IP addresses)
+         * & arrDnsSeeds (should be resolved via DNS for IP addresses)
+         *
+         * @param arrSeeds
+         * @private
+         */
+
+        _processSeeds(arrSeeds=[]){
+            const arrSeedAddresses=[];
+            const arrDnsSeeds=[];
+
+            for(let addr of arrSeeds) {
+                if (Transport.isAddrValid(addr)){
+                    arrSeedAddresses.push(addr);
+                }else{
+                    arrDnsSeeds.push(addr);
+                }
+            }
+
+            this._arrSeedAddresses = arrSeedAddresses;
+            this._arrDnsSeeds = arrDnsSeeds.length ? arrDnsSeeds : Constants.DNS_SEED;
         }
     };
 };
