@@ -26,10 +26,10 @@ module.exports = {
         ADDR_MAX_LENGTH: 1000,
 
         // maximum connected peers
-        MAX_PEERS: 10,
+        MAX_PEERS: 100,
 
         // minimum connected peers
-        MIN_PEERS: 6,
+        MIN_PEERS: 16,
 
         // milliseconds
         PEER_QUERY_TIMEOUT: 30000,
@@ -52,7 +52,7 @@ module.exports = {
         PEER_HEARTBEAT_TIMEOUT: 2 * 60 * 1000,
         PEER_DEAD_TIME: 6 * 60 * 1000,
 
-        PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
+        PEER_RECONNECT_INTERVAL: 10 * 1000,
         MEMPOOL_REANNOUNCE_INTERVAL: 10 * 60 * 1000,
 
         PEERMANAGER_BACKUP_TIMEOUT: 10 * 60 * 1000,
