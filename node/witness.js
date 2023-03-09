@@ -253,6 +253,9 @@ module.exports = (factory, factoryOptions) => {
                 if (!messageWitness.isExpose()) {
                     const exposeMsg = this._createExposeMessage(messageWitness);
                     this._broadcastConsensusInitiatedMessage(exposeMsg);
+
+                    // set my own view
+                    if (consensus) consensus.processMessage(exposeMsg);
                 }
 
                 debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content.toString(
@@ -391,6 +394,9 @@ module.exports = (factory, factoryOptions) => {
             consensus.on('message', message => {
                 debugWitness(`Witness: "${this._debugAddress}" message "${message.message}" from CONSENSUS engine`);
                 this._broadcastConsensusInitiatedMessage(message);
+
+                // set my own view
+                if (consensus) consensus.processMessage(message);
             });
 
             consensus.on('createBlock', async () => {
@@ -515,10 +521,6 @@ module.exports = (factory, factoryOptions) => {
         _broadcastConsensusInitiatedMessage(msg) {
             const conciliumId = msg.conciliumId;
             this._peerManager.broadcastToConnected(createPeerTag(conciliumId), msg);
-            const consensusInstance = this._consensuses.get(conciliumId);
-
-            // set my own view
-            if (consensusInstance) consensusInstance.processMessage(msg);
         }
 
         /**
