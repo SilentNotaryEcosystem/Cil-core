@@ -241,13 +241,13 @@ module.exports = (factory) => {
                 // it will be outbound only node (failed to NAT traversal or nonRoutable IPv6)
             } else {
 
-                // have routable IPv6 address
-                const [ipV6Address] = this.constructor.getInterfacesIpV6Addresses()
-                    .filter(addr => this.constructor.isRoutableIpV6Address(addr));
-                if (ipV6Address) {
-                    this._address = ipV6Address;
-                    return await this.listen();
-                }
+//                // have routable IPv6 address
+//                const [ipV6Address] = this.constructor.getInterfacesIpV6Addresses()
+//                    .filter(addr => this.constructor.isRoutableIpV6Address(addr));
+//                if (ipV6Address) {
+//                    this._address = ipV6Address;
+//                    return await this.listen();
+//                }
 
                 // have routable IPv4 address
                 const arrAllIpV4Addresses = this.constructor.getInterfacesIpV4Addresses();

@@ -334,26 +334,10 @@ module.exports = (factory, factoryOptions) => {
                 if (message.isAddr()) {
                     return await this._handlePeerList(peer, message);
                 }
-                if (message.isGetBlocks()) {
-                    return await this._handleGetBlocksMessage(peer, message);
-                }
-                if (message.isGetMempool()) {
-                    return await this._handleGetMempool(peer);
-                }
-                if (message.isInv()) {
-                    return await this._handleInvMessage(peer, message);
-                }
-                if (message.isGetData()) {
-                    return await this._handleGetDataMessage(peer, message);
-                }
-                if (message.isTx()) {
-                    return await this._handleTxMessage(peer, message);
-                }
+
                 if (message.isBlock()) {
                     return await this._handleBlockMessage(peer, message);
                 }
-
-                throw new Error(`Unhandled message type "${message.message}"`);
             } catch (err) {
                 logger.error(`Incoming message. Peer ${peer.address}`, err);
 
@@ -407,30 +391,11 @@ module.exports = (factory, factoryOptions) => {
             const block = msg.block;
             debugNode(`Received block ${block.getHash()}`);
 
-            if (!this._requestCache.isRequested(block.getHash())) {
-                logger.log(`Peer ${peer.address} pushed unrequested Block ${block.getHash()} to us`);
-                peer.misbehave(5);
-                return;
-            }
+            console.log(`Number of signatures: ${block.signatures.length}`);
+            console.dir(block.signatures.map(buffSig=> buffSig.toString('hex')), { colors: true, depth: null });
 
-            if (this._storage.isBlockBanned(block.hash())) {
-                debugNode(`Block ${block.hash()} was banned! Discarding`);
-                return;
-            }
-
-            // since we building DAG, it's faster than check storage
-            if (await this._isBlockKnown(block.hash())) {
-                debugNode(`Block ${block.hash()} already known!`);
-                return;
-            }
-            try {
-                await this._handleArrivedBlock(block, peer);
-            } catch (e) {
-                await this._blockBad(block);
-                logger.error(e);
-                if (peer) peer.misbehave(10);
-                throw e;
-            }
+            this._requestCache.done(block.getHash());
+            peer.loadDone=true;
         }
 
         async _handleArrivedBlock(block, peer) {
@@ -894,19 +859,11 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
-            // next stage: request unknown blocks or just GENESIS, if we are at very beginning
-            let msg;
-            if (Constants.GENESIS_BLOCK && !this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
-                msg = this._createGetDataMsg([Constants.GENESIS_BLOCK]);
-                peer.markAsPossiblyAhead();
-            } else {
-                msg = await this._createGetBlocksMsg();
-                debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
-            }
-            await peer.pushMessage(msg);
 
-            // TODO: move loadDone after we got all we need from peer
-            peer.loadDone = true;
+            // THIS IS LAST STAGE OF THIS BRANCH
+
+            const msgGetBlock = this._createGetDataMsg([process.env.BLOCK_INVESTIGATE]);
+            await peer.pushMessage(msgGetBlock);
         }
 
         async _createGetBlocksMsg() {
