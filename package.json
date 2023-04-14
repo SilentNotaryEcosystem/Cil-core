@@ -45,7 +45,6 @@
     "witness": "mocha --exit tests/integration/witness.integration.spec.js",
     "test": "npm run unit && npm run bft && npm run node && npm run contract && npm run witness",
     "test2": "mocha --exit tests/integration/genesis.integration*.spec.js",
-    "unsdid": "mocha --exit tests/unit/ubixNsDid /*.spec.js",
     "testDebugWin": "set DEBUG=*,-mocha:* && npm test",
     "testDebugWin2": "set DEBUG=*,-mocha:* && npm run test2",
     "testDebugNix": "DEBUG=*,-mocha:* npm test",
