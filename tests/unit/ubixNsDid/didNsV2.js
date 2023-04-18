@@ -79,9 +79,15 @@ class DidNsV2 extends Base {
     resolve(strProvider, strName) {
         const strDidAddress = this._resolveNs(strProvider, strName);
 
+        return this.get(strDidAddress);
+    }
+
+    get(strDidAddress) {
+        if (!strDidAddress || !this._dids[strDidAddress]) throw new Error('Address is not found');
+
         return {
-            id: `did:ubix:${strDidAddress}`,
-            ...this._dids[strDidAddress][2]
+            ...this._deserializeToObject(this._dids[strDidAddress][2]),
+            id: `did:ubix:${strDidAddress}`
         };
     }
 
