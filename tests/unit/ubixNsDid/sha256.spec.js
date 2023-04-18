@@ -47,7 +47,7 @@ describe('Sha256', () => {
             };
         });
 
-        it('should briefly check SHA256 implementation (we use the same code)', async () => {
+        it('should briefly check SHA256 implementation (we use the same code from "js-sha3" library)', async () => {
             let arrStrings = [
                 '11111111111',
                 'sdfsdf234sfsf65',
