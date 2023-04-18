@@ -74,93 +74,188 @@ class DidNsV2 extends Base {
         this._updateFee = 1000;
         this._ns = {};
         this._dids = {};
+        this._contracts = [];
+        this._strContractAddress = null;
     }
 
-    resolve(strProvider, strName) {
+    _setContractAddress(strContractAddress) {
+        this._checkOwner();
+        this._strContractAddress = strContractAddress;
+    }
+
+    _addContractAddress(strContractAddress) {
+        this._checkOwner();
+        this._contracts.push(strContractAddress);
+    }
+
+    _cleanContractAddresses() {
+        this._checkOwner();
+        this._contracts = [];
+    }
+
+    _isProxy() {
+        // if _isProxy() === true, contract is locked for read/write
+        return this._contracts.length !== 0 && this._contracts[this._contracts.length - 1] !== this._strContractAddress;
+    }
+
+    async resolve(strProvider, strName) {
+        if (!this._isProxy()) {
+            return this._resolveLocal(strProvider, strName);
+        } else {
+            return await call(this._contracts[this._contracts.length - 1], {
+                method: 'resolve',
+                arrArguments: [strProvider, strName]
+            });
+        }
+    }
+
+    async get(strDidAddress) {
+        if (!this._isProxy()) {
+            return this._getLocal(strDidAddress);
+        } else {
+            return await call(this._contracts[this._contracts.length - 1], {
+                method: 'get',
+                arrArguments: [strDidAddress]
+            });
+        }
+    }
+
+    _resolveLocal(strProvider, strName) {
         const strDidAddress = this._resolveNs(strProvider, strName);
-
-        return this.get(strDidAddress);
+        return this._getLocal(strDidAddress);
     }
 
-    get(strDidAddress) {
+    _getLocal(strDidAddress) {
         if (!strDidAddress || !this._dids[strDidAddress]) throw new Error('Address is not found');
-
         return {
             ...this._deserializeToDid(this._dids[strDidAddress][2]),
             id: `did:ubix:${strDidAddress}`
         };
     }
 
-    create(objData) {
-        this._validatePermissions();
-        this._validateObjData(objData, true);
+    async create(objData) {
+        if (!this._isProxy()) {
+            this._validatePermissions();
+            this._validateObjData(objData, true);
 
-        const strDidAddress = this._md5(JSON.stringify(objData.objDidDocument));
-        if (this._dids[strDidAddress]) {
-            throw new Error('DID document hash has already defined');
+            const strDidAddress = this._md5(JSON.stringify(objData.objDidDocument));
+            if (this._dids[strDidAddress]) {
+                throw new Error('DID document hash has already defined');
+            }
+
+            this._checkForIdKey(objData.objDidDocument);
+
+            this._createBatchNs({...objData, strDidAddress});
+
+            this._dids[strDidAddress] = this._serializeToArray({
+                ...objData,
+                strOwnerAddress: callerAddress
+            });
+        } else {
+            return await call(this._contracts[this._contracts.length - 1], {
+                method: 'create',
+                arrArguments: [objData]
+            });
         }
-
-        this._checkForIdKey(objData.objDidDocument);
-
-        this._createBatchNs({...objData, strDidAddress});
-
-        this._dids[strDidAddress] = this._serializeToArray({
-            ...objData,
-            strOwnerAddress: callerAddress
-        });
     }
 
-    remove(strProvider, strName) {
-        this._validatePermissions();
+    async remove(strProvider, strName) {
+        if (!this._isProxy()) {
+            this._validatePermissions();
 
-        const strDidAddress = this._resolveNs(strProvider, strName);
+            const strDidAddress = this._resolveNs(strProvider, strName);
 
-        const record = this._dids[strDidAddress];
-        if (!record) throw new Error('Hash is not found');
+            const record = this._dids[strDidAddress];
+            if (!record) throw new Error('Hash is not found');
 
-        const objData = this._deserializeToObject(record);
+            const objData = this._deserializeToObject(record);
 
-        if (callerAddress !== objData.strOwnerAddress) {
-            throw new Error('You are not the owner');
+            if (callerAddress !== objData.strOwnerAddress) {
+                throw new Error('You are not the owner');
+            }
+
+            this._removeBatchNs({...objData, strDidAddress});
+
+            delete this._dids[strDidAddress];
+        } else {
+            return await call(this._contracts[this._contracts.length - 1], {
+                method: 'remove',
+                arrArguments: [strProvider, strName]
+            });
         }
-
-        this._removeBatchNs({...objData, strDidAddress});
-
-        delete this._dids[strDidAddress];
     }
 
-    replace(strProvider, strName, objNewData) {
-        this._validatePermissions();
+    async replace(strProvider, strName, objNewData) {
+        if (!this._isProxy()) {
+            this._validatePermissions();
 
-        const strDidAddress = this._resolveNs(strProvider, strName);
+            const strDidAddress = this._resolveNs(strProvider, strName);
 
-        this._validateObjData(objNewData, true);
+            this._validateObjData(objNewData, true);
 
-        const record = this._dids[strDidAddress];
-        if (!record) {
-            throw new Error('Hash is not found');
+            const record = this._dids[strDidAddress];
+            if (!record) {
+                throw new Error('Hash is not found');
+            }
+
+            const objOldData = this._deserializeToObject(record);
+
+            if (callerAddress !== objOldData.strOwnerAddress) throw 'You are not the owner';
+
+            this._checkForIdKey(objNewData.objDidDocument);
+
+            this._replaceBatchNs({...objOldData, strDidAddress}, {...objNewData, strDidAddress});
+
+            this._dids[strDidAddress] = this._serializeToArray({
+                ...objNewData,
+                strOwnerAddress: callerAddress
+            });
+        } else {
+            return await call(this._contracts[this._contracts.length - 1], {
+                method: 'replace',
+                arrArguments: [strProvider, strName, objNewData]
+            });
         }
-
-        const objOldData = this._deserializeToObject(record);
-
-        if (callerAddress !== objOldData.strOwnerAddress) throw 'You are not the owner';
-
-        this._checkForIdKey(objNewData.objDidDocument);
-
-        this._replaceBatchNs({...objOldData, strDidAddress}, {...objNewData, strDidAddress});
-
-        this._dids[strDidAddress] = this._serializeToArray({
-            ...objNewData,
-            strOwnerAddress: callerAddress
-        });
     }
 
     _getNs() {
+        this._checkOwner();
         return this._ns;
     }
 
     _getDids() {
+        this._checkOwner();
         return this._dids;
+    }
+
+    _download(nPage, nCountOnPage = 20) {
+        this._checkOwner();
+        const arrNsKeys = Object.keys(this._ns).sort((a, b) => (a !== b ? (a < b ? -1 : 1) : 0));
+        const arrPageKeys = arrNsKeys.slice(nPage * nCountOnPage, (nPage + 1) * nCountOnPage - 1);
+
+        let result = {};
+        for (let i = 0; i < arrPageKeys.length; i++) {
+            result = {
+                ...result,
+                [arrPageKeys[i]]: {
+                    ns: this._ns[arrPageKeys[i]],
+                    did: this._dids[this._ns[arrPageKeys[i]][2]]
+                }
+            };
+        }
+        return result;
+    }
+
+    _upload(objData) {
+        this._checkOwner();
+        for (const key in objData) {
+            this._ns[key] = objData[key].ns;
+            this._dids[objData[key].ns[2]] = objData[key].did;
+        }
+    }
+
+    _uploadNs(objData) {
+        this._ns = {...this._ns, ...objData};
     }
 
     _resolveNs(strProvider, strName) {

@@ -56,24 +56,62 @@ describe('Ubix DID', () => {
 
         it('should throw (unsigned TX)', async () => {
             global.callerAddress = undefined;
-            assert.throws(() => contract.create(objData), 'You should sign TX');
+            assert.isRejected(contract.create(objData), 'You should sign TX');
         });
 
         it('should throw (low create fee)', async () => {
             global.value = 1000 - 1;
-            assert.throws(() => contract.create(objData), 'Update fee is 1000');
+            assert.isRejected(contract.create(objData), 'Update fee is 1000');
         });
 
         it("should throw (DID document could not have provider: 'id')", async () => {
-            assert.throws(
-                () => contract.create({objDidDocument: {id: 'my-id-username'}, strIssuerName: 'Me'}),
+            assert.isRejected(
+                contract.create({objDidDocument: {id: 'my-id-username'}, strIssuerName: 'Me'}),
                 "Input DID document could not have provider: 'id'"
             );
         });
 
         it('should throw (create twice)', async () => {
             await contract.create(objData);
-            assert.throws(() => contract.create(objData), 'DID document hash has already defined');
+            assert.isRejected(contract.create(objData), 'DID document hash has already defined');
+        });
+    });
+
+    describe('resolve DID document', async () => {
+        let objData;
+
+        beforeEach(async () => {
+            global.value = 130000;
+
+            objData = {
+                objDidDocument: {
+                    tg: 'my-tele-nick',
+                    email: 'my-email@test.com'
+                },
+                strIssuerName: 'Me'
+            };
+        });
+
+        it('should resolve', async () => {
+            await contract.create(objData);
+
+            const objDidDocument = await contract.resolve('tg', 'my-tele-nick');
+
+            assert.equal(objDidDocument.tg, objData.objDidDocument.tg);
+            assert.equal(objDidDocument.email, objData.objDidDocument.email);
+        });
+
+        it('should get by address', async () => {
+            await contract.create(objData);
+
+            const objDidDocument = await contract.resolve('tg', 'my-tele-nick');
+
+            const strDidAddress = objDidDocument.id.replace('did:ubix:', '');
+
+            const objDidDocument2 = await contract.get(strDidAddress);
+
+            assert.equal(objDidDocument2.tg, objDidDocument.tg);
+            assert.equal(objDidDocument2.email, objData.objDidDocument.email);
         });
     });
 
@@ -107,7 +145,7 @@ describe('Ubix DID', () => {
 
             global.callerAddress = undefined;
 
-            assert.throws(() => contract.remove(strDidAddress), 'You should sign TX');
+            assert.isRejected(contract.remove(strDidAddress), 'You should sign TX');
         });
 
         it('should throw (low create fee)', () => {
@@ -115,19 +153,19 @@ describe('Ubix DID', () => {
 
             global.value = 1000 - 1;
 
-            assert.throws(() => contract.remove(strDidAddress), 'Update fee is 1000');
+            assert.isRejected(contract.remove(strDidAddress), 'Update fee is 1000');
         });
 
         it('should throw (strProvider must be a string)', () => {
-            assert.throws(() => contract.remove(null, null), 'strProvider should be a string');
+            assert.isRejected(contract.remove(null, null), 'strProvider should be a string');
         });
 
         it('should throw (strName must be a string)', () => {
-            assert.throws(() => contract.remove('', null), 'strName should be a string');
+            assert.isRejected(contract.remove('', null), 'strName should be a string');
         });
 
         it('should throw (Hash is not found)', () => {
-            assert.throws(() => contract.remove('', ''), 'Hash is not found');
+            assert.isRejected(contract.remove('', ''), 'Hash is not found');
         });
 
         it('should fail (not owner)', async () => {
@@ -135,7 +173,7 @@ describe('Ubix DID', () => {
 
             callerAddress = generateAddress().toString('hex');
 
-            assert.throws(() => contract.remove('email', 'my-email@test.com'), 'You are not the owner');
+            assert.isRejected(contract.remove('email', 'my-email@test.com'), 'You are not the owner');
         });
     });
 
@@ -189,7 +227,7 @@ describe('Ubix DID', () => {
 
             global.callerAddress = undefined;
 
-            assert.throws(() => contract.replace('email', 'my-email@test.com', objNewData), 'You should sign TX');
+            assert.isRejected(contract.replace('email', 'my-email@test.com', objNewData), 'You should sign TX');
         });
 
         it('should throw (low create fee)', () => {
@@ -199,7 +237,7 @@ describe('Ubix DID', () => {
 
             global.value = 1000 - 1;
 
-            assert.throws(() => contract.replace(strDidAddress, objNewData), 'Update fee is 1000');
+            assert.isRejected(contract.replace(strDidAddress, objNewData), 'Update fee is 1000');
         });
 
         it('should replace (with merge)', async () => {
@@ -221,7 +259,7 @@ describe('Ubix DID', () => {
 
             callerAddress = generateAddress().toString('hex');
 
-            assert.throws(() => contract.replace('email', 'my-email@test.com', objNewData), 'You are not the owner');
+            assert.isRejected(contract.replace('email', 'my-email@test.com', objNewData), 'You are not the owner');
         });
     });
 });
