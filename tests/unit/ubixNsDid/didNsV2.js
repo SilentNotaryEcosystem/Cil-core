@@ -93,6 +93,19 @@ class DidNsV2 extends Base {
         this._contracts = [];
     }
 
+    getContractAddress() {
+        return this._strContractAddress;
+    }
+
+    getActiveContractAddress() {
+        return this._contracts.length === 0 ? this._strContractAddress : this._contracts[this._contracts.length - 1];
+    }
+
+    _listContractAddresses() {
+        this._checkOwner();
+        return this._contracts;
+    }
+
     _isProxy() {
         // if _isProxy() === true, contract is locked for read/write
         return this._contracts.length !== 0 && this._contracts[this._contracts.length - 1] !== this._strContractAddress;
