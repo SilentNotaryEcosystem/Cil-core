@@ -102,7 +102,7 @@ class DidNsV2 extends Base {
     }
 
     _listContractAddresses() {
-        this._checkOwner();
+        // this._checkOwner();
         return this._contracts;
     }
 
@@ -232,17 +232,17 @@ class DidNsV2 extends Base {
     }
 
     _getNs() {
-        this._checkOwner();
+        // this._checkOwner();
         return this._ns;
     }
 
     _getDids() {
-        this._checkOwner();
+        // this._checkOwner();
         return this._dids;
     }
 
     _download(nPage, nCountOnPage = 20) {
-        this._checkOwner();
+        // this._checkOwner();
         const arrNsKeys = Object.keys(this._ns).sort((a, b) => (a !== b ? (a < b ? -1 : 1) : 0));
         const arrPageKeys = arrNsKeys.slice(nPage * nCountOnPage, (nPage + 1) * nCountOnPage - 1);
 
@@ -260,15 +260,11 @@ class DidNsV2 extends Base {
     }
 
     _upload(objData) {
-        this._checkOwner();
+        // this._checkOwner();
         for (const key in objData) {
             this._ns[key] = objData[key].ns;
             this._dids[objData[key].ns[2]] = objData[key].did;
         }
-    }
-
-    _uploadNs(objData) {
-        this._ns = {...this._ns, ...objData};
     }
 
     _resolveNs(strProvider, strName) {
@@ -461,16 +457,7 @@ class DidNsV2 extends Base {
     _sha256(strInput) {
         var INPUT_ERROR = 'input is invalid type';
         var FINALIZE_ERROR = 'finalize already called';
-        // var WINDOW = false;
         var root = {};
-        // var WEB_WORKER = !WINDOW && typeof self === 'object';
-        // var NODE_JS =
-        //     !root.JS_SHA3_NO_NODE_JS && typeof process === 'object' && process.versions && process.versions.node;
-        // if (NODE_JS) {
-        //     root = global;
-        // } else if (WEB_WORKER) {
-        //     root = self;
-        // }
         var ARRAY_BUFFER = !root.JS_SHA3_NO_ARRAY_BUFFER && typeof ArrayBuffer !== 'undefined';
         var HEX_CHARS = '0123456789abcdef'.split('');
         var SHAKE_PADDING = [31, 7936, 2031616, 520093696];
