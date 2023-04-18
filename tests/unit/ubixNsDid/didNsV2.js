@@ -86,7 +86,7 @@ class DidNsV2 extends Base {
         if (!strDidAddress || !this._dids[strDidAddress]) throw new Error('Address is not found');
 
         return {
-            ...this._deserializeToObject(this._dids[strDidAddress][2]),
+            ...this._deserializeToDid(this._dids[strDidAddress][2]),
             id: `did:ubix:${strDidAddress}`
         };
     }
@@ -327,8 +327,12 @@ class DidNsV2 extends Base {
         return {
             strOwnerAddress: record[0],
             strIssuerName: record[1],
-            objDidDocument: record[2].reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
+            objDidDocument: this._deserializeToDid(record[2])
         };
+    }
+
+    _deserializeToDid(arrData) {
+        return arrData.reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
     }
 
     _createHash(strProvider, strName) {
