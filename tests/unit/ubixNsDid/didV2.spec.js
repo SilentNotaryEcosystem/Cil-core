@@ -64,10 +64,10 @@ describe('Ubix DID', () => {
             assert.throws(() => contract.create(objData), 'Update fee is 1000');
         });
 
-        it('should throw (DID document does not have Ubix NS keys)', async () => {
+        it("should throw (DID document could not have provider: 'id')", async () => {
             assert.throws(
-                () => contract.create({objDidDocument: {}, strIssuerName: 'Me'}),
-                'DID document does not have Ubix NS keys'
+                () => contract.create({objDidDocument: {id: 'my-id-username'}, strIssuerName: 'Me'}),
+                "Input DID document could not have provider: 'id'"
             );
         });
 

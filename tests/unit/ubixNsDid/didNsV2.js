@@ -74,7 +74,6 @@ class DidNsV2 extends Base {
         this._updateFee = 1000;
         this._ns = {};
         this._dids = {};
-        this._providers = ['ubix', 'tg', 'ig', 'email'];
     }
 
     resolve(strProvider, strName) {
@@ -95,7 +94,7 @@ class DidNsV2 extends Base {
             throw new Error('DID document hash has already defined');
         }
 
-        this._checkForUnsKeys(objData.objDidDocument);
+        this._checkForIdKey(objData.objDidDocument);
 
         this._createBatchNs({...objData, strDidAddress});
 
@@ -119,8 +118,6 @@ class DidNsV2 extends Base {
             throw new Error('You are not the owner');
         }
 
-        this._checkForUnsKeys(objData.objDidDocument);
-
         this._removeBatchNs({...objData, strDidAddress});
 
         delete this._dids[strDidAddress];
@@ -142,7 +139,7 @@ class DidNsV2 extends Base {
 
         if (callerAddress !== objOldData.strOwnerAddress) throw 'You are not the owner';
 
-        this._checkForUnsKeys(objNewData.objDidDocument);
+        this._checkForIdKey(objNewData.objDidDocument);
 
         this._replaceBatchNs({...objOldData, strDidAddress}, {...objNewData, strDidAddress});
 
@@ -209,7 +206,7 @@ class DidNsV2 extends Base {
         this._checkKeysAvailability(objBatchData.objDidDocument);
 
         for (const strProvider in objBatchData.objDidDocument) {
-            if (this._providers.includes(strProvider)) {
+            if (strProvider !== 'id') {
                 this._createNs({
                     strProvider,
                     strName: objBatchData.objDidDocument[strProvider],
@@ -225,7 +222,7 @@ class DidNsV2 extends Base {
         this._checkKeysAvailability(objBatchData.objDidDocument, false);
 
         for (const strProvider in objBatchData.objDidDocument) {
-            if (this._providers.includes(strProvider)) {
+            if (strProvider !== 'id') {
                 this._removeNs({
                     strProvider,
                     strName: objBatchData.objDidDocument[strProvider],
@@ -270,7 +267,7 @@ class DidNsV2 extends Base {
     _checkKeysAvailability(objDidDocument, acceptEmpty = true) {
         // тут если ключи и так нам принадлежат их не считать
         for (const strProvider in objDidDocument) {
-            if (this._providers.includes(strProvider)) {
+            if (strProvider !== 'id') {
                 const objRecord = this._ns[this._createHash(strProvider, objDidDocument[strProvider])];
                 if (acceptEmpty) {
                     if (!objRecord) continue;
@@ -304,23 +301,12 @@ class DidNsV2 extends Base {
         }
     }
 
-    _checkForUnsKeys(objDidDocument) {
-        let hasKeys = false;
-
+    _checkForIdKey(objDidDocument) {
         for (const key in objDidDocument) {
-            if (this._providers.includes(key)) {
-                hasKeys = true;
-                break;
+            if (key === 'id') {
+                throw new Error("Input DID document could not have provider: 'id'");
             }
         }
-
-        if (!hasKeys) {
-            throw new Error('DID document does not have Ubix NS keys');
-        }
-
-        // if (this._hasUnsKeys(didDocument)) {
-        //     throw new Error(UNS_HASH_ALREADY_DEFINED);
-        // }
     }
 
     _validateDidAddress(strDidAddress) {
@@ -340,7 +326,7 @@ class DidNsV2 extends Base {
     }
 
     _createHash(strProvider, strName) {
-        if (['ubix', 'tg', 'ig', 'email'].includes(strProvider)) {
+        if (strProvider !== 'id') {
             return this._md5(`${strName}.${strProvider}`);
         }
         return null;
