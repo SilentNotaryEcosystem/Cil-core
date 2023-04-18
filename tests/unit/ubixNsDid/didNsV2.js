@@ -332,7 +332,7 @@ class DidNsV2 extends Base {
     }
 
     _deserializeToDid(arrData) {
-        return arrData.reduce((acc, [key, value]) => ({...acc, [key]: value}), {})
+        return arrData.reduce((acc, [key, value]) => ({...acc, [key]: value}), {});
     }
 
     _createHash(strProvider, strName) {
