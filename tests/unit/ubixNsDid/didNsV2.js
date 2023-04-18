@@ -158,6 +158,7 @@ class DidNsV2 extends Base {
 
             this._checkForIdKey(objData.objDidDocument);
 
+            global.bIndirectCall = true;
             this._createBatchNs({...objData, strDidAddress});
 
             this._dids[strDidAddress] = this._serializeToArray({
@@ -187,6 +188,7 @@ class DidNsV2 extends Base {
                 throw new Error('You are not the owner');
             }
 
+            global.bIndirectCall = true;
             this._removeBatchNs({...objData, strDidAddress});
 
             delete this._dids[strDidAddress];
@@ -217,6 +219,7 @@ class DidNsV2 extends Base {
 
             this._checkForIdKey(objNewData.objDidDocument);
 
+            global.bIndirectCall = true;
             this._replaceBatchNs({...objOldData, strDidAddress}, {...objNewData, strDidAddress});
 
             this._dids[strDidAddress] = this._serializeToArray({
@@ -276,6 +279,8 @@ class DidNsV2 extends Base {
     }
 
     _createNs(objData) {
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
+
         this._validatePermissions();
         this._validateParameters(objData, true);
 
@@ -290,6 +295,8 @@ class DidNsV2 extends Base {
     }
 
     _removeNs(objData) {
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
+
         this._validatePermissions();
         const {strProvider, strName, strDidAddress} = objData;
         this._validateKeyParameters(strProvider, strName);
@@ -312,6 +319,8 @@ class DidNsV2 extends Base {
     }
 
     _createBatchNs(objBatchData) {
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
+
         this._validateBatchData(objBatchData);
         this._checkKeysAvailability(objBatchData.objDidDocument);
 
@@ -328,6 +337,8 @@ class DidNsV2 extends Base {
     }
 
     _removeBatchNs(objBatchData) {
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
+
         this._validateBatchData(objBatchData);
         this._checkKeysAvailability(objBatchData.objDidDocument, false);
 
@@ -343,6 +354,8 @@ class DidNsV2 extends Base {
     }
 
     _replaceBatchNs(objOldBatchData, objNewBatchData) {
+        if (!global.bIndirectCall) throw "You aren't supposed to be here";
+
         this._validateBatchData(objOldBatchData);
         this._validateBatchData(objNewBatchData);
 
