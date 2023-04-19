@@ -262,4 +262,40 @@ describe('Ubix DID', () => {
             assert.isRejected(contract.replace('email', 'my-email@test.com', objNewData), 'You are not the owner');
         });
     });
+
+    describe('move DB records between contracts', async () => {
+        beforeEach(async () => {
+            global.value = 130000;
+        });
+
+        it('should test download and upload contract data', () => {
+            const RECORDS_PER_PAGE = 5;
+            const objDataArray = [...Array(17)].map((value, i) => ({
+                objDidDocument: {
+                    tg: `my-tele-nick-${i}`,
+                    email: `my-email-${i}@test.com`
+                },
+                strIssuerName: 'Me'
+            }));
+
+            for (const objData of objDataArray) {
+                contract.create(objData);
+            }
+
+            assert.equal(contract._getDidsCount(), objDataArray.length);
+
+            const newContract = new DidContract();
+
+            const nNsCount = contract._getNsCount();
+
+            for (let i = 0; i < Math.ceil(nNsCount / RECORDS_PER_PAGE); i++) {
+                const objDump = contract._download(i, RECORDS_PER_PAGE);
+                newContract._upload(objDump);
+            }
+
+            assert.equal(newContract._getDidsCount(), objDataArray.length);
+            assert.deepEqual(newContract._getNs(), contract._getNs());
+            assert.deepEqual(newContract._getDids(), contract._getDids());
+        });
+    });
 });
