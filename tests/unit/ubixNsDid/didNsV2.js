@@ -74,63 +74,39 @@ class DidNsV2 extends Base {
         this._updateFee = 1000;
         this._ns = {};
         this._dids = {};
-        this._contracts = [];
+        this._proxyAddress = undefined;
         this._strCurrentContract = null;
     }
 
-    getCurrentContract() {
-        return this._strCurrentContract;
-    }
+    setProxy(strNewAddress) {
+        if (strNewAddress.length !== 40) throw 'Bad address';
 
-    _setCurrentContract(strContractAddress) {
         this._checkOwner();
-        this._strCurrentContract = strContractAddress;
-    }
-
-    _addActiveContract(strContractAddress) {
-        this._checkOwner();
-        this._contracts.push(strContractAddress);
-    }
-
-    getActiveContract() {
-        return this._contracts.length === 0 ? null : this._contracts[this._contracts.length - 1];
-    }
-
-    _cleanActiveContracts() {
-        this._checkOwner();
-        this._contracts = [];
-    }
-
-    _listActiveContracts() {
-        // this._checkOwner();
-        return this._contracts;
-    }
-
-    _isProxy() {
-        // if _isProxy() === true, contract is locked for read/write
-        return this._contracts.length !== 0 && this._contracts[this._contracts.length - 1] !== this._strContractAddress;
+        this._proxyAddress = strNewAddress;
     }
 
     async resolve(strProvider, strName) {
-        if (!this._isProxy()) {
-            return this._resolveLocal(strProvider, strName);
-        } else {
-            return await call(this._contracts[this._contracts.length - 1], {
+        // remove for proxy contract!
+        if (this._proxyAddress) {
+            return await call(this._proxyAddress, {
                 method: 'resolve',
                 arrArguments: [strProvider, strName]
             });
         }
+
+        return this._resolveLocal(strProvider, strName);
     }
 
     async get(strDidAddress) {
-        if (!this._isProxy()) {
-            return this._getLocal(strDidAddress);
-        } else {
-            return await call(this._contracts[this._contracts.length - 1], {
+        // remove for proxy contract!
+        if (this._proxyAddress) {
+            return await call(this._proxyAddress, {
                 method: 'get',
                 arrArguments: [strDidAddress]
             });
         }
+
+        return this._getLocal(strDidAddress);
     }
 
     _resolveLocal(strProvider, strName) {
@@ -147,92 +123,95 @@ class DidNsV2 extends Base {
     }
 
     async create(objData) {
-        if (!this._isProxy()) {
-            this._validatePermissions();
-            this._validateObjData(objData, true);
-
-            const strDidAddress = this._sha256(JSON.stringify(objData.objDidDocument));
-            if (this._dids[strDidAddress]) {
-                throw new Error('DID document hash has already defined');
-            }
-
-            this._checkForIdKey(objData.objDidDocument);
-
-            global.bIndirectCall = true;
-            this._createBatchNs({...objData, strDidAddress});
-
-            this._dids[strDidAddress] = this._serializeToArray({
-                ...objData,
-                strOwnerAddress: callerAddress
-            });
-        } else {
-            return await call(this._contracts[this._contracts.length - 1], {
+        // remove for proxy contract!
+        if (this._proxyAddress) {
+            return await call(this._proxyAddress, {
                 method: 'create',
                 arrArguments: [objData]
             });
         }
+
+        this._validatePermissions();
+        this._validateObjData(objData, true);
+
+        const strDidAddress = this._sha256(JSON.stringify(objData.objDidDocument));
+        if (this._dids[strDidAddress]) {
+            throw new Error('DID document hash has already defined');
+        }
+
+        this._checkForIdKey(objData.objDidDocument);
+
+        global.bIndirectCall = true;
+        this._createBatchNs({...objData, strDidAddress});
+
+        this._dids[strDidAddress] = this._serializeToArray({
+            ...objData,
+            strOwnerAddress: callerAddress
+        });
     }
 
     async remove(strProvider, strName) {
-        if (!this._isProxy()) {
-            this._validatePermissions();
-
-            const strDidAddress = this._resolveNs(strProvider, strName);
-
-            const record = this._dids[strDidAddress];
-            if (!record) throw new Error('Hash is not found');
-
-            const objData = this._deserializeToObject(record);
-
-            // the contract owner could delete every record
-            if (callerAddress !== objData.strOwnerAddress || callerAddress !== this._ownerAddress) {
-                throw new Error('You are not the owner');
-            }
-
-            global.bIndirectCall = true;
-            this._removeBatchNs({...objData, strDidAddress});
-
-            delete this._dids[strDidAddress];
-        } else {
-            return await call(this._contracts[this._contracts.length - 1], {
+        // remove for proxy contract!
+        if (this._proxyAddress) {
+            return await call(this._proxyAddress, {
                 method: 'remove',
                 arrArguments: [strProvider, strName]
             });
         }
+
+        this._validatePermissions();
+
+        const strDidAddress = this._resolveNs(strProvider, strName);
+
+        const record = this._dids[strDidAddress];
+        if (!record) throw new Error('Hash is not found');
+
+        const objData = this._deserializeToObject(record);
+
+        // the contract owner could delete every record
+        if (callerAddress !== objData.strOwnerAddress || callerAddress !== this._ownerAddress) {
+            throw new Error('You are not the owner');
+        }
+
+        global.bIndirectCall = true;
+        this._removeBatchNs({...objData, strDidAddress});
+
+        delete this._dids[strDidAddress];
     }
 
     async replace(strProvider, strName, objNewData) {
-        if (!this._isProxy()) {
-            this._validatePermissions();
-
-            const strDidAddress = this._resolveNs(strProvider, strName);
-
-            this._validateObjData(objNewData, true);
-
-            const record = this._dids[strDidAddress];
-            if (!record) {
-                throw new Error('Hash is not found');
-            }
-
-            const objOldData = this._deserializeToObject(record);
-
-            if (callerAddress !== objOldData.strOwnerAddress) throw 'You are not the owner';
-
-            this._checkForIdKey(objNewData.objDidDocument);
-
-            global.bIndirectCall = true;
-            this._replaceBatchNs({...objOldData, strDidAddress}, {...objNewData, strDidAddress});
-
-            this._dids[strDidAddress] = this._serializeToArray({
-                ...objNewData,
-                strOwnerAddress: callerAddress
-            });
-        } else {
-            return await call(this._contracts[this._contracts.length - 1], {
+        // remove for proxy contract!
+        if (this._proxyAddress) {
+            return await call(this._proxyAddress, {
                 method: 'replace',
                 arrArguments: [strProvider, strName, objNewData]
             });
         }
+
+        this._validatePermissions();
+
+        const strDidAddress = this._resolveNs(strProvider, strName);
+
+        this._validateObjData(objNewData, true);
+
+        const record = this._dids[strDidAddress];
+        if (!record) {
+            throw new Error('Hash is not found');
+        }
+
+        const objOldData = this._deserializeToObject(record);
+
+        if (callerAddress !== objOldData.strOwnerAddress) throw 'You are not the owner';
+
+        this._checkForIdKey(objNewData.objDidDocument);
+
+        global.bIndirectCall = true;
+        this._replaceBatchNs({...objOldData, strDidAddress}, {...objNewData, strDidAddress});
+
+        this._dids[strDidAddress] = this._serializeToArray({
+            ...objNewData,
+            strOwnerAddress: callerAddress
+        });
     }
 
     _getNs() {
