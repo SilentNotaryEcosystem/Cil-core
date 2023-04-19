@@ -75,33 +75,33 @@ class DidNsV2 extends Base {
         this._ns = {};
         this._dids = {};
         this._contracts = [];
-        this._strContractAddress = null;
+        this._strCurrentContract = null;
     }
 
-    _setContractAddress(strContractAddress) {
+    getCurrentContract() {
+        return this._strCurrentContract;
+    }
+
+    _setCurrentContract(strContractAddress) {
         this._checkOwner();
-        this._strContractAddress = strContractAddress;
+        this._strCurrentContract = strContractAddress;
     }
 
-    _addContractAddress(strContractAddress) {
+    _addActiveContract(strContractAddress) {
         this._checkOwner();
         this._contracts.push(strContractAddress);
     }
 
-    _cleanContractAddresses() {
+    getActiveContract() {
+        return this._contracts.length === 0 ? null : this._contracts[this._contracts.length - 1];
+    }
+
+    _cleanActiveContracts() {
         this._checkOwner();
         this._contracts = [];
     }
 
-    getContractAddress() {
-        return this._strContractAddress;
-    }
-
-    getActiveContractAddress() {
-        return this._contracts.length === 0 ? this._strContractAddress : this._contracts[this._contracts.length - 1];
-    }
-
-    _listContractAddresses() {
+    _listActiveContracts() {
         // this._checkOwner();
         return this._contracts;
     }
@@ -239,15 +239,25 @@ class DidNsV2 extends Base {
         return this._ns;
     }
 
+    _getNsCount() {
+        // this._checkOwner();
+        return Object.keys(this._ns).length;
+    }
+
     _getDids() {
         // this._checkOwner();
         return this._dids;
     }
 
+    _getDidsCount() {
+        // this._checkOwner();
+        return Object.keys(this._dids).length;
+    }
+
     _download(nPage, nCountOnPage = 20) {
         // this._checkOwner();
         const arrNsKeys = Object.keys(this._ns).sort((a, b) => (a !== b ? (a < b ? -1 : 1) : 0));
-        const arrPageKeys = arrNsKeys.slice(nPage * nCountOnPage, (nPage + 1) * nCountOnPage - 1);
+        const arrPageKeys = arrNsKeys.slice(nPage * nCountOnPage, (nPage + 1) * nCountOnPage);
 
         let result = {};
         for (let i = 0; i < arrPageKeys.length; i++) {
