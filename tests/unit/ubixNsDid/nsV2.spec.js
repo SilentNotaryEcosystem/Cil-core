@@ -91,7 +91,6 @@ describe('Ubix NS', () => {
             objData = {
                 strProvider: 'ubix',
                 strName: 'mytestname',
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
         });
@@ -126,7 +125,6 @@ describe('Ubix NS', () => {
             objData = {
                 strProvider: 'ubix',
                 strName: 'mytestname',
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
@@ -164,7 +162,6 @@ describe('Ubix NS', () => {
                     email: 'my@best.mail',
                     tg: 'john_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
@@ -183,7 +180,6 @@ describe('Ubix NS', () => {
                     email: 'my@best.mail',
                     tg: 'john_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
@@ -197,7 +193,6 @@ describe('Ubix NS', () => {
                     email: 'my@best.mail',
                     tg: 'john_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: null
             };
 
@@ -211,7 +206,6 @@ describe('Ubix NS', () => {
                     email: 'my@best.mail',
                     tg: 'john_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
@@ -232,7 +226,6 @@ describe('Ubix NS', () => {
                     email: 'my@best.mail',
                     tg: 'john_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
@@ -264,7 +257,6 @@ describe('Ubix NS', () => {
                     email: 'my@best.mail',
                     tg: 'john_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
@@ -274,7 +266,6 @@ describe('Ubix NS', () => {
                     email: 'my_new@best.mail',
                     tg: 'jack_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
 
@@ -283,7 +274,6 @@ describe('Ubix NS', () => {
                     ubix: 'my_ubix_nick_new',
                     ig: 'jack_doe'
                 },
-                strIssuerName: 'Me',
                 strDidAddress: '0x121212121212'
             };
         });
@@ -316,14 +306,6 @@ describe('Ubix NS', () => {
             const strDidAddress = contract._resolveNs('ig', objNewData2.objDidDocument.ig);
 
             assert.isOk(strDidAddress);
-        });
-
-        it('should fail (not owner)', async () => {
-            contract._createBatchNs(objOldData);
-
-            callerAddress = generateAddress().toString('hex');
-
-            assert.throws(() => contract._replaceBatchNs(objOldData, objNewData), 'You are not the owner');
         });
     });
 });

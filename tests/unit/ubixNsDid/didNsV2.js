@@ -184,7 +184,8 @@ class DidNsV2 extends Base {
 
             const objData = this._deserializeToObject(record);
 
-            if (callerAddress !== objData.strOwnerAddress) {
+            // the contract owner could delete every record
+            if (callerAddress !== objData.strOwnerAddress || callerAddress !== this._ownerAddress) {
                 throw new Error('You are not the owner');
             }
 
@@ -265,7 +266,7 @@ class DidNsV2 extends Base {
                 ...result,
                 [arrPageKeys[i]]: {
                     ns: this._ns[arrPageKeys[i]],
-                    did: this._dids[this._ns[arrPageKeys[i]][2]]
+                    did: this._dids[this._ns[arrPageKeys[i]]]
                 }
             };
         }
@@ -276,7 +277,7 @@ class DidNsV2 extends Base {
         // this._checkOwner();
         for (const key in objData) {
             this._ns[key] = objData[key].ns;
-            this._dids[objData[key].ns[2]] = objData[key].did;
+            this._dids[objData[key].ns] = objData[key].did;
         }
     }
 
@@ -285,7 +286,7 @@ class DidNsV2 extends Base {
 
         const hash = this._createHash(strProvider, strName);
         if (!hash || !this._ns[hash]) throw new Error('Hash is not found');
-        return this._ns[hash][2];
+        return this._ns[hash];
     }
 
     _createNs(objData) {
@@ -294,14 +295,14 @@ class DidNsV2 extends Base {
         this._validatePermissions();
         this._validateParameters(objData, true);
 
-        const {strProvider, strName, strIssuerName, strDidAddress} = objData;
+        const {strProvider, strName, strDidAddress} = objData;
 
         const hash = this._createHash(strProvider, strName);
 
         if (!hash) throw new Error('Not a DID document hash');
         if (this._ns[hash]) throw new Error('Hash has already defined');
 
-        this._ns[hash] = [callerAddress, strIssuerName, strDidAddress];
+        this._ns[hash] = strDidAddress;
     }
 
     _removeNs(objData) {
@@ -317,11 +318,7 @@ class DidNsV2 extends Base {
         const record = this._ns[hash];
         if (!record) throw new Error('Hash is not found');
 
-        if (callerAddress !== record[0]) {
-            throw Error('You are not the owner');
-        }
-
-        if (strDidAddress !== record[2]) {
+        if (strDidAddress !== record) {
             throw new Error('Hash belongs to a different address');
         }
 
@@ -332,14 +329,12 @@ class DidNsV2 extends Base {
         if (!global.bIndirectCall) throw "You aren't supposed to be here";
 
         this._validateBatchData(objBatchData);
-        this._checkKeysAvailability(objBatchData.objDidDocument);
 
         for (const strProvider in objBatchData.objDidDocument) {
             if (strProvider !== 'id') {
                 this._createNs({
                     strProvider,
                     strName: objBatchData.objDidDocument[strProvider],
-                    strIssuerName: objBatchData.strIssuerName,
                     strDidAddress: objBatchData.strDidAddress
                 });
             }
@@ -350,7 +345,6 @@ class DidNsV2 extends Base {
         if (!global.bIndirectCall) throw "You aren't supposed to be here";
 
         this._validateBatchData(objBatchData);
-        this._checkKeysAvailability(objBatchData.objDidDocument, false);
 
         for (const strProvider in objBatchData.objDidDocument) {
             if (strProvider !== 'id') {
@@ -369,9 +363,6 @@ class DidNsV2 extends Base {
         this._validateBatchData(objOldBatchData);
         this._validateBatchData(objNewBatchData);
 
-        this._checkKeysAvailability(objOldBatchData.objDidDocument, false);
-        this._checkKeysAvailability(objNewBatchData.objDidDocument);
-
         this._removeBatchNs(objOldBatchData);
         this._createBatchNs(objNewBatchData);
     }
@@ -386,34 +377,14 @@ class DidNsV2 extends Base {
         if (typeof strName !== 'string') throw new Error('strName should be a string');
     }
 
-    _validateParameters({strProvider, strName, strIssuerName, strDidAddress}, checkAddress = true) {
+    _validateParameters({strProvider, strName, strDidAddress}, checkAddress = true) {
         this._validateKeyParameters(strProvider, strName);
-        if (typeof strIssuerName !== 'string') throw Error('strIssuerName should be a string');
         if (checkAddress && typeof strDidAddress !== 'string') throw new Error('strDidAddress should be a string');
     }
 
     _validateBatchData(objBatchData) {
         if (!(objBatchData instanceof Object)) throw new Error('Must be an Object instance');
         if (!(objBatchData.objDidDocument instanceof Object)) throw new Error('DID document be an Object instance');
-    }
-
-    _checkKeysAvailability(objDidDocument, acceptEmpty = true) {
-        // тут если ключи и так нам принадлежат их не считать
-        for (const strProvider in objDidDocument) {
-            if (strProvider !== 'id') {
-                const objRecord = this._ns[this._createHash(strProvider, objDidDocument[strProvider])];
-                if (acceptEmpty) {
-                    if (!objRecord) continue;
-                    if (objRecord[0] !== callerAddress) {
-                        throw new Error('You are not the owner');
-                    }
-                } else {
-                    if (!objRecord || objRecord[0] !== callerAddress) {
-                        throw new Error('You are not the owner');
-                    }
-                }
-            }
-        }
     }
 
     _validateObjData(objData, skipDidAddressCheck = false) {
