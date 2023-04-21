@@ -136,7 +136,7 @@ class Ns extends Base {
 
         const result = bVerifiedOnly
             ? record
-                  .filter(item => item.isVerified)
+                  .filter(item => item[2])
                   .map(item => ({
                       provider: item[0],
                       address: item[1]
