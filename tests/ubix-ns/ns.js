@@ -258,12 +258,7 @@ class Ns extends Base {
 
         // TODO: check strVerificationCode for correct sign
         this._ns[hash] = this._ns[hash].map(item =>
-            item[0] !== strProvider || item[1] !== strAddress
-                ? item
-                : {
-                      ...item,
-                      isVerified: true
-                  }
+            item[0] === strProvider && item[1] === strAddress ? [item[0], item[1], true, item[3]] : item
         );
 
         // let isVerified = crypto.verify('SHA256', Buffer.from(sha256(callerAddress)), this._publicKey, strVerificationCode);
