@@ -223,7 +223,6 @@ class Ns extends Base {
         //     item =>
         //         item[0] === strProvider &&
         //         item[1] === strAddress &&
-        //         item[3] === callerAddress
         // );
 
         //let data = Buffer.from('I Love GeeksForGeeks');
@@ -259,7 +258,7 @@ class Ns extends Base {
 
         // TODO: check strVerificationCode for correct sign
         this._ns[hash] = this._ns[hash].map(item =>
-            item[0] !== strProvider || item[1] !== strAddress || item[3] !== callerAddress
+            item[0] !== strProvider || item[1] !== strAddress
                 ? item
                 : {
                       ...item,
