@@ -154,6 +154,10 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return tx;
         }
 
+        isContract(){
+            return this._data.payload.outs.findIndex(o => o.contractCode !== undefined) !== -1;
+        }
+
         /**
          *
          * @return {Array} Coins

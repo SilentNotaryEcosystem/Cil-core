@@ -424,4 +424,33 @@ describe('Transaction tests', () => {
         });
     });
 
+    describe('isContract', async () =>{
+        it("should FAIL for regular tx", async () => {
+            const tx = new factory.Transaction(createDummyTx());
+
+            assert.isNotOk(tx.isContract());
+        });
+
+        it("should PASS for invokeContract tx", async () => {
+            const kp = factory.Crypto.createKeyPair();
+            const objCode = {};
+            const tx = factory.Transaction.invokeContract(
+                generateAddress().toString('hex'),
+                objCode,
+                0
+            );
+
+            // spend witness2 coins (WHOLE!)
+            tx.addInput(pseudoRandomBuffer(), 0);
+            tx.claim(0, kp.privateKey);
+
+            assert.isOk(tx.isContract());
+        });
+
+        it("should PASS for createContract tx", async () => {
+            const tx = factory.Transaction.createContract('', generateAddress());
+
+            assert.isOk(tx.isContract());
+        });
+    });
 });

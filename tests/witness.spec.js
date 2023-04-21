@@ -286,4 +286,24 @@ describe('Witness tests', () => {
             assert.equal(block.txns.length, 1 + 1 + 10);
         });
     });
+
+    it("should sort txns (regular first)", async () => {
+        const {witness, concilium} = createDummyWitness();
+        await witness.ensureLoaded();
+
+        witness._mempool.getFinalTxns = () => [
+            new factory.Transaction(createDummyTx()),
+            factory.Transaction.createContract('', generateAddress()),
+            factory.Transaction.invokeContract(
+                generateAddress().toString('hex'),
+                {},
+                0
+            ),
+            new factory.Transaction(createDummyTx())
+        ];
+
+        const arrTxns = await witness._gatherTxns(concilium);
+
+        assert.deepEqual(arrTxns.map(tx => tx.isContract()), [false, false, true, true]);
+    });
 });
