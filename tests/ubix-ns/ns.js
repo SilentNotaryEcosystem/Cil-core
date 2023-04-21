@@ -72,7 +72,7 @@ class Ns extends Base {
     constructor() {
         super();
         // remove everything below for proxy!
-        this._updateFee = 1000;
+        this._updateFee = 130000;
         this._ns = [];
         this._providers = ['email', 'tg', 'ig'];
         this._proxyAddress = undefined;
