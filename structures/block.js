@@ -221,6 +221,10 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             // height
             assert(this.getHeight() > 0, 'Bad height');
+
+            // conciliumId
+            assert(this.txns.length && this.txns.every(tx =>
+                (new Transaction(tx)).conciliumId === this.conciliumId), 'Found tx with wrong conciliumId');
         }
 
         getHeight() {
