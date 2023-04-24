@@ -100,17 +100,6 @@ class Ns extends Base {
         this._providers.push(strProvider);
     }
 
-    removeProvider(strProvider) {
-        this._checkOwner();
-        if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
-
-        if (!this._providers.find(item => item === strProvider)) {
-            throw new Error('strProvider does not exist');
-        }
-
-        this._providers = this._providers.filter(item => item !== strProvider);
-    }
-
     // remove for proxy contract!
     setProxy(strNewAddress) {
         this._checkOwner();
@@ -119,111 +108,90 @@ class Ns extends Base {
         this._proxyAddress = strNewAddress;
     }
 
-    async resolve(strName, bVerifiedOnly = true) {
+    async resolve(strName) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'resolve',
-                arrArguments: [strName, bVerifiedOnly]
+                arrArguments: [strName]
             });
         }
 
         if (typeof strName !== 'string') throw new Error('strName should be a string');
 
-        const record = this._ns[this._sha256(strName)];
+        const result = [];
+        for (const strProvider of this._providers) {
+            const hash = this._sha256(`${strProvider}:${strName}`);
+            const record = this._ns[hash];
 
-        if (!record || record.length === 0) throw new Error('Hash is not found');
-
-        const result = bVerifiedOnly
-            ? record
-                  .filter(item => item[2])
-                  .map(item => ({
-                      provider: item[0],
-                      address: item[1]
-                  }))
-            : record.map(item => ({
-                  provider: item[0],
-                  address: item[1],
-                  isVerified: item[2]
-              }));
+            if (record) {
+                result.push({provider: strProvider, address: record[0]});
+            }
+        }
 
         if (result.length === 0) throw new Error('Hash is not found');
 
         return result;
     }
 
-    async create(strProvider, strName, strAddress) {
+    async create(strProvider, strName, strAddress, strVerificationCode) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'create',
-                arrArguments: [strProvider, strName, strAddress]
+                arrArguments: [strProvider, strName, strAddress, strVerificationCode]
             });
         }
 
         this._validatePermissions();
-        this._validateParameters(strProvider, strName, strAddress);
+        this._validateParameters(strProvider, strName);
+        if (typeof strAddress !== 'string') throw new Error('strAddress should be a string');
+        if (typeof strVerificationCode !== 'string') throw new Error('strVerificationCode should be a string');
 
-        const hash = this._sha256(strName);
+        const hash = this._sha256(`${strProvider}:${strName}`);
 
-        if (!this._ns[hash]) this._ns[hash] = [];
+        if (this._ns[hash]) throw new Error('Hash has already defined');
 
-        const record = this._ns[hash].find(
-            item => item[0] === strProvider && item[1] === strAddress && item[3] === callerAddress
-        );
+        // check strVerificationCode section
+        // let isVerified = crypto.verify('SHA256', Buffer.from(sha256(callerAddress)), this._publicKey, strVerificationCode);
+        // if (isVerified) ...
 
-        if (record) throw new Error('Hash has already defined');
-
-        this._ns[hash].push([strProvider, strAddress, false, callerAddress]);
+        this._ns[hash] = [strAddress, callerAddress];
     }
 
-    async remove(strProvider, strName, strAddress) {
+    async remove(strProvider, strName) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'remove',
-                arrArguments: [strProvider, strName, strAddress]
+                arrArguments: [strProvider, strName]
             });
         }
 
         this._validatePermissions();
-        this._validateParameters(strProvider, strName, strAddress);
+        this._validateParameters(strProvider, strName)
 
-        const hash = this._sha256(strName);
+        const hash = this._sha256(`${strProvider}:${strName}`);
         const record = this._ns[hash];
 
         if (!record || record.length === 0) throw new Error('Hash is not found');
+        if (record[1] !== callerAddress)  throw new Error('You are not the owner');
 
-        this._ns[hash] = [
-            ...this._ns[hash].filter(
-                item => item[0] !== strProvider || item[1] !== strAddress || item[3] !== callerAddress
-            )
-        ];
+        delete this._ns[hash];
     }
 
-    async getVeficationCode(strProvider, strName, strAddress) {
+    async getVeficationCode(strProvider, strName) {
         this._checkOwner();
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'getVeficationCode',
-                arrArguments: [strProvider, strName, strAddress]
+                arrArguments: [strProvider, strName]
             });
         }
 
         this._validatePermissions();
-        this._validateParameters(strProvider, strName, strAddress);
-
-        const hash = this._sha256(strName);
-        const record = this._ns[hash];
-
-        if (!record || record.length === 0) throw new Error('Hash is not found');
-
-        // const result = this._ns[hash].find(
-        //     item =>
-        //         item[0] === strProvider &&
-        //         item[1] === strAddress &&
-        // );
+        this._validateParameters(strProvider, strName);
 
         //let data = Buffer.from('I Love GeeksForGeeks');
         // let signature = crypto.sign('SHA256', Buffer.from(sha256(callerAddress)), this._privateKey);
@@ -232,36 +200,6 @@ class Ns extends Base {
 
         // Sign of hash id here
         throw new Error('Not implemented');
-    }
-
-    async verify(strProvider, strName, strAddress, strVerificationCode) {
-        // this._checkOwner();
-        // remove for proxy contract!
-        if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress, {
-                method: 'getVeficationCode',
-                arrArguments: [strProvider, strName, strAddress, strVerificationCode]
-            });
-        }
-
-        this._validatePermissions();
-        this._validateParameters(strProvider, strName, strAddress);
-
-        // check ownership
-
-        // TODO: to be implemented with sign
-
-        const hash = this._sha256(strName);
-        const record = this._ns[hash];
-
-        if (!record || record.length === 0) throw new Error('Hash is not found');
-
-        // TODO: check strVerificationCode for correct sign
-        this._ns[hash] = this._ns[hash].map(item =>
-            item[0] === strProvider && item[1] === strAddress ? [item[0], item[1], true, item[3]] : item
-        );
-
-        // let isVerified = crypto.verify('SHA256', Buffer.from(sha256(callerAddress)), this._publicKey, strVerificationCode);
     }
 
     _getNs() {
@@ -274,10 +212,9 @@ class Ns extends Base {
         if (value < this._updateFee) throw new Error(`Update fee is ${this._updateFee}`);
     }
 
-    _validateParameters(strProvider, strName, strAddress) {
+    _validateParameters(strProvider, strName) {
         if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
         if (typeof strName !== 'string') throw new Error('strName should be a string');
-        if (typeof strAddress !== 'string') throw new Error('strAddress should be a string');
         if (!this._providers.includes(strProvider)) throw new Error('strProvider is not in the providers list');
     }
 
