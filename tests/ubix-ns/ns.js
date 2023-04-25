@@ -144,13 +144,9 @@ class Ns extends Base {
         }
 
         this._validatePermissions();
-        this._validateParameters(strProvider, strName);
-        if (typeof strAddress !== 'string') throw new Error('strAddress should be a string');
-        if (typeof strVerificationCode !== 'string') throw new Error('strVerificationCode should be a string');
+        this._validateCreateParameters(strProvider, strName, strAddress, strVerificationCode);
 
         const hash = this._sha256(`${strProvider}:${strName}`);
-
-        if (this._ns[hash]) throw new Error('Hash has already defined');
 
         // check strVerificationCode section
         // let isVerified = crypto.verify('SHA256', Buffer.from(sha256(callerAddress)), this._publicKey, strVerificationCode);
@@ -216,6 +212,12 @@ class Ns extends Base {
         if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
         if (typeof strName !== 'string') throw new Error('strName should be a string');
         if (!this._providers.includes(strProvider)) throw new Error('strProvider is not in the providers list');
+    }
+
+    _validateCreateParameters(strProvider, strName, strAddress, strVerificationCode) {
+        this._validateParameters(strProvider, strName);
+        if (typeof strAddress !== 'string') throw new Error('strAddress should be a string');
+        if (typeof strVerificationCode !== 'string') throw new Error('strVerificationCode should be a string');
     }
 
     /**
