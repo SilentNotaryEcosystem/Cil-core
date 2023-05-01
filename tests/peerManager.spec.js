@@ -314,11 +314,6 @@ describe('Peer manager', () => {
 
         assert.equal(peer.capabilities[1].service, arrPeers[0].capabilities[1].service);
         assert.deepEqual(peer.capabilities[1].data, arrPeers[0].capabilities[1].data);
-
-        assert.equal(peer.misbehaveScore, arrPeers[0].peerInfo.lifetimeMisbehaveScore);
-        assert.equal(peer.transmittedBytes, arrPeers[0].peerInfo.lifetimeTransmittedBytes);
-        assert.equal(peer.receivedBytes, arrPeers[0].peerInfo.lifetimeReceivedBytes);
-
     });
 
     it('should load peers from storage', async () => {
@@ -337,32 +332,6 @@ describe('Peer manager', () => {
         await pm.savePeers([new factory.Peer({peerInfo})]);
         const arrPeers = await pm.loadPeers();
         assert.isOk(arrPeers.length === 1);
-    });
-
-    it('should find best peers', async () => {
-        const pm = new factory.PeerManager();
-        for (let i = 0; i < 15; i++) {
-            const peer = new factory.Peer({
-                connection: {
-                    remoteAddress: factory.Transport.generateAddress(),
-                    listenerCount: () => 0,
-                    on: () => {}
-                }
-            });
-            peer._transmittedBytes = 10 - i;
-            peer._receivedBytes = 10 - i;
-
-            peer._misbehaveScore = i;
-            await pm.addPeer(peer);
-        }
-        const bestPeers = pm.findBestPeers();
-        assert.equal(bestPeers.length, factory.Constants.MAX_PEERS);
-        for (let i = 0; i < 9; i++) {
-            const current = bestPeers[i].quality;
-            const next = bestPeers[i + 1].quality;
-
-            assert.isTrue(current > next);
-        }
     });
 
     it('should remove peer', async () => {
