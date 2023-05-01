@@ -167,11 +167,6 @@ module.exports = (factory) => {
             this._msecOffsetDelta = delta;
         }
 
-        get quality() {
-            return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
-                   / (this._peerInfo.lifetimeMisbehaveScore + this.misbehaveScore + 1);
-        }
-
         get bannedTill() {
             return this._bannedTill;
         }
@@ -453,25 +448,19 @@ module.exports = (factory) => {
 
             // TODO: create separate definition for peerInfo & peerAddressBookEntry
             return {
-                ...this.peerInfo.data,
-                lifetimeMisbehaveScore: 0,
-                lifetimeTransmittedBytes: 0,
-                lifetimeReceivedBytes: 0
+                ...this.peerInfo.data
             };
         }
 
         _updateReceived(bytes) {
             this._receivedBytes += bytes;
-            this.peerInfo.lifetimeReceivedBytes += bytes;
         }
 
         _updateTransmitted(bytes) {
             this._transmittedBytes += bytes;
-            this.peerInfo.lifetimeTransmittedBytes += bytes;
         }
 
         _updateMisbehave(score) {
-            this.peerInfo.lifetimeMisbehaveScore += score;
             this._misbehaveScore += score;
         }
 

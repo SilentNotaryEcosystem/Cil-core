@@ -279,7 +279,7 @@ module.exports = (factory, factoryOptions) => {
 
             this._bReconnectInProgress = true;
             try {
-                let bestPeers = this._peerManager.findBestPeers().filter(p => p.disconnected);
+                let bestPeers = this._peerManager.filterPeers().filter(p => p.disconnected);
                 let peers = bestPeers.splice(0, this._nMinConnections - this._peerManager.getConnectedPeers().length);
                 await this._connectToPeers(peers);
             } catch (e) {

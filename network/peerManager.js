@@ -247,12 +247,6 @@ module.exports = (factory) => {
             return arrResult;
         }
 
-        findBestPeers() {
-            return Array.from(this._mapAllPeers.values())
-                .sort((a, b) => b.quality - a.quality)
-                .slice(0, Constants.MAX_PEERS);
-        }
-
         /**
          *
          * @param {String | undefined} tag
