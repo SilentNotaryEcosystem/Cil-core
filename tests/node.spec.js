@@ -260,7 +260,9 @@ describe('Node tests', async () => {
                 sendMessage
             }
         });
-        seedNode._handlePeerRequest(newPeer);
+
+        await seedNode._handlePeerRequest(newPeer);
+
         assert.isOk(sendMessage.calledOnce);
         const [msg] = sendMessage.args[0];
         assert.isOk(msg && msg.isAddr());
@@ -271,6 +273,35 @@ describe('Node tests', async () => {
         msg.peers.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
         });
+    });
+
+    it('should send 2 MsgAddr msgs', async () => {
+        const sendMessage = sinon.fake.returns(Promise.resolve(null));
+        const newPeer = new factory.Peer({
+            connection: {
+                remoteAddress: factory.Transport.generateAddress(),
+                listenerCount: sinon.fake(),
+                on: sinon.fake(),
+                sendMessage
+            }
+        });
+        const nStore=factory.Constants.ADDR_MAX_LENGTH;
+        factory.Constants.ADDR_MAX_LENGTH=2;
+
+        await seedNode._handlePeerRequest(newPeer);
+
+        assert.equal(sendMessage.callCount, 2);
+        const [msg] = sendMessage.args[0];
+        assert.isOk(msg && msg.isAddr());
+        assert.isOk(msg.peers);
+
+        // 4 known
+        assert.equal(msg.peers.length, 2);
+        msg.peers.forEach(peerInfo => {
+            assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
+        });
+
+        factory.Constants.ADDR_MAX_LENGTH=nStore;
     });
 
     it('should send GET_ADDR message', async () => {
@@ -1718,9 +1749,9 @@ describe('Node tests', async () => {
 
         describe('_sendMsgGetDataToPeers', () => {
             let mapPeerBlocks;
-            const peer = {address: 'addr1', port: 1234, isAhead: () => false};
-            const peer2 = {address: 'addr2', port: 1234, isAhead: () => false};
-            const peer3 = {address: 'addr3', port: 1234, isAhead: () => false};
+            const peer = new Peer({address: 'addr1', port: 1234, isAhead: () => false});
+            const peer2 = new Peer({address: 'addr2', port: 1234, isAhead: () => false});
+            const peer3 = new Peer({address: 'addr3', port: 1234, isAhead: () => false});
 
             beforeEach(async () => {
 

@@ -114,9 +114,9 @@ class BaseFactory {
 
                     return prototypes;
                 })
-                .then(() => this.initSpecific())
-                .then(() => {
-                    this._peerImplementation = PeerWrapper(this);
+                .then(prototypes => {this.initSpecific(); return prototypes})
+                .then(prototypes => {
+                    this._peerImplementation = PeerWrapper(this, prototypes);
                     this._peerManagerImplemetation = PeerManagerWrapper(this);
                     this._patchImplementation = PatchWrapper(this);
                     this._storageImplementation = StorageWrapper(this, options);
@@ -340,6 +340,8 @@ class BaseFactory {
             // part of messages
             peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
 
+            peerProto: protoNetwork.lookupType("network.Peer"),
+
             // Witness messages
             witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
             witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
@@ -363,7 +365,7 @@ class BaseFactory {
             utxoProto: protoStructures.lookupType("structures.UTXO"),
 
             contractProto: protoStructures.lookupType("structures.Contract"),
-            txReceiptProto: protoStructures.lookupType("structures.TxReceipt")
+            txReceiptProto: protoStructures.lookupType("structures.TxReceipt"),
         };
     }
 }

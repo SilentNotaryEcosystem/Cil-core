@@ -22,12 +22,12 @@ const createDummyUtxo = (arrIndexes, amount = 10, receiver = generateAddress()) 
     return utxo;
 };
 
-const createDummyPeer = (pubkey = '0a0b0c0d', address = factory.Transport.generateAddress()) =>
+const createDummyPeer = (addr = '0a0b0c0d', address = factory.Transport.generateAddress()) =>
     new factory.Peer({
         peerInfo: {
             capabilities: [
                 {service: factory.Constants.NODE, data: null},
-                {service: factory.Constants.WITNESS, data: Buffer.from(pubkey, 'hex')}
+                {service: factory.Constants.WITNESS, data: Buffer.from(addr, 'hex')}
             ],
             address: factory.Transport.strToAddress(address)
         }
@@ -90,6 +90,7 @@ describe('Witness tests', () => {
         }
 
         const result = await witness._getConciliumPeers(concilium);
+
         assert.isOk(Array.isArray(result));
         assert.equal(result.length, 2);
         assert.equal(result[0].witnessAddress, keyPair1.address);

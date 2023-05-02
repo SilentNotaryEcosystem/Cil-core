@@ -70,7 +70,7 @@ module.exports = (factory) => {
         getConnectedPeers(tag) {
             return Array
                 .from(this._mapAllPeers.values())
-                .filter(peer => !peer.disconnected && peer.hasTag(tag));
+                .filter(peer => !peer.isDisconnected() && peer.hasTag(tag));
         }
 
         getBannedPeers() {
@@ -85,7 +85,7 @@ module.exports = (factory) => {
          * @param {Boolean} bForceRewrite - if we already have this peer, will we rewrite it or no?
          * @return {Peer | undefined} undefined if peer already connected
          */
-        addPeer(peer, bForceRewrite) {
+        addPeer(peer, bForceRewrite= false) {
             if (!(peer instanceof Peer)) peer = new Peer({peerInfo: peer, transport: this._transport});
 
             // it's senseless to store peer with private addresses. we couldn't connect them anyway
@@ -96,16 +96,25 @@ module.exports = (factory) => {
             const key = this._createKey(peer.address, peer.port);
             const existingPeer = this._mapAllPeers.get(key);
 
-            if (existingPeer && existingPeer.isBanned()) return Constants.REJECT_BANNED;
-            if (existingPeer && existingPeer.isRestricted()) return Constants.REJECT_RESTRICTED;
+            if(existingPeer) {
+                if (existingPeer.isSame(peer)) return existingPeer;
 
-            // both peers are connected.
-            if (existingPeer && !existingPeer.disconnected && !peer.disconnected) return Constants.REJECT_DUPLICATE;
+                if (existingPeer.isBanned()) return Constants.REJECT_BANNED;
+                if (existingPeer.isRestricted()) return Constants.REJECT_RESTRICTED;
 
-            // we'll keep existing info (only for disconnected existing peers)
-            if (existingPeer && !bForceRewrite) return existingPeer;
+                // both peers are connected.
+                if (!existingPeer.isDisconnected() && !peer.isDisconnected()) return Constants.REJECT_DUPLICATE;
 
-            if (existingPeer) existingPeer.removeAllListeners();
+                if (!bForceRewrite){
+                    return existingPeer;
+                }else{
+                    existingPeer.removeAllListeners();
+                    debug(`Peer "${existingPeer.address}" will be rewritten`);
+                    peer.bannedTill=existingPeer.bannedTill;
+                    peer.setJustSeen();
+                }
+            }
+
             this.updateHandlers(peer);
             if (this.isWhitelisted(peer.address)) peer.markAsWhitelisted();
             this.emit('newPeer', peer);
@@ -150,16 +159,15 @@ module.exports = (factory) => {
             }
 
             // TODO rethink "canonical" addresses for multihome nodes
-            const bShouldUpdate=this._trustAnnounce && (this._bDev || (!this._bDev && Transport.isRoutableAddress(peer.address)));
-            peer.updatePeerFromPeerInfo(cPeerInfo, bShouldUpdate);
+            const bShouldUpdateAddress=this._trustAnnounce && (this._bDev || (!this._bDev && Transport.isRoutableAddress(peer.address)));
+            peer.updatePeerFromPeerInfo(cPeerInfo, bShouldUpdateAddress);
             this._mapCandidatePeers.delete(keyCandidate);
 
             return this.addPeer(peer, true);
         }
 
-        storeOutboundPeer(peer, peerInfo) {
-            peer.peerInfo.port = peerInfo.port;
-            peer.capabilities = peerInfo.port;
+        isSeed(){
+            return this._isSeed;
         }
 
         /**
@@ -178,7 +186,7 @@ module.exports = (factory) => {
             const foundPeer = this._mapAllPeers.get(key);
             if (foundPeer) {
                 foundPeer.removeAllListeners();
-                if (!peer.disconnected) foundPeer.disconnect();
+                if (!peer.isDisconnected()) foundPeer.disconnect();
             }
             this._mapAllPeers.delete(key);
         }
@@ -231,20 +239,16 @@ module.exports = (factory) => {
          * @return {Array} of Peers
          */
         filterPeers({service} = {}, bIncludeInactive = false) {
-            const arrResult = [];
 
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
-            for (let [, peer] of this._mapAllPeers.entries()) {
-                if (!service || ~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)) {
+            return  Array.from(this._mapAllPeers.entries())
+                .filter(([,peer]) => {
+                    const bInclude= bIncludeInactive || peer.isLost();
+                    const bCapable= service ===undefined || !!~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)
 
-                    if (!peer.isBanned() &&
-                        (bIncludeInactive || this._isSeed || (peer.isAlive() && !peer.isRestricted()))) {
-                        arrResult.push(peer);
-                    }
-                }
-            }
-
-            return arrResult;
+                    return !peer.isBanned() && bInclude && bCapable;
+                })
+                .map(([,peer]) => peer);
         }
 
         /**
@@ -294,19 +298,20 @@ module.exports = (factory) => {
 
         async loadPeers() {
             const arrPeers = await this._storage.loadPeers();
-            arrPeers.forEach(peer => this.addPeer(peer, true));
+            arrPeers.forEach(peer => this.addPeer(peer, false));
             return arrPeers;
-        }
-
-        async savePeers(arrPeers) {
-            return await this._storage.savePeers(arrPeers);
         }
 
         async saveAllPeers() {
             const arrPeers = Array.from(this._mapAllPeers.values());
+
             if (arrPeers.length) {
-                await this.savePeers(arrPeers);
+                await this._savePeers(arrPeers.map(peer => peer.encode()));
             }
+        }
+
+        async _savePeers(arrPeersEncodedData) {
+            return await this._storage.savePeers(arrPeersEncodedData);
         }
 
         /**

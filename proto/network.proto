@@ -26,6 +26,8 @@ message PeerInfo {
     repeated NodeCapabilities capabilities =1;
     Address address = 2;
     uint32 port = 3;
+
+    // tags 4-6 are reserved by deleted fields
 }
 
 enum Services {
@@ -78,4 +80,17 @@ message GetBlocksPayload {
     // it's serialized to buffer
     bytes arrHashes=1;
     bytes hashStop=2;
+}
+
+// ------------------------- peer ------------
+
+message PeerLocalData {
+    uint32 timeStampLastSeen = 1;
+    uint32 timeStampBannedTill = 2;
+    bool bProven = 3;
+}
+
+message Peer {
+    PeerInfo peerInfo=1;
+    PeerLocalData data=2;
 }
