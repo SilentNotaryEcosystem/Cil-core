@@ -53,7 +53,7 @@ describe('Peer tests', () => {
             }
         });
         assert.isOk(newPeer);
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
     });
 
     it('should create from peerInfo', async () => {
@@ -61,12 +61,28 @@ describe('Peer tests', () => {
         assert.isOk(newPeer);
     });
 
+    it('should create from peerData', async () => {
+        const now=Date.now();
+        const peer = new factory.Peer({peerInfo});
+        peer.markAsProven();
+        peer._lastActionTimestamp = now;
+        peer._bannedTill = now;
+        const buffData=peer.encode();
+
+        const newPeer = new factory.Peer({peerData: buffData});
+
+        assert.isOk(newPeer);
+        assert.isOk(newPeer.isProven());
+        assert.isOk(newPeer.isAlive());
+        assert.isOk(!newPeer.isBanned());
+    });
+
     it('should connect', async () => {
         newPeer = new factory.Peer({peerInfo});
         assert.isOk(newPeer);
 
         await newPeer.connect();
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
         assert.isOk(newPeer._connection);
     });
 
@@ -193,7 +209,7 @@ describe('Peer tests', () => {
         newPeer._connectedTill = Date.now() - 1;
         newPeer._tick();
 
-        assert.isOk(newPeer.disconnected);
+        assert.isOk(newPeer.isDisconnected());
         assert.isNotOk(newPeer._connection);
 
     });
@@ -209,7 +225,7 @@ describe('Peer tests', () => {
 
         await sleep(1500);
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
     });
 
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes received', async () => {
@@ -219,13 +235,13 @@ describe('Peer tests', () => {
         await newPeer.connect();
         newPeer._connection.emit('message', msg);
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
         assert.isOk(newPeer._connection);
         assert.isOk(newPeer.amountBytes);
 
         newPeer._connection.emit('message', msg);
 
-        assert.isOk(newPeer.disconnected);
+        assert.isOk(newPeer.isDisconnected());
         assert.isNotOk(newPeer._connection);
         assert.isNotOk(newPeer.amountBytes);
 
@@ -239,13 +255,13 @@ describe('Peer tests', () => {
         newPeer.markAsPersistent();
         newPeer._connection.emit('message', msg);
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
         assert.isOk(newPeer._connection);
         assert.isOk(newPeer.amountBytes);
 
         newPeer._connection.emit('message', msg);
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
     });
 
     it('should disconnect peer when more than PEER_MAX_BYTESCOUNT bytes transmitted', async () => {
@@ -265,13 +281,13 @@ describe('Peer tests', () => {
         newPeer.pushMessage(msg);
         await sleep(200);
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
         assert.isOk(newPeer._connection);
 
         newPeer.pushMessage(msg);
         await sleep(200);
 
-        assert.isOk(newPeer.disconnected);
+        assert.isOk(newPeer.isDisconnected());
         assert.isNotOk(newPeer._connection);
     });
 
@@ -293,13 +309,13 @@ describe('Peer tests', () => {
         newPeer.pushMessage(msg);
         await sleep(200);
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
         assert.isOk(newPeer._connection);
 
         newPeer.pushMessage(msg);
         await sleep(200);
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
     });
 
     it('should not connect peer if restricted', async () => {
@@ -308,7 +324,7 @@ describe('Peer tests', () => {
         newPeer.disconnect();
         assert.isOk(newPeer.isRestricted());
         await newPeer.connect();
-        assert.isOk(newPeer.disconnected);
+        assert.isOk(newPeer.isDisconnected());
     });
 
     it('should send pong message if ping message is received', async () => {
@@ -328,22 +344,22 @@ describe('Peer tests', () => {
     it('should disconnect if peer dead', async function() {
         const newPeer = new factory.Peer({peerInfo});
         await newPeer.connect();
-        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_HEARTBEAT_TIMEOUT*3 - 1;
         newPeer._tick();
 
-        assert.isOk(newPeer.disconnected);
+        assert.isOk(newPeer.isDisconnected());
         assert.isNotOk(newPeer._connection);
     });
 
     it('should not disconnect if message received', async function() {
         const newPeer = new factory.Peer({peerInfo});
         await newPeer.connect();
-        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_DEAD_TIME - 1;
+        newPeer._lastActionTimestamp = Date.now() - factory.Constants.PEER_HEARTBEAT_TIMEOUT*3 - 1;
 
         newPeer._connection.emit('message', {isInv: () => false});
         newPeer._tick();
 
-        assert.isNotOk(newPeer.disconnected);
+        assert.isNotOk(newPeer.isDisconnected());
         assert.isOk(newPeer._connection);
     });
 
@@ -394,6 +410,7 @@ describe('Peer tests', () => {
             assert.notEqual(newPeer.address, strAddress);
         });
     });
+
     describe('Whitelisted', async () => {
         let newPeer;
         beforeEach(async () => {

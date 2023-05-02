@@ -202,7 +202,7 @@ module.exports = (factory, factoryOptions) => {
         async _connectToPeers(peers) {
             for (let peer of peers) {
                 try {
-                    if (peer.disconnected) await this._connectToPeer(peer);
+                    if (peer.isDisconnected()) await this._connectToPeer(peer);
                     await peer.pushMessage(this._createMsgVersion());
                     await peer.loaded();
                 } catch (e) {
@@ -279,7 +279,14 @@ module.exports = (factory, factoryOptions) => {
 
             this._bReconnectInProgress = true;
             try {
-                let bestPeers = this._peerManager.filterPeers().filter(p => p.disconnected);
+                let bestPeers = this._peerManager
+                    .filterPeers(undefined, this._peerManager.isSeed())
+                    .filter(p => p.isDisconnected())
+                    .sort(() =>{
+
+                        // randomly sort peers
+                        Math.random()-Math.random()
+                    });
                 let peers = bestPeers.splice(0, this._nMinConnections - this._peerManager.getConnectedPeers().length);
                 await this._connectToPeers(peers);
             } catch (e) {
@@ -769,7 +776,7 @@ module.exports = (factory, factoryOptions) => {
 
                 if (peer.inbound) {
 
-                    // very beginning of inbound connection
+                    // very beginning of inbound connection, peer already processed by "addCandidateConnection"
                     const result = this._peerManager.associatePeer(peer, message.peerInfo);
 
                     if (result instanceof Peer) {
@@ -860,17 +867,15 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _handlePeerRequest(peer) {
-
-            // TODO: split array longer than Constants.ADDR_MAX_LENGTH into multiple messages
             const arrPeerInfos = this._peerManager
-                .filterPeers()
+                .filterPeers(undefined, this._peerManager.isSeed())
                 .map(peer => peer.toObject());
 
-            if (arrPeerInfos.length > Constants.ADDR_MAX_LENGTH) {
-                logger.error('Its time to implement multiple addr messages');
+            for(let i=0; i<arrPeerInfos.length;i+=Constants.ADDR_MAX_LENGTH){
+                const arrPeerInfosChunk = arrPeerInfos.slice(i, Constants.ADDR_MAX_LENGTH);
+                debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeerInfosChunk.length} items`);
+                await peer.pushMessage(new MsgAddr({count: arrPeerInfosChunk.length, peers: arrPeerInfosChunk}));
             }
-            debugMsg(`(address: "${this._debugAddress}") sending "${MSG_ADDR}" of ${arrPeerInfos.length} items`);
-            await peer.pushMessage(new MsgAddr({count: arrPeerInfos.length, peers: arrPeerInfos}));
         }
 
         /**
@@ -888,8 +893,8 @@ module.exports = (factory, factoryOptions) => {
                 // don't add own address
                 if (this._myPeerInfo.address.equals(PeerInfo.toAddress(peerInfo.address))) continue;
 
-                const newPeer = await this._peerManager.addPeer(peerInfo, false);
-                if (newPeer instanceof Peer) {
+                if(!this._peerManager.hasPeer(peerInfo)) {
+                    const newPeer = await this._peerManager.addPeer(peerInfo, false);
                     debugNode(`(address: "${this._debugAddress}") added peer "${newPeer.address}" to peerManager`);
                 }
             }
@@ -2255,7 +2260,7 @@ module.exports = (factory, factoryOptions) => {
 
                 msg.inventory.vector.forEach(v => this._requestCache.request(v.hash));
 
-                if (peer && !peer.disconnected) {
+                if (peer && !peer.isDisconnected()) {
                     peer.singleBlockRequested();
 
                     debugMsgFull(`Requesting ${msg.inventory.vector.length} blocks from ${peer.address}`);
