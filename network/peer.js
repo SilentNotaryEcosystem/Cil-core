@@ -260,8 +260,7 @@ module.exports = (factory, {peerProto}) => {
         }
 
         isLost() {
-            const tsAlive = Date.now() - Constants.PEER_ANNOUNCE_LIFETIME;
-            return this._lastActionTimestamp && this._lastActionTimestamp > tsAlive;
+            return this._lastActionTimestamp && this._lastActionTimestamp +Constants.PEER_ANNOUNCE_LIFETIME < Date.now() ;
         }
 
         async loaded() {
