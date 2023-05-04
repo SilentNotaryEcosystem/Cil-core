@@ -243,7 +243,7 @@ module.exports = (factory) => {
             // TODO: подумать над тем как хранить в Map для более быстрой фильтрации
             return  Array.from(this._mapAllPeers.entries())
                 .filter(([,peer]) => {
-                    const bInclude= bIncludeInactive || peer.isLost();
+                    const bInclude= bIncludeInactive || !peer.isLost();
                     const bCapable= service ===undefined || !!~peer.capabilities.findIndex(nodeCapability => nodeCapability.service === service)
 
                     return !peer.isBanned() && bInclude && bCapable;
