@@ -226,12 +226,12 @@ class Nft extends Base {
         let arrRoyalty = this._data[strTokenId][8];
 
         if (!arrRoyalty[0]) {
-            royalty = this._defaultRoyaltyInfo;
+            arrRoyalty = this._defaultRoyaltyInfo;
         }
 
-        const nRoyaltyAmount = (nSalePrice * royalty[1]) / this._feeDenominator();
+        const nRoyaltyAmount = (nSalePrice * arrRoyalty[1]) / this._feeDenominator();
 
-        return [royalty[0], nRoyaltyAmount];
+        return {receiver: arrRoyalty[0], royaltyAmount: nRoyaltyAmount};
     }
 
     _feeDenominator() {
