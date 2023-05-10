@@ -127,10 +127,13 @@ class Nft extends Base {
     tokenData(strSymbolOrTokenId) {
         this._validateParameterType(strSymbolOrTokenId, 'string', 'strSymbolOrTokenId');
 
-        const strTokenId = this._symbol2TokenId[strSymbolOrTokenId];
+        let strTokenId = strSymbolOrTokenId;
+        if (strSymbolOrTokenId.startsWith('symbol:')) {
+            strTokenId = this._symbol2TokenId[strSymbolOrTokenId.split(':')[1]];
+        }
 
         const {strSymbol, strName, strDescription, strTokenUri, strIssuerName, strOwner, arrRoyaltyInfo} =
-            this._getTokenData(strTokenId || strSymbolOrTokenId);
+            this._getTokenData(strTokenId);
 
         return {strSymbol, strName, strDescription, strTokenUri, strIssuerName, strOwner, arrRoyaltyInfo};
     }
