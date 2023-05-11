@@ -63,7 +63,7 @@ describe('Nft', () => {
             const strTokenId = contract.getTokenId('TST');
 
             assert.isOk(contract._data[strTokenId]);
-            assert.equal(contract._data[strTokenId].length, 9);
+            assert.equal(contract._data[strTokenId].length, 7);
         });
 
         it('should throw (unsigned TX)', async () => {
@@ -106,29 +106,19 @@ describe('Nft', () => {
         });
 
         it('should pass', async () => {
-            const {
-                strSymbol,
-                strName,
-                strDescription,
-                strTokenUri,
-                strIssuerName,
-                strOwner,
-                strApproved,
-                strTxHashChanges
-            } = contract._getTokenData(strTokenId);
+            const {strSymbol, strName, strDescription, strTokenUri, strIssuerName, strTxHashChanges} =
+                contract._getTokenData(strTokenId);
 
             assert.isOk(strSymbol);
             assert.isOk(strName);
             assert.isOk(strDescription);
             assert.isOk(strTokenUri);
             assert.isOk(strIssuerName);
-            assert.isOk(strOwner);
-            assert.isNull(strApproved);
             assert.deepEqual(strTxHashChanges, 'hash');
         });
     });
 
-    describe.skip('balanceOf', async () => {
+    describe('balanceOf', async () => {
         let objTokedParams;
 
         beforeEach(async () => {
@@ -154,72 +144,43 @@ describe('Nft', () => {
         });
     });
 
-    describe.skip('approve', async () => {
+    describe('approve', async () => {
         let objTokedParams;
+        let strTokenId;
 
         beforeEach(async () => {
             global.value = 130000;
 
             objTokedParams = {
                 strSymbol: 'tst',
-                nTotalSupply: 1e5,
-                strIssuerName: 'Me',
-                strGoals: 'Test purposes'
+                strName: 'Test NFT token',
+                strDescription: 'This is an NFT token description',
+                strTokenUri: 'http://www.test.com',
+                strIssuerName: 'Me'
             };
 
             contract.createToken(objTokedParams);
+            strTokenId = contract.getTokenId('TST');
         });
 
-        it('should throw (approve negative amount)', async () => {
+        it('should throw (not the owner)', async () => {
             const strAddr = generateAddress().toString('hex');
 
-            assert.throws(() => contract.approve('TST', strAddr, -1), `amount should be positive`);
+            global.callerAddress = generateAddress().toString('hex');
+
+            assert.throws(() => contract.approve(strAddr, strTokenId), "You aren't an owner");
         });
 
         it('should approve', async () => {
             const strAddr = generateAddress().toString('hex');
 
-            contract.approve('TST', strAddr, 100);
+            contract.approve(strAddr, strTokenId);
         });
     });
 
-    describe.skip('allowance', async () => {
+    describe('transferFrom', async () => {
         let objTokedParams;
-
-        beforeEach(async () => {
-            global.value = 130000;
-
-            objTokedParams = {
-                strSymbol: 'tst',
-                nTotalSupply: 1e5,
-                strIssuerName: 'Me',
-                strGoals: 'Test purposes'
-            };
-
-            contract.createToken(objTokedParams);
-        });
-
-        it('should return 0 for non approved', async () => {
-            const strAddr = generateAddress().toString('hex');
-
-            const nAllowance = contract.allowance('TST', callerAddress, strAddr);
-
-            assert.equal(nAllowance, 0);
-        });
-
-        it('should get allowed', async () => {
-            const nApproved = 100;
-            const strAddr = generateAddress().toString('hex');
-            contract.approve('TST', strAddr, nApproved);
-
-            const nAllowance = contract.allowance('TST', callerAddress, strAddr);
-
-            assert.equal(nAllowance, nApproved);
-        });
-    });
-
-    describe.skip('transferFrom', async () => {
-        let objTokedParams;
+        let strTokenId;
         let strAddrReceiver = generateAddress().toString('hex');
 
         beforeEach(async () => {
@@ -227,238 +188,119 @@ describe('Nft', () => {
 
             objTokedParams = {
                 strSymbol: 'tst',
-                nTotalSupply: 1e5,
-                strIssuerName: 'Me',
-                strGoals: 'Test purposes'
+                strName: 'Test NFT token',
+                strDescription: 'This is an NFT token description',
+                strTokenUri: 'http://www.test.com',
+                strIssuerName: 'Me'
             };
 
             contract.createToken(objTokedParams);
+            strTokenId = contract.getTokenId('TST');
         });
 
-        it('should throw (not approved)', async () => {
-            const strAddrOwner = generateAddress().toString('hex');
-            const errMsg = `Allowed to transfer at most 0 of ${objTokedParams.strSymbol.toUpperCase()}`;
+        it('should throw (not the owner)', async () => {
+            const strAddrSender = generateAddress().toString('hex');
 
-            assert.throws(() => contract.transferFrom('TST', strAddrOwner, strAddrReceiver, 100), errMsg);
+            assert.throws(
+                () => contract.transferFrom(strAddrSender, strAddrReceiver, strTokenId),
+                "strFrom doesn't owns strTokenId"
+            );
         });
 
-        it('should throw (not enough)', async () => {
+        it('should throw (not authorized)', async () => {
+            const strAddrSender = global.callerAddress;
+
+            global.callerAddress = generateAddress().toString('hex');
+
+            assert.throws(
+                () => contract.transferFrom(strAddrSender, strAddrReceiver, strTokenId),
+                'You are not an authorized person'
+            );
+        });
+
+        it('should pass (transfer from owner)', async () => {
             const strAddrOwner = callerAddress;
-            const nAmountToSend = objTokedParams.nTotalSupply + 1;
+            const bPrevBalance = contract.balanceOf(strAddrOwner);
+
+            assert.equal(contract.ownerOf(strTokenId), strAddrOwner);
+            assert.notEqual(contract.ownerOf(strTokenId), strAddrReceiver);
+
+            contract.transferFrom(strAddrOwner, strAddrReceiver, strTokenId);
+
+            assert.equal(contract.balanceOf(strAddrOwner), bPrevBalance - 1);
+            assert.equal(contract.balanceOf(strAddrReceiver), 1);
+            assert.notEqual(contract.ownerOf(strTokenId), strAddrOwner);
+            assert.equal(contract.ownerOf(strTokenId), strAddrReceiver);
+        });
+
+        it('should pass (transfer via approved for all)', async () => {
+            const strAddrOwner = callerAddress;
             const strProxyAddr = generateAddress().toString('hex');
 
-            contract.approve('TST', strProxyAddr, nAmountToSend);
-            const errMsg = `${callerAddress} has only ${objTokedParams.nTotalSupply}`;
+            assert.equal(contract.ownerOf(strTokenId), strAddrOwner);
+            assert.notEqual(contract.ownerOf(strTokenId), strAddrReceiver);
+            assert.notEqual(contract.ownerOf(strTokenId), strProxyAddr);
+            const bPrevBalance = contract.balanceOf(strAddrOwner);
 
-            callerAddress = strProxyAddr;
+            contract.setApprovalForAll(strProxyAddr, true);
 
-            assert.throws(() => contract.transferFrom('TST', strAddrOwner, strAddrReceiver, nAmountToSend), errMsg);
+            global.callerAddress = strProxyAddr;
+
+            contract.transferFrom(strAddrOwner, strAddrReceiver, strTokenId);
+
+            assert.equal(contract.balanceOf(strAddrOwner), bPrevBalance - 1);
+            assert.equal(contract.balanceOf(strAddrReceiver), 1);
+            assert.notEqual(contract.ownerOf(strTokenId), strAddrOwner);
+            assert.equal(contract.ownerOf(strTokenId), strAddrReceiver);
         });
+
+        // it.only('should throw (not enough)', async () => {
+        //     const strAddrOwner = generateAddress().toString('hex');
+        //     const strProxyAddr = generateAddress().toString('hex');
+
+        //     callerAddress = strAddrOwner;
+
+        //     contract.approve(strProxyAddr, strTokenId);
+        //     const errMsg = `${callerAddress} has only ${objTokedParams.nTotalSupply}`;
+
+        //     callerAddress = strProxyAddr;
+
+        //     assert.throws(() => contract.transferFrom(strAddrOwner, strAddrReceiver, strTokenId), 'errMsg');
+        // });
 
         it('should pass', async () => {
             const strAddrOwner = callerAddress;
-            const nAmountToSend = 1000;
             const strProxyAddr = generateAddress().toString('hex');
-            contract.approve('TST', strProxyAddr, nAmountToSend);
-            const bPrevBalance = contract.balanceOf('TST', strAddrOwner);
+            contract.approve(strProxyAddr, strTokenId);
+            const bPrevBalance = contract.balanceOf(strAddrOwner);
+
+            assert.equal(contract.ownerOf(strTokenId), strAddrOwner);
+            assert.notEqual(contract.ownerOf(strTokenId), strProxyAddr);
 
             callerAddress = strProxyAddr;
 
-            contract.transferFrom('TST', strAddrOwner, strAddrReceiver, nAmountToSend);
+            contract.transferFrom(strAddrOwner, strAddrReceiver, strTokenId);
 
-            assert.equal(contract.balanceOf('TST', strAddrOwner), bPrevBalance - nAmountToSend);
-            assert.equal(contract.balanceOf('TST', strAddrReceiver), nAmountToSend);
-            assert.equal(contract.allowance('TST', strAddrOwner, strProxyAddr), 0);
+            assert.equal(contract.balanceOf(strAddrOwner), bPrevBalance - 1);
+            assert.equal(contract.balanceOf(strAddrReceiver), 1);
+            assert.notEqual(contract.ownerOf(strTokenId), strAddrOwner);
+            assert.equal(contract.ownerOf(strTokenId), strAddrReceiver);
+
+            // assert.equal(contract.allowance('TST', strAddrOwner, strProxyAddr), 0);
+
+            // assert.equal(contract.balanceOf('TST', strAddrOwner), bPrevBalance - nAmountToSend);
+            // assert.equal(contract.balanceOf('TST', strAddrReceiver), nAmountToSend);
+            // assert.equal(contract.allowance('TST', strAddrOwner, strProxyAddr), 0);
         });
     });
 
-    describe.skip('transfer', async () => {
-        let objTokedParams;
-
-        beforeEach(async () => {
-            global.value = 130000;
-
-            objTokedParams = {
-                strSymbol: 'tst',
-                nTotalSupply: 1e5,
-                strIssuerName: 'Me',
-                strGoals: 'Test purposes'
-            };
-
-            contract.createToken(objTokedParams);
-        });
-
-        it('should throw (not enough)', async () => {
-            const nAmountToSend = objTokedParams.nTotalSupply + 1;
-            const strAddr = generateAddress().toString('hex');
-            const errMsg = `${callerAddress} has only ${objTokedParams.nTotalSupply}`;
-
-            assert.throws(() => contract.transfer('TST', strAddr, nAmountToSend), errMsg);
-        });
-
-        it('should pass', async () => {
-            const nAmountToSend = 1000;
-            const strAddr = generateAddress().toString('hex');
-            const bPrevBalance = contract.balanceOf('TST', callerAddress);
-
-            contract.transfer('TST', strAddr, nAmountToSend);
-
-            assert.equal(contract.balanceOf('TST', callerAddress), bPrevBalance - nAmountToSend);
-            assert.equal(contract.balanceOf('TST', strAddr), nAmountToSend);
-            assert.equal(contract.allowance('TST', callerAddress, strAddr), 0);
-        });
-    });
-
-    describe.skip('direct call or private functions', async () => {
+    describe('direct call or private functions', async () => {
         beforeEach(async () => {
             global.bIndirectCall = false;
         });
 
-        it('should throw for _setBalance', async () => {
-            assert.throws(() => contract._setBalance(), "You aren't supposed to be here");
-        });
-
-        it('should throw for _transferFromTo', async () => {
-            assert.throws(() => contract._transferFromTo(), "You aren't supposed to be here");
-        });
-
-        it('should throw for _transferFromTo', async () => {
-            assert.throws(() => contract._setAllowance(), "You aren't supposed to be here");
-        });
-
-        it('should throw for _setTotalSupply', async () => {
-            assert.throws(() => contract._setTotalSupply(), "You aren't supposed to be here");
-        });
-
-        it('should throw for _setFreeze', async () => {
-            assert.throws(() => contract._setTotalSupply(), "You aren't supposed to be here");
-        });
-    });
-
-    describe.skip('additional emission', async () => {
-        const nTotalSupply = 1e5;
-        const nDecimals = 5;
-        beforeEach(async () => {
-            global.value = 130000;
-            global.callerAddress = generateAddress().toString('hex');
-
-            const objTokedParams = {
-                strSymbol: 'tst',
-                nTotalSupply,
-                strIssuerName: 'Me',
-                strGoals: 'Test purposes',
-                decimals: nDecimals
-            };
-
-            contract.createToken(objTokedParams);
-        });
-
-        it('should fail (not owner)', async () => {
-            callerAddress = generateAddress().toString('hex');
-
-            assert.throws(() => contract.emitMoreTokens('TST', 1e5), 'You arent an owner');
-        });
-
-        it('should fail (zero emission)', async () => {
-            assert.throws(() => contract.emitMoreTokens('TST', 0), 'amount should be positive');
-        });
-
-        it('should emit', async () => {
-            global.block.hash = 'hash2';
-
-            const nAddon = 1e4;
-            contract.emitMoreTokens('TST', nAddon);
-
-            // Increase total supply
-            const {nTotalSupply: nNewTotal, arrTxHashChanges, decimals} = contract.tokenData('TST');
-            const nExpectedAmount = nTotalSupply + nAddon;
-            assert.strictEqual(nNewTotal, nExpectedAmount);
-
-            // store TX with token changes
-            assert.strictEqual(arrTxHashChanges[1], global.block.hash);
-
-            // Deposit emitted tokens to owner
-            assert.strictEqual(contract.balanceOf('TST', callerAddress), nExpectedAmount);
-        });
-    });
-
-    describe.skip('freeze token', async () => {
-        const nTotalSupply = 1e5;
-        beforeEach(async () => {
-            global.value = 130000;
-            global.callerAddress = generateAddress().toString('hex');
-
-            const objTokedParams = {
-                strSymbol: 'tst',
-                nTotalSupply,
-                strIssuerName: 'Me',
-                strGoals: 'Test purposes'
-            };
-
-            contract.createToken(objTokedParams);
-        });
-
-        it('should fail (not owner)', async () => {
-            callerAddress = generateAddress().toString('hex');
-
-            assert.throws(() => contract.freeze('TST'), 'You arent an owner');
-        });
-
-        it('should freeze', async () => {
-            global.block.hash = 'hashFreeze';
-
-            contract.freeze('TST');
-
-            assert.isOk(contract.isFrozen('TST'));
-
-            const {arrTxHashChanges} = contract.tokenData('TST');
-            assert.strictEqual(arrTxHashChanges[1], global.block.hash);
-        });
-
-        it('should NOT transfer after freeze', async () => {
-            const strAddressReceiver = generateAddress().toString('hex');
-            contract.approve('TST', strAddressReceiver, 100);
-
-            contract.freeze('TST');
-
-            assert.throws(
-                () => contract.transfer('TST', strAddressReceiver, 1),
-                'Token is frozen. No transfers allowed'
-            );
-
-            const strOwner = callerAddress;
-            callerAddress = strAddressReceiver;
-            assert.throws(
-                () => contract.transferFrom('TST', strOwner, strAddressReceiver, 1),
-                'Token is frozen. No transfers allowed'
-            );
-        });
-    });
-
-    describe.skip('decimals', async () => {
-        const nTotalSupply = 1e5;
-        let nDecimals = 0;
-        beforeEach(async () => {
-            global.value = 130000;
-            global.callerAddress = generateAddress().toString('hex');
-
-            const objTokedParams = {
-                strSymbol: 'tst',
-                nTotalSupply,
-                strIssuerName: 'Me',
-                strGoals: 'Test purposes',
-                decimals: nDecimals++
-            };
-
-            contract.createToken(objTokedParams);
-        });
-
-        it('should get decimals (zero)', async () => {
-            assert.strictEqual(contract.decimals('tst'), 0);
-        });
-
-        it('should get decimals (non zero)', async () => {
-            assert.strictEqual(contract.decimals('tst'), 1);
+        it('should throw for _transfer', async () => {
+            assert.throws(() => contract._transfer(), "You aren't supposed to be here");
         });
     });
 });
