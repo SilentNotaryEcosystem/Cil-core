@@ -83,6 +83,7 @@ class Nft extends Base {
 
         // Owner -> token count
         this._balances = {};
+
         this._symbol2TokenId = {};
 
         // TokenID -> approved address
@@ -214,6 +215,10 @@ class Nft extends Base {
         for (const key in objTokenData) {
             this._validateParameterType(objTokenData[key], 'string', key);
 
+            if (!objTokenData[key]) {
+                throw new Error(`${key} should not be empty`);
+            }
+
             if (!arrKeys.includes(key)) {
                 throw new Error(`${key} is not required`);
             }
@@ -230,7 +235,7 @@ class Nft extends Base {
         if (strSymbol.length > 6) throw new Error('Symbol should be at most 6 chars');
         if (this._symbol2TokenId[strSymbol.toUpperCase()]) throw new Error('Symbol already exists');
 
-        const urlPattern = /(?:https?):\/\/(\w+:?\w*)?(\S+)(:\d+)?(\/|\/([\w#!:.?+=&%!\-\/]))?/;
+        const urlPattern = /^(?:https?):\/\/(\w+:?\w*)?(\S+)(:\d+)?(\/|\/([\w#!:.?+=&%!\-\/]))?/;
         if (!urlPattern.test(strTokenUri)) throw new Error('strTokenUri should be an URI');
     }
 
@@ -272,7 +277,7 @@ class Nft extends Base {
         this._validateAddress(strFrom, 'strFrom');
         this._validateAddress(strTo, 'strTo');
 
-        if (this.ownerOf(strTokenId) !== strFrom) throw new Error("strFrom doesn't owns strTokenId");
+        if (this.ownerOf(strTokenId) !== strFrom) throw new Error('Transfer from incorrect owner');
 
         this._isApprovedOrOwner(callerAddress, strTokenId);
 

@@ -80,6 +80,47 @@ describe('Nft', () => {
             contract.createToken(objTokedParams);
             assert.throws(() => contract.createToken(objTokedParams), `Symbol already exists`);
         });
+
+        it('should throw (validate parameters)', async () => {
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strSymbol: null}),
+                'strSymbol should be a string'
+            );
+            assert.throws(() => contract.createToken({...objTokedParams, strName: null}), 'strName should be a string');
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strDescription: null}),
+                'strDescription should be a string'
+            );
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strTokenUri: null}),
+                'strTokenUri should be a string'
+            );
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strIssuerName: null}),
+                'strIssuerName should be a string'
+            );
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strSymbol: ''}),
+                'strSymbol should not be empty'
+            );
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strSymbol: 'ASCDFTE'}),
+                'Symbol should be at most 6 chars'
+            );
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strNewParam: 'Some text'}),
+                'strNewParam is not required'
+            );
+            assert.throws(
+                () => contract.createToken({}),
+                `Key(s): '["strSymbol","strName","strDescription","strTokenUri","strIssuerName"]' are required`
+            );
+            assert.throws(
+                () => contract.createToken({...objTokedParams, strTokenUri: 'ftp:/12/12.12'}),
+                'strTokenUri should be an URI'
+            );
+            contract.createToken({...objTokedParams, strTokenUri: 'https://www.web.com/path#anchor'});
+        });
     });
 
     describe('_getTokenData', async () => {
@@ -175,6 +216,36 @@ describe('Nft', () => {
             const strAddr = generateAddress().toString('hex');
 
             contract.approve(strAddr, strTokenId);
+
+            assert.equal(contract.getApproved(strTokenId), strAddr);
+        });
+    });
+
+    describe('approvalForAll', async () => {
+        let objTokedParams;
+        let strTokenId;
+
+        beforeEach(async () => {
+            global.value = 130000;
+
+            objTokedParams = {
+                strSymbol: 'tst',
+                strName: 'Test NFT token',
+                strDescription: 'This is an NFT token description',
+                strTokenUri: 'http://www.test.com',
+                strIssuerName: 'Me'
+            };
+
+            contract.createToken(objTokedParams);
+            strTokenId = contract.getTokenId('TST');
+        });
+
+        it('should approve', async () => {
+            const strAddr = generateAddress().toString('hex');
+
+            contract.setApprovalForAll(strAddr, true);
+
+            assert.isTrue(contract.isApprovedForAll(global.callerAddress, strAddr));
         });
     });
 
@@ -203,7 +274,7 @@ describe('Nft', () => {
 
             assert.throws(
                 () => contract.transferFrom(strAddrSender, strAddrReceiver, strTokenId),
-                "strFrom doesn't owns strTokenId"
+                'Transfer from incorrect owner'
             );
         });
 
@@ -254,24 +325,12 @@ describe('Nft', () => {
             assert.equal(contract.ownerOf(strTokenId), strAddrReceiver);
         });
 
-        // it.only('should throw (not enough)', async () => {
-        //     const strAddrOwner = generateAddress().toString('hex');
-        //     const strProxyAddr = generateAddress().toString('hex');
-
-        //     callerAddress = strAddrOwner;
-
-        //     contract.approve(strProxyAddr, strTokenId);
-        //     const errMsg = `${callerAddress} has only ${objTokedParams.nTotalSupply}`;
-
-        //     callerAddress = strProxyAddr;
-
-        //     assert.throws(() => contract.transferFrom(strAddrOwner, strAddrReceiver, strTokenId), 'errMsg');
-        // });
-
-        it('should pass', async () => {
+        it('should pass (transfer via approve)', async () => {
             const strAddrOwner = callerAddress;
             const strProxyAddr = generateAddress().toString('hex');
+
             contract.approve(strProxyAddr, strTokenId);
+
             const bPrevBalance = contract.balanceOf(strAddrOwner);
 
             assert.equal(contract.ownerOf(strTokenId), strAddrOwner);
@@ -285,12 +344,6 @@ describe('Nft', () => {
             assert.equal(contract.balanceOf(strAddrReceiver), 1);
             assert.notEqual(contract.ownerOf(strTokenId), strAddrOwner);
             assert.equal(contract.ownerOf(strTokenId), strAddrReceiver);
-
-            // assert.equal(contract.allowance('TST', strAddrOwner, strProxyAddr), 0);
-
-            // assert.equal(contract.balanceOf('TST', strAddrOwner), bPrevBalance - nAmountToSend);
-            // assert.equal(contract.balanceOf('TST', strAddrReceiver), nAmountToSend);
-            // assert.equal(contract.allowance('TST', strAddrOwner, strProxyAddr), 0);
         });
     });
 
