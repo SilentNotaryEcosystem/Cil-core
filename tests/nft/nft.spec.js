@@ -356,4 +356,65 @@ describe('Nft', () => {
             assert.throws(() => contract._transfer(), "You aren't supposed to be here");
         });
     });
+
+    describe('royalty', async () => {
+        let objTokedParams;
+        let strTokenId;
+
+        beforeEach(async () => {
+            global.value = 130000;
+
+            objTokedParams = {
+                strSymbol: 'tst',
+                strName: 'Test NFT token',
+                strDescription: 'This is an NFT token description',
+                strTokenUri: 'http://www.test.com',
+                strIssuerName: 'Me'
+            };
+
+            contract.createToken(objTokedParams);
+
+            strTokenId = contract.getTokenId('TST');
+        });
+
+        it('should test default royalty', async () => {
+            assert.deepEqual(contract.royaltyInfo(strTokenId, 100), {receiver: null, royaltyAmount: 0});
+
+            const strDefaultRoyaltyReceiver = generateAddress().toString('hex');
+
+            contract._setDefaultRoyalty(strDefaultRoyaltyReceiver, 2000);
+
+            assert.deepEqual(contract.royaltyInfo(strTokenId, 100), {
+                receiver: strDefaultRoyaltyReceiver,
+                royaltyAmount: 20
+            });
+        });
+
+        it('should test token royalty', async () => {
+            assert.deepEqual(contract.royaltyInfo(strTokenId, 100), {receiver: null, royaltyAmount: 0});
+
+            const strRoyaltyReceiver = generateAddress().toString('hex');
+
+            contract._setTokenRoyalty(strTokenId, strRoyaltyReceiver, 2500);
+
+            assert.deepEqual(contract.royaltyInfo(strTokenId, 100), {
+                receiver: strRoyaltyReceiver,
+                royaltyAmount: 25
+            });
+        });
+
+        it('should override default royalty', async () => {
+            const strDefaultRoyaltyReceiver = generateAddress().toString('hex');
+            const strRoyaltyReceiver = generateAddress().toString('hex');
+
+            contract._setDefaultRoyalty(strDefaultRoyaltyReceiver, 2000);
+
+            contract._setTokenRoyalty(strTokenId, strRoyaltyReceiver, 2500);
+
+            assert.deepEqual(contract.royaltyInfo(strTokenId, 100), {
+                receiver: strRoyaltyReceiver,
+                royaltyAmount: 25
+            });
+        });
+    });
 });

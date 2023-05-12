@@ -71,8 +71,9 @@ class Base {
 }
 
 // ERC-721: Non-Fungible Token Standard
+// Supports: ERC-2981: NFT Royalty Standard
 class Nft extends Base {
-    constructor() {
+    constructor(nFeeDenominator = 10000) {
         super();
 
         this._createFee = 130000;
@@ -91,6 +92,14 @@ class Nft extends Base {
 
         // Owner -> operator -> approvals
         this._operatorApprovals = {};
+
+        this._nFeeDenominator = nFeeDenominator;
+
+        // Contract owner -> [strReceiver, nRoyaltyFraction]
+        this._defaultRoyaltyInfo = [null, 0];
+
+        // TokenID -> [strReceiver, nRoyaltyFraction]
+        this._tokenRoyaltyInfo = {};
     }
 
     createToken(objTokenData) {
@@ -203,6 +212,63 @@ class Nft extends Base {
 
     isApprovedForAll(strOwner, strOperator) {
         return !!this._operatorApprovals[strOwner] && this._operatorApprovals[strOwner][strOperator];
+    }
+
+    // ERC-2981: NFT Royalty Standard
+    royaltyInfo(strTokenId, nSalePrice) {
+        this._validateParameterType(strTokenId, 'string', 'strTokenId');
+        this._validateParameterType(nSalePrice, 'number', 'nSalePrice');
+
+        if (!this._data[strTokenId]) throw new Error("strTokenId doesn't exist");
+
+        let arrRoyalty = this._tokenRoyaltyInfo[strTokenId];
+
+        if (!arrRoyalty || !arrRoyalty[0]) {
+            arrRoyalty = this._defaultRoyaltyInfo;
+        }
+
+        const nRoyaltyAmount = (nSalePrice * arrRoyalty[1]) / this._feeDenominator();
+
+        return {receiver: arrRoyalty[0], royaltyAmount: nRoyaltyAmount};
+    }
+
+    _feeDenominator() {
+        return this._nFeeDenominator;
+    }
+
+    _setDefaultRoyalty(strReceiver, nFeeNumerator) {
+        this._checkOwner();
+        this._validateParameterType(strReceiver, 'string', 'strReceiver');
+        this._validateParameterType(nFeeNumerator, 'number', 'nFeeNumerator');
+        this._validateAddress(strReceiver);
+
+        if (nFeeNumerator > this._feeDenominator()) throw new Error('Royalty fee will exceed salePrice');
+
+        this._defaultRoyaltyInfo = [strReceiver, nFeeNumerator];
+    }
+
+    _deleteDefaultRoyalty() {
+        this._checkOwner();
+        this._defaultRoyaltyInfo = [null, 0];
+    }
+
+    _setTokenRoyalty(strTokenId, strReceiver, nFeeNumerator) {
+        this._validateParameterType(strTokenId, 'string', 'strTokenId');
+        this._validateParameterType(strReceiver, 'string', 'strReceiver');
+        this._validateParameterType(nFeeNumerator, 'number', 'nFeeNumerator');
+        this._validateAddress(strReceiver);
+        if (nFeeNumerator > this._feeDenominator()) throw new Error('Royalty fee will exceed salePrice');
+        if (nFeeNumerator < 0) throw new Error('Royalty fee is below 0');
+        if (this.ownerOf(strTokenId) !== callerAddress) throw new Error('You are not the owner');
+
+        this._tokenRoyaltyInfo[strTokenId] = [strReceiver, nFeeNumerator];
+    }
+
+    _resetTokenRoyalty(strTokenId) {
+        this._validateParameterType(strTokenId, 'string', 'strTokenId');
+        if (this.ownerOf(strTokenId) !== callerAddress) throw new Error('You are not the owner');
+
+        this._tokenRoyaltyInfo[strTokenId] = [null, 0];
     }
 
     _validateParameterType(value, strType, strName) {
