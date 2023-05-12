@@ -66,6 +66,20 @@ describe('Nft', () => {
             assert.equal(contract._data[strTokenId].length, 7);
         });
 
+        it('should check enumerable', async () => {
+            contract.createToken(objTokedParams);
+
+            assert.equal(contract.totalSupply(), 1);
+
+            const strTokenId = contract.getTokenId('TST');
+
+            assert.deepEqual(contract.tokenByIndex(0), contract.tokenData(strTokenId));
+            assert.deepEqual(contract.tokenOfOwnerByIndex(global.callerAddress, 0), contract.tokenData(strTokenId));
+
+            assert.throws(() => contract.tokenByIndex(1), 'nIndex out of range');
+            assert.throws(() => contract.tokenOfOwnerByIndex(global.callerAddress, 1), 'nIndex out of range');
+        });
+
         it('should throw (unsigned TX)', async () => {
             global.callerAddress = undefined;
             assert.throws(() => contract.createToken(objTokedParams), 'You should sign TX');

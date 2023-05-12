@@ -71,6 +71,7 @@ class Base {
 }
 
 // ERC-721: Non-Fungible Token Standard
+// Supports: ERC721Enumerable
 // Supports: ERC-2981: NFT Royalty Standard
 class Nft extends Base {
     constructor(nFeeDenominator = 10000) {
@@ -82,8 +83,8 @@ class Nft extends Base {
         // TokenId -> Owner
         this._owners = {};
 
-        // Owner -> token count
-        this._balances = {};
+        // Owner -> [token list]
+        this._ownedTokens = {};
 
         this._symbol2TokenId = {};
 
@@ -125,7 +126,12 @@ class Nft extends Base {
         ];
 
         this._symbol2TokenId[strSymbolUpper] = strTokenId;
-        this._balances[callerAddress] = (this._balances[callerAddress] || 0) + 1;
+
+        if (!this._ownedTokens[callerAddress]) {
+            this._ownedTokens[callerAddress] = [];
+        }
+
+        this._ownedTokens[callerAddress].push(strTokenId);
         this._owners[strTokenId] = callerAddress;
     }
 
@@ -156,7 +162,7 @@ class Nft extends Base {
         this._validateParameterType(strOwner, 'string', 'strOwner');
         this._validateAddress(strOwner, 'strOwner');
 
-        return this._balances[strOwner] || 0;
+        return !Array.isArray(this._ownedTokens[strOwner]) ? 0 : this._ownedTokens[strOwner].length;
     }
 
     ownerOf(strTokenId) {
@@ -212,6 +218,28 @@ class Nft extends Base {
 
     isApprovedForAll(strOwner, strOperator) {
         return !!this._operatorApprovals[strOwner] && this._operatorApprovals[strOwner][strOperator];
+    }
+
+    // The enumeration extension for ERC-721, OPTIONAL
+    totalSupply() {
+        return Object.keys(this._data).length;
+    }
+
+    tokenByIndex(nIndex) {
+        this._validateParameterType(nIndex, 'number', 'nIndex');
+        if (nIndex < 0 || nIndex > this.totalSupply() - 1) throw new Error('nIndex out of range');
+
+        const strTokenId = Object.keys(this._data)[nIndex];
+
+        return this.tokenData(strTokenId);
+    }
+
+    tokenOfOwnerByIndex(strOwner, nIndex) {
+        this._validateParameterType(strOwner, 'string', 'strOwner');
+        this._validateParameterType(nIndex, 'number', 'nIndex');
+        if (nIndex < 0 || nIndex > this.balanceOf(strOwner) - 1) throw new Error('nIndex out of range');
+
+        return this.tokenData(this._ownedTokens[strOwner][nIndex]);
     }
 
     // ERC-2981: NFT Royalty Standard
@@ -350,8 +378,12 @@ class Nft extends Base {
         // Clear approvals from the previous owner
         delete this._tokenApprovals[strTokenId];
 
-        this._balances[strFrom]--;
-        this._balances[strTo] = (this._balances[strTo] || 0) + 1;
+        if (!this._ownedTokens[strTo]) {
+            this._ownedTokens[strTo] = [];
+        }
+
+        this._ownedTokens[strFrom] = this._ownedTokens[strTo].filter(item => item !== strTokenId);
+        this._ownedTokens[strTo].push(strTokenId);
 
         this._owners[strTokenId] = strTo;
     }
