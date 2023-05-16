@@ -391,8 +391,12 @@ module.exports = (factory, factoryOptions) => {
             const block = msg.block;
             debugNode(`Received block ${block.getHash()}`);
 
-            console.log(`Number of signatures: ${block.signatures.length}`);
-            console.dir(block.signatures.map(buffSig=> buffSig.toString('hex')), { colors: true, depth: null });
+            if(this._mapBlockInvestigate.has(block.getHash())){
+                const nOurSigs=this._mapBlockInvestigate.get(block.getHash());
+                if(nOurSigs<block.signatures.length){
+                    console.log(`Found block ${block.getHash()} with proper num of sigs ${block.signatures.length} at peer ${peer.address}`);
+                }
+            }
 
             this._requestCache.done(block.getHash());
             peer.loadDone=true;
@@ -862,7 +866,7 @@ module.exports = (factory, factoryOptions) => {
 
             // THIS IS LAST STAGE OF THIS BRANCH
 
-            const msgGetBlock = this._createGetDataMsg([process.env.BLOCK_INVESTIGATE]);
+            const msgGetBlock = this._createGetDataMsg(JSON.parse(process.env.BLOCK_INVESTIGATE));
             await peer.pushMessage(msgGetBlock);
         }
 
@@ -2032,6 +2036,8 @@ module.exports = (factory, factoryOptions) => {
         async _rebuildBlockDb() {
             await this._storage.ready();
 
+            await this._readInvestigateBlocks();
+
             const nRebuildStarted = Date.now();
 
             const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
@@ -2593,6 +2599,17 @@ module.exports = (factory, factoryOptions) => {
 
             this._arrSeedAddresses = arrSeedAddresses;
             this._arrDnsSeeds = arrDnsSeeds.length ? arrDnsSeeds : Constants.DNS_SEED;
+        }
+
+        async _readInvestigateBlocks(){
+            this._mapBlockInvestigate=new Map();
+
+            const arrBlockHashes=JSON.parse(process.env.BLOCK_INVESTIGATE);
+
+            for(let hash of arrBlockHashes){
+                const block=await this._storage.getBlock(hash);
+                this._mapBlockInvestigate.set(hash, block.signatures.length);
+            }
         }
     };
 };
