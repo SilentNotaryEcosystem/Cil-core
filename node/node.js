@@ -273,6 +273,12 @@ module.exports = (factory, factoryOptions) => {
             this._msecOffset -= peer.offsetDelta;
         }
 
+        /**
+         * Connect to one peer!
+         *
+         * @returns {Promise<void>}
+         * @private
+         */
         async _reconnectPeers() {
             if (this._bReconnectInProgress) return;
 

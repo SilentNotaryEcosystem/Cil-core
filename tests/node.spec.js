@@ -921,8 +921,8 @@ describe('Node tests', async () => {
             node._peerManager.addPeer(peer);
         });
         await node._reconnectPeers();
-        assert.isBelow(connectToPeer.callCount, factory.Constants.MIN_PEERS);
-        assert.isBelow(pushMessage.callCount, factory.Constants.MIN_PEERS);
+        assert.equal(connectToPeer.callCount, 1);
+        assert.equal(pushMessage.callCount, 1);
     });
 
     it('should create internal TX', async () => {
