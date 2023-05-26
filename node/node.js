@@ -91,7 +91,6 @@ module.exports = (factory, factoryOptions) => {
             // create mempool
             this._mempool = new Mempool(options);
 
-            this._mapBlocksToExec = new Map();
             this._mapUnknownBlocks = new Map();
             this._mapBlocksToExec = new Map();
             this._app = new Application(options);
@@ -2162,6 +2161,7 @@ module.exports = (factory, factoryOptions) => {
                     }
                 }
             } else {
+                peer.markAsPossiblyAhead();
                 this._queueBlockExec(block.getHash(), peer);
                 const {arrToRequest, arrToExec} = await this._blockProcessorProcessParents(block);
                 arrToRequest
@@ -2232,7 +2232,7 @@ module.exports = (factory, factoryOptions) => {
 
             const arrConnectedPeers = this._peerManager.getConnectedPeers();
             for (let peer of arrConnectedPeers) {
-                if (peer.isAhead() && !peer.isGetBlocksSent()) {
+                if (!peer.isGetBlocksSent()) {
                     debugMsg(`(address: "${this._debugAddress}") sending "${msg.message}" to "${peer.address}"`);
                     await peer.pushMessage(msg);
                 }
@@ -2594,7 +2594,7 @@ module.exports = (factory, factoryOptions) => {
 
         _isInitialBlockLoading() {
             const arrConnectedPeers = this._peerManager.getConnectedPeers();
-            return arrConnectedPeers.find(peer => peer.isAhead());
+            return !!arrConnectedPeers.find(peer => peer.isAhead());
         }
 
         _isTimeToForkSerializer1() {
