@@ -13,7 +13,7 @@ const PEER_HEARTBEAT_TIMER_NAME = 'peerHeartbeatTimer';
  * @emits 'message' {this, message}
  */
 
-module.exports = (factory) => {
+module.exports = (factory, {peerProto}) => {
     const {Messages, Transport, Constants, FactoryOptions} = factory;
     const {
         MsgCommon,
@@ -23,16 +23,18 @@ module.exports = (factory) => {
     return class Peer extends EventEmitter {
         constructor(options = {}) {
             super();
-            const {connection, peerInfo, transport} = options;
+            const {connection, peerInfo, transport, peerData} = options;
 
             this._persistent = false;
             this._nonce = parseInt(Math.random() * 100000);
             this._transport = transport ? transport : new Transport(options);
 
-            this._bannedTill = Date.now();
-            this._restrictedTill = Date.now();
-            this._misbehavedAt = Date.now();
+            this._bannedTill = Date.now()-1;
+            this.setJustSeen();
+            this._restrictedTill = Date.now()-1;
+            this._misbehavedAt = Date.now()-1;
             this._misbehaveScore = 0;
+            this._bProven = false;
 
             this._cleanup();
 
@@ -54,8 +56,10 @@ module.exports = (factory) => {
 
                 // run heartbeat timer
                 this._heartBeatTimer.setInterval(this._timerName, this._tick, Constants.PEER_HEARTBEAT_TIMEOUT);
+            } else if (peerData) {
+                this.setPeerData(peerData);
             } else if (peerInfo) {
-                this.peerInfo = peerInfo;
+                this.setPeerInfo(peerInfo);
             } else {
                 throw new Error('Pass connection or peerInfo to create peer');
             }
@@ -83,12 +87,35 @@ module.exports = (factory) => {
             return this._peerInfo;
         }
 
-        set peerInfo(peerInfo) {
+        isSame(peer){
+            return this._nonce === peer._nonce && this.address === peer.address;
+        }
+
+        setPeerInfo(peerInfo) {
             if (peerInfo instanceof PeerInfo) {
                 this._peerInfo = peerInfo;
             } else {
                 this._peerInfo = new PeerInfo(peerInfo);
             }
+        }
+
+        setPeerData(peerData) {
+            if (Buffer.isBuffer(peerData)) {
+                const objData=peerProto.decode(peerData);
+                this._peerInfo = new PeerInfo(objData.peerInfo);
+
+                if(objData.data){
+                    this._bannedTill =  objData.data.timeStampBannedTill*1000;
+                    this._lastActionTimestamp = objData.data.timeStampLastSeen*1000;
+                    this._bProven = objData.data.bProven;
+                }
+            } else {
+                throw new Error('"setPeerData" used only to load from disk');
+            }
+        }
+
+        setJustSeen(){
+            this._lastActionTimestamp=Date.now()-1;
         }
 
         /**
@@ -112,11 +139,7 @@ module.exports = (factory) => {
                    this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
         }
 
-        get lastActionTimestamp() {
-            return this._lastActionTimestamp;
-        }
-
-        get disconnected() {
+        isDisconnected() {
             return !this._connection;
         }
 
@@ -133,7 +156,7 @@ module.exports = (factory) => {
         }
 
         get fullyConnected() {
-            return !this.disconnected && this._handshakeDone;
+            return !this.isDisconnected() && this._handshakeDone;
         }
 
         set fullyConnected(trueVal) {
@@ -142,7 +165,7 @@ module.exports = (factory) => {
         }
 
         get loadDone() {
-            return this._loadDone || this.disconnected;
+            return this._loadDone || this.isDisconnected();
         }
 
         set loadDone(trueVal) {
@@ -167,17 +190,16 @@ module.exports = (factory) => {
             this._msecOffsetDelta = delta;
         }
 
-        get quality() {
-            return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
-                   / (this._peerInfo.lifetimeMisbehaveScore + this.misbehaveScore + 1);
-        }
-
         get bannedTill() {
             return this._bannedTill;
         }
 
+        set bannedTill(val) {
+            this._bannedTill=val;
+        }
+
         witnessLoadDone(nConciliumId) {
-            return !this.disconnected && this._persistent && this._tags.has(createPeerTag(nConciliumId));
+            return !this.isDisconnected() && this._persistent && this._tags.has(createPeerTag(nConciliumId));
         }
 
         /**
@@ -233,8 +255,12 @@ module.exports = (factory) => {
         }
 
         isAlive() {
-            const tsAlive = Date.now() - Constants.PEER_DEAD_TIME;
-            return this.lastActionTimestamp && this.lastActionTimestamp > tsAlive;
+            const tsAlive = Date.now() - Constants.PEER_HEARTBEAT_TIMEOUT*3;
+            return this._lastActionTimestamp && this._lastActionTimestamp > tsAlive;
+        }
+
+        isLost() {
+            return this._lastActionTimestamp && this._lastActionTimestamp +Constants.PEER_ANNOUNCE_LIFETIME < Date.now() ;
         }
 
         async loaded() {
@@ -265,7 +291,7 @@ module.exports = (factory) => {
                 logger.error('Trying to connect to temporary restricted peer!');
                 return;
             }
-            if (!this.disconnected) {
+            if (!this.isDisconnected()) {
                 logger.error(`Peer ${this.address} already connected`);
                 return;
             }
@@ -302,7 +328,7 @@ module.exports = (factory) => {
                     this.disconnect(`Limit "${Constants.PEER_MAX_BYTES_COUNT}" bytes reached for peer`);
                 }
             }
-            this._lastActionTimestamp = Date.now();
+            this.setJustSeen();
 
             if (msg.signature) {
 
@@ -360,7 +386,7 @@ module.exports = (factory) => {
             this._updateMisbehave(Constants.BAN_PEER_SCORE);
             this._bannedTill = Date.now() + Constants.BAN_PEER_TIME;
             logger.log(`Peer ${this.address} banned till ${new Date(this._bannedTill)}`);
-            if (!this.disconnected) this.disconnect('Peer banned');
+            if (!this.isDisconnected()) this.disconnect('Peer banned');
             this.emit('peerBanned', this);
         }
 
@@ -423,19 +449,19 @@ module.exports = (factory) => {
         async _tick() {
 
             // stop timer if peer disconnected. disconnect == dead. dead == no heartbeat
-            if (this.disconnected) {
+            if (this.isDisconnected()) {
                 this._heartBeatTimer.clear(this._timerName);
                 return;
             }
 
             // disconnect non persistent peers when time has come
-            if (!this._persistent && !this.disconnected && this._connectedTill < Date.now()) {
+            if (!this._persistent && !this.isDisconnected() && this._connectedTill < Date.now()) {
                 this.disconnect('Scheduled disconnect');
                 this._restrictedTill = Date.now() + Constants.PEER_RESTRICT_TIME;
                 return;
             }
 
-            if (this._lastActionTimestamp + Constants.PEER_DEAD_TIME < Date.now()) {
+            if (!this.isAlive()) {
                 this.disconnect('Peer is dead!');
                 return;
             }
@@ -453,26 +479,31 @@ module.exports = (factory) => {
 
             // TODO: create separate definition for peerInfo & peerAddressBookEntry
             return {
-                ...this.peerInfo.data,
-                lifetimeMisbehaveScore: 0,
-                lifetimeTransmittedBytes: 0,
-                lifetimeReceivedBytes: 0
+                ...this.peerInfo.data
             };
         }
 
         _updateReceived(bytes) {
             this._receivedBytes += bytes;
-            this.peerInfo.lifetimeReceivedBytes += bytes;
         }
 
         _updateTransmitted(bytes) {
             this._transmittedBytes += bytes;
-            this.peerInfo.lifetimeTransmittedBytes += bytes;
         }
 
         _updateMisbehave(score) {
-            this.peerInfo.lifetimeMisbehaveScore += score;
             this._misbehaveScore += score;
+        }
+
+        /**
+         * This peer is a witness, and prove it with signature
+         */
+        markAsProven() {
+            this._bProven = true;
+        }
+
+        isProven() {
+            return this._bProven;
         }
 
         markAsPossiblyAhead() {
@@ -502,6 +533,17 @@ module.exports = (factory) => {
 
         singleBlockRequested() {
             if (!FactoryOptions.slowBoot && ++this._nCountSingleBlocks > 6) this.markAsPossiblyAhead();
+        }
+
+        encode(){
+            return peerProto.encode({
+                peerInfo: this._peerInfo.data,
+                data: {
+                    timeStampLastSeen: parseInt(this._lastActionTimestamp/1000),
+                    timeStampBannedTill: parseInt(this._bannedTill/1000),
+                    bProven: this._bProven
+                }
+            }).finish();
         }
     };
 };

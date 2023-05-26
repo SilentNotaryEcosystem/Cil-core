@@ -585,14 +585,14 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        async savePeers(arrPeers) {
+        async savePeers(arrPeersEncodedData) {
             const arrOps = [];
 
             let i = 0;
-            for (let peer of arrPeers) {
-                const key = Buffer.allocUnsafe(2);
-                key.writeInt16BE(i++);
-                arrOps.push({type: 'put', key, value: peer.peerInfo.encode()});
+            for (let peerData of arrPeersEncodedData) {
+                const key = Buffer.allocUnsafe(4);
+                key.writeInt32BE(i++);
+                arrOps.push({type: 'put', key, value: peerData});
             }
             await this._peerStorage.batch(arrOps);
         }
@@ -605,7 +605,7 @@ module.exports = (factory, factoryOptions) => {
             let arrPeers = [];
             return new Promise((resolve, reject) => {
                 this._peerStorage.createValueStream()
-                    .on('data', buffPeer => arrPeers.push(new Peer({peerInfo: buffPeer})))
+                    .on('data', buffPeer => arrPeers.push(new Peer({peerData: buffPeer})))
                     .on('close', () => resolve(arrPeers))
                     .on('error', err => reject(err));
             });

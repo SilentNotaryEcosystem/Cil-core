@@ -26,10 +26,10 @@ module.exports = {
         ADDR_MAX_LENGTH: 1000,
 
         // maximum connected peers
-        MAX_PEERS: 10,
+        MAX_PEERS: 40,
 
         // minimum connected peers
-        MIN_PEERS: 6,
+        MIN_PEERS: 10,
 
         // milliseconds
         PEER_QUERY_TIMEOUT: 30000,
@@ -38,7 +38,6 @@ module.exports = {
         // 1 day
         BAN_PEER_SCORE: 100,
         BAN_PEER_TIME: 24 * 60 * 60 * 1000,
-        PEER_TICK_TIMEOUT: 1000,
 
         // bytes count to force peer disconnect
         PEER_MAX_BYTES_COUNT: 10 * 1024 * 1024,
@@ -46,11 +45,13 @@ module.exports = {
         // time to force peer disconnect
         PEER_CONNECTION_LIFETIME: 60 * 60 * 1000,
 
+        // Stop announce peer if it's offline
+        PEER_ANNOUNCE_LIFETIME: 24 * 60 * 60 * 1000,
+
         // time to restrict reconnection with peer
         PEER_RESTRICT_TIME: 2 * 60 * 1000,
 
         PEER_HEARTBEAT_TIMEOUT: 2 * 60 * 1000,
-        PEER_DEAD_TIME: 6 * 60 * 1000,
 
         PEER_RECONNECT_INTERVAL: 2 * 60 * 1000,
         MEMPOOL_REANNOUNCE_INTERVAL: 10 * 60 * 1000,

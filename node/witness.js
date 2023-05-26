@@ -134,11 +134,11 @@ module.exports = (factory, factoryOptions) => {
          */
         async _connectWitness(peer, concilium) {
 
-            // we already done with this neighbour
+            // we have already done with this neighbour
             if (peer.witnessLoadDone(concilium.getConciliumId())) return;
 
             debugWitness(`--------- "${this._debugAddress}" started WITNESS handshake with "${peer.address}" ----`);
-            if (peer.disconnected) {
+            if (peer.isDisconnected()) {
                 await this._connectToPeer(peer);
                 await peer.pushMessage(this._createMsgVersion());
                 await peer.loaded();
@@ -146,7 +146,7 @@ module.exports = (factory, factoryOptions) => {
                 debugWitness(`(address: "${this._debugAddress}") reusing connection to "${peer.address}"`);
             }
 
-            if (!peer.disconnected) {
+            if (!peer.isDisconnected()) {
 
                 if (!peer.witnessLoadDone(concilium.getConciliumId())) {
 
@@ -175,10 +175,12 @@ module.exports = (factory, factoryOptions) => {
             // mark it for broadcast
             peer.addTag(createPeerTag(nConciliumId));
 
+            peer.markAsProven();
+
             // prevent witness disconnect by timer or bytes threshold
             peer.markAsPersistent();
 
-            // overwrite this peer definition with freshest data
+            // overwrite this peer definition with the freshest data
             await this._peerManager.addPeer(peer, true);
         }
 
@@ -223,7 +225,12 @@ module.exports = (factory, factoryOptions) => {
             const arrConciliumAddresses = concilium.getAddresses(false);
             const arrPeers = this._peerManager
                 .filterPeers({service: Constants.WITNESS}, true)
-                .filter(peer => ~arrConciliumAddresses.findIndex(walletAddr => walletAddr === peer.witnessAddress));
+                .filter(peer => ~arrConciliumAddresses.findIndex(walletAddr => walletAddr === peer.witnessAddress))
+                .sort((pA, pB) => {
+                    if((pA.isProven() && pB.isProven()) || (!pA.isProven() && !pB.isProven())) return 0;
+                    if(pA.isProven()) return -1;
+                });
+
             return arrPeers;
         }
 
