@@ -485,7 +485,7 @@ describe('Node tests', async () => {
     it('should process NEW block from MsgBlock', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
-        const fakePeer = {fake: 1};
+        const fakePeer = {fake: 1, markAsPossiblyAhead: ()=> sinon.fake()};
 
         const block = createDummyBlock(factory);
         const msg = new factory.Messages.MsgBlock(block);
@@ -2296,7 +2296,7 @@ describe('Node tests', async () => {
             const {tx, strContractAddr} = createContractInvocationTx({});
             tx.addReceiver(nChange, generateAddress());
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({conciliumId}, strContractAddr));
+            node._storage.getContract = sinon.fake.resolves(new factory.Contract({conciliumId}, strContractAddr));
 
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.coinsSpent = sinon.fake.returns(coinsUsed);
