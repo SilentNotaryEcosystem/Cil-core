@@ -2483,7 +2483,7 @@ module.exports = (factory, factoryOptions) => {
 
             this._pendingBlocks.forEach(hash => {
                 const {blockHeader} = this._pendingBlocks.getBlock(hash);
-                const blockInfo = new factory.BlockInfo(blockHeader);
+                const blockInfo = new BlockInfo(blockHeader);
                 if (blockInfo.getHeight() > maxHeight && blockInfo.getConciliumId() === nConciliumId) {
                     maxHeight = blockInfo.getHeight();
                     strBestHash = hash;
@@ -2593,8 +2593,13 @@ module.exports = (factory, factoryOptions) => {
         }
 
         _isInitialBlockLoading() {
-            const arrConnectedPeers = this._peerManager.getConnectedPeers();
-            return arrConnectedPeers.find(peer => peer.isAhead());
+            const nOneDay = 24 * 60 * 60 * 1000;
+            const arrBlockTimestamps = this._pendingBlocks.getTips()
+                .map(hash => this._pendingBlocks.getBlock(hash))
+                .map(({ blockHeader }) => (new BlockInfo(blockHeader)).getTimestamp());
+
+            return (!!arrBlockTimestamps.length && arrBlockTimestamps.every(ts => Date.now() - ts * 1000 > nOneDay)) ||
+                   !!this._peerManager.getConnectedPeers().find(peer => peer.isAhead());
         }
 
         _isTimeToForkSerializer1() {

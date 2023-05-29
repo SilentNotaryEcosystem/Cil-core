@@ -4,7 +4,7 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 const {assert} = chai;
 const sinon = require('sinon').createSandbox();
-const {arrayEquals, prepareForStringifyObject} = require('../utils');
+const {arrayEquals, prepareForStringifyObject, timestamp } = require('../utils');
 
 chai.use(require('chai-as-promised'));
 
@@ -911,6 +911,55 @@ describe('Node tests', async () => {
         assert.isOk(address.equals(coins.getReceiverAddr()));
     });
 
+    describe('_isInitialBlockLoading', async()=>{
+        it('should be _isInitialBlockLoading (peers ahead)', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const block=createDummyBlock(factory);
+
+            node._peerManager.getConnectedPeers=sinon.fake.returns([{isAhead: () => true}]);
+            node._pendingBlocks.addBlock(block, new factory.PatchDB());
+
+            assert.isOk(node._isInitialBlockLoading());
+        });
+
+        it('should be _isInitialBlockLoading (blocks outdated)', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const block=createDummyBlock(factory);
+            block.header.timestamp=timestamp() - 48*3600;
+            await node._pendingBlocks.addBlock(block, new factory.PatchDB());
+
+            assert.isOk(node._isInitialBlockLoading());
+        });
+
+        it('should not be _isInitialBlockLoading (blocks & peers)', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const block=createDummyBlock(factory);
+            await node._pendingBlocks.addBlock(block, new factory.PatchDB());
+
+            node._peerManager.getConnectedPeers=sinon.fake.returns([{isAhead: () => false}]);
+
+            assert.isNotOk(node._isInitialBlockLoading());
+        });
+
+        it('should not be _isInitialBlockLoading', async () => {
+            const node = new factory.Node();
+            await node.ensureLoaded();
+
+            const block=createDummyBlock(factory);
+            await node._pendingBlocks.addBlock(block, new factory.PatchDB());
+
+            node._peerManager.getConnectedPeers=sinon.fake.returns([{isAhead: () => false}]);
+
+            assert.isNotOk(node._isInitialBlockLoading());
+        });
+    })
+
     it('should create deterministic hash for internal TX', async () => {
         const node = new factory.Node();
         const patch = new factory.PatchDB(0);
@@ -1045,6 +1094,7 @@ describe('Node tests', async () => {
         const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
         await node.ensureLoaded();
         node._requestCache.isRequested = sinon.fake.returns(false);
+        node._isInitialBlockLoading=sinon.fake.returns(false);
 
         await node._handleInvMessage(fakePeer, msgInv);
 
@@ -2947,6 +2997,7 @@ describe('Node tests', async () => {
                 isAhead: () => false
             };
             node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
+            node._isInitialBlockLoading=sinon.fake.returns(false);
 
             const invToRequest = new factory.Inventory();
             invToRequest.addTxHash(pseudoRandomBuffer());
@@ -2977,6 +3028,7 @@ describe('Node tests', async () => {
                 isAhead: () => false
             };
             node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
+            node._isInitialBlockLoading=sinon.fake.returns(false);
 
             const invToRequest = new factory.Inventory();
             invToRequest.addTxHash(pseudoRandomBuffer());
@@ -3067,6 +3119,7 @@ describe('Node tests', async () => {
                 isAhead: sinon.fake.returns(false)
             };
             node._peerManager.getConnectedPeers = sinon.fake.returns([fakePeer]);
+            node._isInitialBlockLoading=sinon.fake.returns(false);
 
             const invToRequest = new factory.Inventory();
             const invMsg = new factory.Messages.MsgInv();

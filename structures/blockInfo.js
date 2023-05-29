@@ -101,4 +101,8 @@ module.exports = ({Constants, Crypto}, {blockInfoProto, blockHeaderProto}) =>
             return this._data.flags;
         }
 
+        getTimestamp(){
+            return this._data.header.timestamp;
+        }
+
     };

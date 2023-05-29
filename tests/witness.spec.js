@@ -39,7 +39,7 @@ const createDummyDefinitionWallet = (conciliumId = 0) => {
     const newWallet = new factory.Wallet(keyPair1.privateKey);
 
     const concilium = factory.ConciliumRr.create(conciliumId,
-        [keyPair1.publicKey, keyPair2.publicKey]
+        [keyPair1.address, keyPair2.address]
     );
 
     return {keyPair1, keyPair2, concilium, newWallet};
@@ -81,10 +81,10 @@ describe('Witness tests', () => {
         const witness = new factory.Witness({wallet, arrTestDefinition: [concilium], isSeed: true});
         await witness.ensureLoaded();
 
-        const peer1 = createDummyPeer(keyPair1.publicKey);
+        const peer1 = createDummyPeer(keyPair1.address);
         const peer2 = createDummyPeer('notWitness1');
         const peer3 = createDummyPeer('1111');
-        const peer4 = createDummyPeer(keyPair2.publicKey);
+        const peer4 = createDummyPeer(keyPair2.address);
         for (let peer of [peer1, peer2, peer3, peer4]) {
             await witness._peerManager.addPeer(peer);
         }
