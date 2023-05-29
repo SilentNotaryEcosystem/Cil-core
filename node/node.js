@@ -2604,6 +2604,9 @@ module.exports = (factory, factoryOptions) => {
         }
 
         _isInitialBlockLoading() {
+
+            // TODO: Fix! This will cause a problems in dev network!
+            //  Also in could hang prod network if it will idle for a day
             const nOneDay = 24 * 60 * 60 * 1000;
             const arrBlockTimestamps = this._pendingBlocks.getTips()
                 .map(hash => this._pendingBlocks.getBlock(hash))
