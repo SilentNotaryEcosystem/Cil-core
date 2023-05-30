@@ -34,13 +34,13 @@ const createBlockAckMessage = (conciliumId, privateKey, blockHash) => {
 };
 
 describe('BFT consensus integration tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
 
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 

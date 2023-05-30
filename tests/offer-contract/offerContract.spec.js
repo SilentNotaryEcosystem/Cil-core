@@ -21,12 +21,12 @@ const sleep = (delay) => {
 let contract;
 
 describe('Offer contract', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -92,7 +92,6 @@ describe('Offer contract', () => {
 
             assert.throws(() => contract.setText('text'), "You can't change already published text!");
         });
-
     });
 
     describe('isOpen', async () => {
@@ -137,7 +136,7 @@ describe('Offer contract', () => {
 
     describe('Open', async () => {
         it('should fail to open (no text)', async () => {
-            assert.throws(() => contract.open(), "Offer contain no text!");
+            assert.throws(() => contract.open(), 'Offer contain no text!');
         });
 
         it('should open (not open yet)', async () => {
@@ -167,7 +166,7 @@ describe('Offer contract', () => {
             contract.setText('Test', true);
             global.callerAddress = undefined;
 
-            assert.throws(() => contract.join(), "You should sign offer.");
+            assert.throws(() => contract.join(), 'You should sign offer.');
         });
 
         it('should join', async () => {
@@ -182,7 +181,7 @@ describe('Offer contract', () => {
             contract.setText('Test', true);
             contract.join();
 
-            assert.throws(() => contract.join(), "Already accepted");
+            assert.throws(() => contract.join(), 'Already accepted');
         });
     });
 
@@ -193,14 +192,13 @@ describe('Offer contract', () => {
         });
 
         function replaceCaller() {
-
             // change address for future calls
             global.callerAddress = generateAddress().toString('hex');
         }
 
         it('should fail to construct', async () => {
             global.callerAddress = undefined;
-            assert.throws(() => new Contract(), "You should sign offer creation!");
+            assert.throws(() => new Contract(), 'You should sign offer creation!');
         });
         it('should fail for setText', async () => {
             replaceCaller();

@@ -10,7 +10,6 @@ module.exports = (Constants, Crypto, WitnessMessageCommon) => {
     const {MSG_WITNESS_EXPOSE} = Constants.messageTypes;
 
     return class WitnessExpose extends WitnessMessageCommon {
-
         /**
          *
          * @param {WitnessMessageCommon} msg

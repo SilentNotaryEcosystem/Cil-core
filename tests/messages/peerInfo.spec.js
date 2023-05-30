@@ -2,13 +2,12 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const debug = require('debug')('peerInfo:');
 
-
 const factory = require('../testFactory');
 
 let templatePeer;
 
 describe('PeerInfo Message', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -27,7 +26,7 @@ describe('PeerInfo Message', () => {
         };
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -49,11 +48,9 @@ describe('PeerInfo Message', () => {
         assert.isOk(Buffer.isBuffer(peerInfo.address));
     });
 
-    it('should create with address from Buffer with default port', function() {
+    it('should create with address from Buffer with default port', function () {
         const peerInfo = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE}
-            ],
+            capabilities: [{service: factory.Constants.NODE}],
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         assert.equal(peerInfo.port, factory.Constants.port);

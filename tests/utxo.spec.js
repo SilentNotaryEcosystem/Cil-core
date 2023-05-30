@@ -8,7 +8,7 @@ const factory = require('./testFactory');
 const {arrayEquals} = require('../utils');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
-const createDummyUtxo = (arrIndexes) => {
+const createDummyUtxo = arrIndexes => {
     const txHash = pseudoRandomBuffer().toString('hex');
     const utxo = new factory.UTXO({txHash});
     const coins = new factory.Coins(10, generateAddress());
@@ -19,12 +19,12 @@ const createDummyUtxo = (arrIndexes) => {
 };
 
 describe('UTXO', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -101,7 +101,6 @@ describe('UTXO', () => {
         // it shouldn't affect copy
         assert.isOk(arrayEquals(clone.getIndexes(), [12, 0, 431]));
         assert.isOk(clone.coinsAtIndex(0));
-
     });
 
     it('should pass EQUALITY ', async () => {
@@ -150,9 +149,17 @@ describe('UTXO', () => {
         const {utxo} = createDummyUtxo([12, 0, 431]);
 
         const objResult = utxo.toObject();
-        assert.isOk(arrayEquals(Object.keys(objResult).map(key => parseInt(key)), [12, 0, 431]));
-        assert.isOk(Object.keys(objResult).every(key => typeof objResult[key].amount === 'number' &&
-                                                        typeof objResult[key].receiverAddr === 'string'));
+        assert.isOk(
+            arrayEquals(
+                Object.keys(objResult).map(key => parseInt(key)),
+                [12, 0, 431]
+            )
+        );
+        assert.isOk(
+            Object.keys(objResult).every(
+                key => typeof objResult[key].amount === 'number' && typeof objResult[key].receiverAddr === 'string'
+            )
+        );
     });
 
     it('should getOutputsForAddress', async () => {

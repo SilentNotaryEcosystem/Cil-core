@@ -11,11 +11,11 @@ describe('BlockInfo tests', () => {
     let blockInfo;
     let block;
 
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
     });
 
-    beforeEach(async function() {
+    beforeEach(async function () {
         block = createDummyBlock(factory);
         blockInfo = new factory.BlockInfo(block.header);
     });

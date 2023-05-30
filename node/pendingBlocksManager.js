@@ -11,7 +11,7 @@ const {mergeSets} = require('../utils');
 const debug = debugLib('pendingBlocksManager:');
 
 // IMPORTANT: how many witnesses should include it in graph to make it stable
-const majority = (nConcilium) => parseInt(nConcilium / 2) + 1;
+const majority = nConcilium => parseInt(nConcilium / 2) + 1;
 
 module.exports = (factory, factoryOptions) => {
     const {Constants, PatchDB} = factory;
@@ -55,10 +55,11 @@ module.exports = (factory, factoryOptions) => {
                 for (let strHash of block.parentHashes) {
                     if (this._dag.hasVertex(strHash)) this._dag.add(block.getHash(), strHash);
                 }
-                this._dag.saveObj(
-                    block.getHash(),
-                    {patch: patchState, blockHeader: block.header, bIsEmpty: block.isEmpty()}
-                );
+                this._dag.saveObj(block.getHash(), {
+                    patch: patchState,
+                    blockHeader: block.header,
+                    bIsEmpty: block.isEmpty()
+                });
             });
         }
 
@@ -136,8 +137,7 @@ module.exports = (factory, factoryOptions) => {
                     sortedDownTipIndexes.map(i => arrTips[i]),
                     arrParents
                 );
-            } catch (e) {
-            }
+            } catch (e) {}
 
             // TODO: review it
             if (!arrParents.length) logger.debug('No pending parents found, using stable tips!');
@@ -178,7 +178,6 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         _sortTips(arrTips, nConciliumId) {
-
             // find previous block of selected concilium (if any)
             // first of all, we should build non-conflicting path for selected concilium,
             // so we'll include own tip, if any
@@ -193,7 +192,6 @@ module.exports = (factory, factoryOptions) => {
             return arrTips
                 .map((e, i) => i)
                 .sort((i1, i2) => {
-
                     // this will bring prevBlockHash to the head of array
                     if (i1 === prevBlockIndex) return -1;
                     if (i2 === prevBlockIndex) return 1;
@@ -202,8 +200,10 @@ module.exports = (factory, factoryOptions) => {
 
                     // equal WitnessNum
                     if (!diff) {
-                        return this._dag.findPathsDown(arrTips[i2]).getLongestPathLength() -
-                               this._dag.findPathsDown(arrTips[i1]).getLongestPathLength();
+                        return (
+                            this._dag.findPathsDown(arrTips[i2]).getLongestPathLength() -
+                            this._dag.findPathsDown(arrTips[i1]).getLongestPathLength()
+                        );
                     } else {
                         return diff;
                     }
@@ -219,7 +219,6 @@ module.exports = (factory, factoryOptions) => {
          *                      - this means it's final and applyed to storage
          */
         mergePatches(arrHashes, arrSuccessfullyMergedBlocksHashes) {
-
             // no arrSuccessfullyMergedBlocksHashes, then we'r trying to validate block
             // has - we'r trying to getBestParents, merge as much as possible
             const bThrowOnFail = !arrSuccessfullyMergedBlocksHashes;
@@ -384,14 +383,12 @@ module.exports = (factory, factoryOptions) => {
                 try {
                     patch.merge(patchToApply);
                 } catch (e) {
-
                     // merge failed! this means that tip is on top of incompatible branch
                     setBlocksToRollback = mergeSets(
                         new Set(this._dag.findPathsDown(tip).vertices()),
                         setBlocksToRollback
                     );
                 }
-
             }
             this._removeBlocks(setBlocksToRollback);
 
@@ -466,12 +463,10 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Boolean}
          */
         isReasonToWitness(block) {
-
             // we are interested only in pending parents!
             const arrParents = block.parentHashes.filter(strHash => this._dag.hasVertex(strHash));
 
             return arrParents.find(hash => {
-
                 // no reason to create block upon own previous
                 if (this._dag.readObj(hash).conciliumId === block.conciliumId) return false;
                 const arrPaths = this._dag.findPathsDown(hash);

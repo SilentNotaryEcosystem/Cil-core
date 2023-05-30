@@ -6,7 +6,7 @@ const factory = require('../testFactory');
 let msgTemplate;
 
 describe('Version Message', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -27,7 +27,7 @@ describe('Version Message', () => {
         };
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -62,7 +62,6 @@ describe('Version Message', () => {
         assert.isOk(reconstructedVersion.data.peerInfo);
         assert.isOk(reconstructedVersion.data.timeStamp);
         assert.isOk(reconstructedVersion.data.nonce);
-
     });
 
     it('should pass encoding/decoding MsgVersion', async () => {

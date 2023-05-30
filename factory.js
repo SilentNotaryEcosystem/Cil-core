@@ -10,7 +10,6 @@ const config = process.env.NODE_ENV === 'Devel' ? configDev : configProd;
  * Class to easy replacement used components
  */
 
-
 const Ipv6TransportWrapper = require('./network/ipv6Transport');
 
 class ProdFactory extends BaseFactory {

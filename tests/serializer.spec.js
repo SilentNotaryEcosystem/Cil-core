@@ -6,12 +6,12 @@ const debug = require('debug')('serializer');
 const factory = require('./testFactory');
 
 describe('Serializer', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -44,7 +44,8 @@ describe('Serializer', () => {
         const serializedMessage = [
             61, 8, 132, 198, 160, 148, 1, 26, 7, 118, 101, 114, 115, 105, 111, 110, 50, 44, 16, 204, 235, 250, 218, 5,
             26, 32, 10, 2, 8, 1, 10, 13, 8, 2, 18, 9, 97, 115, 100, 97, 115, 100, 97, 115, 100, 18, 11, 8, 129, 64, 16,
-            184, 27, 24, 180, 36, 32, 3, 32, 133, 228, 3];
+            184, 27, 24, 180, 36, 32, 3, 32, 133, 228, 3
+        ];
         const msg = factory.Serializer.deSerialize(Buffer.from(serializedMessage));
         assert.isOk(msg);
         assert.isOk(msg.isVersion());
@@ -54,7 +55,8 @@ describe('Serializer', () => {
     it('should FAIL to deserialize PARTIAL message', async () => {
         const serializedMessage = [
             61, 8, 132, 198, 160, 148, 1, 26, 7, 118, 101, 114, 115, 105, 111, 110, 50, 44, 16, 204, 235, 250, 218, 5,
-            26, 32, 10, 2];
+            26, 32, 10, 2
+        ];
         try {
             factory.Serializer.deSerialize(Buffer.from(serializedMessage));
         } catch (err) {

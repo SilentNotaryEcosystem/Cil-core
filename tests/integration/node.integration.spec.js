@@ -8,8 +8,13 @@ const debugLib = require('debug');
 
 const factory = require('../testFactory');
 const factoryIpV6 = require('../testFactoryIpV6');
-const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress, createObjInvocationCode} = require(
-    '../testUtil');
+const {
+    pseudoRandomBuffer,
+    createDummyBlock,
+    processBlock,
+    generateAddress,
+    createObjInvocationCode
+} = require('../testUtil');
 const {arrayIntersection} = require('../../utils');
 
 chai.use(require('chai-as-promised'));
@@ -23,7 +28,7 @@ const delay = undefined;
 const maxConnections = os.platform() === 'win32' ? 4 : 8;
 //const maxConnections=2;
 
-const createGenesisPatchAndSpendingTx = (factory) => {
+const createGenesisPatchAndSpendingTx = factory => {
     const patch = new factory.PatchDB(0);
 
     const receiverKeyPair = factory.Crypto.createKeyPair();
@@ -105,17 +110,17 @@ const createLiveNet = async (onlySeedProcessBlock = false) => {
 };
 
 describe('Node integration tests', async () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
         await factoryIpV6.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
-    it('should disconnect from self', async function() {
+    it('should disconnect from self', async function () {
         this.timeout(20000);
 
         const addr = factory.Transport.generateAddress();
@@ -129,7 +134,7 @@ describe('Node integration tests', async () => {
         await newNode.bootstrap();
     });
 
-    it('should get peers from seedNode', async function() {
+    it('should get peers from seedNode', async function () {
         this.timeout(20000);
 
         const seedAddress = factory.Transport.generateAddress();
@@ -145,21 +150,15 @@ describe('Node integration tests', async () => {
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo2 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null}
-            ],
+            capabilities: [{service: factory.Constants.NODE, data: null}],
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo3 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('1111')}],
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         const peerInfo4 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('2222')}],
             address: factory.Transport.strToAddress(factory.Transport.generateAddress())
         });
         for (let peerInfo of [peerInfo1, peerInfo2, peerInfo3, peerInfo4]) {
@@ -168,7 +167,9 @@ describe('Node integration tests', async () => {
 
         const testNode = new factory.Node({
             listenAddr: factory.Transport.generateAddress(),
-            delay, queryTimeout: 5000, arrSeedAddresses: [seedAddress],
+            delay,
+            queryTimeout: 5000,
+            arrSeedAddresses: [seedAddress],
             isSeed: true
         });
 
@@ -183,7 +184,7 @@ describe('Node integration tests', async () => {
         assert.isOk(peers.every(peerInfo => peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port));
     });
 
-    it('should create nodes and get all of them connected and advertised to seed', async function() {
+    it('should create nodes and get all of them connected and advertised to seed', async function () {
         this.timeout(60000);
         const {seedNode, arrNodes} = await createNet();
         const arrPromises = [];
@@ -200,16 +201,21 @@ describe('Node integration tests', async () => {
 
         const seedPeers = seedNode._peerManager.filterPeers();
         assert.isAtLeast(seedPeers.length, maxConnections);
-        assert.isOk(seedPeers.every(peerInfo =>
-            (peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port) &&
-
-            // we define custom ports 8000+i
-            (peerInfo.port === factory.Constants.port ||
-             (peerInfo.port >= 8000 && peerInfo.port <= 8000 + maxConnections))
-        ));
+        assert.isOk(
+            seedPeers.every(
+                peerInfo =>
+                    peerInfo &&
+                    peerInfo.capabilities &&
+                    peerInfo.address &&
+                    peerInfo.port &&
+                    // we define custom ports 8000+i
+                    (peerInfo.port === factory.Constants.port ||
+                        (peerInfo.port >= 8000 && peerInfo.port <= 8000 + maxConnections))
+            )
+        );
     });
 
-    it('should propagate TX over all nodes', async function() {
+    it('should propagate TX over all nodes', async function () {
         this.timeout(60000);
         const {seedNode, arrNodes} = await createNet();
         const {patch, tx} = createGenesisPatchAndSpendingTx(factory);
@@ -222,11 +228,12 @@ describe('Node integration tests', async () => {
         const arrTxPromises = [];
 
         for (let i = 0; i < maxConnections; i++) {
-
             // set fakes for _mempool.addTx that means: node received tx
-            arrTxPromises.push(new Promise(resolve => {
-                arrNodes[i]._handleTxMessage = resolve;
-            }));
+            arrTxPromises.push(
+                new Promise(resolve => {
+                    arrNodes[i]._handleTxMessage = resolve;
+                })
+            );
             arrBootrapPromises.push(arrNodes[i].bootstrap());
         }
         await Promise.all(arrBootrapPromises);
@@ -236,7 +243,7 @@ describe('Node integration tests', async () => {
         await Promise.all(arrTxPromises);
     });
 
-    it('should propagate GENESIS block over all nodes', async function() {
+    it('should propagate GENESIS block over all nodes', async function () {
         this.timeout(60000);
         const {arrNodes} = await createNet(true);
 
@@ -244,10 +251,11 @@ describe('Node integration tests', async () => {
         const arrBlockPromises = [];
 
         for (let i = 0; i < maxConnections; i++) {
-
-            arrBlockPromises.push(new Promise(resolve => {
-                arrNodes[i]._acceptBlock = resolve;
-            }));
+            arrBlockPromises.push(
+                new Promise(resolve => {
+                    arrNodes[i]._acceptBlock = resolve;
+                })
+            );
             arrBootstrapPromises.push(arrNodes[i].bootstrap());
         }
         await Promise.all(arrBootstrapPromises);
@@ -263,7 +271,7 @@ describe('Node integration tests', async () => {
         assert.isOk(node._peerManager);
     });
 
-    it('should prevent double spend in fork', async function() {
+    it('should prevent double spend in fork', async function () {
         this.timeout(60000);
 
         const amount = 1e6;
@@ -384,7 +392,6 @@ describe('Node integration tests', async () => {
         }
         const patch32 = await processBlock(node, block32);
         {
-
             // 2-1 become stable, utxo was flushed to storage
             let utxo = patch32.getUtxo(txHash);
             assert.isNotOk(utxo);
@@ -408,7 +415,7 @@ describe('Node integration tests', async () => {
         }
     });
 
-    it('should test one signature for multiple inputs', async function() {
+    it('should test one signature for multiple inputs', async function () {
         this.timeout(60000);
 
         const amount = 1e6;
@@ -470,7 +477,6 @@ describe('Node integration tests', async () => {
 
         assert.isOk(patch21);
         {
-
             // check the change
             const utxo = patch21.getUtxo(txHash2);
             assert.isOk(utxo);
@@ -480,7 +486,7 @@ describe('Node integration tests', async () => {
         }
     });
 
-    it('should test one signature for multiple inputs (contract call)', async function() {
+    it('should test one signature for multiple inputs (contract call)', async function () {
         this.timeout(60000);
 
         const amount = 1e6;
@@ -496,7 +502,6 @@ describe('Node integration tests', async () => {
         // "create" G
         let gBlock;
         {
-
             const contractCode = `
 class TestClass extends Base{
     async testFunc() {
@@ -539,7 +544,6 @@ exports=new TestClass();
         let block2;
         let txHash2;
         {
-
             const tx = factory.Transaction.invokeContract(
                 strContractAddr,
                 createObjInvocationCode('testFunc', []),
@@ -570,7 +574,6 @@ exports=new TestClass();
 
         assert.isOk(patch21);
         {
-
             // check the change
             const utxo = patch21.getUtxo(txHash2);
             assert.isOk(utxo);
@@ -582,7 +585,7 @@ exports=new TestClass();
         }
     });
 
-    it('should write wallet index (for new address)', async function() {
+    it('should write wallet index (for new address)', async function () {
         this.timeout(60000);
 
         const amount = 1e6;
@@ -626,7 +629,6 @@ exports=new TestClass();
         let txHash2;
         let coinbaseTxHash;
         {
-
             // create Tx
             const tx = new factory.Transaction();
             tx.conciliumId = 0;
@@ -642,7 +644,7 @@ exports=new TestClass();
             block2.setHeight(node._calcHeight(block2.parentHashes));
             block2.finish(1e6 - 2e3, kpReceiver.getAddress());
 
-            coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
+            coinbaseTxHash = new factory.Transaction(block2.txns[0]).getHash();
         }
         await processBlock(node, block2);
 
@@ -664,7 +666,7 @@ exports=new TestClass();
         assert.equal(arrUtxos[2].getTxHash(), coinbaseTxHash);
     });
 
-    it('should rebuild wallet index (existed UTXOs)', async function() {
+    it('should rebuild wallet index (existed UTXOs)', async function () {
         this.timeout(60000);
 
         const amount = 1e6;
@@ -705,7 +707,6 @@ exports=new TestClass();
         let txHash2;
         let coinbaseTxHash;
         {
-
             // create Tx
             const tx = new factory.Transaction();
             tx.conciliumId = 0;
@@ -721,7 +722,7 @@ exports=new TestClass();
             block2.setHeight(node._calcHeight(block2.parentHashes));
             block2.finish(1e6 - 2e3, kpReceiver.getAddress());
 
-            coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
+            coinbaseTxHash = new factory.Transaction(block2.txns[0]).getHash();
         }
         await processBlock(node, block2);
 
@@ -763,8 +764,7 @@ exports=new TestClass();
             return tx;
         }
 
-        beforeEach(async function() {
-
+        beforeEach(async function () {
             this.timeout(60000);
 
             const amount = 1e6;
@@ -796,8 +796,7 @@ exports=new TestClass();
             await processBlock(node, gBlock);
         });
 
-        it('should fail to exec same tx (blocks one by one)', async function() {
-
+        it('should fail to exec same tx (blocks one by one)', async function () {
             // Genesis is stable now
             node._storage.getConciliumsCount = () => 4;
 
@@ -829,11 +828,9 @@ exports=new TestClass();
 
             const strError = `Output #0 of Tx ${txHash} already spent!`;
             return assert.isRejected(processBlock(node, block3), new RegExp(strError));
-
         });
 
-        it('should fail to exec same tx (blocks with interleave)', async function() {
-
+        it('should fail to exec same tx (blocks with interleave)', async function () {
             // Genesis is stable now
             node._storage.getConciliumsCount = () => 4;
 
@@ -876,11 +873,9 @@ exports=new TestClass();
 
             const strError = `Output #0 of Tx ${txHash} already spent!`;
             return assert.isRejected(processBlock(node, block4), new RegExp(strError));
-
         });
 
-        it('should fail to include blocks with conflicting tx (same) in graph', async function() {
-
+        it('should fail to include blocks with conflicting tx (same) in graph', async function () {
             // Genesis is stable now
             node._storage.getConciliumsCount = () => 3;
 
@@ -920,123 +915,117 @@ exports=new TestClass();
 
             const strError = `Patch merge: conflict on ${txHash} idx 0`;
             return assert.isRejected(processBlock(node, block3), new RegExp(strError));
-
         });
 
-        it('should fail to include blocks with conflicting tx (same) in graph (with interleave block)',
-            async function() {
+        it('should fail to include blocks with conflicting tx (same) in graph (with interleave block)', async function () {
+            // Genesis is stable now
+            node._storage.getConciliumsCount = () => 3;
 
-                // Genesis is stable now
-                node._storage.getConciliumsCount = () => 3;
+            // create child block21
+            let block21;
+            {
+                block21 = new factory.Block(0);
+                block21.parentHashes = [gBlock.getHash()];
+                block21.addTx(createTx(0));
+                block21.finish(1e6 - 2e3, generateAddress());
 
-                // create child block21
-                let block21;
-                {
-                    block21 = new factory.Block(0);
-                    block21.parentHashes = [gBlock.getHash()];
-                    block21.addTx(createTx(0));
-                    block21.finish(1e6 - 2e3, generateAddress());
-
-                    block21.setHeight(node._calcHeight(block21.parentHashes));
-                }
-                await processBlock(node, block21);
-
-                // create empty block31 with parent of block21
-                let block31;
-                {
-                    block31 = new factory.Block(0);
-                    block31.parentHashes = [block21.getHash()];
-                    block31.finish(0, generateAddress());
-
-                    block31.setHeight(node._calcHeight(block31.parentHashes));
-                }
-                await processBlock(node, block31);
-
-                // create empty block22
-                let block22;
-                {
-                    block22 = new factory.Block(1);
-                    block22.addTx(createTx(1));
-                    block22.parentHashes = [gBlock.getHash()];
-                    block22.finish(1e6 - 2e3, generateAddress());
-
-                    block22.setHeight(node._calcHeight(block22.parentHashes));
-                }
-                await processBlock(node, block22);
-
-                // create child block41
-                let block41;
-                {
-                    block41 = new factory.Block(2);
-                    block41.parentHashes = [block22.getHash(), block31.getHash()];
-                    block41.finish(0, generateAddress());
-
-                    block41.setHeight(node._calcHeight(block41.parentHashes));
-                }
-
-                const strError = `Patch merge: conflict on ${txHash} idx 0`;
-                return assert.isRejected(processBlock(node, block41), new RegExp(strError));
+                block21.setHeight(node._calcHeight(block21.parentHashes));
             }
-        );
+            await processBlock(node, block21);
 
-        it('should unwind conflictingblock that lose', async function() {
+            // create empty block31 with parent of block21
+            let block31;
+            {
+                block31 = new factory.Block(0);
+                block31.parentHashes = [block21.getHash()];
+                block31.finish(0, generateAddress());
 
-                // Genesis is stable now
-                node._storage.getConciliumsCount = () => 3;
-
-                // create child block21
-                let block21;
-                {
-                    block21 = new factory.Block(0);
-                    block21.parentHashes = [gBlock.getHash()];
-                    block21.addTx(createTx(0));
-                    block21.finish(1e6 - 2e3, generateAddress());
-
-                    block21.setHeight(node._calcHeight(block21.parentHashes));
-                }
-                await processBlock(node, block21);
-
-                // create empty block31 with parent of block21
-                let block31;
-                {
-                    block31 = new factory.Block(0);
-                    block31.parentHashes = [block21.getHash()];
-                    block31.finish(0, generateAddress());
-
-                    block31.setHeight(node._calcHeight(block31.parentHashes));
-                }
-                await processBlock(node, block31);
-
-                // create empty block22
-                let block22;
-                {
-                    block22 = new factory.Block(1);
-                    block22.addTx(createTx(1));
-                    block22.parentHashes = [gBlock.getHash()];
-                    block22.finish(1e6 - 2e3, generateAddress());
-
-                    block22.setHeight(node._calcHeight(block22.parentHashes));
-                }
-                await processBlock(node, block22);
-
-                // create child block41
-                let block41;
-                {
-                    block41 = new factory.Block(2);
-                    block41.parentHashes = [block31.getHash()];
-                    block41.finish(0, generateAddress());
-
-                    block41.setHeight(node._calcHeight(block41.parentHashes));
-                }
-
-                node._unwindBlock = sinon.fake();
-
-                await processBlock(node, block41);
-
-                assert.isOk(node._unwindBlock.calledOnce);
-                const [unwindedBlock] = node._unwindBlock.args[0];
-                assert.equal(unwindedBlock.getHash(), block22.getHash());
+                block31.setHeight(node._calcHeight(block31.parentHashes));
             }
-        );
+            await processBlock(node, block31);
+
+            // create empty block22
+            let block22;
+            {
+                block22 = new factory.Block(1);
+                block22.addTx(createTx(1));
+                block22.parentHashes = [gBlock.getHash()];
+                block22.finish(1e6 - 2e3, generateAddress());
+
+                block22.setHeight(node._calcHeight(block22.parentHashes));
+            }
+            await processBlock(node, block22);
+
+            // create child block41
+            let block41;
+            {
+                block41 = new factory.Block(2);
+                block41.parentHashes = [block22.getHash(), block31.getHash()];
+                block41.finish(0, generateAddress());
+
+                block41.setHeight(node._calcHeight(block41.parentHashes));
+            }
+
+            const strError = `Patch merge: conflict on ${txHash} idx 0`;
+            return assert.isRejected(processBlock(node, block41), new RegExp(strError));
+        });
+
+        it('should unwind conflictingblock that lose', async function () {
+            // Genesis is stable now
+            node._storage.getConciliumsCount = () => 3;
+
+            // create child block21
+            let block21;
+            {
+                block21 = new factory.Block(0);
+                block21.parentHashes = [gBlock.getHash()];
+                block21.addTx(createTx(0));
+                block21.finish(1e6 - 2e3, generateAddress());
+
+                block21.setHeight(node._calcHeight(block21.parentHashes));
+            }
+            await processBlock(node, block21);
+
+            // create empty block31 with parent of block21
+            let block31;
+            {
+                block31 = new factory.Block(0);
+                block31.parentHashes = [block21.getHash()];
+                block31.finish(0, generateAddress());
+
+                block31.setHeight(node._calcHeight(block31.parentHashes));
+            }
+            await processBlock(node, block31);
+
+            // create empty block22
+            let block22;
+            {
+                block22 = new factory.Block(1);
+                block22.addTx(createTx(1));
+                block22.parentHashes = [gBlock.getHash()];
+                block22.finish(1e6 - 2e3, generateAddress());
+
+                block22.setHeight(node._calcHeight(block22.parentHashes));
+            }
+            await processBlock(node, block22);
+
+            // create child block41
+            let block41;
+            {
+                block41 = new factory.Block(2);
+                block41.parentHashes = [block31.getHash()];
+                block41.finish(0, generateAddress());
+
+                block41.setHeight(node._calcHeight(block41.parentHashes));
+            }
+
+            node._unwindBlock = sinon.fake();
+
+            await processBlock(node, block41);
+
+            assert.isOk(node._unwindBlock.calledOnce);
+            const [unwindedBlock] = node._unwindBlock.args[0];
+            assert.equal(unwindedBlock.getHash(), block22.getHash());
+        });
     });
 });

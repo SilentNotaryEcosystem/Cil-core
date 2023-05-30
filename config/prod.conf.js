@@ -1,5 +1,4 @@
 module.exports = {
-
     // some of constants will be injected from prototypes in Factory!
     constants: {
         LOCAL_TX_FILE_NAME: 'txns.json',
@@ -107,7 +106,6 @@ module.exports = {
 
         // fees
         fees: {
-
             // money send fee per Kbyte
             TX_FEE: 4000,
 

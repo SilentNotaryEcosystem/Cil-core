@@ -8,7 +8,7 @@ const factory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 describe('Block tests', () => {
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
     });
 
@@ -63,7 +63,6 @@ describe('Block tests', () => {
         assert.isOk(Array.isArray(block.parentHashes));
         assert.isOk(block.parentHashes.length, 2);
         assert.isOk(typeof block.parentHashes[0] === 'string');
-
     });
 
     it('should calc hash', async () => {

@@ -7,12 +7,12 @@ const {createDummyTx} = require('../testUtil');
 const factory = require('../testFactory');
 
 describe('Message Transaction', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -43,7 +43,6 @@ describe('Message Transaction', () => {
         const restoredTx = msg.tx;
         assert.equal(tx.hash, restoredTx.hash);
         assert.isOk(restoredTx.equals(tx));
-
     });
 
     it('should encode/decode message', async () => {
@@ -71,5 +70,4 @@ describe('Message Transaction', () => {
         const restoredTx = msg.tx;
         assert.isNotOk(restoredTx);
     });
-
 });

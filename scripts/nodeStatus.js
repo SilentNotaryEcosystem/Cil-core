@@ -34,5 +34,3 @@ async function main() {
     const strStatus = nSecDiff < 600 ? 'Alive' : 'Syncing or DEAD';
     console.log(`Status: ${strStatus}`);
 }
-
-
