@@ -495,8 +495,8 @@ module.exports = (factory, factoryOptions) => {
                         if (bShouldRequest) nBlockToRequest++;
 
                         // i.e. we store it, it somehow missed dag
-                        if(bBlockKnown && this._mainDag.getBlockInfo(strHash)) {
-                            this._queueBlockExec(strHash, peer);
+                        if(bBlockKnown && !this._mainDag.getBlockInfo(strHash)) {
+                            await this._processStoredBlock(strHash, peer);
                         }
                     }
 
@@ -2636,6 +2636,12 @@ module.exports = (factory, factoryOptions) => {
 
             this._arrSeedAddresses = arrSeedAddresses;
             this._arrDnsSeeds = arrDnsSeeds.length ? arrDnsSeeds : Constants.DNS_SEED;
+        }
+
+        async _processStoredBlock(strHash, peer){
+            const bi=await this._storage.getBlockInfo(strHash);
+            this._storeBlockAndInfo(undefined, bi, true);
+            this._queueBlockExec(strHash, peer);
         }
     };
 };

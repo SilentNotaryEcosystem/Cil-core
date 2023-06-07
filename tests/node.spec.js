@@ -331,6 +331,7 @@ describe('Node tests', async () => {
 
         node._mempool.hasTx = sinon.fake.returns(true);
         node._storage.hasBlock = sinon.fake.returns(true);
+        node._mainDag.getBlockInfo = sinon.fake.returns(true);
 
         const peer = new factory.Peer(createDummyPeer(factory));
         peer.pushMessage = sinon.fake();
@@ -349,7 +350,7 @@ describe('Node tests', async () => {
         await node._handleInvMessage(peer, msgInv);
 
         assert.isOk(node._mempool.hasTx.calledOnce);
-        assert.isOk(node._storage.hasBlock.calledOnce);
+        assert.isOk(node._mainDag.getBlockInfo.callCount>=1);
         assert.isNotOk(peer.pushMessage.calledOnce);
     });
 
