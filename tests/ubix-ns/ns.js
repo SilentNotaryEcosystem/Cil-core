@@ -76,21 +76,24 @@ class Base {
 }
 
 class Ns extends Base {
-    constructor(publicKey) {
+    constructor(strPublicKey) {
         super();
+
         // remove everything below for proxy!
+        this._validatePublicKey(strPublicKey);
+
         this._updateFee = 130000;
         this._ns = {};
         this._providers = ['email', 'tg', 'ig'];
         this._proxyAddress = undefined;
 
-        const keyPair = ec.genKeyPair();
-        this._publicKey = publicKey;
+        this._publicKey = strPublicKey;
     }
 
-    setPublicKey(key) {
+    setPublicKey(strKey) {
         this._checkOwner();
-        this._publicKey = key;
+        this._validatePublicKey(strKey);
+        this._publicKey = strKey;
     }
 
     getPublicKey() {
@@ -159,6 +162,7 @@ class Ns extends Base {
         }
 
         this._validatePermissions();
+        this._validatePublicKey(this._publicKey);
         this._validateCreateParameters(strProvider, strName, strAddress, strVerificationCode);
 
         const strProviderLower = strProvider.trim().toLowerCase();
@@ -171,14 +175,20 @@ class Ns extends Base {
 
         const strToSign = `${strProviderLower}:${strNameLower}:${strAddressLower}`;
 
-        if (
-            !ec.verify(
+        let bResult = false;
+
+        try {
+            bResult = ec.verify(
                 strToSign,
                 JSON.parse(Buffer.from(strVerificationCode, 'base64').toString('binary')),
                 this._publicKey,
                 'hex'
-            )
-        ) {
+            );
+        } catch (e) {
+            throw 'Not valid verification code or public key';
+        }
+
+        if (!bResult) {
             throw 'Not valid verification code';
         }
 
@@ -224,6 +234,7 @@ class Ns extends Base {
         return JSON.stringify(ec.sign(hash, this._privateKey, 'hex'));
     }
 
+    // TODO: Remove for release
     _getNs() {
         // this._checkOwner();
         return this._ns;
@@ -244,6 +255,10 @@ class Ns extends Base {
         this._validateParameters(strProvider, strName);
         if (typeof strAddress !== 'string') throw new Error('strAddress should be a string');
         if (typeof strVerificationCode !== 'string') throw new Error('strVerificationCode should be a string');
+    }
+
+    _validatePublicKey(strPublicKey) {
+        if (typeof strPublicKey !== 'string') throw new Error('Contract should have valid public key');
     }
 
     _sha256(strInput) {

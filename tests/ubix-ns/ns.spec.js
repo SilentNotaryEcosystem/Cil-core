@@ -2,6 +2,7 @@
 
 const {describe, it} = require('mocha');
 const chai = require('chai');
+const elliptic = require('elliptic');
 
 const {Ns: NsContract} = require('./ns');
 const factory = require('../testFactory');
@@ -9,13 +10,28 @@ const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
 
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
+const ec = new elliptic.ec('secp256k1');
 
 let contract;
+let strPubliсKey, strPrivateKey;
+
+const getVerificationCode = (strProvider, strName, strAddress) => {
+    const strProviderLower = strProvider.trim().toLowerCase();
+    const strNameLower = strName.trim().toLowerCase();
+    const strAddressLower = strAddress.trim().toLowerCase().replace(/^ux/, '');
+
+    const strToSign = `${strProviderLower}:${strNameLower}:${strAddressLower}`;
+
+    return Buffer.from(JSON.stringify(ec.sign(strToSign, strPrivateKey, 'hex')), 'binary').toString('base64');
+};
 
 describe('Ubix NS', () => {
     before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
+        const kp = ec.genKeyPair();
+        strPubliсKey = kp.getPublic(true, 'hex');
+        strPrivateKey = kp.getPrivate('hex');
     });
 
     after(async function () {
@@ -26,7 +42,43 @@ describe('Ubix NS', () => {
         global.value = 0;
         global.callerAddress = generateAddress().toString('hex');
         global.contractTx = pseudoRandomBuffer().toString('hex');
-        contract = new NsContract();
+        contract = new NsContract(strPubliсKey);
+    });
+
+    describe('check Ubix NS public key', async () => {
+        beforeEach(async () => {
+            global.value = 130000;
+        });
+
+        it('should throw (Contract should have valid public key) from constructor', async () => {
+            assert.throws(() => new NsContract(), 'Contract should have valid public key');
+        });
+
+        it('should throw (Contract should have valid public key) from setter', async () => {
+            assert.throws(() => contract.setPublicKey(null), 'Contract should have valid public key');
+        });
+
+        it('should pass', async () => {
+            assert.isOk(contract);
+        });
+
+        it('should throw (Not valid verification code or public key) for strPublicKey', async () => {
+            contract.setPublicKey('');
+
+            const arrData = ['tg', 'mytestname', 'Ux121212121212'];
+            const strVerificationCode = getVerificationCode(...arrData);
+
+            assert.isRejected(
+                contract.create(...arrData, strVerificationCode),
+                'Not valid verification code or public key'
+            );
+        });
+
+        it('should throw (Unauthorized call)', async () => {
+            global.callerAddress = generateAddress().toString('hex');
+
+            assert.throws(() => contract.setPublicKey(strPubliсKey), 'Unauthorized call');
+        });
     });
 
     describe('check Ubix NS providers', async () => {
@@ -48,18 +100,12 @@ describe('Ubix NS', () => {
 
     describe('create Ubix NS record', async () => {
         let arrData;
-        let objData;
         let strVerificationCode;
 
         beforeEach(async () => {
             global.value = 130000;
             arrData = ['tg', 'mytestname', 'Ux121212121212'];
-            objData = {
-                provider: arrData[0],
-                address: arrData[2]
-            };
-
-            strVerificationCode = await contract.getVeficationCode(arrData[0], arrData[1]);
+            strVerificationCode = getVerificationCode(...arrData);
         });
 
         it('should create', async () => {
@@ -84,14 +130,14 @@ describe('Ubix NS', () => {
 
         it('should throw (strProvider should be a string)', async () => {
             assert.isRejected(
-                contract.create(null, 'mytestname', '0x121212121212', strVerificationCode),
+                contract.create(null, 'mytestname', 'Ux121212121212', strVerificationCode),
                 'strProvider should be a string'
             );
         });
 
         it('should throw (strName should be a string)', async () => {
             assert.isRejected(
-                contract.create('tg', null, '0x121212121212', strVerificationCode),
+                contract.create('tg', null, 'Ux121212121212', strVerificationCode),
                 'strName should be a string'
             );
         });
@@ -105,14 +151,14 @@ describe('Ubix NS', () => {
 
         it('should throw (strVerificationCode should be a string)', async () => {
             assert.isRejected(
-                contract.create('tg', 'mytestname', '0x121212121212', null),
+                contract.create('tg', 'mytestname', 'Ux121212121212', null),
                 'strVerificationCode should be a string'
             );
         });
 
         it('should throw (strProvider is not in the providers list)', async () => {
             assert.isRejected(
-                contract.create('whatsapp', 'mytestname', '0x121212121212', strVerificationCode),
+                contract.create('whatsapp', 'mytestname', 'Ux121212121212', strVerificationCode),
                 'strProvider is not in the providers list'
             );
         });
@@ -122,6 +168,17 @@ describe('Ubix NS', () => {
 
             assert.isRejected(contract.create(...arrData, strVerificationCode), 'Hash has already defined');
         });
+
+        it('should throw (Not valid verification code)', async () => {
+            const strVerificationCode = getVerificationCode('', '', '');
+            assert.isRejected(contract.create(...arrData, strVerificationCode), 'Not valid verification code');
+        });
+
+        it('should throw (Not valid verification code or public key) for strVerificationCode', async () => {
+            const arrData = ['tg', 'mytestname', 'Ux121212121212'];
+
+            assert.isRejected(contract.create(...arrData, ''), 'Not valid verification code or public key');
+        });
     });
 
     describe('remove Ubix NS record', async () => {
@@ -130,13 +187,11 @@ describe('Ubix NS', () => {
 
         beforeEach(async () => {
             global.value = 130000;
-            arrData = ['tg', strName, '0x121212121212'];
+            arrData = ['tg', strName, 'Ux121212121212'];
         });
 
         it('should remove', async () => {
-            const hash = contract._sha256(strName);
-
-            const strVerificationCode = await contract.getVeficationCode(...arrData);
+            const strVerificationCode = getVerificationCode(...arrData);
 
             await contract.create(...arrData, strVerificationCode);
 
@@ -164,7 +219,7 @@ describe('Ubix NS', () => {
         });
 
         it('should throw (You are not the owner)', async () => {
-            const strVerificationCode = await contract.getVeficationCode(arrData[0], arrData[1]);
+            const strVerificationCode = getVerificationCode(...arrData);
             await contract.create(...arrData, strVerificationCode);
 
             global.callerAddress = generateAddress().toString('hex');
@@ -184,7 +239,7 @@ describe('Ubix NS', () => {
             global.value = 130000;
             arrData = [strProvider, strName, strAddress];
 
-            strVerificationCode = await contract.getVeficationCode(strProvider, strName);
+            strVerificationCode = getVerificationCode(...arrData);
 
             await contract.create(...arrData, strVerificationCode);
         });
@@ -208,7 +263,7 @@ describe('Ubix NS', () => {
         it('should resolve 2 records for the different providers', async () => {
             const arrDataNew = ['ig', strName, strAddress];
 
-            const strIgVerificationCode = await contract.getVeficationCode('ig', strName);
+            const strIgVerificationCode = getVerificationCode(...arrDataNew);
 
             await contract.create(...arrDataNew, strIgVerificationCode);
 
@@ -222,14 +277,8 @@ describe('Ubix NS', () => {
     });
 
     describe('verify Ubix NS record', async () => {
-        let arrData;
-        const strProvider = 'tg';
-        const strName = 'mytestname';
-        const strAddress = 'Ux121212121212';
-
         beforeEach(async () => {
             global.value = 130000;
-            arrData = [strProvider, strName, strAddress];
         });
 
         it('should throw (strProvider is not in the providers list)', async () => {
