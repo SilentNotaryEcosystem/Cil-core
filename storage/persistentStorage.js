@@ -87,6 +87,8 @@ module.exports = (factory, factoryOptions) => {
             this._initBlockDb();
             this._initPeerDb();
             this._initTxDb();
+            this._initInvestigateDb();
+
 
             // TODO: make it persistent after adding first address/key to wallet?
             if (walletSupport) {
@@ -457,6 +459,8 @@ module.exports = (factory, factoryOptions) => {
                     }
                     const key = this.constructor.createKey(CONTRACT_PREFIX, Buffer.from(strContractAddr, 'hex'));
                     arrOps.push({type: 'put', key, value: contract.encode()});
+
+                    await this._investigate(strContractAddr, contract, statePatch)
                 }
 
                 // save contract receipt
@@ -958,6 +962,7 @@ module.exports = (factory, factoryOptions) => {
             await this._blockStorage.close();
             await this._db.close();
             await this._peerStorage.close();
+            await this._investigateStorage.close();
             if (this._txIndexStorage) await this._txIndexStorage.close();
             if (this._walletStorage) await this._walletStorage.close();
         }
@@ -1163,5 +1168,48 @@ module.exports = (factory, factoryOptions) => {
         _initPeerDb() {
             this._peerStorage = levelup(this._downAdapter(`${this._pathPrefix}/${Constants.DB_PEERSTATE_DIR}`));
         }
+
+        _initInvestigateDb() {
+            this._investigateStorage = levelup(this._downAdapter(`${this._pathPrefix}/investigateContract`));
+        }
+
+        async _investigate(strContractAddr, contract, statePatch) {
+            if(strContractAddr!=='e61bfd8313ecb44d4e9a9ceb128b25e54747c417') return;
+
+            const nVal=contract.getData()._data['UBSN'][4]['a7f1cadf954440a26bba838ace6a1c200464f684'];
+
+
+            await this._investigateStorage.put(
+                Buffer.from(statePatch.calcPatchHash(), 'hex'), nVal
+            );
+        }
+
+        getInvestigationData(key){
+            return this._investigateStorage.get(key);
+        }
+
+        async* getAllForInvestigation() {
+            const it = this._investigateStorage.iterator();
+            const $_terminated = Symbol.for("terminated");
+
+            while (true) {
+                const next = await new Promise((r, x) => {
+                    it.next(function(err, key, value) {
+                        if (arguments.length === 0) r(undefined);
+                        if (err === null && key === undefined && value === undefined) r(undefined);
+                        if (err) x(err);
+//                        r({ key: key, value: new ArrayOfAddresses(value) });
+                        r({ key, value });
+                    });
+                });
+                if (next === undefined) { break; }
+                if ((yield next) === $_terminated) {
+                    await new Promise((r, x) => it.end((e) => (e ? x(x) : r())));
+                    return;
+                }
+            }
+
+        }
+
     };
 };

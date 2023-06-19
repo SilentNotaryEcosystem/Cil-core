@@ -516,4 +516,11 @@ module.exports = ({UTXO, Contract, TxReceipt}) =>
             this._mapSpentUtxos.delete(strHash);
 
         }
+
+        calcPatchHash(){
+            const strAllReceiptHashes=Array.from(this._mapTxReceipts.keys())
+                .sort()
+                .reduce((accum, curr) => accum+curr, '');
+            return strAllReceiptHashes;
+        }
     };
