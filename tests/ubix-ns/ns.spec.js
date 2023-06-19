@@ -62,18 +62,6 @@ describe('Ubix NS', () => {
             assert.isOk(contract);
         });
 
-        it('should throw (Not valid verification code or public key) for strPublicKey', async () => {
-            contract.setPublicKey('');
-
-            const arrData = ['tg', 'mytestname', 'Ux121212121212'];
-            const strVerificationCode = getVerificationCode(...arrData);
-
-            assert.isRejected(
-                contract.create(...arrData, strVerificationCode),
-                'Not valid verification code or public key'
-            );
-        });
-
         it('should throw (Unauthorized call)', async () => {
             global.callerAddress = generateAddress().toString('hex');
 
@@ -172,12 +160,6 @@ describe('Ubix NS', () => {
         it('should throw (Not valid verification code)', async () => {
             const strVerificationCode = getVerificationCode('', '', '');
             assert.isRejected(contract.create(...arrData, strVerificationCode), 'Not valid verification code');
-        });
-
-        it('should throw (Not valid verification code or public key) for strVerificationCode', async () => {
-            const arrData = ['tg', 'mytestname', 'Ux121212121212'];
-
-            assert.isRejected(contract.create(...arrData, ''), 'Not valid verification code or public key');
         });
     });
 

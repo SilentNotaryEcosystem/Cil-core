@@ -175,20 +175,14 @@ class Ns extends Base {
 
         const strToSign = `${strProviderLower}:${strNameLower}:${strAddressLower}`;
 
-        let bResult = false;
-
-        try {
-            bResult = ec.verify(
+        if (
+            !ec.verify(
                 strToSign,
                 JSON.parse(Buffer.from(strVerificationCode, 'base64').toString('binary')),
                 this._publicKey,
                 'hex'
-            );
-        } catch (e) {
-            throw 'Not valid verification code or public key';
-        }
-
-        if (!bResult) {
+            )
+        ) {
             throw 'Not valid verification code';
         }
 
