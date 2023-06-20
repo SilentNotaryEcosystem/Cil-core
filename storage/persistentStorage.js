@@ -1176,12 +1176,19 @@ module.exports = (factory, factoryOptions) => {
         async _investigate(strContractAddr, contract, statePatch) {
             if(strContractAddr!=='e61bfd8313ecb44d4e9a9ceb128b25e54747c417') return;
 
-            const nVal=contract.getData()._data['UBSN'][4]['a7f1cadf954440a26bba838ace6a1c200464f684'];
+            let nVal;
+            if(contract.getData()._data['UBSN']){
+                nVal=contract.getData()._data['UBSN'][4]['a7f1cadf954440a26bba838ace6a1c200464f684'];
+            }
 
+            if(nVal !== undefined) {
+                const bufVal = Buffer.allocUnsafe(8);
+                bufVal.writeDoubleBE(nVal, 0)
 
-            await this._investigateStorage.put(
-                Buffer.from(statePatch.calcPatchHash(), 'hex'), nVal
-            );
+                await this._investigateStorage.put(
+                    Buffer.from(statePatch.calcPatchHash(), 'hex'), bufVal
+                );
+            }
         }
 
         getInvestigationData(key){
