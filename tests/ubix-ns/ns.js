@@ -147,7 +147,7 @@ class Ns extends Base {
             }
         }
 
-        if (Object.keys(result).length === 0) throw new Error('Hash is not found');
+        if (Object.keys(result).length === 0) throw new Error('Account is not found');
 
         return result;
     }
@@ -171,7 +171,7 @@ class Ns extends Base {
 
         const hash = this._sha256(`${strProviderLower}:${strNameLower}`);
 
-        if (this._ns[hash]) throw 'Hash has already defined';
+        if (this._ns[hash]) throw 'Account has already defined';
 
         const strToSign = `${strProviderLower}:${strNameLower}:${strAddressLower}`;
 
@@ -204,7 +204,7 @@ class Ns extends Base {
         const hash = this._sha256(`${strProvider}:${strName}`);
         const record = this._ns[hash];
 
-        if (!record || record.length === 0) throw new Error('Hash is not found');
+        if (!record || record.length === 0) throw new Error('Account is not found');
         if (record[1] !== callerAddress) throw new Error('You are not the owner');
 
         delete this._ns[hash];
