@@ -104,7 +104,15 @@ class Ns extends Base {
         return this._providers;
     }
 
-    addProvider(strProvider) {
+    async addProvider(strProvider) {
+        // remove for proxy contract!
+        if (this._proxyAddress) {
+            return await delegatecall(this._proxyAddress, {
+                method: 'addProvider',
+                arrArguments: [strProvider]
+            });
+        }
+
         this._checkOwner();
         if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
 
