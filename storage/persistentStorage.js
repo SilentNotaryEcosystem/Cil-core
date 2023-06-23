@@ -1181,7 +1181,8 @@ module.exports = (factory, factoryOptions) => {
                 nVal=contract.getData()._data['UBSN'][4]['a7f1cadf954440a26bba838ace6a1c200464f684'];
             }
 
-            if(nVal !== undefined) {
+            const strPatch=statePatch.calcPatchHash();
+            if(nVal !== undefined && isNaN(nVal) && strPatch && strPatch!== '') {
                 const bufVal = Buffer.allocUnsafe(8);
                 bufVal.writeDoubleBE(nVal, 0)
 
