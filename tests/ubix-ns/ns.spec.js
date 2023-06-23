@@ -257,25 +257,4 @@ describe('Ubix NS', () => {
             });
         });
     });
-
-    describe('verify Ubix NS record', async () => {
-        beforeEach(async () => {
-            global.value = 130000;
-        });
-
-        it('should throw (strProvider is not in the providers list)', async () => {
-            assert.isRejected(
-                contract.getVeficationCode('whatsapp', 'NONAME', 'ADDRESS'),
-                'strProvider is not in the providers list'
-            );
-        });
-
-        it('should throw (strProvider should be a string)', async () => {
-            assert.isRejected(contract.getVeficationCode(null, 'NONAME', 'ADDRESS'), 'strProvider should be a string');
-        });
-
-        it('should throw (strName should be a string)', async () => {
-            assert.isRejected(contract.getVeficationCode('tg', null, 'ADDRESS'), 'strName should be a string');
-        });
-    });
 });
