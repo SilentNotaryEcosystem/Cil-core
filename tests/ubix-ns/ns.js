@@ -210,24 +210,6 @@ class Ns extends Base {
         delete this._ns[hash];
     }
 
-    async getVeficationCode(strProvider, strName) {
-        this._checkOwner();
-        // remove for proxy contract!
-        if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress, {
-                method: 'getVeficationCode',
-                arrArguments: [strProvider, strName]
-            });
-        }
-
-        this._validatePermissions();
-        this._validateParameters(strProvider, strName);
-
-        const hash = this._sha256(`${strProvider}:${strName}`);
-
-        return JSON.stringify(ec.sign(hash, this._privateKey, 'hex'));
-    }
-
     // TODO: Remove for release
     _getNs() {
         // this._checkOwner();
