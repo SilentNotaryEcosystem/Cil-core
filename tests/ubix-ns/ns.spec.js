@@ -154,7 +154,7 @@ describe('Ubix NS', () => {
         it('should throw (create twice)', async () => {
             await contract.create(...arrData, strVerificationCode);
 
-            assert.isRejected(contract.create(...arrData, strVerificationCode), 'Hash has already defined');
+            assert.isRejected(contract.create(...arrData, strVerificationCode), 'Account has already defined');
         });
 
         it('should throw (Not valid verification code)', async () => {
@@ -184,8 +184,8 @@ describe('Ubix NS', () => {
             assert.equal(Object.keys(contract._ns).length, 0);
         });
 
-        it('should throw (Hash is not found)', async () => {
-            assert.isRejected(contract.remove(...arrData.slice(0, 2)), 'Hash is not found');
+        it('should throw (Account is not found)', async () => {
+            assert.isRejected(contract.remove(...arrData.slice(0, 2)), 'Account is not found');
         });
 
         it('should throw (strProvider should be a string)', async () => {
@@ -226,8 +226,8 @@ describe('Ubix NS', () => {
             await contract.create(...arrData, strVerificationCode);
         });
 
-        it('should throw (Hash is not found)', async () => {
-            assert.isRejected(contract.resolve('NONAME'), 'Hash is not found');
+        it('should throw (Account is not found)', async () => {
+            assert.isRejected(contract.resolve('NONAME'), 'Account is not found');
         });
 
         it('should throw (strName should be a string)', async () => {
