@@ -912,8 +912,9 @@ module.exports = (factory, factoryOptions) => {
         async _createGetBlocksMsg() {
             const msg = new MsgGetBlocks();
             const arrLastApplied = await this._storage.getLastAppliedBlockHashes();
+            arrLastApplied.sort((hashA, hashB) => this._mainDag.getBlockHeight(hashB) - this._mainDag.getBlockHeight(hashA));
             const arrTips = this._pendingBlocks.getTips();
-            msg.arrHashes = arrTips.length ? arrTips : arrLastApplied;
+            msg.arrHashes = arrTips.length ? arrTips.concat([arrLastApplied[0]]) : arrLastApplied;
             return msg;
         }
 
