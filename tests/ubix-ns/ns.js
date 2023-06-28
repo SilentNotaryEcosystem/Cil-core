@@ -1,9 +1,6 @@
 'use strict';
 
-const elliptic = require('elliptic');
 const sha3 = require('js-sha3');
-
-const ec = new elliptic.ec('secp256k1');
 
 class Base {
     constructor() {
@@ -76,28 +73,14 @@ class Base {
 }
 
 class Ns extends Base {
-    constructor(strPublicKey) {
+    constructor() {
         super();
 
         // remove everything below for proxy!
-        this._validatePublicKey(strPublicKey);
-
         this._updateFee = 130000;
         this._ns = {};
         this._providers = ['email', 'tg', 'ig'];
         this._proxyAddress = undefined;
-
-        this._publicKey = strPublicKey;
-    }
-
-    setPublicKey(strKey) {
-        this._checkOwner();
-        this._validatePublicKey(strKey);
-        this._publicKey = strKey;
-    }
-
-    getPublicKey() {
-        return this._publicKey;
     }
 
     getProviders() {
@@ -132,7 +115,7 @@ class Ns extends Base {
         this._proxyAddress = strNewAddress;
     }
 
-    async resolve(strName) {
+    async resolve(strName, isVerified = true) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
@@ -148,10 +131,10 @@ class Ns extends Base {
         const result = {};
         for (const strProvider of this._providers) {
             const hash = this._sha256(`${strProvider}:${strNameLower}`);
-            const record = this._ns[hash];
+            const arrResult = this._ns[hash];
 
-            if (record) {
-                result[strProvider] = `Ux${record[0]}`;
+            if (arrResult && (!isVerified || (isVerified && arrResult[1]))) {
+                result[strProvider] = `Ux${arrResult[0]}`;
             }
         }
 
@@ -160,41 +143,51 @@ class Ns extends Base {
         return result;
     }
 
-    async create(strProvider, strName, strAddress, strVerificationCode) {
+    async create(strProvider, strName) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'create',
-                arrArguments: [strProvider, strName, strAddress, strVerificationCode]
+                arrArguments: [strProvider, strName]
             });
         }
 
         this._validatePermissions();
-        this._validatePublicKey(this._publicKey);
-        this._validateCreateParameters(strProvider, strName, strAddress, strVerificationCode);
+        this._validateParameters(strProvider, strName);
 
         const strProviderLower = strProvider.trim().toLowerCase();
         const strNameLower = strName.trim().toLowerCase();
-        const strAddressLower = strAddress.trim().toLowerCase().replace(/^ux/, '');
 
         const hash = this._sha256(`${strProviderLower}:${strNameLower}`);
 
         if (this._ns[hash]) throw 'Account has already defined';
 
-        const strToSign = `${strProviderLower}:${strNameLower}:${strAddressLower}`;
+        this._ns[hash] = [callerAddress, false];
+    }
 
-        if (
-            !ec.verify(
-                strToSign,
-                JSON.parse(Buffer.from(strVerificationCode, 'base64').toString('binary')),
-                this._publicKey,
-                'hex'
-            )
-        ) {
-            throw 'Not valid verification code';
+    async verify(strProvider, strName) {
+        // remove for proxy contract!
+        if (this._proxyAddress) {
+            return await delegatecall(this._proxyAddress, {
+                method: 'verify',
+                arrArguments: [strProvider, strName]
+            });
         }
 
-        this._ns[hash] = [strAddressLower, callerAddress];
+        this._checkOwner();
+        this._validateParameters(strProvider, strName);
+
+        const strProviderLower = strProvider.trim().toLowerCase();
+        const strNameLower = strName.trim().toLowerCase();
+
+        const hash = this._sha256(`${strProviderLower}:${strNameLower}`);
+
+        const arrResult = this._ns[hash];
+
+        if (!arrResult) throw 'Account is not found';
+        if (arrResult[1]) throw 'Account has already verified';
+
+        this._ns[hash] = [arrResult[0], true];
     }
 
     async remove(strProvider, strName) {
@@ -210,10 +203,10 @@ class Ns extends Base {
         this._validateParameters(strProvider, strName);
 
         const hash = this._sha256(`${strProvider}:${strName}`);
-        const record = this._ns[hash];
+        const arrResult = this._ns[hash];
 
-        if (!record || record.length === 0) throw new Error('Account is not found');
-        if (record[1] !== callerAddress) throw new Error('You are not the owner');
+        if (!arrResult) throw new Error('Account is not found');
+        if (arrResult[0] !== callerAddress) throw new Error('You are not the owner');
 
         delete this._ns[hash];
     }
@@ -233,16 +226,6 @@ class Ns extends Base {
         if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
         if (typeof strName !== 'string') throw new Error('strName should be a string');
         if (!this._providers.includes(strProvider)) throw new Error('strProvider is not in the providers list');
-    }
-
-    _validateCreateParameters(strProvider, strName, strAddress, strVerificationCode) {
-        this._validateParameters(strProvider, strName);
-        if (typeof strAddress !== 'string') throw new Error('strAddress should be a string');
-        if (typeof strVerificationCode !== 'string') throw new Error('strVerificationCode should be a string');
-    }
-
-    _validatePublicKey(strPublicKey) {
-        if (typeof strPublicKey !== 'string') throw new Error('Contract should have valid public key');
     }
 
     _sha256(strInput) {
