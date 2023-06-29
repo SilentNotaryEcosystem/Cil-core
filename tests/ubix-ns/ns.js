@@ -174,6 +174,7 @@ class Ns extends Base {
             });
         }
 
+        this._validatePermissions();
         this._checkOwner();
         this._validateParameters(strProvider, strName);
 

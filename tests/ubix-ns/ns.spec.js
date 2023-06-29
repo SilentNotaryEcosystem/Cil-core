@@ -54,16 +54,14 @@ describe('Ubix NS', () => {
             arrData = ['tg', 'mytestname'];
         });
 
-        it('should create', async () => {
+        it('should create (not verified)', async () => {
             assert.equal(Object.keys(contract._ns).length, 0);
 
             await contract.create(...arrData);
 
             assert.equal(Object.keys(contract._ns).length, 1);
-
-            await contract.verify(...arrData);
-
-            assert.deepEqual(await contract.resolve('mytestname'), {[arrData[0]]: `Ux${callerAddress}`});
+            assert.deepEqual(await contract.resolve('mytestname', false), {[arrData[0]]: `Ux${callerAddress}`});
+            assert.isRejected(contract.resolve('mytestname'), 'Account is not found');
         });
 
         it('should throw (unsigned TX)', async () => {
@@ -92,6 +90,60 @@ describe('Ubix NS', () => {
             await contract.create(...arrData);
 
             assert.isRejected(contract.create(...arrData), 'Account has already defined');
+        });
+    });
+
+    describe('create and verify Ubix NS record', async () => {
+        let arrData;
+
+        beforeEach(async () => {
+            global.value = 130000;
+            arrData = ['tg', 'mytestname'];
+
+            await contract.create(...arrData);
+        });
+
+        it('should verify', async () => {
+            await contract.verify(...arrData);
+
+            assert.deepEqual(await contract.resolve('mytestname'), {[arrData[0]]: `Ux${callerAddress}`});
+        });
+
+        it('should throw (unsigned TX)', async () => {
+            global.callerAddress = undefined;
+            assert.isRejected(contract.verify(...arrData), 'You should sign TX');
+        });
+
+        it('should try to verify not by the contract owner', async () => {
+            global.callerAddress = generateAddress().toString('hex');
+            assert.isRejected(contract.verify(...arrData), 'Unauthorized call');
+        });
+
+        it('should throw (low create fee)', async () => {
+            global.value = 130000 - 1;
+            assert.isRejected(contract.verify(...arrData), 'Update fee is 130000');
+        });
+
+        it('should throw (strProvider should be a string)', async () => {
+            assert.isRejected(contract.create(null, 'mytestname'), 'strProvider should be a string');
+        });
+
+        it('should throw (strName should be a string)', async () => {
+            assert.isRejected(contract.verify('tg', null), 'strName should be a string');
+        });
+
+        it('should throw (strProvider is not in the providers list)', async () => {
+            assert.isRejected(contract.verify('whatsapp', 'mytestname'), 'strProvider is not in the providers list');
+        });
+
+        it('should throw (Account is not found)', async () => {
+            assert.isRejected(contract.verify('tg', 'noname'), 'Account is not found');
+        });
+
+        it('should throw (verified twice)', async () => {
+            await contract.verify(...arrData);
+
+            assert.isRejected(contract.verify(...arrData), 'Account has already verified');
         });
     });
 
