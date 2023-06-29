@@ -12,8 +12,9 @@ git checkout tags/latest
 #### 3. Setup dependencies and run a Node.js App
 ```
 npm install
-node index.js // node install
-node savePrivateKey.js` //write private key to file (keystore analog)
+npm run husky // optional. only if you want to contribute the project install git hooks for dev mode
+node index.js // node start
+node savePrivateKey.js // write private key to file (keystore analog)
 ```
 ## The installation process (Docker):
 setup docker first [manual for Digical Ocean](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-18-04)

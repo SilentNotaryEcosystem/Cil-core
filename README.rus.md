@@ -9,8 +9,9 @@ git checkout tags/latest
 #### 3. Установить зависимости и запустить ноду
 ```
 npm install
-node index.js //запуск ноды
-node savePrivateKey.js` //запись приватного ключа в файл (аналог keystore)
+npm run husky // опционально. только если вы хотите развивать проект: установка git hooks для dev режима
+node index.js // запуск ноды
+node savePrivateKey.js // запись приватного ключа в файл (аналог keystore)
 ```
 
 ## Процесс установки (Docker):
