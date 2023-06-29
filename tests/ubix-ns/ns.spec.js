@@ -60,7 +60,18 @@ describe('Ubix NS', () => {
             await contract.create(...arrData);
 
             assert.equal(Object.keys(contract._ns).length, 1);
-            assert.deepEqual(await contract.resolve('mytestname', false), {[arrData[0]]: `Ux${callerAddress}`});
+            assert.deepEqual(await contract.resolve('mytestname', false), {[arrData[0]]: `Ux${global.callerAddress}`});
+            assert.isRejected(contract.resolve('mytestname'), 'Account is not found');
+        });
+
+        it('should create (by not a contract owner)', async () => {
+            assert.equal(Object.keys(contract._ns).length, 0);
+
+            global.callerAddress = generateAddress().toString('hex');
+            await contract.create(...arrData);
+
+            assert.equal(Object.keys(contract._ns).length, 1);
+            assert.deepEqual(await contract.resolve('mytestname', false), {[arrData[0]]: `Ux${global.callerAddress}`});
             assert.isRejected(contract.resolve('mytestname'), 'Account is not found');
         });
 
@@ -106,7 +117,22 @@ describe('Ubix NS', () => {
         it('should verify', async () => {
             await contract.verify(...arrData);
 
-            assert.deepEqual(await contract.resolve('mytestname'), {[arrData[0]]: `Ux${callerAddress}`});
+            assert.deepEqual(await contract.resolve('mytestname'), {[arrData[0]]: `Ux${global.callerAddress}`});
+        });
+
+        it('should create (by not a contract owner) and verify ', async () => {
+            const arrData = ['tg', 'newtestname'];
+
+            const strOwnerAddress = global.callerAddress;
+            const strUserAddress = generateAddress().toString('hex');
+            global.callerAddress = strUserAddress;
+
+            await contract.create(...arrData);
+
+            global.callerAddress = strOwnerAddress;
+            await contract.verify(...arrData);
+
+            assert.deepEqual(await contract.resolve('newtestname'), {[arrData[0]]: `Ux${strUserAddress}`});
         });
 
         it('should throw (unsigned TX)', async () => {
@@ -136,7 +162,7 @@ describe('Ubix NS', () => {
             assert.isRejected(contract.verify('whatsapp', 'mytestname'), 'strProvider is not in the providers list');
         });
 
-        it('should throw (Account is not found)', async () => {
+        it('should throw (account is not found)', async () => {
             assert.isRejected(contract.verify('tg', 'noname'), 'Account is not found');
         });
 
@@ -166,7 +192,7 @@ describe('Ubix NS', () => {
             assert.equal(Object.keys(contract._ns).length, 0);
         });
 
-        it('should throw (Account is not found)', async () => {
+        it('should throw (account is not found)', async () => {
             assert.isRejected(contract.remove(...arrData.slice(0, 2)), 'Account is not found');
         });
 
@@ -204,7 +230,7 @@ describe('Ubix NS', () => {
             await contract.verify(...arrData);
         });
 
-        it('should throw (Account is not found)', async () => {
+        it('should throw (account is not found)', async () => {
             assert.isRejected(contract.resolve('NONAME'), 'Account is not found');
         });
 
@@ -216,7 +242,7 @@ describe('Ubix NS', () => {
             const arrRecords = await contract.resolve(strName);
 
             assert.deepEqual(arrRecords, {
-                [strProvider]: `Ux${callerAddress}`
+                [strProvider]: `Ux${global.callerAddress}`
             });
         });
 
@@ -229,8 +255,8 @@ describe('Ubix NS', () => {
             const arrRecords = await contract.resolve(strName);
 
             assert.deepEqual(arrRecords, {
-                [strProvider]: `Ux${callerAddress}`,
-                ['ig']: `Ux${callerAddress}`
+                [strProvider]: `Ux${global.callerAddress}`,
+                ['ig']: `Ux${global.callerAddress}`
             });
         });
     });
