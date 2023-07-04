@@ -54,7 +54,7 @@ describe('Ubix NS', () => {
             arrData = ['tg', 'mytestname'];
         });
 
-        it('should create (not verified)', async () => {
+        it('should create (not confirmed)', async () => {
             assert.equal(Object.keys(contract._ns).length, 0);
 
             await contract.create(...arrData);
@@ -104,7 +104,7 @@ describe('Ubix NS', () => {
         });
     });
 
-    describe('create and verify Ubix NS record', async () => {
+    describe('create and confirm Ubix NS record', async () => {
         let arrData;
 
         beforeEach(async () => {
@@ -114,13 +114,13 @@ describe('Ubix NS', () => {
             await contract.create(...arrData);
         });
 
-        it('should verify', async () => {
-            await contract.verify(...arrData);
+        it('should confirm', async () => {
+            await contract.confirm(...arrData);
 
             assert.deepEqual(await contract.resolve('mytestname'), {[arrData[0]]: `Ux${global.callerAddress}`});
         });
 
-        it('should create (by not a contract owner) and verify ', async () => {
+        it('should create (by not a contract owner) and confirm ', async () => {
             const arrData = ['tg', 'newtestname'];
 
             const strOwnerAddress = global.callerAddress;
@@ -130,24 +130,24 @@ describe('Ubix NS', () => {
             await contract.create(...arrData);
 
             global.callerAddress = strOwnerAddress;
-            await contract.verify(...arrData);
+            await contract.confirm(...arrData);
 
             assert.deepEqual(await contract.resolve('newtestname'), {[arrData[0]]: `Ux${strUserAddress}`});
         });
 
         it('should throw (unsigned TX)', async () => {
             global.callerAddress = undefined;
-            assert.isRejected(contract.verify(...arrData), 'You should sign TX');
+            assert.isRejected(contract.confirm(...arrData), 'You should sign TX');
         });
 
-        it('should try to verify not by the contract owner', async () => {
+        it('should try to confirm not by the contract owner', async () => {
             global.callerAddress = generateAddress().toString('hex');
-            assert.isRejected(contract.verify(...arrData), 'Unauthorized call');
+            assert.isRejected(contract.confirm(...arrData), 'Unauthorized call');
         });
 
         it('should throw (low create fee)', async () => {
             global.value = 130000 - 1;
-            assert.isRejected(contract.verify(...arrData), 'Update fee is 130000');
+            assert.isRejected(contract.confirm(...arrData), 'Update fee is 130000');
         });
 
         it('should throw (strProvider should be a string)', async () => {
@@ -155,21 +155,21 @@ describe('Ubix NS', () => {
         });
 
         it('should throw (strName should be a string)', async () => {
-            assert.isRejected(contract.verify('tg', null), 'strName should be a string');
+            assert.isRejected(contract.confirm('tg', null), 'strName should be a string');
         });
 
         it('should throw (strProvider is not in the providers list)', async () => {
-            assert.isRejected(contract.verify('whatsapp', 'mytestname'), 'strProvider is not in the providers list');
+            assert.isRejected(contract.confirm('whatsapp', 'mytestname'), 'strProvider is not in the providers list');
         });
 
         it('should throw (account is not found)', async () => {
-            assert.isRejected(contract.verify('tg', 'noname'), 'Account is not found');
+            assert.isRejected(contract.confirm('tg', 'noname'), 'Account is not found');
         });
 
-        it('should throw (verified twice)', async () => {
-            await contract.verify(...arrData);
+        it('should throw (confirmed twice)', async () => {
+            await contract.confirm(...arrData);
 
-            assert.isRejected(contract.verify(...arrData), 'Account has already verified');
+            assert.isRejected(contract.confirm(...arrData), 'Account has already confirmed');
         });
     });
 
@@ -227,7 +227,7 @@ describe('Ubix NS', () => {
             arrData = [strProvider, strName];
 
             await contract.create(...arrData);
-            await contract.verify(...arrData);
+            await contract.confirm(...arrData);
         });
 
         it('should throw (account is not found)', async () => {
@@ -250,7 +250,7 @@ describe('Ubix NS', () => {
             const arrDataNew = ['ig', strName];
 
             await contract.create(...arrDataNew);
-            await contract.verify(...arrDataNew);
+            await contract.confirm(...arrDataNew);
 
             const arrRecords = await contract.resolve(strName);
 

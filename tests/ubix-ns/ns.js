@@ -115,7 +115,7 @@ class Ns extends Base {
         this._proxyAddress = strNewAddress;
     }
 
-    async resolve(strName, isVerified = true) {
+    async resolve(strName, isConfirmed = true) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
@@ -133,7 +133,7 @@ class Ns extends Base {
             const hash = this._sha256(`${strProvider}:${strNameLower}`);
             const arrResult = this._ns[hash];
 
-            if (arrResult && (!isVerified || (isVerified && arrResult[1]))) {
+            if (arrResult && (!isConfirmed || (isConfirmed && arrResult[1]))) {
                 result[strProvider] = `Ux${arrResult[0]}`;
             }
         }
@@ -165,11 +165,11 @@ class Ns extends Base {
         this._ns[hash] = [callerAddress, false];
     }
 
-    async verify(strProvider, strName) {
+    async confirm(strProvider, strName) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
-                method: 'verify',
+                method: 'confirm',
                 arrArguments: [strProvider, strName]
             });
         }
@@ -186,7 +186,7 @@ class Ns extends Base {
         const arrResult = this._ns[hash];
 
         if (!arrResult) throw 'Account is not found';
-        if (arrResult[1]) throw 'Account has already verified';
+        if (arrResult[1]) throw 'Account has already confirmed';
 
         this._ns[hash] = [arrResult[0], true];
     }
