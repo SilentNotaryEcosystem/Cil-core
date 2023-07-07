@@ -212,12 +212,6 @@ class Ns extends Base {
         delete this._ns[hash];
     }
 
-    // TODO: Remove for release
-    _getNs() {
-        // this._checkOwner();
-        return this._ns;
-    }
-
     _validatePermissions() {
         if (!callerAddress) throw new Error('You should sign TX');
         if (value < this._updateFee) throw new Error(`Update fee is ${this._updateFee}`);
