@@ -443,4 +443,26 @@ describe('Application layer', () => {
 
         app.processPayments(tx, patch);
     });
+
+    describe('Injected functions', async ()=>{
+        it('should run sha3', async () => {
+            const conciliumId = 10;
+            const msg='test';
+
+            const contract = new factory.Contract({
+                contractData: {},
+                contractCode: '{"test": "(strMsg){return sha3(strMsg);}"}',
+                conciliumId
+            });
+
+            const result = await app.runContract(
+                {method: 'test', arrArguments: [msg]},
+                contract,
+                {}, undefined,
+                true
+            );
+
+            assert.equal(result, factory.Crypto.sha3(msg));
+        });
+    });
 });
