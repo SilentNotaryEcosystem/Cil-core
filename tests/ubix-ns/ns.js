@@ -1,6 +1,6 @@
 'use strict';
 
-const sha3 = require('js-sha3');
+const sha3 = require('js-sha3').sha3_256;
 
 class Base {
     constructor() {
@@ -97,11 +97,11 @@ class Ns extends Base {
         }
 
         this._checkOwner();
-        if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
+        if (typeof strProvider !== 'string') throw 'strProvider should be a string';
 
         const strProviderLower = strProvider.trim().toLowerCase();
         if (this._providers.find(item => item === strProviderLower)) {
-            throw new Error('strProvider already exists');
+            throw 'strProvider already exists';
         }
 
         this._providers.push(strProviderLower);
@@ -124,21 +124,19 @@ class Ns extends Base {
             });
         }
 
-        if (typeof strName !== 'string') throw new Error('strName should be a string');
-
-        const strNameLower = strName.trim().toLowerCase();
+        if (typeof strName !== 'string') throw 'strName should be a string';
 
         const result = {};
         for (const strProvider of this._providers) {
-            const hash = this._sha256(`${strProvider}:${strNameLower}`);
+            const hash = this._calcHash(strProvider, strName);
             const arrResult = this._ns[hash];
 
             if (arrResult && (!isConfirmed || (isConfirmed && arrResult[1]))) {
-                result[strProvider] = `Ux${arrResult[0]}`;
+                result[strProvider] = arrResult[0];
             }
         }
 
-        if (Object.keys(result).length === 0) throw new Error('Account is not found');
+        if (Object.keys(result).length === 0) throw 'Account is not found';
 
         return result;
     }
@@ -155,10 +153,7 @@ class Ns extends Base {
         this._validatePermissions();
         this._validateParameters(strProvider, strName);
 
-        const strProviderLower = strProvider.trim().toLowerCase();
-        const strNameLower = strName.trim().toLowerCase();
-
-        const hash = this._sha256(`${strProviderLower}:${strNameLower}`);
+        const hash = this._calcHash(strProvider, strName);
 
         if (this._ns[hash]) throw 'Account has already defined';
 
@@ -178,11 +173,7 @@ class Ns extends Base {
         this._checkOwner();
         this._validateParameters(strProvider, strName);
 
-        const strProviderLower = strProvider.trim().toLowerCase();
-        const strNameLower = strName.trim().toLowerCase();
-
-        const hash = this._sha256(`${strProviderLower}:${strNameLower}`);
-
+        const hash = this._calcHash(strProvider, strName);
         const arrResult = this._ns[hash];
 
         if (!arrResult) throw 'Account is not found';
@@ -203,28 +194,31 @@ class Ns extends Base {
         this._validatePermissions();
         this._validateParameters(strProvider, strName);
 
-        const hash = this._sha256(`${strProvider}:${strName}`);
+        const hash = this._calcHash(strProvider, strName);
         const arrResult = this._ns[hash];
 
-        if (!arrResult) throw new Error('Account is not found');
-        if (arrResult[0] !== callerAddress) throw new Error('You are not the owner');
+        if (!arrResult) throw 'Account is not found';
+        if (arrResult[0] !== callerAddress) throw 'You are not the owner';
 
         delete this._ns[hash];
     }
 
     _validatePermissions() {
-        if (!callerAddress) throw new Error('You should sign TX');
-        if (value < this._updateFee) throw new Error(`Update fee is ${this._updateFee}`);
+        if (!callerAddress) throw 'You should sign TX';
+        if (value < this._updateFee) throw `Update fee is ${this._updateFee}`;
     }
 
     _validateParameters(strProvider, strName) {
-        if (typeof strProvider !== 'string') throw new Error('strProvider should be a string');
-        if (typeof strName !== 'string') throw new Error('strName should be a string');
-        if (!this._providers.includes(strProvider)) throw new Error('strProvider is not in the providers list');
+        if (typeof strProvider !== 'string') throw 'strProvider should be a string';
+        if (typeof strName !== 'string') throw 'strName should be a string';
+        if (!this._providers.includes(strProvider)) throw 'strProvider is not in the providers list';
     }
 
-    _sha256(strInput) {
-        return sha3.sha3_256(strInput);
+    _calcHash(strProvider, strName) {
+        const strProviderLower = strProvider.trim().toLowerCase();
+        const strNameLower = strName.trim().toLowerCase();
+
+        return sha3(`${strProviderLower}:${strNameLower}`);
     }
 }
 
