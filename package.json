@@ -17,10 +17,10 @@
     "merkletreejs": "0.0.11",
     "mutex": "git+https://github.com/trueshura/MUTEX.git",
     "nat-upnp": "^1.1.1",
-    "protobufjs": "^6.11.3",
+    "protobufjs": "^7.2.4",
     "tick-tock": "^1.0.0",
     "typeforce": "^1.18.0",
-    "vm2": "^3.9.11"
+    "vm2": "^3.9.19"
   },
   "devDependencies": {
     "chai": "^4.2.0",
