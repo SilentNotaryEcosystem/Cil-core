@@ -91,17 +91,21 @@ module.exports = ({Constants}) =>
         }
 
         /**
-         * Get wallet addresses of witnesses. Sorted by amount descending
+         * Get wallet addresses of witnesses.
          *
-         * @param bConvertToBuffer
+         * @param {Boolean} bConvertToBuffer
+         * @param {Boolean} bSortByAmount (descending)
          * @returns {(Buffer|*)[]|undefined}
          */
-        getAddresses(bConvertToBuffer = true) {
+        getAddresses(bConvertToBuffer = true, bSortByAmount=false) {
             if (!Array.isArray(this._data.arrMembers)) return undefined;
 
-            return this._data.arrMembers
-                .sort((objRecord1, objRecord2) => objRecord2.amount - objRecord1.amount)
-                .map(objRecord => bConvertToBuffer ?
+            const arrData= bSortByAmount ?
+                Array.from(this._data.arrMembers)
+                    .sort((objRecord1, objRecord2) => objRecord2.amount - objRecord1.amount) :
+                this._data.arrMembers;
+
+            return arrData.map(objRecord => bConvertToBuffer ?
                 Buffer.from(objRecord.address, 'hex') : objRecord.address.toString('hex'));
         }
 
