@@ -600,7 +600,7 @@ module.exports = (factory, factoryOptions) => {
             const arrTxToProcess = this._mempool.getFinalTxns(conciliumId);
 
             // regular txns first
-            const arrSorted=arrTxToProcess.sort((txA, txB) =>{
+            return arrTxToProcess.sort((txA, txB) =>{
                 const bIsTxAContract=txA.isContract();
                 if(bIsTxAContract && txB.isContract()) {
                     return 0;
@@ -609,8 +609,6 @@ module.exports = (factory, factoryOptions) => {
                 }
                 return -1;
             });
-
-            return arrTxToProcess;
         }
 
         _createPseudoRandomSeed(arrLastStableBlockHashes) {
