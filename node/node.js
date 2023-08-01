@@ -1032,6 +1032,8 @@ module.exports = (factory, factoryOptions) => {
             if(this._mempool.hasTx(strNewTxHash)) throw new Error('Tx already in mempool');
             if(this._mempool.isBadTx(strNewTxHash)) throw new Error('Tx already marked as bad');
 
+            const lock = await this._mutex.acquire(['block', '_acceptLocalTx']);
+
             // let's check for patch conflicts with other local txns
             try {
                 await this._ensureLocalTxnsPatch();
@@ -1050,6 +1052,8 @@ module.exports = (factory, factoryOptions) => {
                 logger.error(e);
                 this._mempool.storeBadTxHash(strNewTxHash);
                 throw new Error(`Tx ${strNewTxHash} is not accepted: ${e.message}`);
+            }finally {
+                this._mutex.release(lock);
             }
         }
 
@@ -1096,7 +1100,7 @@ module.exports = (factory, factoryOptions) => {
             let nFeeSize = 0;
             let nMaxFee;
 
-            const lock = await this._mutex.acquire(['transaction']);
+            const lock = await this._mutex.acquire(['transaction', tx.getHash()]);
             try {
                 let contract;
                 const isContract = tx.isContractCreation() ||
@@ -2208,7 +2212,7 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Executing block "${block.getHash()}"`);
 
-            const lock = await this._mutex.acquire(['blockExec', block.getHash()]);
+            const lock = await this._mutex.acquire(['blockExec', block.getHash(), 'block']);
             this._processedBlock = block;
             try {
                 const patchState = await this._execBlock(block);
@@ -2364,7 +2368,7 @@ module.exports = (factory, factoryOptions) => {
                 [method, arrArguments, contractAddress]
             );
 
-            const lock = await this._mutex.acquire(['transaction', 'application']);
+            const lock = await this._mutex.acquire(['transaction', 'application', 'rpc', 'constant']);
             try {
                 let contract = await this._storage.getContract(contractAddress);
 
