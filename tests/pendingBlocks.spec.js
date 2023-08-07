@@ -4,11 +4,22 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 const debug = require('debug')('pendingBlocksManager:');
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
-
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {pseudoRandomBuffer, createDummyBlock, createNonMergeablePatch, generateAddress} = require('./testUtil');
 const {arrayEquals} = require('../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const createNonEmptyBlock = (nConciliumId) => {
     const block = createDummyBlock(factory, nConciliumId);

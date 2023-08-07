@@ -4,9 +4,21 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 const {assert} = chai;
 const sinon = require('sinon').createSandbox();
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 chai.use(require('chai-as-promised'));
 

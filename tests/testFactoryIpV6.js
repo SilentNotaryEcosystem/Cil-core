@@ -38,11 +38,4 @@ class TestIpV6Factory extends BaseFactory {
     }
 }
 
-module.exports = new TestIpV6Factory(
-    {
-        testStorage: true,
-        mutex: new Mutex(),
-        workerSuspended: true
-    },
-    config.constants
-);
+module.exports = TestIpV6Factory;

@@ -2,10 +2,22 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const Mutex = require('mutex');
 
-const factory = require('../testFactory');
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
 const {pseudoRandomBuffer} = require('../testUtil');
 const {arrayEquals} = require('../../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 describe('MessageGetBlocks', () => {
     before(async function() {

@@ -1,4 +1,17 @@
-const factory = require('../testFactory');
+const Mutex = require('mutex');
+
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 class Base {
     constructor(props) {

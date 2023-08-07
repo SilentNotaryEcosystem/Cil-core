@@ -5,12 +5,24 @@ const chai = require('chai');
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
 const sinon = require('sinon');
+const Mutex = require('mutex');
 
 const Contract = require('./conciliumContract');
-const factory = require('../testFactory');
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
 
 const {arrayEquals} = require('../../utils');
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const sleep = (delay) => {
     return new Promise(resolve => {

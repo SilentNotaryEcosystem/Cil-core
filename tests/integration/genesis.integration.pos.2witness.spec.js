@@ -2,10 +2,22 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const debugLib = require('debug');
 const sinon = require('sinon').createSandbox();
+const Mutex = require('mutex');
 
-const factory = require('../testFactory');
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
 const {generateAddress, processBlock} = require('../testUtil');
 const {arrayEquals, prepareForStringifyObject} = require('../../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 process.on('warning', e => console.warn(e.stack));
 

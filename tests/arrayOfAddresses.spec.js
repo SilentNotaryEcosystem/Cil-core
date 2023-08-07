@@ -3,8 +3,21 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 
-const factory = require('./testFactory');
+const Mutex = require('mutex');
+
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 describe('Array of addresses (serialization)', () => {
     before(async function() {

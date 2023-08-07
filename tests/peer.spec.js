@@ -2,11 +2,22 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 const debug = require('debug')('peer:');
+const Mutex = require('mutex');
 
 const {sleep} = require('../utils');
 const {createDummyPeer} = require('./testUtil');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 
-const factory = require('./testFactory');
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 let peerInfo;
 let address;

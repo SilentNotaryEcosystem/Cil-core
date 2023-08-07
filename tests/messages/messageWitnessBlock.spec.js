@@ -2,9 +2,21 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const Mutex = require('mutex');
+
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
 const {createDummyTx, createDummyBlock} = require('../testUtil');
 
-const factory = require('../testFactory');
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 describe('MessageWitnessBlock', () => {
     before(async function() {

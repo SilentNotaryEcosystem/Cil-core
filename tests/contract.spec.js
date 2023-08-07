@@ -1,8 +1,20 @@
 const v8 = require('v8');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const Mutex = require('mutex');
 
-factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
 

@@ -1,8 +1,20 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 describe('Inventory', () => {
     before(async function() {

@@ -3,12 +3,26 @@
 const {describe, it} = require('mocha');
 const chai = require('chai');
 const sinon = require('sinon').createSandbox();
+const Mutex = require('mutex');
+
 chai.use(require('chai-as-promised'));
-const factory = require('./testFactory');
+
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 
 const {assert} = chai;
 const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 const {prepareForStringifyObject} = require('../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 let fakeResult = {
     fake: 1,

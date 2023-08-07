@@ -3,11 +3,24 @@
 const {describe, it} = require('mocha');
 const chai = require('chai');
 const sinon = require('sinon').createSandbox();
+const Mutex = require('mutex');
+
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
-const factory = require('../testFactory');
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
 const {pseudoRandomBuffer, generateAddress, createObjInvocationCode} = require('../testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const createContractInvocationTx = (strContractAddr, code = {}, hasChangeReceiver = true, amount = 0) => {
 

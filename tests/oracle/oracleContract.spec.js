@@ -4,10 +4,21 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
-const sinon = require('sinon');
+const Mutex = require('mutex');
 
 const {Base, RatesOracle} = require('./oracle');
-const factory = require('../testFactory');
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const {generateAddress, pseudoRandomBuffer} = require('../testUtil');
 

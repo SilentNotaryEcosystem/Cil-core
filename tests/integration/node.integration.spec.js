@@ -5,12 +5,33 @@ const chai = require('chai');
 const os = require('os');
 const sinon = require('sinon');
 const debugLib = require('debug');
+const Mutex = require('mutex');
 
-const factory = require('../testFactory');
-const factoryIpV6 = require('../testFactoryIpV6');
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
+const TestIpV6Factory = require('../testFactoryIpV6');
 const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress, createObjInvocationCode} = require(
     '../testUtil');
 const {arrayIntersection} = require('../../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
+
+const factoryIpV6 = new TestIpV6Factory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true
+    },
+    config.constants
+);
 
 chai.use(require('chai-as-promised'));
 const {assert} = chai;

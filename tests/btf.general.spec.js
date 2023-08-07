@@ -1,11 +1,21 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
+const Mutex = require('mutex');
 
-const {sleep} = require('../utils');
 const {pseudoRandomBuffer, createDummyBlock} = require('./testUtil');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 
-factory = require('./testFactory');
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 let myWallet;
 const conciliumId = 0;

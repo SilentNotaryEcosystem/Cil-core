@@ -3,10 +3,22 @@ const {assert} = require('chai');
 const os = require('os');
 const debugLib = require('debug');
 const sinon = require('sinon');
+const Mutex = require('mutex');
 
-const factory = require('../testFactory');
+const config = require('../../config/test.conf');
+const TestFactory = require('../testFactory');
 const {generateAddress, createDummyTx, processBlock, pseudoRandomBuffer} = require('../testUtil');
 const {sleep, arrayIntersection} = require('../../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 process.on('warning', e => console.warn(e.stack));
 

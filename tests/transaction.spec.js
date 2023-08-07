@@ -2,14 +2,25 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
+const Mutex = require('mutex');
 
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 let keyPair;
 let privateKey;
 let publicKey;
-
-const factory = require('./testFactory');
 
 describe('Transaction tests', () => {
     before(async function() {

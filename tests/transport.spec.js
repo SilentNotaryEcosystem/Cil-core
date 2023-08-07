@@ -1,10 +1,20 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const debug = require('debug')('transport:');
-
-const factory = require('./testFactoryIpV6');
+const Mutex = require('mutex');
 const sinon = require('sinon').createSandbox();
-const {sleep} = require('./testUtil');
+
+const config = require('../config/test.conf');
+const TestIpV6Factory = require('./testFactoryIpV6');
+
+const factory = new TestIpV6Factory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true
+    },
+    config.constants
+);
 
 let msgCommon;
 

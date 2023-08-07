@@ -2,11 +2,22 @@
 
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const sinon = require('sinon').createSandbox();
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {arrayEquals} = require('../utils');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const createDummyUtxo = (arrIndexes) => {
     const txHash = pseudoRandomBuffer().toString('hex');

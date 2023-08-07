@@ -7,10 +7,22 @@ const debug = require('debug')('application:test');
 
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 const {arrayEquals} = require('../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const createGenesis = async (factory, utxoHash) => {
     const patch = new factory.PatchDB(0);

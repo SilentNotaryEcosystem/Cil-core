@@ -3,10 +3,21 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
-const {GCD} = require('../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const generateSeed = (nTotalRound) => (Math.random() * nTotalRound) % 8192;
 

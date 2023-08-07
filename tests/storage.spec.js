@@ -12,10 +12,22 @@ process.env['DEBUG'] = `${debugChannel},` + process.env['DEBUG'];
 
 const debugLib = require('debug');
 const debug = debugLib(debugChannel);
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, createDummyBlock, generateAddress} = require('./testUtil');
 const {timestamp, arrayEquals, prepareForStringifyObject} = require('../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 const createBlockInfo = () => {
     return new factory.BlockInfo({

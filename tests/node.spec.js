@@ -4,13 +4,26 @@ const {describe, it} = require('mocha');
 const chai = require('chai');
 const {assert} = chai;
 const sinon = require('sinon').createSandbox();
+const Mutex = require('mutex');
+
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {arrayEquals, prepareForStringifyObject} = require('../utils');
 
 chai.use(require('chai-as-promised'));
 
 process.on('warning', e => console.warn(e.stack));
 
-const factory = require('./testFactory');
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
+
 const {
     createDummyTx,
     createDummyPeer,

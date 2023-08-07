@@ -3,8 +3,10 @@
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const nock = require('nock');
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {
     getBoolEnvParameter,
     deStringifyObject, prepareForStringifyObject, arrayIntersection,
@@ -12,6 +14,16 @@ const {
     mapEnvToOptions,
     ExceptionDebug, ExceptionLog
 } = require('../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 describe('Utils', () => {
     before(async () => {

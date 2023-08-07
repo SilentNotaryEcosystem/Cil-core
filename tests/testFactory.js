@@ -22,12 +22,4 @@ class TestFactory extends BaseFactory {
     }
 }
 
-module.exports = new TestFactory(
-    {
-        testStorage: true,
-        mutex: new Mutex(),
-        workerSuspended: true,
-        bDev: true
-    },
-    config.constants
-);
+module.exports = TestFactory;

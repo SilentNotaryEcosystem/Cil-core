@@ -4,11 +4,21 @@ const {describe, it} = require('mocha');
 const {assert} = require('chai');
 const sinon = require('sinon');
 const debug = require('debug')('witness:');
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
-
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
 const {createDummyTx, createDummyBlock, pseudoRandomBuffer, generateAddress} = require('./testUtil');
-const {arrayEquals} = require('../utils');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 let wallet;
 

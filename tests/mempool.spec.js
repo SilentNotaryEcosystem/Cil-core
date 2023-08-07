@@ -3,11 +3,22 @@
 const fs = require('fs');
 const {describe, it} = require('mocha');
 const {assert} = require('chai');
-const {sleep, createDummyTx, pseudoRandomBuffer} = require('./testUtil');
-const {arrayEquals} = require('../utils');
 const sinon = require('sinon').createSandbox();
+const Mutex = require('mutex');
 
-const factory = require('./testFactory');
+const config = require('../config/test.conf');
+const TestFactory = require('./testFactory');
+const {sleep, createDummyTx, pseudoRandomBuffer} = require('./testUtil');
+
+const factory = new TestFactory(
+    {
+        testStorage: true,
+        mutex: new Mutex(),
+        workerSuspended: true,
+        bDev: true
+    },
+    config.constants
+);
 
 let keyPair;
 let stubWrite;
