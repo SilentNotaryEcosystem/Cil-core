@@ -31,3 +31,14 @@ module.exports = new TestFactory(
     },
     config.constants
 );
+
+module.exports.getNewTestFactory = (constants = {}) =>
+    new TestFactory(
+        {
+            testStorage: true,
+            mutex: new Mutex(),
+            workerSuspended: true,
+            bDev: true
+        },
+        {...config.constants, ...constants}
+    );

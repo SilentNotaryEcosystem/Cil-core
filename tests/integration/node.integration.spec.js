@@ -6,8 +6,10 @@ const os = require('os');
 const sinon = require('sinon');
 const debugLib = require('debug');
 
-const factory = require('../testFactory');
-const factoryIpV6 = require('../testFactoryIpV6');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
+const {getNewTestIpV6Factory} = require('../testFactoryIpV6');
+const factoryIpV6 = getNewTestIpV6Factory();
 const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress, createObjInvocationCode} = require(
     '../testUtil');
 const {arrayIntersection} = require('../../utils');

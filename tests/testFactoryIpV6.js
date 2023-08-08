@@ -46,3 +46,14 @@ module.exports = new TestIpV6Factory(
     },
     config.constants
 );
+
+module.exports.getNewTestIpV6Factory = (constants = {}) =>
+    new TestIpV6Factory(
+        {
+            testStorage: true,
+            mutex: new Mutex(),
+            workerSuspended: true,
+            bDev: true
+        },
+        {...config.constants, ...constants}
+    );
