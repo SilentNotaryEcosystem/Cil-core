@@ -115,7 +115,7 @@ class Ns extends Base {
         this._proxyAddress = strNewAddress;
     }
 
-    async resolve(strName, isConfirmed = true) {
+    async resolve(strName, bIsConfirmed = true) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
@@ -131,7 +131,7 @@ class Ns extends Base {
             const hash = this._calcHash(strProvider, strName);
             const arrResult = this._ns[hash];
 
-            if (arrResult && (!isConfirmed || (isConfirmed && arrResult[1]))) {
+            if (arrResult && (!bIsConfirmed || (bIsConfirmed && arrResult[1]))) {
                 result[strProvider] = arrResult[0];
             }
         }
