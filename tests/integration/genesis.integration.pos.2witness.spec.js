@@ -7,8 +7,6 @@ const factory = require('../testFactory');
 const {generateAddress, processBlock} = require('../testUtil');
 const {arrayEquals, prepareForStringifyObject} = require('../../utils');
 
-process.on('warning', e => console.warn(e.stack));
-
 const CONCILIUM_CREATE_FEE = 1e6;
 const CONCILIUM_INVOKE_FEE = 1e6;
 
@@ -34,12 +32,18 @@ let stepDone = false;
 
 describe('Genesis net tests (it runs one by one!)', () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
 
         seedAddress = factory.Transport.generateAddress();
         factory.Constants.DNS_SEED = [seedAddress];
         factory.Constants.PEER_RECONNECT_INTERVAL = 20000;
+    });
+
+    after(() => {
+        process.removeAllListeners();
     });
 
     beforeEach(() => {
