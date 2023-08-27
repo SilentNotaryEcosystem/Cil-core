@@ -60,7 +60,9 @@ describe('Ubix NS', () => {
             await contract.create(...arrData);
 
             assert.equal(Object.keys(contract._ns).length, 1);
-            assert.deepEqual(await contract.resolve('mytestname', false), {[arrData[0]]: global.callerAddress});
+            assert.deepEqual(await contract.resolve('mytestname', false), {
+                [arrData[0]]: [global.callerAddress, false]
+            });
             assert.isRejected(contract.resolve('mytestname'), 'Account is not found');
         });
 
@@ -71,7 +73,9 @@ describe('Ubix NS', () => {
             await contract.create(...arrData);
 
             assert.equal(Object.keys(contract._ns).length, 1);
-            assert.deepEqual(await contract.resolve('mytestname', false), {[arrData[0]]: global.callerAddress});
+            assert.deepEqual(await contract.resolve('mytestname', false), {
+                [arrData[0]]: [global.callerAddress, false]
+            });
             assert.isRejected(contract.resolve('mytestname'), 'Account is not found');
         });
 

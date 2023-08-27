@@ -131,7 +131,11 @@ class Ns extends Base {
             const hash = this._calcHash(strProvider, strName);
             const arrResult = this._ns[hash];
 
-            if (arrResult && (!bIsConfirmed || (bIsConfirmed && arrResult[1]))) {
+            if (!arrResult) continue;
+
+            if (!bIsConfirmed) {
+                result[strProvider] = arrResult;
+            } else if (arrResult[1]) {
                 result[strProvider] = arrResult[0];
             }
         }
