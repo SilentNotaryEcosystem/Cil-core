@@ -159,7 +159,9 @@ class Ns extends Base {
 
         const hash = this._calcHash(strProvider, strName);
 
-        if (this._ns[hash]) throw 'Account has already defined';
+        const arrResult = this._ns[hash];
+
+        if (arrResult && arrResult[1]) throw 'Account has already defined';
 
         this._ns[hash] = [callerAddress, false];
     }
@@ -181,7 +183,7 @@ class Ns extends Base {
         const arrResult = this._ns[hash];
 
         if (!arrResult) throw 'Account is not found';
-        if (arrResult[1]) throw 'Account has already confirmed';
+        if (arrResult[1]) throw 'Account has already defined';
 
         this._ns[hash] = [arrResult[0], true];
     }

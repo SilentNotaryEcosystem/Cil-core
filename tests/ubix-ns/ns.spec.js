@@ -103,8 +103,39 @@ describe('Ubix NS', () => {
 
         it('should throw (create twice)', async () => {
             await contract.create(...arrData);
-
+            await contract.confirm(...arrData);
             assert.isRejected(contract.create(...arrData), 'Account has already defined');
+        });
+
+        it('should not throw create twice for not confirmed account', async () => {
+            await contract.create(...arrData);
+            await contract.create(...arrData);
+
+            assert.equal(Object.keys(contract._ns).length, 1);
+            assert.deepEqual(await contract.resolve('mytestname', false), {
+                [arrData[0]]: [global.callerAddress, false]
+            });
+        });
+
+        it('should not throw create twice for not confirmed account (different user)', async () => {
+            await contract.create(...arrData);
+
+            assert.deepEqual(await contract.resolve('mytestname', false), {
+                [arrData[0]]: [global.callerAddress, false]
+            });
+
+            const strFirstCallerAddress = global.callerAddress;
+            global.callerAddress = generateAddress().toString('hex');
+
+            await contract.create(...arrData);
+
+            assert.notDeepEqual(await contract.resolve('mytestname', false), {
+                [arrData[0]]: [strFirstCallerAddress, false]
+            });
+
+            assert.deepEqual(await contract.resolve('mytestname', false), {
+                [arrData[0]]: [global.callerAddress, false]
+            });
         });
     });
 
@@ -173,7 +204,7 @@ describe('Ubix NS', () => {
         it('should throw (confirmed twice)', async () => {
             await contract.confirm(...arrData);
 
-            assert.isRejected(contract.confirm(...arrData), 'Account has already confirmed');
+            assert.isRejected(contract.confirm(...arrData), 'Account has already defined');
         });
     });
 
