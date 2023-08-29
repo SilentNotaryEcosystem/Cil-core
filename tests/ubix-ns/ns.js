@@ -120,7 +120,7 @@ class Ns extends Base {
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'resolve',
-                arrArguments: [strName]
+                arrArguments: [strName, bIsConfirmed]
             });
         }
 
@@ -173,7 +173,7 @@ class Ns extends Base {
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'confirm',
-                arrArguments: [strProvider, strName]
+                arrArguments: [strProvider, strName, strWalletAddress]
             });
         }
 
