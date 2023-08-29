@@ -161,12 +161,14 @@ class Ns extends Base {
 
         const arrResult = this._ns[hash];
 
-        if (arrResult && arrResult[1]) throw 'Account has already defined';
+        if (arrResult && (arrResult[1] || arrResult[0].includes(callerAddress))) {
+            throw 'Account has already defined';
+        }
 
-        this._ns[hash] = [callerAddress, false];
+        this._ns[hash] = !arrResult ? [[callerAddress], false] : [[...arrResult[0], callerAddress], false];
     }
 
-    async confirm(strProvider, strName) {
+    async confirm(strProvider, strName, strWalletAddress) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
@@ -182,10 +184,10 @@ class Ns extends Base {
         const hash = this._calcHash(strProvider, strName);
         const arrResult = this._ns[hash];
 
-        if (!arrResult) throw 'Account is not found';
+        if (!arrResult || !arrResult[0].includes(strWalletAddress)) throw 'Account is not found';
         if (arrResult[1]) throw 'Account has already defined';
 
-        this._ns[hash] = [arrResult[0], true];
+        this._ns[hash] = [strWalletAddress, true];
     }
 
     async remove(strProvider, strName) {
@@ -204,9 +206,21 @@ class Ns extends Base {
         const arrResult = this._ns[hash];
 
         if (!arrResult) throw 'Account is not found';
-        if (arrResult[0] !== callerAddress) throw 'You are not the owner';
 
-        delete this._ns[hash];
+        if (arrResult[1]) {
+            if (arrResult[0] !== callerAddress) throw 'You are not the owner';
+            delete this._ns[hash];
+        } else {
+            if (!arrResult[0].includes(callerAddress)) throw 'You are not the owner';
+
+            const arrWallets = arrResult[0].filter(item => item !== callerAddress);
+
+            if (arrWallets.length) {
+                this._ns[hash] = [arrWallets, false];
+            } else {
+                delete this._ns[hash];
+            }
+        }
     }
 
     _validatePermissions() {

@@ -61,7 +61,7 @@ describe('Ubix NS', () => {
 
             assert.equal(Object.keys(contract._ns).length, 1);
             assert.deepEqual(await contract.resolve('mytestname', false), {
-                [arrData[0]]: [global.callerAddress, false]
+                [arrData[0]]: [[global.callerAddress], false]
             });
             assert.isRejected(contract.resolve('mytestname'), 'Account is not found');
         });
@@ -74,7 +74,7 @@ describe('Ubix NS', () => {
 
             assert.equal(Object.keys(contract._ns).length, 1);
             assert.deepEqual(await contract.resolve('mytestname', false), {
-                [arrData[0]]: [global.callerAddress, false]
+                [arrData[0]]: [[global.callerAddress], false]
             });
             assert.isRejected(contract.resolve('mytestname'), 'Account is not found');
         });
@@ -103,25 +103,20 @@ describe('Ubix NS', () => {
 
         it('should throw (create twice)', async () => {
             await contract.create(...arrData);
-            await contract.confirm(...arrData);
+            await contract.confirm(...arrData, global.callerAddress);
             assert.isRejected(contract.create(...arrData), 'Account has already defined');
         });
 
-        it('should not throw create twice for not confirmed account', async () => {
+        it('should throw (create twice) for the same not confirmed account', async () => {
             await contract.create(...arrData);
-            await contract.create(...arrData);
-
-            assert.equal(Object.keys(contract._ns).length, 1);
-            assert.deepEqual(await contract.resolve('mytestname', false), {
-                [arrData[0]]: [global.callerAddress, false]
-            });
+            assert.isRejected(contract.create(...arrData), 'Account has already defined');
         });
 
         it('should not throw create twice for not confirmed account (different user)', async () => {
             await contract.create(...arrData);
 
             assert.deepEqual(await contract.resolve('mytestname', false), {
-                [arrData[0]]: [global.callerAddress, false]
+                [arrData[0]]: [[global.callerAddress], false]
             });
 
             const strFirstCallerAddress = global.callerAddress;
@@ -129,12 +124,8 @@ describe('Ubix NS', () => {
 
             await contract.create(...arrData);
 
-            assert.notDeepEqual(await contract.resolve('mytestname', false), {
-                [arrData[0]]: [strFirstCallerAddress, false]
-            });
-
             assert.deepEqual(await contract.resolve('mytestname', false), {
-                [arrData[0]]: [global.callerAddress, false]
+                [arrData[0]]: [[strFirstCallerAddress, global.callerAddress], false]
             });
         });
     });
@@ -150,7 +141,7 @@ describe('Ubix NS', () => {
         });
 
         it('should confirm', async () => {
-            await contract.confirm(...arrData);
+            await contract.confirm(...arrData, global.callerAddress);
 
             assert.deepEqual(await contract.resolve('mytestname'), {[arrData[0]]: global.callerAddress});
         });
@@ -165,7 +156,7 @@ describe('Ubix NS', () => {
             await contract.create(...arrData);
 
             global.callerAddress = strOwnerAddress;
-            await contract.confirm(...arrData);
+            await contract.confirm(...arrData, strUserAddress);
 
             assert.deepEqual(await contract.resolve('newtestname'), {[arrData[0]]: strUserAddress});
         });
@@ -202,9 +193,9 @@ describe('Ubix NS', () => {
         });
 
         it('should throw (confirmed twice)', async () => {
-            await contract.confirm(...arrData);
+            await contract.confirm(...arrData, global.callerAddress);
 
-            assert.isRejected(contract.confirm(...arrData), 'Account has already defined');
+            assert.isRejected(contract.confirm(...arrData, global.callerAddress), 'Account has already defined');
         });
     });
 
@@ -217,18 +208,47 @@ describe('Ubix NS', () => {
             arrData = ['tg', strName];
         });
 
-        it('should remove', async () => {
+        it('should remove (not confirmed)', async () => {
             await contract.create(...arrData);
 
             assert.equal(Object.keys(contract._ns).length, 1);
 
-            await contract.remove(...arrData.slice(0, 2));
+            await contract.remove(...arrData);
+
+            assert.equal(Object.keys(contract._ns).length, 0);
+        });
+
+        it('should remove (not confirmed, 1 of 2)', async () => {
+            await contract.create(...arrData);
+
+            const strFirstCallerAddress = global.callerAddress;
+            global.callerAddress = generateAddress().toString('hex');
+
+            await contract.create(...arrData);
+
+            assert.equal(Object.keys(contract._ns).length, 1);
+
+            await contract.remove(...arrData);
+
+            assert.equal(Object.keys(contract._ns).length, 1);
+            assert.deepEqual(await contract.resolve('mytestname', false), {
+                [arrData[0]]: [[strFirstCallerAddress], false]
+            });
+        });
+
+        it('should remove (confirmed)', async () => {
+            await contract.create(...arrData);
+            await contract.confirm(...arrData, global.callerAddress);
+
+            assert.equal(Object.keys(contract._ns).length, 1);
+
+            await contract.remove(...arrData);
 
             assert.equal(Object.keys(contract._ns).length, 0);
         });
 
         it('should throw (account is not found)', async () => {
-            assert.isRejected(contract.remove(...arrData.slice(0, 2)), 'Account is not found');
+            assert.isRejected(contract.remove(...arrData), 'Account is not found');
         });
 
         it('should throw (strProvider should be a string)', async () => {
@@ -262,7 +282,7 @@ describe('Ubix NS', () => {
             arrData = [strProvider, strName];
 
             await contract.create(...arrData);
-            await contract.confirm(...arrData);
+            await contract.confirm(...arrData, global.callerAddress);
         });
 
         it('should throw (account is not found)', async () => {
@@ -285,7 +305,7 @@ describe('Ubix NS', () => {
             const arrDataNew = ['ig', strName];
 
             await contract.create(...arrDataNew);
-            await contract.confirm(...arrDataNew);
+            await contract.confirm(...arrDataNew, global.callerAddress);
 
             const arrRecords = await contract.resolve(strName);
 
