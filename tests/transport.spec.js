@@ -248,4 +248,17 @@ describe('IPv6 Transport', () => {
         });
     });
 
+    it("should mark address as valid", async () => {
+        assert.isOk(factory.Transport.isAddrValid('192.168.1.1'));
+        assert.isOk(factory.Transport.isAddrValid('10.0.1.123'));
+        assert.isOk(factory.Transport.isAddrValid('172.16.1.3'));
+        assert.isOk(factory.Transport.isAddrValid('212.153.11.7'));
+    });
+
+    it("should make address as invalid", async () => {
+        assert.isNotOk(factory.Transport.isAddrValid('za'));
+        assert.isNotOk(factory.Transport.isAddrValid('aa'));
+        assert.isNotOk(factory.Transport.isAddrValid(''));
+        assert.isNotOk(factory.Transport.isAddrValid('@#$'));
+    });
 });

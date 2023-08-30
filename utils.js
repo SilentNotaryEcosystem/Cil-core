@@ -318,6 +318,8 @@ function mapEnvToOptions() {
         suppressJoinTx: getBoolEnvParameter(SUPPRESS_JOIN_TX),
 
         // Variables below used for development, regular user don't need it
+        // SEED_ADDRESS - string containing ONLY ONE address (IP or DNS) see
+        //    mapOptionsToNodeParameters
         seedAddr: SEED_ADDRESS,
         genesisHash: GENESIS_HASH,
         conciliumDefContract: CONCILIUM_CONTRACT,

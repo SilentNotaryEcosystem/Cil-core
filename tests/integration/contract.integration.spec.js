@@ -303,7 +303,7 @@ describe('Contract integration tests', () => {
                     arrData: [1, 2, 3, 4],
                     objData: {v: 2}
                 },
-                contractCode: '{"test": "<(){this.arrData.push(100)}"}',
+                contractCode: '{"test": "<(){this.arrData.push(100)}", "testInjected": "(msg){this.hash=sha3(msg);}"}',
                 conciliumId: 0
             }, strContractAddress, factory.Constants.CONTRACT_V_V8);
 
@@ -426,6 +426,29 @@ describe('Contract integration tests', () => {
             assert.equal(objAfterExec.version, factory.Constants.CONTRACT_V_JSON);
         });
 
+        it('should invoke injected function', async () => {
+            const patchTx = new factory.PatchDB();
+            node._processedBlock = {
+                getHeight: () => factory.Constants.forks.HEIGHT_FORK_SERIALIZER - 1,
+                getHash: () => pseudoRandomBuffer().toString('hex'),
+                timestamp: parseInt(Date.now() / 1000)
+            };
+
+            const msg='test';
+            tx = factory.Transaction.invokeContract(
+                generateAddress().toString('hex'),
+                createObjInvocationCode('testInjected', [msg]),
+                1e5
+            );
+
+            await node._processContract(false, contract, tx, patchTx, new factory.PatchDB(), nCoinsIn, nFakeFeeTx);
+
+            const receipt = patchTx.getReceipt(tx.hash());
+            assert.isOk(receipt);
+            assert.isOk(receipt.isSuccessful());
+            assert.isOk(contract.getData().hash);
+            assert.equal(contract.getData().hash, factory.Crypto.sha3(msg));
+        });
     });
 
     describe('Nested contract invoke', async () => {

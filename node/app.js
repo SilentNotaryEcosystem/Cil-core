@@ -242,7 +242,8 @@ module.exports = ({Constants, Transaction, Crypto, PatchDB, Coins, TxReceipt, Co
                         objParams,
                         thisContext,
                         environment
-                    )
+                    ),
+                    sha3: (message) => Crypto.sha3(message)
                 };
 
                 const vm = new VM({

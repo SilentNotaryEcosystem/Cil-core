@@ -155,6 +155,16 @@ module.exports = class BaseConciliumDefinition {
         return this._data.parameters.document;
     }
 
+
+    /**
+     * Get wallet addresses of witnesses.
+     *
+     * @returns {(Buffer|*)[]|undefined}
+     */
+    getAddresses(){
+        throw new Error('Implement!');
+    }
+
     adjustRound(nRoundNo) {
         if (this._nRoundBase === 0 && this._nSeed !== 0) this.initRounds();
 

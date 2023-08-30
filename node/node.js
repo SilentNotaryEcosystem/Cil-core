@@ -71,7 +71,7 @@ module.exports = (factory, factoryOptions) => {
 
             this._nMinConnections = Constants.MIN_PEERS;
 
-            const {arrSeedAddresses, arrDnsSeeds, nMaxPeers, queryTimeout, workerSuspended, networkSuspended} = options;
+            const {arrSeedAddresses, nMaxPeers, queryTimeout, workerSuspended, networkSuspended} = options;
 
             this._workerSuspended = workerSuspended;
             this._networkSuspended = networkSuspended;
@@ -83,8 +83,8 @@ module.exports = (factory, factoryOptions) => {
             // nonce for MsgVersion to detect connection to self (use crypto.randomBytes + readIn32LE) ?
             this._nonce = parseInt(Math.random() * 100000);
 
-            this._arrSeedAddresses = arrSeedAddresses || [];
-            this._arrDnsSeeds = arrDnsSeeds || Constants.DNS_SEED;
+            // arrDnsSeeds
+            this._processSeeds(arrSeedAddresses);
 
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
 
@@ -495,8 +495,8 @@ module.exports = (factory, factoryOptions) => {
                         if (bShouldRequest) nBlockToRequest++;
 
                         // i.e. we store it, it somehow missed dag
-                        if(bBlockKnown && this._mainDag.getBlockInfo(strHash)) {
-                            this._queueBlockExec(strHash, peer);
+                        if(bBlockKnown && !this._mainDag.getBlockInfo(strHash)) {
+                            await this._processStoredBlock(strHash, peer);
                         }
                     }
 
@@ -912,8 +912,9 @@ module.exports = (factory, factoryOptions) => {
         async _createGetBlocksMsg() {
             const msg = new MsgGetBlocks();
             const arrLastApplied = await this._storage.getLastAppliedBlockHashes();
+            arrLastApplied.sort((hashA, hashB) => this._mainDag.getBlockHeight(hashB) - this._mainDag.getBlockHeight(hashA));
             const arrTips = this._pendingBlocks.getTips();
-            msg.arrHashes = arrTips.length ? arrTips : arrLastApplied;
+            msg.arrHashes = arrTips.length ? arrTips.concat([arrLastApplied[0]]) : arrLastApplied;
             return msg;
         }
 
@@ -2613,6 +2614,36 @@ module.exports = (factory, factoryOptions) => {
             return !this._processedBlock ||
                    (this._processedBlock && this._processedBlock.getHeight() <
                     Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3);
+        }
+
+        /**
+         * Split arrSeeds (see utils.js/mapEnvToOptions) into seeds (valid IP addresses)
+         * & arrDnsSeeds (should be resolved via DNS for IP addresses)
+         *
+         * @param arrSeeds
+         * @private
+         */
+
+        _processSeeds(arrSeeds=[]){
+            const arrSeedAddresses=[];
+            const arrDnsSeeds=[];
+
+            for(let addr of arrSeeds) {
+                if (Transport.isAddrValid(addr)){
+                    arrSeedAddresses.push(addr);
+                }else{
+                    arrDnsSeeds.push(addr);
+                }
+            }
+
+            this._arrSeedAddresses = arrSeedAddresses;
+            this._arrDnsSeeds = arrDnsSeeds.length ? arrDnsSeeds : Constants.DNS_SEED;
+        }
+
+        async _processStoredBlock(strHash, peer){
+            const bi=await this._storage.getBlockInfo(strHash);
+            this._storeBlockAndInfo(undefined, bi, true);
+            this._queueBlockExec(strHash, peer);
         }
     };
 };

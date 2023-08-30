@@ -10,6 +10,7 @@ const pathPrefix = os.platform() === 'win32' ? '\\\\?\\pipe' : '';
 
 const {sleep} = require('../utils');
 const TestConnectionWrapper = require('./testConnection');
+const ipaddr = require("ipaddr.js");
 
 /**
  * Это тестовый транспорт
@@ -84,6 +85,15 @@ module.exports = (factory) => {
             // skip leading 0
             for (; i < buffer.length && !buffer[i]; i++) {}
             return buffer.toString(encoding, i);
+        }
+
+        /**
+         * for test purposes. Valid address starts with number.
+         * @param addr
+         * @returns {boolean}
+         */
+        static isAddrValid(addr){
+            return (new RegExp('^[0-9]')).test(addr);
         }
 
         /**

@@ -174,6 +174,47 @@ describe('Conciliums', async () => {
             assert.isOk(concilium._arrProposers.length === concilium._nSeqLength);
         });
 
+        it('should sort members from most staked', async () => {
+            const arrMembers=[
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ];
+            concilium = factory.ConciliumPos.create(11, 1e3, 100, arrMembers);
+
+            assert.deepEqual(concilium.getAddresses(false, true), [
+                arrMembers[1].address,
+                arrMembers[0].address
+            ]);
+        });
+
+        it('should keep original order', async () => {
+            const arrMembers=[
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ];
+            concilium = factory.ConciliumPos.create(11, 1e3, 100, arrMembers);
+
+            assert.deepEqual(concilium.getAddresses(false), [
+                arrMembers[0].address,
+                arrMembers[1].address
+            ]);
+        });
+
+        it('should keep original array, even after sorting address', async () => {
+            const arrMembers=[
+                {amount: 1e3, address: generateAddress().toString('hex')},
+                {amount: 1e5, address: generateAddress().toString('hex')}
+            ];
+            concilium = factory.ConciliumPos.create(11, 1e3, 100, arrMembers);
+
+            concilium.getAddresses(false, true);
+
+            assert.deepEqual(
+                concilium._data.arrMembers.map(objRecord => objRecord.address.toString('hex')),
+                [arrMembers[0].address, arrMembers[1].address]
+            );
+        });
+
         describe('quorum', function() {
             it('should be less than one ', async () => {
                 assert.isOk(concilium.getQuorum() < 1);

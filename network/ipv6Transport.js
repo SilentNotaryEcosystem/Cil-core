@@ -166,6 +166,10 @@ module.exports = (factory) => {
             }
         }
 
+        static isAddrValid(addr){
+            return ipaddr.isValid(addr);
+        }
+
         /**
          *
          * @returns {Promise<String>} - external ip (router IP)

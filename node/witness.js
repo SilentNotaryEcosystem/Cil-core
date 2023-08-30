@@ -220,17 +220,10 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _getConciliumPeers(concilium) {
-            const arrConciliumAddresses = concilium.getAddresses();
-            const arrAllWitnessesPeers = this._peerManager.filterPeers({service: Constants.WITNESS}, true);
-            const arrPeers = [];
-            for (let peer of arrAllWitnessesPeers) {
-                if (~arrConciliumAddresses.findIndex(addr => {
-                    const strAddr = addr.toString('hex');
-                    return strAddr === peer.witnessAddress;
-                })) {
-                    arrPeers.push(peer);
-                }
-            }
+            const arrConciliumAddresses = concilium.getAddresses(false, true);
+            const arrPeers = this._peerManager
+                .filterPeers({service: Constants.WITNESS}, true)
+                .filter(peer => ~arrConciliumAddresses.findIndex(walletAddr => walletAddr === peer.witnessAddress));
             return arrPeers;
         }
 
@@ -558,11 +551,12 @@ module.exports = (factory, factoryOptions) => {
                     Constants.WITNESS_UTXOS_JOIN) {
                     arrTxToProcess = [
                         this._createJoinTx(arrUtxos, conciliumId, Constants.MAX_UTXO_PER_TX / 2),
-                        ...this._mempool.getFinalTxns(conciliumId)
+                        ...this._gatherTxns(conciliumId)
                     ];
                 } else {
-                    arrTxToProcess = this._mempool.getFinalTxns(conciliumId);
+                    arrTxToProcess = this._gatherTxns(conciliumId);
                 }
+
 
                 for (let tx of arrTxToProcess) {
                     try {
@@ -600,6 +594,21 @@ module.exports = (factory, factoryOptions) => {
             }
 
             return {block, patch: patchMerged};
+        }
+
+        _gatherTxns(conciliumId){
+            const arrTxToProcess = this._mempool.getFinalTxns(conciliumId);
+
+            // regular txns first
+            return arrTxToProcess.sort((txA, txB) =>{
+                const bIsTxAContract=txA.isContract();
+                if(bIsTxAContract && txB.isContract()) {
+                    return 0;
+                }else if(bIsTxAContract){
+                    return 1;
+                }
+                return -1;
+            });
         }
 
         _createPseudoRandomSeed(arrLastStableBlockHashes) {

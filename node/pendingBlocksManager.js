@@ -190,7 +190,7 @@ module.exports = (factory, factoryOptions) => {
             const arrWitnessNums = arrTips.map(vertex => this.getVertexWitnessBelow(vertex));
 
             // sort it descending
-            return arrTips
+            return Array.from(arrTips)
                 .map((e, i) => i)
                 .sort((i1, i2) => {
 

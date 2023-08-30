@@ -39,7 +39,7 @@ const createDummyDefinitionWallet = (conciliumId = 0) => {
     const newWallet = new factory.Wallet(keyPair1.privateKey);
 
     const concilium = factory.ConciliumRr.create(conciliumId,
-        [keyPair1.publicKey, keyPair2.publicKey]
+        [keyPair1.address, keyPair2.address]
     );
 
     return {keyPair1, keyPair2, concilium, newWallet};
@@ -81,10 +81,10 @@ describe('Witness tests', () => {
         const witness = new factory.Witness({wallet, arrTestDefinition: [concilium], isSeed: true});
         await witness.ensureLoaded();
 
-        const peer1 = createDummyPeer(keyPair1.publicKey);
+        const peer1 = createDummyPeer(keyPair1.address);
         const peer2 = createDummyPeer('notWitness1');
         const peer3 = createDummyPeer('1111');
-        const peer4 = createDummyPeer(keyPair2.publicKey);
+        const peer4 = createDummyPeer(keyPair2.address);
         for (let peer of [peer1, peer2, peer3, peer4]) {
             await witness._peerManager.addPeer(peer);
         }
@@ -92,6 +92,8 @@ describe('Witness tests', () => {
         const result = await witness._getConciliumPeers(concilium);
         assert.isOk(Array.isArray(result));
         assert.equal(result.length, 2);
+        assert.equal(result[0].witnessAddress, keyPair1.address);
+        assert.equal(result[1].witnessAddress, keyPair2.address);
     });
 
     it('should reject message with wrong signature prom peer', async () => {
@@ -285,5 +287,25 @@ describe('Witness tests', () => {
             // coinbase + joinTx + 10 txns in mempool
             assert.equal(block.txns.length, 1 + 1 + 10);
         });
+    });
+
+    it("should sort txns (regular first)", async () => {
+        const {witness, concilium} = createDummyWitness();
+        await witness.ensureLoaded();
+
+        witness._mempool.getFinalTxns = () => [
+            new factory.Transaction(createDummyTx()),
+            factory.Transaction.createContract('', generateAddress()),
+            factory.Transaction.invokeContract(
+                generateAddress().toString('hex'),
+                {},
+                0
+            ),
+            new factory.Transaction(createDummyTx())
+        ];
+
+        const arrTxns = await witness._gatherTxns(concilium);
+
+        assert.deepEqual(arrTxns.map(tx => tx.isContract()), [false, false, true, true]);
     });
 });

@@ -1,7 +1,11 @@
-const debug = require('debug')('msgassembler:');
+const debug = require("debug")("msgassembler:");
 
 module.exports = (Serializer) =>
     class MessageAssembler {
+        constructor() {
+            this._messageBuffer=undefined;
+        }
+
         get isDone() {
             return !this._messageBuffer;
         }
@@ -12,67 +16,64 @@ module.exports = (Serializer) =>
          * @private
          */
         extractMessages(data) {
-            const arrMessagesBuffers = [];
-            if (!this._messageBuffer) {
-
-                // new message, let's assemby it
-                const {length, dataOffset} = Serializer.readMsgLength(data);
-                const totalMsgBufferLength = length + dataOffset;
-                debug(`New message. Total length: ${totalMsgBufferLength}. Chunk length: ${data.length}.`);
-
-                const messageBuffer = Buffer.alloc(totalMsgBufferLength);
-                const toCopyBytes = data.length > totalMsgBufferLength ? totalMsgBufferLength : data.length;
-                data.copy(messageBuffer, 0, 0, toCopyBytes);
-
-                if (data.length === messageBuffer.length) {
-
-                    // exactly one message
-                    return [messageBuffer];
-                } else if (data.length > messageBuffer.length) {
-
-                    // we have another message (possibly part of it) in 'data'
-                    // let's recursively get it
-                    arrMessagesBuffers.push(messageBuffer);
-                    const subBuffer = data.slice(totalMsgBufferLength);
-                    const arrRestOfMessages = this.extractMessages(subBuffer);
-                    if (arrRestOfMessages) {
-                        return arrMessagesBuffers.concat(arrRestOfMessages);
-                    } else {
-                        return arrMessagesBuffers;
-                    }
-                } else if (data.length < messageBuffer.length) {
-
-                    // we need more chunks for it!
-                    this._messageBuffer = messageBuffer;
-                    this._bytesToGo = messageBuffer.length - data.length;
-                    return null;
-                }
+            let result;
+            if (this.isDone) {
+                result = this._start(data);
             } else {
-                debug(`   next chunk. length: ${data.length}.`);
-
-                // next chunks for current message
-                const toCopyBytes = this._bytesToGo < data.length ? this._bytesToGo : data.length;
-                data.copy(this._messageBuffer, this._messageBuffer.length - this._bytesToGo, 0, toCopyBytes);
-                if (toCopyBytes === this._bytesToGo) {
-
-                    // we are done with this message
-                    arrMessagesBuffers.push(this._messageBuffer);
-                    this._messageBuffer = undefined;
-
-                    // no more messages in this chunk
-                    if (toCopyBytes === data.length) return arrMessagesBuffers;
-
-                    const subBuffer = data.slice(toCopyBytes);
-                    const arrRestOfMessages = this.extractMessages(subBuffer);
-                    if (arrRestOfMessages) {
-                        return arrMessagesBuffers.concat(arrRestOfMessages);
-                    } else {
-                        return arrMessagesBuffers;
-                    }
-                } else {
-                    this._bytesToGo -= toCopyBytes;
-                    return null;
-                }
+                result = this._continue(data);
             }
+            return result.length ? result:null;
+        }
+
+        _start(data) {
+
+            // new message, let's assemby it
+            let length, dataOffset;
+            try {
+                ({ length, dataOffset } = Serializer.readMsgLength(data));
+            } catch (e) {
+
+                // we are here if message were split in a middle of "length" bytes
+                this._postponeData(data);
+                return [];
+            }
+
+            const firstMsgLength=length + dataOffset;
+            if (data.length === firstMsgLength) {
+
+                // exactly one message
+                return [data];
+            } else if (data.length > firstMsgLength) {
+
+                // we have another message (possibly part of it) in 'data'
+                // let's recursively get it
+                return [data.slice(0, firstMsgLength)].concat(this._start(data.slice(firstMsgLength)));
+            } else if (data.length < firstMsgLength) {
+
+                // we need more chunks
+                // store current
+                this._postponeData(data);
+                return [];
+            }
+        }
+
+        _continue(data) {
+            debug(`   next chunk. length: ${data.length}.`);
+
+            // next chunks for current message
+            const concBuff=this._postponeData(data);
+            this._messageBuffer=undefined;
+
+            return this._start(concBuff);
+        }
+
+        _postponeData(data){
+            if(this._messageBuffer){
+                this._messageBuffer = Buffer.concat([this._messageBuffer, data]);
+            }else{
+                this._messageBuffer=Buffer.from(data);
+            }
+
+            return this._messageBuffer;
         }
     };

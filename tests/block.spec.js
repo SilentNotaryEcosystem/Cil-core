@@ -177,17 +177,30 @@ describe('Block tests', () => {
             const block = new factory.Block(0);
             block.parentHashes = [pseudoRandomBuffer()];
             block.addWitnessSignatures([pseudoRandomBuffer(65)]);
+
             block.finish(factory.Constants.fees.TX_FEE, generateAddress());
             assert.throws(() => block.verify(), 'Bad height');
         });
 
-        it('should SUCCESS to verify', async () => {
+        it('should SUCCESS to verify empty block', async () => {
             const block = new factory.Block(0);
             block.parentHashes = [pseudoRandomBuffer()];
             block.addWitnessSignatures([pseudoRandomBuffer(65)]);
             block.finish(factory.Constants.fees.TX_FEE, generateAddress());
             block.setHeight(20);
             block.verify();
+        });
+
+        it('should FAIL to verify block with wrong tx.conciliumId', async () => {
+            const block = new factory.Block(0);
+            block.parentHashes = [pseudoRandomBuffer()];
+            const tx = new factory.Transaction(createDummyTx(undefined, 1))
+            block.addTx(tx);
+            block.addWitnessSignatures([pseudoRandomBuffer(65)]);
+            block.finish(factory.Constants.fees.TX_FEE, generateAddress());
+            block.setHeight(20);
+
+            assert.throws(() => block.verify(), 'Found tx with wrong conciliumId');
         });
     });
 });
