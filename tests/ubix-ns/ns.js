@@ -145,7 +145,7 @@ class Ns extends Base {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
-                method: 'confirm',
+                method: 'create',
                 arrArguments: [strProvider, strName, strWalletAddress]
             });
         }
