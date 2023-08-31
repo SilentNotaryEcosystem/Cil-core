@@ -543,20 +543,18 @@ module.exports = (factory, factoryOptions) => {
                 const arrBadHashes = [];
                 let totalFee = 0;
 
-                let arrTxToProcess;
-                const arrUtxos = await this._storage.walletListUnspent(this._wallet.address);
+                let arrTxToProcess=this._gatherTxns(conciliumId);
+                if (this._bCreateJoinTx){
+                    const arrUtxos = await this._storage.walletListUnspent(this._wallet.address);
 
-                // There is possible situation with 1 UTXO having numerous output. It will be count as 1
-                if (this._bCreateJoinTx && this._nLowestConciliumId === conciliumId && arrUtxos.length >
-                    Constants.WITNESS_UTXOS_JOIN) {
-                    arrTxToProcess = [
-                        this._createJoinTx(arrUtxos, conciliumId, Constants.MAX_UTXO_PER_TX / 2),
-                        ...this._gatherTxns(conciliumId)
-                    ];
-                } else {
-                    arrTxToProcess = this._gatherTxns(conciliumId);
+                    // There is possible situation with 1 UTXO having numerous output. It will be count as 1
+                    if (this._nLowestConciliumId === conciliumId && arrUtxos.length >
+                        Constants.WITNESS_UTXOS_JOIN) {
+                        arrTxToProcess.unshift(
+                            this._createJoinTx(arrUtxos, conciliumId, Constants.MAX_UTXO_PER_TX / 2),
+                        );
+                    }
                 }
-
 
                 for (let tx of arrTxToProcess) {
                     try {
