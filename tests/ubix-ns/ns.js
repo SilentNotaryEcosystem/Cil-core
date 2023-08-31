@@ -115,12 +115,12 @@ class Ns extends Base {
         this._proxyAddress = strNewAddress;
     }
 
-    async resolve(strName, bIsConfirmed = true) {
+    async resolve(strName) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
                 method: 'resolve',
-                arrArguments: [strName, bIsConfirmed]
+                arrArguments: [strName]
             });
         }
 
@@ -129,14 +129,10 @@ class Ns extends Base {
         const result = {};
         for (const strProvider of this._providers) {
             const hash = this._calcHash(strProvider, strName);
-            const arrResult = this._ns[hash];
+            const strWalletAddress = this._ns[hash];
 
-            if (!arrResult) continue;
-
-            if (!bIsConfirmed) {
-                result[strProvider] = arrResult;
-            } else if (arrResult[1]) {
-                result[strProvider] = arrResult[0];
+            if (strWalletAddress) {
+                result[strProvider] = strWalletAddress;
             }
         }
 
@@ -145,30 +141,7 @@ class Ns extends Base {
         return result;
     }
 
-    async create(strProvider, strName) {
-        // remove for proxy contract!
-        if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress, {
-                method: 'create',
-                arrArguments: [strProvider, strName]
-            });
-        }
-
-        this._validatePermissions();
-        this._validateParameters(strProvider, strName);
-
-        const hash = this._calcHash(strProvider, strName);
-
-        const arrResult = this._ns[hash];
-
-        if (arrResult && (arrResult[1] || arrResult[0].includes(callerAddress))) {
-            throw 'Account has already defined';
-        }
-
-        this._ns[hash] = !arrResult ? [[callerAddress], false] : [[...arrResult[0], callerAddress], false];
-    }
-
-    async confirm(strProvider, strName, strWalletAddress) {
+    async create(strProvider, strName, strWalletAddress) {
         // remove for proxy contract!
         if (this._proxyAddress) {
             return await delegatecall(this._proxyAddress, {
@@ -180,14 +153,13 @@ class Ns extends Base {
         this._validatePermissions();
         this._checkOwner();
         this._validateParameters(strProvider, strName);
+        this._validateWalletAddress(strWalletAddress);
 
         const hash = this._calcHash(strProvider, strName);
-        const arrResult = this._ns[hash];
 
-        if (!arrResult || !arrResult[0].includes(strWalletAddress)) throw 'Account is not found';
-        if (arrResult[1]) throw 'Account has already defined';
+        if (this._ns[hash]) throw 'Account has already defined';
 
-        this._ns[hash] = [strWalletAddress, true];
+        this._ns[hash] = strWalletAddress;
     }
 
     async remove(strProvider, strName) {
@@ -203,24 +175,13 @@ class Ns extends Base {
         this._validateParameters(strProvider, strName);
 
         const hash = this._calcHash(strProvider, strName);
-        const arrResult = this._ns[hash];
+        const strWalletAddress = this._ns[hash];
 
-        if (!arrResult) throw 'Account is not found';
+        if (!strWalletAddress) throw 'Account is not found';
 
-        if (arrResult[1]) {
-            if (arrResult[0] !== callerAddress) throw 'You are not the owner';
-            delete this._ns[hash];
-        } else {
-            if (!arrResult[0].includes(callerAddress)) throw 'You are not the owner';
+        if (strWalletAddress !== callerAddress) throw 'You are not the owner';
 
-            const arrWallets = arrResult[0].filter(item => item !== callerAddress);
-
-            if (arrWallets.length) {
-                this._ns[hash] = [arrWallets, false];
-            } else {
-                delete this._ns[hash];
-            }
-        }
+        delete this._ns[hash];
     }
 
     _validatePermissions() {
@@ -232,6 +193,11 @@ class Ns extends Base {
         if (typeof strProvider !== 'string') throw 'strProvider should be a string';
         if (typeof strName !== 'string') throw 'strName should be a string';
         if (!this._providers.includes(strProvider)) throw 'strProvider is not in the providers list';
+    }
+
+    _validateWalletAddress(strWalletAddress) {
+        if (typeof strWalletAddress !== 'string') throw 'strWalletAddress should be a string';
+        this._validateAddress(strWalletAddress);
     }
 
     _calcHash(strProvider, strName) {
