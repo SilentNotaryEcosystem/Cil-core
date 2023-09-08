@@ -77,7 +77,6 @@ class Ns extends Base {
         super();
 
         // remove everything below for proxy!
-        this._updateFee = 130000;
         this._ns = {};
         this._providers = ['email', 'tg', 'ig'];
         this._proxyAddress = undefined;
@@ -186,7 +185,6 @@ class Ns extends Base {
 
     _validatePermissions() {
         if (!callerAddress) throw 'You should sign TX';
-        if (value < this._updateFee) throw `Update fee is ${this._updateFee}`;
     }
 
     _validateParameters(strProvider, strName) {

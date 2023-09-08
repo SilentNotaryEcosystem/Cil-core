@@ -23,7 +23,6 @@ describe('Ubix NS', () => {
     });
 
     beforeEach(async () => {
-        global.value = 0;
         global.callerAddress = generateAddress().toString('hex');
         global.contractTx = pseudoRandomBuffer().toString('hex');
         contract = new NsContract();
@@ -50,7 +49,6 @@ describe('Ubix NS', () => {
         let arrData;
 
         beforeEach(async () => {
-            global.value = 130000;
             arrData = ['tg', 'mytestname', generateAddress().toString('hex')];
         });
 
@@ -73,11 +71,6 @@ describe('Ubix NS', () => {
         it('should throw (unsigned TX)', async () => {
             global.callerAddress = undefined;
             assert.isRejected(contract.create(...arrData), 'You should sign TX');
-        });
-
-        it('should throw (low create fee)', async () => {
-            global.value = 130000 - 1;
-            assert.isRejected(contract.create(...arrData), 'Update fee is 130000');
         });
 
         it('should throw (strProvider should be a string)', async () => {
@@ -110,7 +103,6 @@ describe('Ubix NS', () => {
         let arrData;
 
         beforeEach(async () => {
-            global.value = 130000;
             arrData = ['tg', 'mytestname', generateAddress().toString('hex')];
         });
 
@@ -154,7 +146,6 @@ describe('Ubix NS', () => {
         let arrData;
 
         beforeEach(async () => {
-            global.value = 130000;
             arrData = ['tg', 'mytestname', generateAddress().toString('hex')];
 
             await contract.create(...arrData);
