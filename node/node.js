@@ -1033,6 +1033,7 @@ module.exports = (factory, factoryOptions) => {
             if(this._mempool.isBadTx(strNewTxHash)) throw new Error('Tx already marked as bad');
 
             // let's check for patch conflicts with other local txns
+            const lock = await this._mutex.acquire(['_acceptLocalTx']);
             try {
                 await this._ensureLocalTxnsPatch();
 
@@ -1050,6 +1051,8 @@ module.exports = (factory, factoryOptions) => {
                 logger.error(e);
                 this._mempool.storeBadTxHash(strNewTxHash);
                 throw new Error(`Tx ${strNewTxHash} is not accepted: ${e.message}`);
+            }finally {
+                this._mutex.release(lock);
             }
         }
 
@@ -2364,7 +2367,7 @@ module.exports = (factory, factoryOptions) => {
                 [method, arrArguments, contractAddress]
             );
 
-            const lock = await this._mutex.acquire(['transaction', 'application']);
+            const lock = await this._mutex.acquire(['application', 'constantCall']);
             try {
                 let contract = await this._storage.getContract(contractAddress);
 
