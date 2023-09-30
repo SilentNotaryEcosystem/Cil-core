@@ -114,6 +114,11 @@ module.exports = ({Constants}, {contractProto}) =>
             return result > 0 ? result : 0;
         }
 
+        getSize() {
+            const serializedCode = this._cacheCode ? JSON.stringify(this._cacheCode) : this._data.contractCode || '';
+            return serializedCode.length + this.getDataSize();
+        }
+
         /**
          * It used in 2 places, so i see no reason to duplicate it
          * Invalidate stored data

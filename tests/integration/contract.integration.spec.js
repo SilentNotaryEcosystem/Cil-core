@@ -276,12 +276,12 @@ describe('Contract integration tests', () => {
             });
 
             const origFnExecDone = node._app._execDone;
-            sinon.stub(node._app, '_execDone').callsFake(contract => {
+            sinon.stub(node._app, '_execDone').callsFake((contract, isContractSizeFork) => {
                 objAfterExec = {
                     dataSize: contract.getDataSize(),
                     version: contract.getVersion()
                 };
-                origFnExecDone.call(node._app, contract);
+                origFnExecDone.call(node._app, contract, isContractSizeFork);
             });
         };
 
@@ -419,6 +419,84 @@ describe('Contract integration tests', () => {
 
             assert.equal(objBeforeExec.version, factory.Constants.CONTRACT_V_JSON);
             assert.equal(objAfterExec.version, factory.Constants.CONTRACT_V_JSON);
+        });
+    });
+
+    describe('Contract size calculation', async () => {
+        const contractCode = `{"test":"(){ const a = [${new Array(100).fill(1)}]; }"}`;
+        const nCoinsInLimit = factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx;
+
+        beforeEach(() => {
+            node._getFeeStorage = sinon.fake.resolves(nFakeFeeDataSize * 1000);
+        });
+
+        it('should run a contract (before 1st contract size fork)', async () => {
+            let strContractAddress = generateAddress().toString('hex');
+            let contract = new factory.Contract(
+                {
+                    contractData: {},
+                    contractCode,
+                    conciliumId: 0
+                },
+                strContractAddress,
+                factory.Constants.CONTRACT_V_V8
+            );
+
+            let tx = factory.Transaction.invokeContract(
+                generateAddress().toString('hex'),
+                createObjInvocationCode('test', []),
+                1e5
+            );
+
+            const patchTx = new factory.PatchDB();
+            node._processedBlock = {
+                getHeight: () => factory.Constants.forks.HEIGHT_FORK_CONTRACT_SIZE - 1,
+                getHash: () => pseudoRandomBuffer().toString('hex'),
+                timestamp: parseInt(Date.now() / 1000)
+            };
+
+            await node._processContract(false, contract, tx, patchTx, new factory.PatchDB(), nCoinsInLimit, nFakeFeeTx);
+
+            const receipt = patchTx.getReceipt(tx.hash());
+            assert.isOk(receipt);
+            assert.isOk(receipt.isSuccessful());
+
+            assert.equal(node._app._nDataDelta, 0);
+        });
+
+        it('should run a contract and return an error (after 1st contract size fork)', async () => {
+            let strContractAddress = generateAddress().toString('hex');
+            let contract = new factory.Contract(
+                {
+                    contractData: {},
+                    contractCode,
+                    conciliumId: 0
+                },
+                strContractAddress,
+                factory.Constants.CONTRACT_V_V8
+            );
+
+            let tx = factory.Transaction.invokeContract(
+                generateAddress().toString('hex'),
+                createObjInvocationCode('test', []),
+                1e5
+            );
+
+            const patchTx = new factory.PatchDB();
+            node._processedBlock = {
+                getHeight: () => factory.Constants.forks.HEIGHT_FORK_CONTRACT_SIZE,
+                getHash: () => pseudoRandomBuffer().toString('hex'),
+                timestamp: parseInt(Date.now() / 1000)
+            };
+
+            await node._processContract(false, contract, tx, patchTx, new factory.PatchDB(), nCoinsInLimit, nFakeFeeTx);
+
+            const receipt = patchTx.getReceipt(tx.hash());
+            assert.isOk(receipt);
+            assert.isNotOk(receipt.isSuccessful());
+            assert.equal(receipt._data.message, 'Not enough coins to run contract');
+
+            assert.equal(node._app._nDataDelta, contractCode.length);
         });
     });
 
