@@ -1,5 +1,4 @@
 module.exports = {
-
     // some of constants will be injected from prototypes in Factory!
     constants: {
         LOCAL_TX_FILE_NAME: 'txns.json',
@@ -60,6 +59,11 @@ module.exports = {
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 300,
 
+        // MAX_BLOCKS_INV / 2, index by height[0, 150, 300, ...]
+        MAIN_DAG_INDEX_STEP: 300 / 2,
+        MAIN_DAG_PAGES_IN_MEMORY: 20,
+        USE_MAIN_DAG_INDEX: false,
+
         // we expect that peer will respond with requested INV within this period
         INV_REQUEST_HOLDOFF: 1 * 60 * 1000,
 
@@ -108,7 +112,6 @@ module.exports = {
 
         // fees
         fees: {
-
             // money send fee per Kbyte
             TX_FEE: 4000,
 
@@ -141,6 +144,7 @@ module.exports = {
 
         DB_TXINDEX_DIR: 'txindex',
         DB_WALLET_DIR: 'wallet',
+        DB_MAIN_DAG_INDEX_DIR: 'mdagstate',
 
         concilium: {
             HEIGHT_TO_RELEASE_ADD_ON: 1000,
