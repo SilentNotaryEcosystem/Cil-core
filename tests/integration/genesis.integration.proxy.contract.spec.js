@@ -3,11 +3,10 @@ const {assert} = require('chai');
 const debugLib = require('debug');
 const sinon = require('sinon').createSandbox();
 
-const factory = require('../testFactory');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
 const {generateAddress, processBlock} = require('../testUtil');
 const {arrayEquals, prepareForStringifyObject} = require('../../utils');
-
-process.on('warning', e => console.warn(e.stack));
 
 const CONCILIUM_CREATE_FEE = 1e6;
 const CONCILIUM_INVOKE_FEE = 1e6;
@@ -37,11 +36,17 @@ let stepDone = false;
 
 describe('Genesis net tests (it runs one by one!)', () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
 
         seedAddress = factory.Transport.generateAddress();
         factory.Constants.DNS_SEED = [seedAddress];
+    });
+
+    after(() => {
+        process.removeAllListeners();
     });
 
     beforeEach(() => {
@@ -281,8 +286,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
         assert.equal(witnessConciliumTwo._pendingBlocks.getAllHashes().length, 0);
 
         // all blocks
-        assert.equal(witnessConciliumOne._mainDag.order, 5);
-        assert.equal(witnessConciliumTwo._mainDag.order, 5);
+        assert.equal(await witnessConciliumOne._mainDagIndex.getOrder(), 5);
+        assert.equal(await witnessConciliumTwo._mainDagIndex.getOrder(), 5);
 
         stepDone = true;
     });
@@ -362,8 +367,8 @@ describe('Genesis net tests (it runs one by one!)', () => {
 
         // wait to 4 block (including one with concilium 1 definition)
         await (new Promise((resolve, reject) => {
-            sinon.stub(witnessThree, '_postAcceptBlock').callsFake(() => {
-                if (witnessThree._mainDag.order === 6) {
+            sinon.stub(witnessThree, '_postAcceptBlock').callsFake(async () => {
+                if (await witnessThree._mainDagIndex.getOrder() === 6) {
                     resolve();
                 }
             });

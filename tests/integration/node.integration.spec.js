@@ -6,16 +6,17 @@ const os = require('os');
 const sinon = require('sinon');
 const debugLib = require('debug');
 
-const factory = require('../testFactory');
-const factoryIpV6 = require('../testFactoryIpV6');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
+const {getNewTestIpV6Factory} = require('../testFactoryIpV6');
+const factoryIpV6 = getNewTestIpV6Factory();
+
 const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress, createObjInvocationCode} = require(
     '../testUtil');
 const {arrayIntersection} = require('../../utils');
 
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
-
-process.on('warning', e => console.warn(e.stack));
 
 // set to undefined to use random delays
 const delay = undefined;
@@ -104,14 +105,17 @@ const createLiveNet = async (onlySeedProcessBlock = false) => {
     return {seedNode, arrNodes};
 };
 
-describe('Node integration tests', async () => {
+describe('Idx Node integration tests', async () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
         await factoryIpV6.asyncLoad();
     });
 
     after(async function() {
+        process.removeAllListeners();
         this.timeout(15000);
     });
 
@@ -328,7 +332,7 @@ describe('Node integration tests', async () => {
             block21.addTx(tx);
             block21.finish(1e6 - 2e3, generateAddress());
 
-            block21.setHeight(node._calcHeight(block21.parentHashes));
+            block21.setHeight(await node._calcHeight(block21.parentHashes));
         }
         const patch21 = await processBlock(node, block21);
 
@@ -359,7 +363,7 @@ describe('Node integration tests', async () => {
             block10.parentHashes = [gBlock.getHash()];
             block10.addTx(tx);
             block10.finish(1e6 - 2e3, generateAddress());
-            block10.setHeight(node._calcHeight(block10.parentHashes));
+            block10.setHeight(await node._calcHeight(block10.parentHashes));
         }
         const patch10 = await processBlock(node, block10);
 
@@ -380,7 +384,7 @@ describe('Node integration tests', async () => {
             block32 = new factory.Block(2);
             block32.parentHashes = [block21.getHash()];
             block32.finish(0, generateAddress());
-            block32.setHeight(node._calcHeight(block32.parentHashes));
+            block32.setHeight(await node._calcHeight(block32.parentHashes));
         }
         const patch32 = await processBlock(node, block32);
         {
@@ -463,7 +467,7 @@ describe('Node integration tests', async () => {
             block2.addTx(tx);
             block2.finish(4e6 - 3e6, generateAddress());
 
-            block2.setHeight(node._calcHeight(block2.parentHashes));
+            block2.setHeight(await node._calcHeight(block2.parentHashes));
             txHash2 = tx.getHash();
         }
         const patch21 = await processBlock(node, block2);
@@ -563,7 +567,7 @@ exports=new TestClass();
             // block fee was cheated, but this test not intended to verify it
             block2.finish(2987700, generateAddress());
 
-            block2.setHeight(node._calcHeight(block2.parentHashes));
+            block2.setHeight(await node._calcHeight(block2.parentHashes));
             txHash2 = tx.getHash();
         }
         const patch21 = await processBlock(node, block2);
@@ -639,7 +643,7 @@ exports=new TestClass();
             block2 = new factory.Block(0);
             block2.parentHashes = [gBlock.getHash()];
             block2.addTx(tx);
-            block2.setHeight(node._calcHeight(block2.parentHashes));
+            block2.setHeight(await node._calcHeight(block2.parentHashes));
             block2.finish(1e6 - 2e3, kpReceiver.getAddress());
 
             coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
@@ -651,7 +655,7 @@ exports=new TestClass();
         {
             block3 = new factory.Block(1);
             block3.parentHashes = [block2.getHash()];
-            block3.setHeight(node._calcHeight(block3.parentHashes));
+            block3.setHeight(await node._calcHeight(block3.parentHashes));
             block3.finish(0, generateAddress());
         }
         await processBlock(node, block3);
@@ -718,7 +722,7 @@ exports=new TestClass();
             block2 = new factory.Block(0);
             block2.parentHashes = [gBlock.getHash()];
             block2.addTx(tx);
-            block2.setHeight(node._calcHeight(block2.parentHashes));
+            block2.setHeight(await node._calcHeight(block2.parentHashes));
             block2.finish(1e6 - 2e3, kpReceiver.getAddress());
 
             coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
@@ -730,7 +734,7 @@ exports=new TestClass();
         {
             block3 = new factory.Block(1);
             block3.parentHashes = [block2.getHash()];
-            block3.setHeight(node._calcHeight(block3.parentHashes));
+            block3.setHeight(await node._calcHeight(block3.parentHashes));
             block3.finish(0, generateAddress());
         }
         await processBlock(node, block3);
@@ -812,7 +816,7 @@ exports=new TestClass();
                 block2.addTx(tx);
                 block2.finish(1e6 - 2e3, generateAddress());
 
-                block2.setHeight(node._calcHeight(block2.parentHashes));
+                block2.setHeight(await node._calcHeight(block2.parentHashes));
             }
             await processBlock(node, block2);
 
@@ -824,7 +828,7 @@ exports=new TestClass();
                 block3.addTx(tx);
                 block3.finish(1e6 - 2e3, generateAddress());
 
-                block3.setHeight(node._calcHeight(block3.parentHashes));
+                block3.setHeight(await node._calcHeight(block3.parentHashes));
             }
 
             const strError = `Output #0 of Tx ${txHash} already spent!`;
@@ -848,7 +852,7 @@ exports=new TestClass();
                 block2.addTx(tx);
                 block2.finish(1e6 - 2e3, generateAddress());
 
-                block2.setHeight(node._calcHeight(block2.parentHashes));
+                block2.setHeight(await node._calcHeight(block2.parentHashes));
             }
             await processBlock(node, block2);
 
@@ -859,7 +863,7 @@ exports=new TestClass();
                 block3.parentHashes = [block2.getHash()];
                 block3.finish(0, generateAddress());
 
-                block3.setHeight(node._calcHeight(block3.parentHashes));
+                block3.setHeight(await node._calcHeight(block3.parentHashes));
             }
             await processBlock(node, block3);
 
@@ -871,7 +875,7 @@ exports=new TestClass();
                 block4.addTx(tx);
                 block4.finish(1e6 - 2e3, generateAddress());
 
-                block4.setHeight(node._calcHeight(block4.parentHashes));
+                block4.setHeight(await node._calcHeight(block4.parentHashes));
             }
 
             const strError = `Output #0 of Tx ${txHash} already spent!`;
@@ -892,7 +896,7 @@ exports=new TestClass();
                 block21.addTx(createTx(0));
                 block21.finish(1e6 - 2e3, generateAddress());
 
-                block21.setHeight(node._calcHeight(block21.parentHashes));
+                block21.setHeight(await node._calcHeight(block21.parentHashes));
             }
             await processBlock(node, block21);
 
@@ -904,7 +908,7 @@ exports=new TestClass();
                 block22.parentHashes = [gBlock.getHash()];
                 block22.finish(1e6 - 2e3, generateAddress());
 
-                block22.setHeight(node._calcHeight(block22.parentHashes));
+                block22.setHeight(await node._calcHeight(block22.parentHashes));
             }
             await processBlock(node, block22);
 
@@ -915,7 +919,7 @@ exports=new TestClass();
                 block3.parentHashes = [block21.getHash(), block22.getHash()];
                 block3.finish(0, generateAddress());
 
-                block3.setHeight(node._calcHeight(block3.parentHashes));
+                block3.setHeight(await node._calcHeight(block3.parentHashes));
             }
 
             const strError = `Patch merge: conflict on ${txHash} idx 0`;
@@ -937,7 +941,7 @@ exports=new TestClass();
                     block21.addTx(createTx(0));
                     block21.finish(1e6 - 2e3, generateAddress());
 
-                    block21.setHeight(node._calcHeight(block21.parentHashes));
+                    block21.setHeight(await node._calcHeight(block21.parentHashes));
                 }
                 await processBlock(node, block21);
 
@@ -948,7 +952,7 @@ exports=new TestClass();
                     block31.parentHashes = [block21.getHash()];
                     block31.finish(0, generateAddress());
 
-                    block31.setHeight(node._calcHeight(block31.parentHashes));
+                    block31.setHeight(await node._calcHeight(block31.parentHashes));
                 }
                 await processBlock(node, block31);
 
@@ -960,7 +964,7 @@ exports=new TestClass();
                     block22.parentHashes = [gBlock.getHash()];
                     block22.finish(1e6 - 2e3, generateAddress());
 
-                    block22.setHeight(node._calcHeight(block22.parentHashes));
+                    block22.setHeight(await node._calcHeight(block22.parentHashes));
                 }
                 await processBlock(node, block22);
 
@@ -971,7 +975,7 @@ exports=new TestClass();
                     block41.parentHashes = [block22.getHash(), block31.getHash()];
                     block41.finish(0, generateAddress());
 
-                    block41.setHeight(node._calcHeight(block41.parentHashes));
+                    block41.setHeight(await node._calcHeight(block41.parentHashes));
                 }
 
                 const strError = `Patch merge: conflict on ${txHash} idx 0`;
@@ -992,7 +996,7 @@ exports=new TestClass();
                     block21.addTx(createTx(0));
                     block21.finish(1e6 - 2e3, generateAddress());
 
-                    block21.setHeight(node._calcHeight(block21.parentHashes));
+                    block21.setHeight(await node._calcHeight(block21.parentHashes));
                 }
                 await processBlock(node, block21);
 
@@ -1003,7 +1007,7 @@ exports=new TestClass();
                     block31.parentHashes = [block21.getHash()];
                     block31.finish(0, generateAddress());
 
-                    block31.setHeight(node._calcHeight(block31.parentHashes));
+                    block31.setHeight(await node._calcHeight(block31.parentHashes));
                 }
                 await processBlock(node, block31);
 
@@ -1015,7 +1019,7 @@ exports=new TestClass();
                     block22.parentHashes = [gBlock.getHash()];
                     block22.finish(1e6 - 2e3, generateAddress());
 
-                    block22.setHeight(node._calcHeight(block22.parentHashes));
+                    block22.setHeight(await node._calcHeight(block22.parentHashes));
                 }
                 await processBlock(node, block22);
 
@@ -1026,7 +1030,7 @@ exports=new TestClass();
                     block41.parentHashes = [block31.getHash()];
                     block41.finish(0, generateAddress());
 
-                    block41.setHeight(node._calcHeight(block41.parentHashes));
+                    block41.setHeight(await node._calcHeight(block41.parentHashes));
                 }
 
                 node._unwindBlock = sinon.fake();

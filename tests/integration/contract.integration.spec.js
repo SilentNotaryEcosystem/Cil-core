@@ -6,7 +6,8 @@ const sinon = require('sinon').createSandbox();
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
 
-const factory = require('../testFactory');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
 const {pseudoRandomBuffer, generateAddress, createObjInvocationCode} = require('../testUtil');
 
 const createContractInvocationTx = (strContractAddr, code = {}, hasChangeReceiver = true, amount = 0) => {
