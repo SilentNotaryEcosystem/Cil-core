@@ -194,8 +194,6 @@ module.exports = ({Constants, Crypto}) => {
                 data: pageData
             };
 
-            console.log('this._pagesCache', this._pagesCache);
-
             return pageData;
         }
 
