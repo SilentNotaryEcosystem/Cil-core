@@ -93,7 +93,6 @@ module.exports = (factory, factoryOptions) => {
 
             this._mapBlocksToExec = new Map();
             this._mapUnknownBlocks = new Map();
-            this._mapBlocksToExec = new Map();
             this._app = new Application(options);
 
             this._rebuildPromise = this._rebuildBlockDb();
@@ -558,7 +557,7 @@ module.exports = (factory, factoryOptions) => {
         async _handleGetBlocksMessage(peer, message) {
 
             // we'r empty. we have nothing to share with party
-            if (!this._mainDag.order) return;
+            if (!await this._isBlockKnown(Constants.GENESIS_BLOCK)) return;
 
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
@@ -896,7 +895,7 @@ module.exports = (factory, factoryOptions) => {
 
             // next stage: request unknown blocks or just GENESIS, if we are at very beginning
             let msg;
-            if (Constants.GENESIS_BLOCK && !this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
+            if (Constants.GENESIS_BLOCK && !await this._isBlockKnown(Constants.GENESIS_BLOCK)) {
                 msg = this._createGetDataMsg([Constants.GENESIS_BLOCK]);
                 peer.markAsPossiblyAhead();
             } else {
@@ -1546,7 +1545,7 @@ module.exports = (factory, factoryOptions) => {
             const isGenesis = this.isGenesisBlock(block);
 
             // double check: whether we already processed this block?
-            if (this._isBlockExecuted(block.getHash())) {
+            if (await this._isBlockExecuted(block.getHash())) {
                 debugNode(`Trying to process ${block.getHash()} more than one time!`);
                 return null;
             }
@@ -1898,8 +1897,8 @@ module.exports = (factory, factoryOptions) => {
             await this._storeBlockAndInfo(block, blockInfo, bOnlyDag);
         }
 
-        _isBlockExecuted(hash) {
-            const blockInfo = this._mainDag.getBlockInfo(hash);
+        async _isBlockExecuted(hash) {
+            const blockInfo = await this._getBlockInfo(hash);
             return (blockInfo && blockInfo.isFinal()) || this._pendingBlocks.hasBlock(hash);
         }
 
@@ -1908,9 +1907,9 @@ module.exports = (factory, factoryOptions) => {
             return blockInfo || await this._storage.hasBlock(hash);
         }
 
-        async _couldBeResurrected(hash) {
+        async _getBlockInfo(hash) {
             const blockInfo = this._mainDag.getBlockInfo(hash);
-            return !blockInfo && await this._storage.hasBlock(hash);
+            return blockInfo || await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
         }
 
         /**
@@ -2157,7 +2156,7 @@ module.exports = (factory, factoryOptions) => {
             debugBlock(`Attempting to exec block "${block.getHash()}"`);
 
             if (this._canExecuteBlock(block)) {
-                if (!this._isBlockExecuted(block.getHash())) {
+                if (!(await this._isBlockExecuted(block.getHash()))) {
                     await this._blockProcessorExecBlock(block instanceof Block ? block : block.getHash(), peer);
 
                     const arrChildrenHashes = this._mainDag.getChildren(block.getHash());
@@ -2195,7 +2194,7 @@ module.exports = (factory, factoryOptions) => {
                 if (!this._mapBlocksToExec.has(parentHash) && !await this._isBlockKnown(parentHash)) {
                     arrToRequest.push(parentHash);
                 } else {
-                    if (!this._isBlockExecuted(parentHash)) {
+                    if (!(await this._isBlockExecuted(parentHash))) {
                         arrToExec.push(parentHash);
                     }
                 }
@@ -2215,7 +2214,7 @@ module.exports = (factory, factoryOptions) => {
             this._processedBlock = block;
             try {
                 const patchState = await this._execBlock(block);
-                if (patchState && !this._isBlockExecuted(block.getHash())) {
+                if (patchState && !(await this._isBlockExecuted(block.getHash()))) {
                     await this._acceptBlock(block, patchState);
                     await this._postAcceptBlock(block);
                     if (!this._networkSuspended && !this._isInitialBlockLoading()) this._informNeighbors(block, peer);
