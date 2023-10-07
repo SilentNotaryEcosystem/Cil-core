@@ -911,7 +911,16 @@ module.exports = (factory, factoryOptions) => {
         async _createGetBlocksMsg() {
             const msg = new MsgGetBlocks();
             const arrLastApplied = await this._storage.getLastAppliedBlockHashes();
-            arrLastApplied.sort((hashA, hashB) => this._mainDag.getBlockHeight(hashB) - this._mainDag.getBlockHeight(hashA));
+
+            const objBlockHeights = {};
+            await Promise.all(
+                arrLastApplied.map(async strHash => {
+                    objBlockHeights[strHash] = (await this._getBlockInfo(strHash)).getHeight();
+                })
+            );
+
+            arrLastApplied.sort((hashA, hashB) => objBlockHeights[hashB] - objBlockHeights[hashA]);
+
             const arrTips = this._pendingBlocks.getTips();
             msg.arrHashes = arrTips.length ? arrTips.concat([arrLastApplied[0]]) : arrLastApplied;
             return msg;
@@ -1903,13 +1912,15 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _isBlockKnown(hash) {
-            const blockInfo = this._mainDag.getBlockInfo(hash);
-            return blockInfo || await this._storage.hasBlock(hash);
+            // TODO: uncomment when finished disk DAG
+            // const blockInfo = this._mainDag.getBlockInfo(hash);
+            return /*blockInfo ||*/ await this._storage.hasBlock(hash);
         }
 
         async _getBlockInfo(hash) {
-            const blockInfo = this._mainDag.getBlockInfo(hash);
-            return blockInfo || await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
+            // TODO: uncomment when finished disk DAG
+            // const blockInfo = this._mainDag.getBlockInfo(hash);
+            return /*blockInfo ||*/ await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
         }
 
         /**
@@ -2313,7 +2324,7 @@ module.exports = (factory, factoryOptions) => {
             typeforce(types.Str64, hash);
 
             const cBlock = await this._storage.getBlock(hash);
-            const blockInfo = this._mainDag.getBlockInfo(hash);
+            const blockInfo = await this._getBlockInfo(hash);
 
             return {block: cBlock, state: blockInfo ? blockInfo.getState() : undefined};
         }
