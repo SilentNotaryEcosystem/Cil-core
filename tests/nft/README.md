@@ -90,6 +90,13 @@ curl --location --request POST 'https://rpc-dv-1.ubikiri.com/' \
 
 ```
 
+## Deployment of a proxy contract
+
+```
+Contract doesn't support proxy
+This code will be added after approve of overall contract code
+```
+
 ## Contract methods:
 
 #### createToken(objTokenData);
@@ -234,11 +241,4 @@ Get royalty payment for the NFT creator for a token by Id
 Parameter types:
   token id, string
   sale price, number
-```
-
-## Deployment of a proxy contract
-
-```
-Contract doesn't support proxy
-This code will be added after approve of overall contract code
 ```
