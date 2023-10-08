@@ -88,7 +88,6 @@ curl --location --request POST 'https://rpc-dv-1.ubikiri.com/' \
   "id":67
 }'
 
-
 ```
 
 ## Contract methods:
