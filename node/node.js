@@ -2319,7 +2319,7 @@ module.exports = (factory, factoryOptions) => {
             const mapPeerAhead = new Map();
 
             for (let [hash, peer] of this._mapUnknownBlocks) {
-                if (this._requestCache.isRequested(hash) || this._mainDag2.getBlockInfo(hash)) continue;
+                if (this._requestCache.isRequested(hash) || this._mainDag.getBlockInfo(hash)) continue;
 
                 const key = createPeerKey(peer);
 
