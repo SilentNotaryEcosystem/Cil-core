@@ -494,7 +494,7 @@ module.exports = (factory, factoryOptions) => {
                         if (bShouldRequest) nBlockToRequest++;
 
                         // i.e. we store it, it somehow missed dag
-                        if(bBlockKnown && !this._mainDag2.getBlockInfo(strHash)) {
+                        if(bBlockKnown && !this._mainDag.getBlockInfo(strHash)) {
                             await this._processStoredBlock(strHash, peer);
                         }
                     }
