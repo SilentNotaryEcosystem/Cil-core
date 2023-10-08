@@ -7,14 +7,21 @@ wallet address among other users
 
 ## Contract has 3 roles:
 
-#### Contract owner (can create new records, add providers, set proxy contract)
+#### Contract owner
 ```
+Can create new records, add providers, set proxy contract
 Owner creates record after check that this provider and name belongs to the user
 ```
 
-#### Record owner (can delete it's own record(s))
+#### Record owner
+```
+ Can delete it's own record(s)
+```
 
-#### Unauthorized user (can resolve records (by username/id receive list of pairs (provider, walletAddress)))
+#### Unauthorized user
+```
+Can resolve records (by username/id receive list of pairs (provider, walletAddress))
+```
 
 ## Contract deployment
 
