@@ -58,7 +58,7 @@ In reply you will see contractAddress field, it's the contract address to send r
 ```
 Copy create.js file from this folder to cil-utils root folder
 
-Update STR_CONTRACT_ADDR to the contract addres, received above
+Update STR_CONTRACT_ADDR to the contract address, received above
 
 Update section objInvokeCode to:
 
