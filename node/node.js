@@ -494,7 +494,7 @@ module.exports = (factory, factoryOptions) => {
                         if (bShouldRequest) nBlockToRequest++;
 
                         // i.e. we store it, it somehow missed dag
-                        if(bBlockKnown && !this._mainDag.getBlockInfo(strHash)) {
+                        if(bBlockKnown && !this._mainDag2.getBlockInfo(strHash)) {
                             await this._processStoredBlock(strHash, peer);
                         }
                     }
@@ -615,7 +615,7 @@ module.exports = (factory, factoryOptions) => {
             const setBlocksToSend = new Set();
 
             let arrKnownHashes = arrHashes.reduce((arrResult, hash) => {
-                if (this._mainDag.getBlockInfo(hash)) arrResult.push(hash);
+                if (this._mainDag2.getBlockInfo(hash)) arrResult.push(hash);
                 return arrResult;
             }, []);
 
@@ -625,7 +625,7 @@ module.exports = (factory, factoryOptions) => {
                 // sent our version of DAG starting from Genesis
 
                 // check do we have GENESIS self?
-                if (this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK)) {
+                if (this._mainDag2.getBlockInfo(Constants.GENESIS_BLOCK)) {
                     arrKnownHashes = [Constants.GENESIS_BLOCK];
 
                     // Genesis wouldn't be included (same as all of arrHashes), so add it here
@@ -641,21 +641,21 @@ module.exports = (factory, factoryOptions) => {
             let currentLevel = [];
             arrKnownHashes.forEach(hash => this._mainDag
                 .getChildren(hash)
-                .filter(strChildHash => this._mainDag.getBlockInfo(strChildHash).getHeight() -
-                                        this._mainDag.getBlockInfo(hash).getHeight() === 1)
+                .filter(strChildHash => this._mainDag2.getBlockInfo(strChildHash).getHeight() -
+                                        this._mainDag2.getBlockInfo(hash).getHeight() === 1)
                 .forEach(child => !setKnownHashes.has(child) && currentLevel.push(child)));
 
             do {
                 const setNextLevel = new Set();
                 for (let hash of currentLevel) {
-                    const biCurrent = this._mainDag.getBlockInfo(hash);
+                    const biCurrent = this._mainDag2.getBlockInfo(hash);
                     this._mainDag
                         .getChildren(hash)
-                        .filter(strChildHash => this._mainDag.getBlockInfo(strChildHash).getHeight() -
-                                                this._mainDag.getBlockInfo(hash).getHeight() === 1)
+                        .filter(strChildHash => this._mainDag2.getBlockInfo(strChildHash).getHeight() -
+                                                this._mainDag2.getBlockInfo(hash).getHeight() === 1)
                         .forEach(
                             strChildHash => {
-                                const biChild = this._mainDag.getBlockInfo(strChildHash);
+                                const biChild = this._mainDag2.getBlockInfo(strChildHash);
 
                                 // if we didn't already processed it and it's direct child (height diff === 1) - let's add it
                                 // it not direct child - we'll add it when find direct one
@@ -983,7 +983,7 @@ module.exports = (factory, factoryOptions) => {
                         );
                     }
                     case 'getNext': {
-                        let arrChildHashes = this._mainDag.getChildren(content);
+                        let arrChildHashes = this._mainDag2.getChildren(content);
                         if (!arrChildHashes || !arrChildHashes.length) {
                             arrChildHashes = this._pendingBlocks.getChildren(content);
                         }
@@ -993,7 +993,7 @@ module.exports = (factory, factoryOptions) => {
                         );
                     }
                     case 'getPrev': {
-                        let cBlockInfo = this._mainDag.getBlockInfo(content);
+                        let cBlockInfo = this._mainDag2.getBlockInfo(content);
                         if (!cBlockInfo) {
                             cBlockInfo = this._pendingBlocks.getBlock(content).blockHeader;
                         }
@@ -1560,7 +1560,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             // check for correct block height
-            if (!isGenesis) this._checkHeight(block);
+            if (!isGenesis) await this._checkHeight(block);
 
             let patchState = await this._pendingBlocks.mergePatches(block.parentHashes);
             patchState.setConciliumId(block.conciliumId);
@@ -1642,10 +1642,11 @@ module.exports = (factory, factoryOptions) => {
 
             let nHeightMax = 0;
             for (let hash of setStableBlocks) {
-                const bi = this._mainDag.getBlockInfo(hash);
+                const bi = await this._getBlockInfo(hash);
                 if (bi.getHeight() > nHeightMax) nHeightMax = bi.getHeight();
                 bi.markAsFinal();
                 this._mainDag.setBlockInfo(bi);
+                this._mainDag2.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
             }
 
@@ -1669,16 +1670,16 @@ module.exports = (factory, factoryOptions) => {
         async _updateLastAppliedBlocks(arrTopStable) {
             const arrPrevTopStableBlocks = await this._storage.getLastAppliedBlockHashes();
             const mapPrevConciliumIdHash = new Map();
-            arrPrevTopStableBlocks.forEach(hash => {
-                const cBlockInfo = this._mainDag.getBlockInfo(hash);
+            for (const hash of arrPrevTopStableBlocks) {
+                const cBlockInfo = await this._getBlockInfo(hash);
                 mapPrevConciliumIdHash.set(cBlockInfo.getConciliumId(), hash);
-            });
+            }
 
             const mapNewConciliumIdHash = new Map();
-            arrTopStable.forEach(hash => {
-                const cBlockInfo = this._mainDag.getBlockInfo(hash);
+            for (const hash of arrTopStable) {
+                const cBlockInfo = await this._getBlockInfo(hash);
                 mapNewConciliumIdHash.set(cBlockInfo.getConciliumId(), hash);
-            });
+            }
 
             const arrNewLastApplied = [];
 
@@ -1800,6 +1801,7 @@ module.exports = (factory, factoryOptions) => {
          */
         async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
             this._mainDag = new MainDag();
+            this._mainDag2 = new MainDag();
 
             // if we have only one concilium - all blocks becomes stable, and no pending!
             // so we need to start from stables
@@ -1819,6 +1821,7 @@ module.exports = (factory, factoryOptions) => {
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
 
                     await this._mainDag.addBlock(bi);
+                    await this._mainDag2.addBlock(bi);
 
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
@@ -1913,14 +1916,14 @@ module.exports = (factory, factoryOptions) => {
 
         async _isBlockKnown(hash) {
             // TODO: uncomment when finished disk DAG
-            // const blockInfo = this._mainDag.getBlockInfo(hash);
-            return /*blockInfo ||*/ await this._storage.hasBlock(hash);
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            return blockInfo || await this._storage.hasBlock(hash);
         }
 
         async _getBlockInfo(hash) {
             // TODO: uncomment when finished disk DAG
-            // const blockInfo = this._mainDag.getBlockInfo(hash);
-            return /*blockInfo ||*/ await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
+            const blockInfo = this._mainDag.getBlockInfo(hash);
+            return blockInfo || await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
         }
 
         /**
@@ -1935,6 +1938,7 @@ module.exports = (factory, factoryOptions) => {
             typeforce(typeforce.tuple(typeforce.oneOf(types.Block, undefined), types.BlockInfo), arguments);
 
             await this._mainDag.addBlock(blockInfo);
+            await this._mainDag2.addBlock(blockInfo);
             if (bOnlyDag) return;
 
             if (blockInfo.isBad()) {
@@ -1966,11 +1970,11 @@ module.exports = (factory, factoryOptions) => {
          * @return {Promise<boolean || Set>}
          * @private
          */
-        _canExecuteBlock(block) {
+        async _canExecuteBlock(block) {
             if (this.isGenesisBlock(block)) return true;
 
             for (let hash of block.parentHashes) {
-                let blockInfo = this._mainDag.getBlockInfo(hash);
+                let blockInfo = await this._getBlockInfo(hash);
 
                 // parent is bad
                 if (blockInfo && blockInfo.isBad()) {
@@ -2002,6 +2006,7 @@ module.exports = (factory, factoryOptions) => {
             try {
                 await this._pendingBlocks.removeBlock(block.getHash());
                 await this._mainDag.removeBlock(block.getHash());
+                await this._mainDag2.removeBlock(block.getHash());
             } catch (e) {}
         }
 
@@ -2143,6 +2148,16 @@ module.exports = (factory, factoryOptions) => {
                     } finally {
                         debugBlock(`Removing block ${hash} from BlocksToExec`);
                         this._mapBlocksToExec.delete(hash);
+
+                        if (this._mapBlocksToExec.size === 0) {
+                            const arrNotFinal = this._mainDag.getNotFinalBlocks();
+
+                            this._mainDag = new MainDag();
+
+                            for (const encodedBI of arrNotFinal) {
+                                this._mainDag.addBlock(new BlockInfo(encodedBI))
+                            }
+                        }
                     }
                 }
             } else if (this._requestCache.isEmpty()) {
@@ -2166,13 +2181,13 @@ module.exports = (factory, factoryOptions) => {
 
             debugBlock(`Attempting to exec block "${block.getHash()}"`);
 
-            if (this._canExecuteBlock(block)) {
+            if (await this._canExecuteBlock(block)) {
                 if (!(await this._isBlockExecuted(block.getHash()))) {
                     await this._blockProcessorExecBlock(block instanceof Block ? block : block.getHash(), peer);
 
-                    const arrChildrenHashes = this._mainDag.getChildren(block.getHash());
+                    const arrChildrenHashes = this._mainDag2.getChildren(block.getHash());
                     for (let hash of arrChildrenHashes) {
-                        this._queueBlockExec(hash, peer);
+                        await this._queueBlockExec(hash, peer);
                     }
                 }
             } else {
@@ -2181,14 +2196,18 @@ module.exports = (factory, factoryOptions) => {
                 arrToRequest
                     .filter(hash => !this._storage.isBlockBanned(hash))
                     .forEach(hash => this._mapUnknownBlocks.set(hash, peer));
-                arrToExec.forEach(hash => this._queueBlockExec(hash, peer));
+
+                for (let hash of arrToExec) {
+                    await this._queueBlockExec(hash, peer);
+                }
             }
         }
 
-        _queueBlockExec(hash, peer) {
+        async _queueBlockExec(hash, peer) {
             debugBlock(`Adding block ${hash} from BlocksToExec`);
 
-            const blockInfo = this._mainDag.getBlockInfo(hash);
+            const blockInfo = await this._getBlockInfo(hash);
+
             if (blockInfo && blockInfo.isBad()) return;
 
             this._mapBlocksToExec.set(hash, peer);
@@ -2300,7 +2319,7 @@ module.exports = (factory, factoryOptions) => {
             const mapPeerAhead = new Map();
 
             for (let [hash, peer] of this._mapUnknownBlocks) {
-                if (this._requestCache.isRequested(hash) || this._mainDag.getBlockInfo(hash)) continue;
+                if (this._requestCache.isRequested(hash) || this._mainDag2.getBlockInfo(hash)) continue;
 
                 const key = createPeerKey(peer);
 
@@ -2418,13 +2437,16 @@ module.exports = (factory, factoryOptions) => {
          * @return {Number}
          * @private
          */
-        _calcHeight(arrParentHashes) {
+        async _calcHeight(arrParentHashes) {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrParentHashes);
 
-            return arrParentHashes.reduce((maxHeight, hash) => {
-                const blockInfo = this._mainDag.getBlockInfo(hash);
-                return maxHeight > blockInfo.getHeight() ? maxHeight : blockInfo.getHeight();
-            }, 0) + 1;
+            const arrHeights = [];
+            for (const strHash of arrParentHashes) {
+                const blockInfo = await this._getBlockInfo(strHash).catch(err => debugBlock(err));
+                arrHeights.push(blockInfo.getHeight());
+            }
+
+            return Math.max(...arrHeights) + 1;
         }
 
         /**
@@ -2432,8 +2454,8 @@ module.exports = (factory, factoryOptions) => {
          * @param {Block} block
          * @private
          */
-        _checkHeight(block) {
-            const calculatedHeight = this._calcHeight(block.parentHashes);
+        async _checkHeight(block) {
+            const calculatedHeight = await this._calcHeight(block.parentHashes);
             assert(calculatedHeight === block.getHeight(),
                 `Incorrect height "${calculatedHeight}" were calculated for block ${block.getHash()} (expected ${block.getHeight()}`
             );
@@ -2464,6 +2486,7 @@ module.exports = (factory, factoryOptions) => {
             for await (let {value} of this._storage.readBlocks()) {
                 const block = new factory.Block(value);
                 await this._mainDag.addBlock(new BlockInfo(block.header));
+                await this._mainDag2.addBlock(new BlockInfo(block.header));
             }
 
             this._queryPeerForRestOfBlocks = this._requestUnknownBlocks = () => {
@@ -2480,7 +2503,7 @@ module.exports = (factory, factoryOptions) => {
                 originalQueueBlockExec(hash, peer);
             };
 
-            const genesis = this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK);
+            const genesis = this._mainDag2.getBlockInfo(Constants.GENESIS_BLOCK);
             assert(genesis, 'No Genesis found');
             this._mapBlocksToExec.set(genesis.getHash(), undefined);
 
