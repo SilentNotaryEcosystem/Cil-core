@@ -1,8 +1,14 @@
 ### UbixNS contract
 
 ```
-Contract allows to link provider with username to a wallet address to have a mnemonic way to share
+Contract allows to link provider with name to a wallet address to have a mnemonic way to share
 wallet address among other users
+
+Provider is commonly used service like email or social network, messenger
+So, it could be: email, ig, fb, linkedin, whatsapp, tg, viber
+Even phone provider is possible if the phone is able to receive SMS and we implement SMS send to check the ownership
+
+Name within a provider is an email address for the email provider, instagram or telegram name for these providers, or a phone number for a whatsapp
 ```
 
 ## Contract has 3 roles:
