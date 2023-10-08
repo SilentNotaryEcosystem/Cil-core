@@ -983,7 +983,7 @@ module.exports = (factory, factoryOptions) => {
                         );
                     }
                     case 'getNext': {
-                        let arrChildHashes = this._mainDag2.getChildren(content);
+                        let arrChildHashes = this._mainDag.getChildren(content);
                         if (!arrChildHashes || !arrChildHashes.length) {
                             arrChildHashes = this._pendingBlocks.getChildren(content);
                         }
@@ -993,7 +993,7 @@ module.exports = (factory, factoryOptions) => {
                         );
                     }
                     case 'getPrev': {
-                        let cBlockInfo = this._mainDag2.getBlockInfo(content);
+                        let cBlockInfo = await this._getBlockInfo(content);
                         if (!cBlockInfo) {
                             cBlockInfo = this._pendingBlocks.getBlock(content).blockHeader;
                         }
