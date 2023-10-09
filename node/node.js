@@ -2148,16 +2148,6 @@ module.exports = (factory, factoryOptions) => {
                     } finally {
                         debugBlock(`Removing block ${hash} from BlocksToExec`);
                         this._mapBlocksToExec.delete(hash);
-
-                        if (this._mapBlocksToExec.size === 0) {
-                            const arrNotFinal = this._mainDag.getNotFinalBlocks();
-
-                            this._mainDag = new MainDag();
-
-                            for (const encodedBI of arrNotFinal) {
-                                this._mainDag.addBlock(new BlockInfo(encodedBI))
-                            }
-                        }
                     }
                 }
             } else if (this._requestCache.isEmpty()) {
@@ -2166,6 +2156,17 @@ module.exports = (factory, factoryOptions) => {
 
             if (this._mapUnknownBlocks.size) {
                 await this._requestUnknownBlocks();
+            }
+
+            if (this._mapBlocksToExec.size === 0 && this._mainDag.order > Constants.DAG_THRESHOLD2CLEAN) {
+                // тут посмотреть может, из pending эти блоки достать можно?
+                const arrNotFinal = this._mainDag.getNotFinalBlocks();
+
+                this._mainDag = new MainDag();
+
+                for (const encodedBI of arrNotFinal) {
+                    this._mainDag.addBlock(new BlockInfo(encodedBI))
+                }
             }
         }
 
