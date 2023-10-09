@@ -983,7 +983,7 @@ module.exports = (factory, factoryOptions) => {
                         );
                     }
                     case 'getNext': {
-                        let arrChildHashes = this._mainDag.getChildren(content);
+                        let arrChildHashes = await this._getBlockChildren(content);
                         if (!arrChildHashes || !arrChildHashes.length) {
                             arrChildHashes = this._pendingBlocks.getChildren(content);
                         }
@@ -1798,14 +1798,53 @@ module.exports = (factory, factoryOptions) => {
          * @param {Array} arrLastStableHashes - hashes of all stable blocks
          * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
-        async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
+        // async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
+        //     this._mainDag = new MainDag();
+
+        //     // if we have only one concilium - all blocks becomes stable, and no pending!
+        //     // so we need to start from stables
+        //     let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
+        //         ? arrPedingBlocksHashes
+        //         : arrLastStableHashes;
+        //     while (arrCurrentLevel.length) {
+        //         const setNextLevel = new Set();
+        //         for (let hash of arrCurrentLevel) {
+        //             debugNode(`Added ${hash} into dag`);
+
+        //             // we already processed this block
+        //             if (this._mainDag.getBlockInfo(hash)) continue;
+
+        //             let bi = await this._storage.getBlockInfo(hash);
+        //             if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
+        //             if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
+
+        //             await this._mainDag.addBlock(bi);
+
+        //             for (let parentHash of bi.parentHashes) {
+        //                 if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
+        //             }
+        //         }
+
+        //         // Do we reach GENESIS?
+        //         if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
+
+        //         // not yet
+        //         arrCurrentLevel = [...setNextLevel.values()];
+        //     }
+        // }
+
+        async _buildMainDag({arrLastStableHashes, arrPedingBlocksHashes, bUseOnlyPending}) {
             this._mainDag = new MainDag();
 
+            if (bUseOnlyPending && arrPedingBlocksHashes.length === 0) return;
+
             // if we have only one concilium - all blocks becomes stable, and no pending!
             // so we need to start from stables
             let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
                 ? arrPedingBlocksHashes
                 : arrLastStableHashes;
+
+            let arrFinalHashes = bUseOnlyPending ? [...arrPedingBlocksHashes] : [];
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 for (let hash of arrCurrentLevel) {
@@ -1820,6 +1859,11 @@ module.exports = (factory, factoryOptions) => {
 
                     await this._mainDag.addBlock(bi);
 
+                    if (bUseOnlyPending) {
+                        arrFinalHashes = arrFinalHashes.filter(item => item !== hash);
+                        if (arrFinalHashes.length === 0) return;
+                    }
+
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
                     }
@@ -1827,49 +1871,6 @@ module.exports = (factory, factoryOptions) => {
 
                 // Do we reach GENESIS?
                 if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
-
-                // not yet
-                arrCurrentLevel = [...setNextLevel.values()];
-            }
-        }
-
-        async _buildMainDag2(arrLastStableHashes, arrPedingBlocksHashes, nHeightThreshold = 0) {
-            // this._mainDag = new MainDag();
-
-            // if we have only one concilium - all blocks becomes stable, and no pending!
-            // so we need to start from stables
-            let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
-                ? arrPedingBlocksHashes
-                : arrLastStableHashes;
-            while (arrCurrentLevel.length) {
-                const setNextLevel = new Set();
-                const arrBlockHeights = [];
-                for (let hash of arrCurrentLevel) {
-                    debugNode(`Added ${hash} into dag`);
-
-                    // we already processed this block
-                    if (this._mainDag.getBlockInfo(hash)) continue;
-
-                    let bi = await this._storage.getBlockInfo(hash);
-                    if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
-                    if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
-
-                    await this._mainDag.addBlock(bi);
-
-                    for (let parentHash of bi.parentHashes) {
-                        if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
-                    }
-
-                    arrBlockHeights.push(bi.getHeight());
-                }
-
-                // Do we reach GENESIS?
-                if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
-
-                if (arrBlockHeights.length && nHeightThreshold && Math.max(...arrBlockHeights) < nHeightThreshold) {
-                    console.log('HERE!!!!! #')
-                    break;
-                }
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
@@ -1968,6 +1969,8 @@ module.exports = (factory, factoryOptions) => {
 
         async _getBlockChildren(strHash) {
             if (!this._mainDag.getBlockInfo(strHash)) {
+
+                // тут их из индекса вернуть можно, т.к. иначе надо будет добавлять в _mainDag
                 console.log('Build main dag here')
                 process.exit();
             }
@@ -2146,7 +2149,7 @@ module.exports = (factory, factoryOptions) => {
             const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
             const arrLastStableHashes = await this._storage.getLastAppliedBlockHashes();
 
-            await this._buildMainDag(arrLastStableHashes, arrPendingBlocksHashes);
+            await this._buildMainDag({arrLastStableHashes, arrPendingBlocksHashes});
             await this._rebuildPending(arrLastStableHashes, arrPendingBlocksHashes);
 
             debugNode(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
@@ -2206,22 +2209,12 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (this._mapBlocksToExec.size === 0 && this._mainDag.order > Constants.DAG_THRESHOLD2CLEAN) {
-                debugNode(`Flush MainDag, order was: ${this._mainDag.order}`);
-                const arrPendingBlocks = [];
+                const nOldDagOrder = this._mainDag.order;
 
-                for (const strHash of this._pendingBlocks.getAllHashes()) {
-                    const bi = this._mainDag.getBlockInfo(strHash);
-                    arrPendingBlocks.push(bi.encode());
-                }
+                const arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
+                await this._buildMainDag({arrPedingBlocksHashes, bUseOnlyPending: true })
 
-                this._mainDag = new MainDag();
-
-                // надо проверить, можем ли мы построить дерево от пендинга до пендинга
-                for (const data of arrPendingBlocks) {
-                    const blockInfo = new BlockInfo(data);
-                    debugNode(`Added ${blockInfo.getHash()} into dag`);
-                    this._mainDag.addBlock(blockInfo);
-                }
+                debugNode(`MainDag flushed, order: ${nOldDagOrder} -> ${this._mainDag.order}`);
             }
         }
 
