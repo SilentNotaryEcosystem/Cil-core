@@ -106,6 +106,8 @@ module.exports = {
         WITNESS_HOLDOFF: 2 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024 * 1024,
 
+        DAG_THRESHOLD2CLEAN: 100,
+
         // fees
         fees: {
 
