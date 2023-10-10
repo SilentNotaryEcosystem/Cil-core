@@ -192,10 +192,6 @@ class BaseFactory {
         return this._mainDagIndexImplementation;
     }
 
-    get PagesTopBlocks() {
-        return this._pagesTopBlocksImplementation;
-    }
-
     get Contract() {
         return this._contract;
     }
