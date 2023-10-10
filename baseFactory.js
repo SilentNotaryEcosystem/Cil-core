@@ -28,6 +28,7 @@ const StorageWrapper = require('./storage/persistentStorage');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
+const PagesTopBlocksWrapper = require('./node/pagesTopBlocks');
 const RequestCacheWrapper = require('./node/requestsCache');
 
 const TransactionWrapper = require('./structures/transaction');
@@ -106,7 +107,6 @@ class BaseFactory {
 
                     this._messagesImplementation = MessagesWrapper(this, prototypes);
 
-                    //
                     this._serializerImplementation = SerializerWrapper(this.Messages);
                     this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
 
@@ -126,6 +126,7 @@ class BaseFactory {
                     this._appImplementation = AppWrapper(this);
                     this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this, options);
                     this._mainDagImplementation = MainDagWrapper(this);
+                    this._pagesTopBlocksImplementation = PagesTopBlocksWrapper(this);
                     this._requestCacheImplementation = RequestCacheWrapper(this);
 
                     // all componenst should be declared above
@@ -184,6 +185,10 @@ class BaseFactory {
 
     get MainDag() {
         return this._mainDagImplementation;
+    }
+
+    get PagesTopBlocks() {
+        return this._pagesTopBlocksImplementation;
     }
 
     get Contract() {

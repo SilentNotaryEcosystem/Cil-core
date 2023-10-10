@@ -40,6 +40,7 @@ module.exports = (factory, factoryOptions) => {
         Coins,
         PendingBlocksManager,
         MainDag,
+        MainDagIndex,
         BlockInfo,
         Mutex,
         RequestCache,
@@ -1647,6 +1648,7 @@ module.exports = (factory, factoryOptions) => {
                 bi.markAsFinal();
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
+                this._addDagIndexBlock(bi);
             }
 
             await this._storage.applyPatch(patchToApply, nHeightMax);
@@ -1798,53 +1800,17 @@ module.exports = (factory, factoryOptions) => {
          * @param {Array} arrLastStableHashes - hashes of all stable blocks
          * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
-        // async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
-        //     this._mainDag = new MainDag();
-
-        //     // if we have only one concilium - all blocks becomes stable, and no pending!
-        //     // so we need to start from stables
-        //     let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
-        //         ? arrPedingBlocksHashes
-        //         : arrLastStableHashes;
-        //     while (arrCurrentLevel.length) {
-        //         const setNextLevel = new Set();
-        //         for (let hash of arrCurrentLevel) {
-        //             debugNode(`Added ${hash} into dag`);
-
-        //             // we already processed this block
-        //             if (this._mainDag.getBlockInfo(hash)) continue;
-
-        //             let bi = await this._storage.getBlockInfo(hash);
-        //             if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
-        //             if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
-
-        //             await this._mainDag.addBlock(bi);
-
-        //             for (let parentHash of bi.parentHashes) {
-        //                 if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
-        //             }
-        //         }
-
-        //         // Do we reach GENESIS?
-        //         if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
-
-        //         // not yet
-        //         arrCurrentLevel = [...setNextLevel.values()];
-        //     }
-        // }
-
-        async _buildMainDag({arrLastStableHashes, arrPedingBlocksHashes, bUseOnlyPending}) {
+        async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
             this._mainDag = new MainDag();
-
-            if (bUseOnlyPending && arrPedingBlocksHashes.length === 0) return;
+            if (this._useDagIndex()) {
+                this._mainDagIndex = new MainDagIndex()
+            }
 
             // if we have only one concilium - all blocks becomes stable, and no pending!
             // so we need to start from stables
             let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
                 ? arrPedingBlocksHashes
                 : arrLastStableHashes;
-
-            let arrFinalHashes = bUseOnlyPending ? [...arrPedingBlocksHashes] : [];
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 for (let hash of arrCurrentLevel) {
@@ -1858,11 +1824,7 @@ module.exports = (factory, factoryOptions) => {
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
 
                     await this._mainDag.addBlock(bi);
-
-                    if (bUseOnlyPending) {
-                        arrFinalHashes = arrFinalHashes.filter(item => item !== hash);
-                        if (arrFinalHashes.length === 0) return;
-                    }
+                    this._addDagIndexBlock(bi);
 
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
@@ -1874,6 +1836,53 @@ module.exports = (factory, factoryOptions) => {
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
+            }
+        }
+
+
+        async _compactMainDag() {
+            if (!this._useDagIndex() ||
+                this._mainDag.order < Constants.DAG_THRESHOLD2CLEAN * Constants.DAG_INDEX_STEP) {
+                return;
+            }
+
+            const arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
+            const nOldDagOrder = this._mainDag.order;
+            const arrPendingBlocks = arrPedingBlocksHashes.map(hash => this._mainDag.getBlockInfo(hash).encode())
+
+            this._mainDag = new MainDag();
+
+            for (const buffBlock of arrPendingBlocks) {
+                this._mainDag.addBlock(new BlockInfo(buffBlock));
+                debugNode(`Added ${(new BlockInfo(buffBlock)).getHash()} into dag`);
+            }
+
+            // for (const strHash of arrPedingBlocksHashes) {
+            //     const blockInfo = await this._storage.getBlockInfo(strHash);
+            //     if (!blockInfo) throw new Error('_compactMainDag: Found missed blocks!');
+
+            //     this._mainDag.addBlock(blockInfo);
+            //     debugNode(`Added ${strHash} into dag`);
+            // }
+
+            debugNode(`MainDag compacted, order: ${nOldDagOrder} -> ${this._mainDag.order}`);
+
+            // Тут ещё вот это прочитать
+            // nTopPagesToKeep, nBottomPagesToKeep
+        }
+
+        async _restoreMainDagBlocks(nStartHeight, nEndHeight) {
+            // iterator?
+            const arrHashesToAdd = this._mainDagIndex.getPageHashes(nStartHeight, nEndHeight);
+
+            console.log('AAA', arrHashesToAdd)
+
+            for (const strHash of arrHashesToAdd) {
+                const blockInfo = await this._storage.getBlockInfo(strHash);
+                if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
+
+                this._mainDag.addBlock(blockInfo);
+                debugNode(`Added ${strHash} into dag`);
             }
         }
 
@@ -1956,23 +1965,22 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _isBlockKnown(hash) {
-            // TODO: uncomment when finished disk DAG
             const blockInfo = this._mainDag.getBlockInfo(hash);
             return blockInfo || await this._storage.hasBlock(hash);
         }
 
         async _getBlockInfo(hash) {
-            // TODO: uncomment when finished disk DAG
             const blockInfo = this._mainDag.getBlockInfo(hash);
             return blockInfo || await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
         }
 
         async _getBlockChildren(strHash) {
-            if (!this._mainDag.getBlockInfo(strHash)) {
+            if (this._useDagIndex() && !this._mainDag.getBlockInfo(strHash)) {
+                const blockInfo = await this._storage.getBlockInfo(strHash);
+                if (!blockInfo) return [];
 
-                // тут их из индекса вернуть можно, т.к. иначе надо будет добавлять в _mainDag
-                console.log('Build main dag here')
-                process.exit();
+                const nHeight = blockInfo.getHeight();
+                await this._restoreMainDagBlocks(nHeight, nHeight + Constants.DAG_INDEX_STEP);
             }
 
             return this._mainDag.getChildren(strHash);
@@ -2149,7 +2157,7 @@ module.exports = (factory, factoryOptions) => {
             const arrPendingBlocksHashes = await this._storage.getPendingBlockHashes();
             const arrLastStableHashes = await this._storage.getLastAppliedBlockHashes();
 
-            await this._buildMainDag({arrLastStableHashes, arrPendingBlocksHashes});
+            await this._buildMainDag(arrLastStableHashes, arrPendingBlocksHashes);
             await this._rebuildPending(arrLastStableHashes, arrPendingBlocksHashes);
 
             debugNode(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
@@ -2208,13 +2216,8 @@ module.exports = (factory, factoryOptions) => {
                 await this._requestUnknownBlocks();
             }
 
-            if (this._mapBlocksToExec.size === 0 && this._mainDag.order > Constants.DAG_THRESHOLD2CLEAN) {
-                const nOldDagOrder = this._mainDag.order;
-
-                const arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
-                await this._buildMainDag({arrPedingBlocksHashes, bUseOnlyPending: true })
-
-                debugNode(`MainDag flushed, order: ${nOldDagOrder} -> ${this._mainDag.order}`);
+            if (this._mapBlocksToExec.size === 0) {
+                await this._compactMainDag();
             }
         }
 
@@ -2727,6 +2730,16 @@ module.exports = (factory, factoryOptions) => {
             const bi=await this._storage.getBlockInfo(strHash);
             this._storeBlockAndInfo(undefined, bi, true);
             this._queueBlockExec(strHash, peer);
+        }
+
+        _useDagIndex() {
+            return Constants.USE_MAIN_DAG_INDEX;
+        }
+
+        _addDagIndexBlock(blockInfo) {
+            if (this._useDagIndex()) {
+                this._mainDagIndex.addBlock(blockInfo);
+            }
         }
     };
 };

@@ -60,6 +60,16 @@ module.exports = {
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 300,
 
+        // page size: MAX_BLOCKS_INV / 2, index by height [0, 150, 300, ...]
+        DAG_INDEX_STEP: 300 / 2,
+
+        DAG_TOP_PAGES2KEEP: 0,
+        DAG_BOTTOM_PAGES2KEEP: 0,
+
+        // pages to keep in memory
+        DAG_THRESHOLD2CLEAN: 2,
+        USE_MAIN_DAG_INDEX: true,
+
         // we expect that peer will respond with requested INV within this period
         INV_REQUEST_HOLDOFF: 1 * 60 * 1000,
 
@@ -105,8 +115,6 @@ module.exports = {
         // how much we suppress creating empty blocks
         WITNESS_HOLDOFF: 2 * 60 * 1000,
         MAX_BLOCK_SIZE: 1024 * 1024,
-
-        DAG_THRESHOLD2CLEAN: 100,
 
         // fees
         fees: {
