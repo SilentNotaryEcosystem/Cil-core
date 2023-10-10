@@ -107,6 +107,7 @@ class BaseFactory {
 
                     this._messagesImplementation = MessagesWrapper(this, prototypes);
 
+                    //
                     this._serializerImplementation = SerializerWrapper(this.Messages);
                     this._messageAssemblerImplementation = MessageAssemblerWrapper(this.Serializer);
 
