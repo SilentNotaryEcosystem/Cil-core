@@ -26,7 +26,7 @@ module.exports = ({Constants}) => {
             } else {
                 this._data[nPageIndex] = {
                     ...this._data[nPageIndex],
-                    [[nHeight]]: [...new Set(...this._data[nPageIndex][nHeight], strHash)]
+                    [[nHeight]]: [...new Set([...this._data[nPageIndex][nHeight], strHash])]
                 };
             }
         }
@@ -36,28 +36,75 @@ module.exports = ({Constants}) => {
             throw new Error('not implemented');
         }
 
-        // тут можно на итератор переделать и обрезать блоки до стартового,
-        // которые нам не нужны сделаю чуть позже
-        getPageHashes(nStartHeight, nEndHeight) {
-            typeforce('Number', nStartHeight);
-            typeforce('Number', nEndHeight);
+        couldBeCompacted(nDagOrder) {
+            return (
+                nDagOrder >
+                Constants.DAG_INDEX_STEP *
+                    (Constants.DAG_HIGHEST_PAGES2KEEP +
+                        Constants.DAG_LOWEST_PAGES2KEEP +
+                        Constants.DAG_DELTA_PAGES2KEEP)
+            );
+        }
 
-            const nStartPageIndex = this._getPageIndex(nStartHeight);
-            const nEndPageIndex = this._getPageIndex(nEndHeight);
+        getPagesToRestore() {
+            const nHigestPageIndex = this._getHigestPageIndex();
+            const nLowestPageIndex = this._getLowestPageIndex();
 
-            let arrResult = [];
-            for (let i = nStartPageIndex; i <= nEndPageIndex; i++) {
-                const objPage = this._data[i];
-                if (!objPage) continue;
+            if (nHigestPageIndex === nLowestPageIndex) return [nHigestPageIndex];
 
-                arrResult = arrResult.concat(...Object.values(objPage));
+            if (
+                nHigestPageIndex - Constants.DAG_HIGHEST_PAGES2KEEP <=
+                nLowestPageIndex + Constants.DAG_LOWEST_PAGES2KEEP + 1
+            ) {
+                return this._range(nLowestPageIndex, nHigestPageIndex).sort((a, b) => b - a);
             }
 
-            return arrResult;
+            const arrLowestPages = this._range(nLowestPageIndex, nLowestPageIndex + Constants.DAG_LOWEST_PAGES2KEEP);
+            const arrHigestPages = this._range(nHigestPageIndex - Constants.DAG_HIGHEST_PAGES2KEEP, nHigestPageIndex);
+
+            return arrLowestPages.concat(arrHigestPages).sort((a, b) => b - a);
+        }
+
+        getPagesForSequence(nLowestHeight, nHighestHeight) {
+            typeforce('Number', nLowestHeight);
+            typeforce('Number', nHighestHeight);
+
+            const nLowestPageIndex = this._getLowestPageIndex();
+            const nHigestPageIndex = this._getHigestPageIndex();
+
+            const nLowestRequestedPageIndex = this._getPageIndex(nLowestHeight);
+            const nHighestRequestedPageIndex = this._getPageIndex(nHighestHeight);
+
+            const nStart = nLowestRequestedPageIndex < nLowestPageIndex ? nLowestPageIndex : nLowestRequestedPageIndex;
+            const nStop = nHighestRequestedPageIndex > nHigestPageIndex ? nHigestPageIndex : nHighestRequestedPageIndex;
+
+            return this._range(nStart, nStop).sort((a, b) => b - a)
+        }
+
+        _getHigestPageIndex() {
+            return Math.max(...Object.keys(this._data));
+        }
+
+        _getLowestPageIndex() {
+            return Math.min(...Object.keys(this._data));
+        }
+
+        getPageHashes(nPageIndex) {
+            const objPage = this._data[nPageIndex];
+            if (!objPage) return [];
+
+            const arrKeys = Object.keys(objPage).sort((a, b) => b - a);
+            const arrHashes = arrKeys.map(index => objPage[index]);
+
+            return [].concat(...arrHashes);
         }
 
         _getPageIndex(nBlockHeight) {
             return Math.floor(nBlockHeight / Constants.DAG_INDEX_STEP);
+        }
+
+        _range(nStart, nStop) {
+            return Array.from({length: nStop - nStart + 1}, (_, i) => nStart + i);
         }
     };
 };

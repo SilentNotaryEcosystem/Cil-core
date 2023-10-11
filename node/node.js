@@ -1836,53 +1836,63 @@ module.exports = (factory, factoryOptions) => {
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
+
+                await this._compactMainDag(true);
             }
         }
 
-
-        async _compactMainDag() {
-            if (!this._useDagIndex() ||
-                this._mainDag.order < Constants.DAG_THRESHOLD2CLEAN * Constants.DAG_INDEX_STEP) {
+        async _compactMainDag(bInitialBuild = false) {
+            if (!this._useDagIndex() || !this._mainDagIndex.couldBeCompacted(this._mainDag.order)) {
                 return;
             }
 
-            const arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
+            const getUsedHeapInGb = () => (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
+
+            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
+
+            let arrPedingBlocksHashes;
+            if (!bInitialBuild) {
+                arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
+            }
+
             const nOldDagOrder = this._mainDag.order;
-            const arrPendingBlocks = arrPedingBlocksHashes.map(hash => this._mainDag.getBlockInfo(hash).encode())
 
             this._mainDag = new MainDag();
 
-            for (const buffBlock of arrPendingBlocks) {
-                this._mainDag.addBlock(new BlockInfo(buffBlock));
-                debugNode(`Added ${(new BlockInfo(buffBlock)).getHash()} into dag`);
+            if (!bInitialBuild) {
+                for (const strHash of arrPedingBlocksHashes) {
+                    const blockInfo = await this._storage.getBlockInfo(strHash);
+                    if (!blockInfo) throw new Error('_compactMainDag: Found missed blocks!');
+
+                    this._mainDag.addBlock(blockInfo);
+                    debugNode(`Added ${strHash} into dag`);
+                }
             }
-
-            // for (const strHash of arrPedingBlocksHashes) {
-            //     const blockInfo = await this._storage.getBlockInfo(strHash);
-            //     if (!blockInfo) throw new Error('_compactMainDag: Found missed blocks!');
-
-            //     this._mainDag.addBlock(blockInfo);
-            //     debugNode(`Added ${strHash} into dag`);
-            // }
 
             debugNode(`MainDag compacted, order: ${nOldDagOrder} -> ${this._mainDag.order}`);
 
-            // Тут ещё вот это прочитать
-            // nTopPagesToKeep, nBottomPagesToKeep
+            if (global.gc) global.gc();
+            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
+
+            const arrPagesToRestore = this._mainDagIndex.getPagesToRestore();
+
+            await this._restoreMainDagBlocks(arrPagesToRestore);
+
+            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
         }
 
-        async _restoreMainDagBlocks(nStartHeight, nEndHeight) {
-            // iterator?
-            const arrHashesToAdd = this._mainDagIndex.getPageHashes(nStartHeight, nEndHeight);
+        async _restoreMainDagBlocks(arrPagesToRestore) {
+            for (const nPageIndex of arrPagesToRestore) {
+                debugNode(`MainDagIndex page: ${nPageIndex} restored`);
+                const arrHashesToAdd = this._mainDagIndex.getPageHashes(nPageIndex);
 
-            console.log('AAA', arrHashesToAdd)
+                for (const strHash of arrHashesToAdd) {
+                    const blockInfo = await this._storage.getBlockInfo(strHash).catch(err => debugNode(err));
+                    if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
 
-            for (const strHash of arrHashesToAdd) {
-                const blockInfo = await this._storage.getBlockInfo(strHash);
-                if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
-
-                this._mainDag.addBlock(blockInfo);
-                debugNode(`Added ${strHash} into dag`);
+                    this._mainDag.addBlock(blockInfo);
+                    // debugNode(`Added ${strHash} into dag`);
+                }
             }
         }
 
@@ -1980,7 +1990,9 @@ module.exports = (factory, factoryOptions) => {
                 if (!blockInfo) return [];
 
                 const nHeight = blockInfo.getHeight();
-                await this._restoreMainDagBlocks(nHeight, nHeight + Constants.DAG_INDEX_STEP);
+                const arrPagesToRestore = this.getPagesForSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
+
+                await this._restoreMainDagBlocks(arrPagesToRestore);
             }
 
             return this._mainDag.getChildren(strHash);

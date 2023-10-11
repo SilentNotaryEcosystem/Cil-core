@@ -63,8 +63,11 @@ module.exports = {
         // page size: MAX_BLOCKS_INV / 2, index by height [0, 150, 300, ...]
         DAG_INDEX_STEP: 300 / 2,
 
-        DAG_TOP_PAGES2KEEP: 0,
-        DAG_BOTTOM_PAGES2KEEP: 0,
+
+        DAG_HIGHEST_PAGES2KEEP: 5,
+        DAG_LOWEST_PAGES2KEEP: 5,
+        DAG_DELTA_PAGES2KEEP: 20,
+
 
         // pages to keep in memory
         DAG_THRESHOLD2CLEAN: 2,
