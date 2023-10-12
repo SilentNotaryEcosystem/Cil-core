@@ -563,11 +563,7 @@ module.exports = (factory, factoryOptions) => {
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
 
-            const arrHeightsRange = await this._getLastKnownHeightsRange(msg.arrHashes);
-
-            const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(arrHeightsRange[0], arrHeightsRange[1] + Constants.MAX_BLOCKS_INV);
-
-            await this._restoreMainDagBlocks(arrPagesToRestore);
+            await this._restoreLastKnownHeightsRange(msg.arrHashes);
 
             for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
                 inventory.addBlockHash(hash);
@@ -1906,6 +1902,14 @@ module.exports = (factory, factoryOptions) => {
                     // debugNode(`Added ${strHash} into dag`);
                 }
             }
+        }
+
+        async _restoreLastKnownHeightsRange(arrHashes) {
+            const arrHeightsRange = await this._getLastKnownHeightsRange(arrHashes);
+
+            const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(arrHeightsRange[0], arrHeightsRange[1] + Constants.MAX_BLOCKS_INV);
+
+            await this._restoreMainDagBlocks(arrPagesToRestore);
         }
 
         async _getLastKnownHeightsRange(arrHashes) {
