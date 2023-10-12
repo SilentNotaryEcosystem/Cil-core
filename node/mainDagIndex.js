@@ -33,7 +33,7 @@ module.exports = ({Constants}) => {
 
         removeBlock(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
-            throw new Error('not implemented');
+            throw new Error('Not implemented');
         }
 
         couldBeCompacted(nDagOrder) {
@@ -81,14 +81,6 @@ module.exports = ({Constants}) => {
             return this._range(nStart, nStop).sort((a, b) => b - a)
         }
 
-        _getHigestPageIndex() {
-            return Math.max(...Object.keys(this._data));
-        }
-
-        _getLowestPageIndex() {
-            return Math.min(...Object.keys(this._data));
-        }
-
         getPageHashes(nPageIndex) {
             const objPage = this._data[nPageIndex];
             if (!objPage) return [];
@@ -97,6 +89,14 @@ module.exports = ({Constants}) => {
             const arrHashes = arrKeys.map(index => objPage[index]);
 
             return [].concat(...arrHashes);
+        }
+
+        _getHigestPageIndex() {
+            return Math.max(...Object.keys(this._data));
+        }
+
+        _getLowestPageIndex() {
+            return Math.min(...Object.keys(this._data));
         }
 
         _getPageIndex(nBlockHeight) {

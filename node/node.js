@@ -563,6 +563,12 @@ module.exports = (factory, factoryOptions) => {
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
 
+            const arrHeightsRange = await this._getLastKnownHeightsRange(msg.arrHashes);
+
+            const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(arrHeightsRange[0], arrHeightsRange[1] + Constants.MAX_BLOCKS_INV);
+
+            await this._restoreMainDagBlocks(arrPagesToRestore);
+
             for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
                 inventory.addBlockHash(hash);
             }
@@ -1839,6 +1845,10 @@ module.exports = (factory, factoryOptions) => {
 
                 await this._compactMainDag(true);
             }
+
+            const getUsedHeapInGb = () => (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
+
+            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
         }
 
         async _compactMainDag(bInitialBuild = false) {
@@ -1887,12 +1897,27 @@ module.exports = (factory, factoryOptions) => {
                 const arrHashesToAdd = this._mainDagIndex.getPageHashes(nPageIndex);
 
                 for (const strHash of arrHashesToAdd) {
+                    if (this._mainDag.getBlockInfo(blockInfo)) continue;
+
                     const blockInfo = await this._storage.getBlockInfo(strHash).catch(err => debugNode(err));
                     if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
 
                     this._mainDag.addBlock(blockInfo);
                     // debugNode(`Added ${strHash} into dag`);
                 }
+            }
+        }
+
+        async _getLastKnownHeightsRange(arrHashes) {
+            const arrHeights = [];
+            for (const strHash of arrHashes) {
+                const blockInfo = await this._getBlockInfo(strHash);
+                if (blockInfo) {
+                    arrHeights.push(blockInfo.getHeight());
+                }
+                arrHeights.sort((a, b) => a - b);
+
+                return [arrHeights[0], arrHeights[arrHeights.length - 1]]
             }
         }
 
@@ -1990,7 +2015,7 @@ module.exports = (factory, factoryOptions) => {
                 if (!blockInfo) return [];
 
                 const nHeight = blockInfo.getHeight();
-                const arrPagesToRestore = this.getPagesForSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
+                const arrPagesToRestore = this._mianDagIndex.getPagesForSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
 
                 await this._restoreMainDagBlocks(arrPagesToRestore);
             }
