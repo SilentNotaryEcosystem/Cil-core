@@ -31,6 +31,19 @@ module.exports = ({Constants}) => {
             }
         }
 
+        hasBlock(blockInfo) {
+            typeforce(types.BlockInfo, blockInfo);
+
+            const nHeight = blockInfo.getHeight();
+            const strHash = blockInfo.getHash();
+
+            const nPageIndex = this._getPageIndex(nHeight);
+
+            if (!this._data[nPageIndex] || !this._data[nPageIndex][nHeight]) return false;
+
+            return this._data[nPageIndex][nHeight].includes(strHash);
+        }
+
         removeBlock(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
             throw new Error('Not implemented');

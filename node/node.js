@@ -1803,6 +1803,8 @@ module.exports = (factory, factoryOptions) => {
          * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
         async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
+            const getUsedHeapInGb = () => (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
+
             this._mainDag = new MainDag();
             if (this._useDagIndex()) {
                 this._mainDagIndex = new MainDagIndex()
@@ -1824,9 +1826,12 @@ module.exports = (factory, factoryOptions) => {
                     let bi = await this._storage.getBlockInfo(hash);
                     if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
+                    if (this._hasDagIndexBlock(bi)) continue;
 
                     await this._mainDag.addBlock(bi);
                     this._addDagIndexBlock(bi);
+
+                    debugNode(`Heap usage: ${getUsedHeapInGb()} Gb, idx: ${bi.getHeight()}`);
 
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
@@ -1841,8 +1846,6 @@ module.exports = (factory, factoryOptions) => {
 
                 await this._compactMainDag(true);
             }
-
-            const getUsedHeapInGb = () => (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
 
             debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
         }
@@ -1893,7 +1896,7 @@ module.exports = (factory, factoryOptions) => {
                 const arrHashesToAdd = this._mainDagIndex.getPageHashes(nPageIndex);
 
                 for (const strHash of arrHashesToAdd) {
-                    if (this._mainDag.getBlockInfo(blockInfo)) continue;
+                    if (this._mainDag.getBlockInfo(strHash)) continue;
 
                     const blockInfo = await this._storage.getBlockInfo(strHash).catch(err => debugNode(err));
                     if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
@@ -2781,6 +2784,12 @@ module.exports = (factory, factoryOptions) => {
             if (this._useDagIndex()) {
                 this._mainDagIndex.addBlock(blockInfo);
             }
+        }
+
+        _hasDagIndexBlock(blockInfo) {
+            if (!this._useDagIndex()) return false;
+
+            return this._mainDagIndex.hasBlock(blockInfo);
         }
     };
 };

@@ -66,7 +66,7 @@ module.exports = {
         // pages to keep in memory
         DAG_HIGHEST_PAGES2KEEP: 20,
         DAG_LOWEST_PAGES2KEEP: 20,
-        DAG_DELTA_PAGES2KEEP: 50,
+        DAG_DELTA_PAGES2KEEP: 100,
 
         USE_MAIN_DAG_INDEX: true,
 
