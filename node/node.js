@@ -1831,26 +1831,27 @@ module.exports = (factory, factoryOptions) => {
                     await this._mainDag.addBlock(bi);
                     this._addDagIndexBlock(bi);
 
-                    debugNode(`Heap usage: ${getUsedHeapInGb()} Gb, idx: ${bi.getHeight()}`);
+                    const nHeight = bi.getHeight();
+                    debugNode(`Heap usage: ${getUsedHeapInGb()} Gb, idx: ${nHeight} page: ${this._mainDagIndex._getPageIndex(nHeight)}`);
 
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
                     }
                 }
 
+                await this._compactMainDag();
+
                 // Do we reach GENESIS?
                 if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
-
-                await this._compactMainDag(true);
             }
 
             debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
         }
 
-        async _compactMainDag(bInitialBuild = false) {
+        async _compactMainDag(arrPedingBlocksHashes = []) {
             if (!this._useDagIndex() || !this._mainDagIndex.couldBeCompacted(this._mainDag.order)) {
                 return;
             }
@@ -1859,16 +1860,11 @@ module.exports = (factory, factoryOptions) => {
 
             debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
 
-            let arrPedingBlocksHashes;
-            if (!bInitialBuild) {
-                arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
-            }
-
             const nOldDagOrder = this._mainDag.order;
 
             this._mainDag = new MainDag();
 
-            if (!bInitialBuild) {
+            if (arrPedingBlocksHashes.length) {
                 for (const strHash of arrPedingBlocksHashes) {
                     const blockInfo = await this._storage.getBlockInfo(strHash);
                     if (!blockInfo) throw new Error('_compactMainDag: Found missed blocks!');
@@ -1910,6 +1906,8 @@ module.exports = (factory, factoryOptions) => {
         async _restoreLastKnownHeightsRange(arrHashes) {
             const arrHeightsRange = await this._getLastKnownHeightsRange(arrHashes);
 
+            if (!arrHeightsRange.length) return;
+
             const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(arrHeightsRange[0], arrHeightsRange[1] + Constants.MAX_BLOCKS_INV);
 
             await this._restoreMainDagBlocks(arrPagesToRestore);
@@ -1922,6 +1920,9 @@ module.exports = (factory, factoryOptions) => {
                 if (blockInfo) {
                     arrHeights.push(blockInfo.getHeight());
                 }
+
+                if (!arrHeights.length) return [];
+
                 arrHeights.sort((a, b) => a - b);
 
                 return [arrHeights[0], arrHeights[arrHeights.length - 1]]
@@ -2261,7 +2262,8 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (this._mapBlocksToExec.size === 0) {
-                await this._compactMainDag();
+                const arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
+                await this._compactMainDag(arrPedingBlocksHashes);
             }
         }
 
@@ -2788,7 +2790,6 @@ module.exports = (factory, factoryOptions) => {
 
         _hasDagIndexBlock(blockInfo) {
             if (!this._useDagIndex()) return false;
-
             return this._mainDagIndex.hasBlock(blockInfo);
         }
     };

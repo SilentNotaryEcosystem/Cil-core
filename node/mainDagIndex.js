@@ -72,7 +72,12 @@ module.exports = ({Constants}) => {
                 return this._range(nLowestPageIndex, nHigestPageIndex).sort((a, b) => b - a);
             }
 
-            const arrLowestPages = this._range(nLowestPageIndex, nLowestPageIndex + Constants.DAG_LOWEST_PAGES2KEEP);
+            const nLowestFullPageIndex = this._getLowestFullPageIndex();
+
+            const arrLowestPages = this._range(
+                Math.max(nLowestPageIndex, nLowestFullPageIndex - Constants.DAG_LOWEST_PAGES2KEEP),
+                Math.max(nLowestPageIndex + Constants.DAG_LOWEST_PAGES2KEEP, nLowestFullPageIndex)
+            );
             const arrHigestPages = this._range(nHigestPageIndex - Constants.DAG_HIGHEST_PAGES2KEEP, nHigestPageIndex);
 
             return arrLowestPages.concat(arrHigestPages).sort((a, b) => b - a);
@@ -91,25 +96,55 @@ module.exports = ({Constants}) => {
             const nStart = nLowestRequestedPageIndex < nLowestPageIndex ? nLowestPageIndex : nLowestRequestedPageIndex;
             const nStop = nHighestRequestedPageIndex > nHigestPageIndex ? nHigestPageIndex : nHighestRequestedPageIndex;
 
-            return this._range(nStart, nStop).sort((a, b) => b - a)
+            return this._range(nStart, nStop).sort((a, b) => b - a);
         }
 
         getPageHashes(nPageIndex) {
             const objPage = this._data[nPageIndex];
             if (!objPage) return [];
 
-            const arrKeys = Object.keys(objPage).sort((a, b) => b - a);
+            const arrKeys = Object.keys(objPage)
+                .map(item => +item)
+                .sort((a, b) => b - a);
             const arrHashes = arrKeys.map(index => objPage[index]);
 
             return [].concat(...arrHashes);
         }
 
         _getHigestPageIndex() {
-            return Math.max(...Object.keys(this._data));
+            return Math.max(...Object.keys(this._data).map(item => +item));
         }
 
         _getLowestPageIndex() {
-            return Math.min(...Object.keys(this._data));
+            return Math.min(...Object.keys(this._data).map(item => +item));
+        }
+
+        _getLowestFullPageIndex() {
+            // const arrPageIndexesAsc = Object.keys(this._data).sort((a, b) => a - b);
+            const arrPageIndexesDesc = Object.keys(this._data)
+                .map(item => +item)
+                .sort((a, b) => b - a);
+
+            // if we have a gap in the pages and filled page near genesis
+            let nSequenceBreak = arrPageIndexesDesc[0];
+            for (const nPageIndex of arrPageIndexesDesc) {
+                if (!this._data[nPageIndex - 1]) {
+                    nSequenceBreak = nPageIndex;
+                    break;
+                }
+            }
+
+            const arrPageIndexesToCheck = arrPageIndexesDesc
+                .filter(nPageIndex => nPageIndex >= nSequenceBreak)
+                .slice(1);
+
+            for (const nPageIndex of arrPageIndexesToCheck) {
+                if (Object.keys(this._data[nPageIndex]).length !== Constants.DAG_INDEX_STEP) {
+                    return nPageIndex - 1;
+                }
+            }
+
+            return arrPageIndexesToCheck[arrPageIndexesToCheck.length - 1];
         }
 
         _getPageIndex(nBlockHeight) {
