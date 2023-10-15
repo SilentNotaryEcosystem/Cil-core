@@ -68,7 +68,7 @@ module.exports = {
         DAG_LOWEST_PAGES2KEEP: 20,
         DAG_DELTA_PAGES2KEEP: 100,
 
-        USE_MAIN_DAG_INDEX: true,
+        USE_DAG_INDEX: true,
 
         // we expect that peer will respond with requested INV within this period
         INV_REQUEST_HOLDOFF: 1 * 60 * 1000,

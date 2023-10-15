@@ -6,7 +6,7 @@ const types = require('../types');
 module.exports = ({Constants}) => {
     return class MainDagIndex {
         constructor() {
-            this._data = {};
+            this._data = new Map();
         }
 
         addBlock(blockInfo) {
@@ -17,35 +17,25 @@ module.exports = ({Constants}) => {
 
             const nPageIndex = this._getPageIndex(nHeight);
 
-            if (!this._data[nPageIndex]) {
-                this._data[nPageIndex] = {};
+            if (!this._data.has(nPageIndex)) {
+                this._data.set(nPageIndex, new Map());
             }
 
-            if (!this._data[nPageIndex][nHeight]) {
-                this._data[nPageIndex] = {...this._data[nPageIndex], [[nHeight]]: [strHash]};
-            } else {
-                this._data[nPageIndex] = {
-                    ...this._data[nPageIndex],
-                    [[nHeight]]: [...new Set([...this._data[nPageIndex][nHeight], strHash])]
-                };
-            }
+            this._data.get(nPageIndex).set(strHash, nHeight);
         }
 
-        hasBlock(blockInfo) {
-            typeforce(types.BlockInfo, blockInfo);
-
-            const nHeight = blockInfo.getHeight();
-            const strHash = blockInfo.getHash();
+        hasBlock(nHeight, strHash) {
+            typeforce('Number', nHeight);
+            typeforce(types.Str64, strHash);
 
             const nPageIndex = this._getPageIndex(nHeight);
 
-            if (!this._data[nPageIndex] || !this._data[nPageIndex][nHeight]) return false;
+            if (!this._data.has(nPageIndex)) return false;
 
-            return this._data[nPageIndex][nHeight].includes(strHash);
+            return this._data.get(nPageIndex).has(strHash);
         }
 
-        removeBlock(blockInfo) {
-            typeforce(types.BlockInfo, blockInfo);
+        removeBlock(nHeight, strHash) {
             throw new Error('Not implemented');
         }
 
@@ -59,7 +49,7 @@ module.exports = ({Constants}) => {
             );
         }
 
-        getPagesToRestore() {
+        getPagesToRestore(bRestoreOnlyLowest = false) {
             const nHigestPageIndex = this._getHigestPageIndex();
             const nLowestPageIndex = this._getLowestPageIndex();
 
@@ -78,6 +68,11 @@ module.exports = ({Constants}) => {
                 Math.max(nLowestPageIndex, nLowestFullPageIndex - Constants.DAG_LOWEST_PAGES2KEEP),
                 Math.max(nLowestPageIndex + Constants.DAG_LOWEST_PAGES2KEEP, nLowestFullPageIndex)
             );
+
+            if (bRestoreOnlyLowest) {
+                return arrLowestPages.sort((a, b) => b - a);
+            }
+
             const arrHigestPages = this._range(nHigestPageIndex - Constants.DAG_HIGHEST_PAGES2KEEP, nHigestPageIndex);
 
             return arrLowestPages.concat(arrHigestPages).sort((a, b) => b - a);
@@ -100,35 +95,29 @@ module.exports = ({Constants}) => {
         }
 
         getPageHashes(nPageIndex) {
-            const objPage = this._data[nPageIndex];
-            if (!objPage) return [];
+            if (!this._data.has(nPageIndex)) return [];
 
-            const arrKeys = Object.keys(objPage)
-                .map(item => +item)
-                .sort((a, b) => b - a);
-            const arrHashes = arrKeys.map(index => objPage[index]);
-
-            return [].concat(...arrHashes);
+            // тут можно отсортировать по высоте, но это замедлит обработку
+            return [...this._data.get(nPageIndex).keys()];
         }
 
         _getHigestPageIndex() {
-            return Math.max(...Object.keys(this._data).map(item => +item));
+            return Math.max(...this._data.keys());
         }
 
         _getLowestPageIndex() {
-            return Math.min(...Object.keys(this._data).map(item => +item));
+            return Math.min(...this._data.keys());
         }
 
         _getLowestFullPageIndex() {
             // const arrPageIndexesAsc = Object.keys(this._data).sort((a, b) => a - b);
-            const arrPageIndexesDesc = Object.keys(this._data)
-                .map(item => +item)
+            const arrPageIndexesDesc = [...this._data.keys()]
                 .sort((a, b) => b - a);
 
             // if we have a gap in the pages and filled page near genesis
             let nSequenceBreak = arrPageIndexesDesc[0];
             for (const nPageIndex of arrPageIndexesDesc) {
-                if (!this._data[nPageIndex - 1]) {
+                if (!this._data.has(nPageIndex - 1)) {
                     nSequenceBreak = nPageIndex;
                     break;
                 }
@@ -139,7 +128,7 @@ module.exports = ({Constants}) => {
                 .slice(1);
 
             for (const nPageIndex of arrPageIndexesToCheck) {
-                if (Object.keys(this._data[nPageIndex]).length !== Constants.DAG_INDEX_STEP) {
+                if (this._data.get(nPageIndex).size < Constants.DAG_INDEX_STEP) {
                     return nPageIndex - 1;
                 }
             }

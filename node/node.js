@@ -1796,6 +1796,10 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        _getUsedHeapInGb() {
+            return (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
+        }
+
         /**
          * Build DAG of all known blocks! The rest of blocks will be added upon processing INV requests
          *
@@ -1803,8 +1807,6 @@ module.exports = (factory, factoryOptions) => {
          * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
         async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
-            const getUsedHeapInGb = () => (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
-
             this._mainDag = new MainDag();
             if (this._useDagIndex()) {
                 this._mainDagIndex = new MainDagIndex()
@@ -1826,20 +1828,28 @@ module.exports = (factory, factoryOptions) => {
                     let bi = await this._storage.getBlockInfo(hash);
                     if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
-                    if (this._hasDagIndexBlock(bi)) continue;
+
+                    const nHeight = bi.getHeight();
+                    if (this._hasDagIndexBlock(nHeight, hash)) continue;
 
                     await this._mainDag.addBlock(bi);
                     this._addDagIndexBlock(bi);
 
-                    const nHeight = bi.getHeight();
-                    debugNode(`Heap usage: ${getUsedHeapInGb()} Gb, idx: ${nHeight} page: ${this._mainDagIndex._getPageIndex(nHeight)}`);
+                    if (this._useDagIndex()) {
+                        debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${nHeight}, page: ${this._mainDagIndex._getPageIndex(nHeight)}`);
+                    } else {
+                        debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${nHeight}`);
+                    }
 
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
                     }
                 }
 
-                await this._compactMainDag();
+                if (this._useDagIndex()) {
+                    const arrPagesToRestore = this._mainDagIndex.getPagesToRestore(true);
+                    await this._compactMainDag(arrPagesToRestore);
+                }
 
                 // Do we reach GENESIS?
                 if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
@@ -1848,17 +1858,25 @@ module.exports = (factory, factoryOptions) => {
                 arrCurrentLevel = [...setNextLevel.values()];
             }
 
-            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
+            if (this._useDagIndex()) {
+                const arrPagesToRestore = this._mainDagIndex.getPagesToRestore();
+                await this._compactMainDag(arrPagesToRestore);
+            }
+            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
         }
 
-        async _compactMainDag(arrPedingBlocksHashes = []) {
+        async _compactMainDag(arrPagesToRestore, arrPedingBlocksHashes = []) {
+            const sleep = (delay) => {
+                return new Promise(resolve => {
+                    setTimeout(resolve, delay);
+                });
+            };
+
             if (!this._useDagIndex() || !this._mainDagIndex.couldBeCompacted(this._mainDag.order)) {
                 return;
             }
 
-            const getUsedHeapInGb = () => (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
-
-            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
+            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
 
             const nOldDagOrder = this._mainDag.order;
 
@@ -1877,13 +1895,13 @@ module.exports = (factory, factoryOptions) => {
             debugNode(`MainDag compacted, order: ${nOldDagOrder} -> ${this._mainDag.order}`);
 
             if (global.gc) global.gc();
-            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
-
-            const arrPagesToRestore = this._mainDagIndex.getPagesToRestore();
+            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
 
             await this._restoreMainDagBlocks(arrPagesToRestore);
 
-            debugNode(`Heap usage: ${getUsedHeapInGb()} Gb`);
+            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
+
+            // await sleep(5000);
         }
 
         async _restoreMainDagBlocks(arrPagesToRestore) {
@@ -2261,9 +2279,10 @@ module.exports = (factory, factoryOptions) => {
                 await this._requestUnknownBlocks();
             }
 
-            if (this._mapBlocksToExec.size === 0) {
+            if (this._mapBlocksToExec.size === 0 && this._useDagIndex()) {
+                const arrPagesToRestore = this._mainDagIndex.getPagesToRestore();
                 const arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
-                await this._compactMainDag(arrPedingBlocksHashes);
+                await this._compactMainDag(arrPagesToRestore, arrPedingBlocksHashes);
             }
         }
 
@@ -2779,7 +2798,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         _useDagIndex() {
-            return Constants.USE_MAIN_DAG_INDEX;
+            return Constants.USE_DAG_INDEX;
         }
 
         _addDagIndexBlock(blockInfo) {
@@ -2788,10 +2807,9 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        _hasDagIndexBlock(blockInfo) {
+        _hasDagIndexBlock(nHeight, hash) {
             if (!this._useDagIndex()) return false;
-            return this._mainDagIndex.hasBlock(blockInfo);
+            return this._mainDagIndex.hasBlock(nHeight, hash);
         }
     };
 };
-
