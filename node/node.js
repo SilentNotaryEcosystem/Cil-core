@@ -1866,12 +1866,6 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _compactMainDag(arrPagesToRestore, arrPedingBlocksHashes = []) {
-            const sleep = (delay) => {
-                return new Promise(resolve => {
-                    setTimeout(resolve, delay);
-                });
-            };
-
             if (!this._useDagIndex() || !this._mainDagIndex.couldBeCompacted(this._mainDag.order)) {
                 return;
             }
