@@ -16,6 +16,11 @@ const debugMsgFull = debugLib('node:messages:full');
 const PEER_RECONNECT_TIMER_NAME = 'peerReconnectTimer';
 const MEMPOOL_REANNOUNCE_TIMER_NAME = 'mempoolTimer';
 
+const RESTORE_PAGES = {
+    LOWEST: 0,
+    HIGHEST: 1
+}
+
 function createPeerKey(peer) {
     return peer.address + peer.port;
 }
@@ -1846,10 +1851,7 @@ module.exports = (factory, factoryOptions) => {
                     }
                 }
 
-                if (this._useDagIndex()) {
-                    const arrPagesToRestore = this._mainDagIndex.getPagesToRestore(true);
-                    await this._compactMainDag(arrPagesToRestore);
-                }
+                await this._compactMainDag(RESTORE_PAGES.LOWEST);
 
                 // Do we reach GENESIS?
                 if (arrCurrentLevel.length === 1 && arrCurrentLevel[0] === Constants.GENESIS_BLOCK) break;
@@ -1858,14 +1860,13 @@ module.exports = (factory, factoryOptions) => {
                 arrCurrentLevel = [...setNextLevel.values()];
             }
 
-            if (this._useDagIndex()) {
-                const arrPagesToRestore = this._mainDagIndex.getPagesToRestore();
-                await this._compactMainDag(arrPagesToRestore);
-            }
+            await this._compactMainDag(RESTORE_PAGES.HIGHEST);
+
             debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
         }
 
-        async _compactMainDag(arrPagesToRestore, arrPedingBlocksHashes = []) {
+        // run node with a flag to reduce memory usage: node --expose-gc
+        async _compactMainDag(nRestoreType) {
             if (!this._useDagIndex() || !this._mainDagIndex.couldBeCompacted(this._mainDag.order)) {
                 return;
             }
@@ -1876,42 +1877,50 @@ module.exports = (factory, factoryOptions) => {
 
             this._mainDag = new MainDag();
 
-            if (arrPedingBlocksHashes.length) {
-                for (const strHash of arrPedingBlocksHashes) {
-                    const blockInfo = await this._storage.getBlockInfo(strHash);
-                    if (!blockInfo) throw new Error('_compactMainDag: Found missed blocks!');
-
-                    this._mainDag.addBlock(blockInfo);
-                    debugNode(`Added ${strHash} into dag`);
-                }
-            }
-
             debugNode(`MainDag compacted, order: ${nOldDagOrder} -> ${this._mainDag.order}`);
 
             if (global.gc) global.gc();
             debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
 
-            await this._restoreMainDagBlocks(arrPagesToRestore);
+
+            let arrPagesToRestore = [];
+            switch (nRestoreType) {
+                case RESTORE_PAGES.HIGHEST:
+                    arrPagesToRestore = this._mainDagIndex.getHigestPagesToRestore();
+                    break;
+                case RESTORE_PAGES.LOWEST:
+                    arrPagesToRestore = this._mainDagIndex.getLowestPagesToRestore();
+                    break;
+                default:
+                    throw new Error('Specify correct nRestoreType');
+            }
+
+            await this._restoreMainDagPages(arrPagesToRestore);
 
             debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
 
             // await sleep(5000);
         }
 
-        async _restoreMainDagBlocks(arrPagesToRestore) {
+        async _restoreMainDagPages(arrPagesToRestore) {
             for (const nPageIndex of arrPagesToRestore) {
+                const arrHashesToRestore = this._mainDagIndex.getPageHashes(nPageIndex);
+                if (!arrHashesToRestore.length) continue;
+
+                await this._restoreMainDagBlocks(arrHashesToRestore);
+
                 debugNode(`MainDagIndex page: ${nPageIndex} restored`);
-                const arrHashesToAdd = this._mainDagIndex.getPageHashes(nPageIndex);
+            }
+        }
 
-                for (const strHash of arrHashesToAdd) {
-                    if (this._mainDag.getBlockInfo(strHash)) continue;
+        async _restoreMainDagBlocks(arrHashesToRestore) {
+            for (const strHash of arrHashesToRestore) {
+                if (this._mainDag.getBlockInfo(strHash)) continue;
 
-                    const blockInfo = await this._storage.getBlockInfo(strHash).catch(err => debugNode(err));
-                    if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
+                const blockInfo = await this._storage.getBlockInfo(strHash).catch(err => debugNode(err));
+                if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
 
-                    this._mainDag.addBlock(blockInfo);
-                    // debugNode(`Added ${strHash} into dag`);
-                }
+                this._mainDag.addBlock(blockInfo);
             }
         }
 
@@ -1922,7 +1931,7 @@ module.exports = (factory, factoryOptions) => {
 
             const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(arrHeightsRange[0], arrHeightsRange[1] + Constants.MAX_BLOCKS_INV);
 
-            await this._restoreMainDagBlocks(arrPagesToRestore);
+            await this._restoreMainDagPages(arrPagesToRestore);
         }
 
         async _getLastKnownHeightsRange(arrHashes) {
@@ -1935,7 +1944,7 @@ module.exports = (factory, factoryOptions) => {
 
                 if (!arrHeights.length) return [];
 
-                arrHeights.sort((a, b) => a - b);
+                arrHeights.sort((a, b) => b - a);
 
                 return [arrHeights[0], arrHeights[arrHeights.length - 1]]
             }
@@ -2037,7 +2046,7 @@ module.exports = (factory, factoryOptions) => {
                 const nHeight = blockInfo.getHeight();
                 const arrPagesToRestore = this._mianDagIndex.getPagesForSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
 
-                await this._restoreMainDagBlocks(arrPagesToRestore);
+                await this._restoreMainDagPages(arrPagesToRestore);
             }
 
             return this._mainDag.getChildren(strHash);
@@ -2274,9 +2283,9 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (this._mapBlocksToExec.size === 0 && this._useDagIndex()) {
-                const arrPagesToRestore = this._mainDagIndex.getPagesToRestore();
                 const arrPedingBlocksHashes = this._pendingBlocks.getAllHashes();
-                await this._compactMainDag(arrPagesToRestore, arrPedingBlocksHashes);
+                await this._compactMainDag(RESTORE_PAGES.HIGHEST);
+                await this._restoreMainDagBlocks(arrPedingBlocksHashes);
             }
         }
 
