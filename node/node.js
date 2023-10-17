@@ -1934,11 +1934,11 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _restoreLastKnownHeightsRange(arrHashes) {
-            const arrHeightsRange = await this._getLastKnownHeightsRange(arrHashes);
+            const objHeightsRange = await this._getLastKnownHeightsRange(arrHashes);
 
-            if (!arrHeightsRange.length) return;
+            if (!objHeightsRange) return;
 
-            const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(arrHeightsRange[0], arrHeightsRange[1] + Constants.MAX_BLOCKS_INV);
+            const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(objHeightsRange.min, objHeightsRange.max + Constants.MAX_BLOCKS_INV);
 
             await this._restoreMainDagPages(arrPagesToRestore);
         }
@@ -1951,11 +1951,12 @@ module.exports = (factory, factoryOptions) => {
                     arrHeights.push(blockInfo.getHeight());
                 }
 
-                if (!arrHeights.length) return [];
+                if (!arrHeights.length) return null;
 
-                arrHeights.sort((a, b) => b - a);
-
-                return [arrHeights[0], arrHeights[arrHeights.length - 1]]
+                return {
+                    min: Math.min(...arrHeights),
+                    max: Math.max(...arrHeights)
+                }
             }
         }
 
