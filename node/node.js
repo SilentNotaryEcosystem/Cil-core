@@ -1867,20 +1867,31 @@ module.exports = (factory, factoryOptions) => {
 
         // run node with a flag to reduce memory usage: node --expose-gc
         async _compactMainDag(nRestoreType) {
-            if (!this._useDagIndex() || !this._mainDagIndex.couldBeCompacted(this._mainDag.order)) {
+            if (!this._useDagIndex()) {
                 return;
             }
 
-            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
+            switch (nRestoreType) {
+                case RESTORE_PAGES.HIGHEST:
+                    if (!this._mainDagIndex.couldBeCompactedForHigest(this._mainDag.order)) {
+                        return;
+                    }
+                    break;
+                case RESTORE_PAGES.LOWEST:
+                    if (!this._mainDagIndex.couldBeCompactedForLowest(this._mainDag.order)) {
+                        return;
+                    }
+                    break;
+                default:
+                    throw new Error('Specify correct nRestoreType');
+                }
 
-            const nOldDagOrder = this._mainDag.order;
+            debugNode(`Heap usage (before): ${this._getUsedHeapInGb()} Gb, order: ${this._mainDag.order}`);
 
             this._mainDag = new MainDag();
 
-            debugNode(`MainDag compacted, order: ${nOldDagOrder} -> ${this._mainDag.order}`);
-
             if (global.gc) global.gc();
-            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
+            debugNode(`Heap usage (empty DAG): ${this._getUsedHeapInGb()} Gb`);
 
 
             let arrPagesToRestore = [];
@@ -1891,13 +1902,11 @@ module.exports = (factory, factoryOptions) => {
                 case RESTORE_PAGES.LOWEST:
                     arrPagesToRestore = this._mainDagIndex.getLowestPagesToRestore();
                     break;
-                default:
-                    throw new Error('Specify correct nRestoreType');
             }
 
             await this._restoreMainDagPages(arrPagesToRestore);
 
-            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb`);
+            debugNode(`Heap usage (restored): ${this._getUsedHeapInGb()} Gb`);
 
             // await sleep(5000);
         }

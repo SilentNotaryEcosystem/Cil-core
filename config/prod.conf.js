@@ -64,8 +64,8 @@ module.exports = {
         DAG_INDEX_STEP: 300 / 2,
 
         // pages to keep in memory
-        DAG_HIGHEST_PAGES2KEEP: 20,
-        DAG_LOWEST_PAGES2KEEP: 20,
+        DAG_HIGHEST_PAGES2KEEP: 40,
+        DAG_LOWEST_PAGES2KEEP: 40,
         DAG_DELTA_PAGES2KEEP: 100,
 
         USE_DAG_INDEX: true,

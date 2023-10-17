@@ -18,6 +18,7 @@ module.exports = ({Constants}) => {
             const nPageIndex = this._getPageIndex(nHeight);
 
             if (!this._data.has(nPageIndex)) {
+                // if there's no reason to store block height, switch to Set()
                 this._data.set(nPageIndex, new Map());
             }
 
@@ -39,13 +40,17 @@ module.exports = ({Constants}) => {
             throw new Error('Not implemented');
         }
 
-        couldBeCompacted(nDagOrder) {
+        couldBeCompactedForHigest(nDagOrder) {
             return (
                 nDagOrder >
-                Constants.DAG_INDEX_STEP *
-                    (Constants.DAG_HIGHEST_PAGES2KEEP +
-                        Constants.DAG_LOWEST_PAGES2KEEP +
-                        Constants.DAG_DELTA_PAGES2KEEP)
+                Constants.DAG_INDEX_STEP * (Constants.DAG_HIGHEST_PAGES2KEEP + Constants.DAG_DELTA_PAGES2KEEP)
+            );
+        }
+
+        couldBeCompactedForLowest(nDagOrder) {
+            return (
+                nDagOrder >
+                Constants.DAG_INDEX_STEP * (Constants.DAG_LOWEST_PAGES2KEEP + Constants.DAG_DELTA_PAGES2KEEP)
             );
         }
 
@@ -76,11 +81,7 @@ module.exports = ({Constants}) => {
 
             const nLowestFullPageIndex = this._getLowestFullPageIndex();
 
-            // const arrLowestPages = (nLowestPageIndex > nLowestFullPageIndex - Constants.DAG_LOWEST_PAGES2KEEP) ?
-            //     this._getPageIndexes(nLowestPageIndex, Constants.DAG_LOWEST_PAGES2KEEP) :
-            //     this._getPageIndexes(nLowestFullPageIndex, -Constants.DAG_LOWEST_PAGES2KEEP)
-
-            // This is the fastest way, but in the beginning it could give empty pages
+            // This is the fastest way but it could return empty pages
             const arrLowestPages = this._range(
                 Math.max(nLowestPageIndex, nLowestFullPageIndex - Constants.DAG_LOWEST_PAGES2KEEP),
                 Math.max(nLowestPageIndex + Constants.DAG_LOWEST_PAGES2KEEP, nLowestFullPageIndex)
@@ -120,18 +121,8 @@ module.exports = ({Constants}) => {
             return Math.min(...this._data.keys());
         }
 
-        _getPageIndexes(nIndex, nCount) {
-            const arrIndexes = [...this._data.keys()];
-            if (nCount > 0) {
-                return arrIndexes.filter(item => item >= nIndex).sort((a, b) => a - b).slice(0, nCount);
-            } else {
-                return arrIndexes.filter(item => item <= nIndex).sort((a, b) => b - a).slice(0, nCount);
-            }
-        }
-
         _getLowestFullPageIndex() {
-            const arrPageIndexesDesc = [...this._data.keys()]
-                .sort((a, b) => b - a);
+            const arrPageIndexesDesc = [...this._data.keys()].sort((a, b) => b - a);
 
             // if we have a gap in the pages and filled page near genesis
             let nSequenceBreak = arrPageIndexesDesc[0];
@@ -145,7 +136,6 @@ module.exports = ({Constants}) => {
             const arrPageIndexesToCheck = arrPageIndexesDesc
                 .filter(nPageIndex => nPageIndex >= nSequenceBreak)
                 .slice(1);
-
 
             // full page could contain more than DAG_INDEX_STEP hashes,
             // but if page size is less than DAG_INDEX_STEP page is defenitely not full
