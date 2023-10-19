@@ -28,6 +28,7 @@ const StorageWrapper = require('./storage/persistentStorage');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
+const MainDagIndexWrapper = require('./node/mainDagIndex');
 const RequestCacheWrapper = require('./node/requestsCache');
 
 const TransactionWrapper = require('./structures/transaction');
@@ -126,6 +127,7 @@ class BaseFactory {
                     this._appImplementation = AppWrapper(this);
                     this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this, options);
                     this._mainDagImplementation = MainDagWrapper(this);
+                    this._mainDagIndexImplementation = MainDagIndexWrapper(this);
                     this._requestCacheImplementation = RequestCacheWrapper(this);
 
                     // all componenst should be declared above
@@ -184,6 +186,10 @@ class BaseFactory {
 
     get MainDag() {
         return this._mainDagImplementation;
+    }
+
+    get MainDagIndex() {
+        return this._mainDagIndexImplementation;
     }
 
     get Contract() {
