@@ -17,7 +17,7 @@ module.exports = ({Constants}) => {
                 insideHashes: new Map(),
                 // children from other pages
                 // won't use it, just for a reference
-                // hashes point to insideHashes
+                // hashes point to insideHashes & topHashes
                 outsideHashes: new Map()
             };
         }
