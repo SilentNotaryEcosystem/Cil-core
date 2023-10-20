@@ -64,11 +64,6 @@ module.exports = ({Constants}) => {
                 }
                 this._addToOutsidePage(blockInfo, parentBlockInfo);
             }
-
-            // надо модифицировать алгоритм построения DAG
-            // тогда мы на следующем шаге ещё будем помнить хэши и высоты предыдущего
-
-            // this._data.get(nPageIndex).set(strHash, nHeight);
         }
 
         removeBlock(nHeight, strHash) {

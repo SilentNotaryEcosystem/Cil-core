@@ -1892,10 +1892,6 @@ module.exports = (factory, factoryOptions) => {
             if (this._useDagIndex()) {
                 await this._emptyAndRestoreMainDag(arrPedingBlocksHashes, true);
             }
-
-            // this._mainDagIndex.printUsual();
-            // this._mainDagIndex.printUnusual();
-            // process.exit();
         }
 
         async _emptyAndRestoreMainDag(arrPedingBlocksHashes, bEmptyAnyway = false) {
