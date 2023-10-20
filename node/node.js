@@ -1957,6 +1957,8 @@ module.exports = (factory, factoryOptions) => {
 
                     debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${nHeight}`);
 
+                    if (nHeight === nLowestHeight) continue;
+
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
                     }
