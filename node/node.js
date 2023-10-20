@@ -563,7 +563,10 @@ module.exports = (factory, factoryOptions) => {
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
 
-            await this._restoreLastKnownHeightsRange(msg.arrHashes);
+            if (this._useDagIndex()) {
+                // If we have it in DAG we'll not use storage to read it again
+                await this._restoreLastKnownHeightsRange(msg.arrHashes);
+            }
 
             for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
                 inventory.addBlockHash(hash);
@@ -1859,7 +1862,6 @@ module.exports = (factory, factoryOptions) => {
                 }
 
                 if (this._useDagIndex()) {
-                    // Empty DAG index, means initial blocks
                     const bIsInitialBlock = !this._mainDagIndex.size;
 
                     for (let childBlockInfo of [...setChildrenBlockInfo.values()]) {
@@ -1882,10 +1884,14 @@ module.exports = (factory, factoryOptions) => {
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
 
-                setChildrenBlockInfo = setCurrentBlockInfo;
+                if (this._useDagIndex()) {
+                    setChildrenBlockInfo = setCurrentBlockInfo;
+                }
             }
 
-            await this._emptyAndRestoreMainDag(arrPedingBlocksHashes, true);
+            if (this._useDagIndex()) {
+                await this._emptyAndRestoreMainDag(arrPedingBlocksHashes, true);
+            }
 
             // this._mainDagIndex.printUsual();
             // this._mainDagIndex.printUnusual();
@@ -1893,7 +1899,6 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _emptyAndRestoreMainDag(arrPedingBlocksHashes, bEmptyAnyway = false) {
-            if (!this._useDagIndex()) return;
             const bResult = await this._emptyMainDag(bEmptyAnyway);
 
             if (bResult) {
@@ -1907,7 +1912,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _emptyMainDag(bEmptyAnyway = false) {
-            if (!this._useDagIndex() || !bEmptyAnyway && this._mainDag.order < Constants.DAG_ORDER2KEEP) {
+            if (!bEmptyAnyway && this._mainDag.order < Constants.DAG_ORDER2KEEP) {
                 return false;
             }
 
@@ -2096,13 +2101,13 @@ module.exports = (factory, factoryOptions) => {
             return blockInfo || await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
         }
 
-        // TODO: check logic
         async _getBlockChildren(strHash) {
             if (this._useDagIndex() && !this._mainDag.getBlockInfo(strHash)) {
                 const blockInfo = await this._storage.getBlockInfo(strHash);
                 if (!blockInfo) return [];
 
                 const nHeight = blockInfo.getHeight();
+                // TODO: Maybe more than 2 pages ?
                 const arrPagesToRestore = this._mianDagIndex.getPageSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
 
                 await this._restoreMainDagPages(arrPagesToRestore);
