@@ -1822,10 +1822,10 @@ module.exports = (factory, factoryOptions) => {
             let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
                 ? arrPedingBlocksHashes
                 : arrLastStableHashes;
-            let setCurrentBlockInfo = new Set();
+            let setChildrenBlockInfo = new Set();
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
-                const setParentBlockInfo = new Set();
+                const setCurrentBlockInfo = new Set();
                 let nMaxPageHeightToRestore = 0;
                 for (let hash of arrCurrentLevel) {
                     debugNode(`Added ${hash} into dag`);
@@ -1833,7 +1833,7 @@ module.exports = (factory, factoryOptions) => {
                     // we already processed this block
                     const dagBlockInfo = this._mainDag.getBlockInfo(hash);
                     if (dagBlockInfo) {
-                        setParentBlockInfo.add(dagBlockInfo);
+                        setCurrentBlockInfo.add(dagBlockInfo);
                         continue;
                     }
 
@@ -1841,7 +1841,7 @@ module.exports = (factory, factoryOptions) => {
                     if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
 
-                    setParentBlockInfo.add(bi);
+                    setCurrentBlockInfo.add(bi);
                     const nHeight = bi.getHeight();
                     nMaxPageHeightToRestore = Math.max(nMaxPageHeightToRestore, nHeight);
 
@@ -1862,15 +1862,15 @@ module.exports = (factory, factoryOptions) => {
                     // Empty DAG index, means initial blocks
                     const bIsInitialBlock = !this._mainDagIndex.size;
 
-                    for (let currentBlockInfo of [...setCurrentBlockInfo.values()]) {
+                    for (let childBlockInfo of [...setChildrenBlockInfo.values()]) {
                         const arrParentBlocks = [];
-                        for (let parentBlockInfo of [...setParentBlockInfo.values()]) {
-                            if (currentBlockInfo.parentHashes.includes(parentBlockInfo.getHash())) {
+                        for (let parentBlockInfo of [...setCurrentBlockInfo.values()]) {
+                            if (childBlockInfo.parentHashes.includes(parentBlockInfo.getHash())) {
                                 arrParentBlocks.push(parentBlockInfo);
                             }
                         }
 
-                        this._mainDagIndex.addBlock(currentBlockInfo, arrParentBlocks, bIsInitialBlock)
+                        this._mainDagIndex.addBlock(childBlockInfo, arrParentBlocks, bIsInitialBlock)
                     }
 
                     await this._emptyMainDag();
@@ -1882,7 +1882,7 @@ module.exports = (factory, factoryOptions) => {
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
 
-                setCurrentBlockInfo = setParentBlockInfo;
+                setChildrenBlockInfo = setCurrentBlockInfo;
             }
 
             await this._emptyAndRestoreMainDag(arrPedingBlocksHashes, true);

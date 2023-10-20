@@ -91,25 +91,24 @@ module.exports = ({Constants}) => {
         }
 
         getPageSequence(nLowestHeight, nHighestHeight) {
-            throw new Error('getPageSequence');
+            typeforce('Number', nLowestHeight);
+            typeforce('Number', nHighestHeight);
 
-            // typeforce('Number', nLowestHeight);
-            // typeforce('Number', nHighestHeight);
+            const nLowestPageIndex = this._getLowestPageIndex();
+            const nHighestPageIndex = this._getHighestPageIndex();
 
-            // const nLowestPageIndex = this._getLowestPageIndex();
-            // const nHighestPageIndex = this._getHighestPageIndex();
+            const nLowestRequestedPageIndex = this._getPageIndex(nLowestHeight);
+            const nHighestRequestedPageIndex = this._getPageIndex(nHighestHeight);
 
-            // const nLowestRequestedPageIndex = this._getPageIndex(nLowestHeight);
-            // const nHighestRequestedPageIndex = this._getPageIndex(nHighestHeight);
+            const nStart = Math.max(nLowestRequestedPageIndex, nLowestPageIndex);
+            const nStop = Math.min(nHighestRequestedPageIndex, nHighestPageIndex);
 
-            // const nStart = nLowestRequestedPageIndex < nLowestPageIndex ? nLowestPageIndex : nLowestRequestedPageIndex;
-            // const nStop = nHighestRequestedPageIndex > nHighestPageIndex ? nHighestPageIndex : nHighestRequestedPageIndex;
-
-            // return this._range(nStart, nStop).sort((a, b) => b - a);
+            return this._range(nStart, nStop).sort((a, b) => b - a);
         }
 
-        // TODO: проверки типов везде вставить
         getInitialPageHashes(nPageIndex) {
+            typeforce('Number', nPageIndex);
+
             const objData = this._data.get(nPageIndex);
             if (!objData) return [];
 
