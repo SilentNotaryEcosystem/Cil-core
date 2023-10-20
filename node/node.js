@@ -2863,7 +2863,7 @@ module.exports = (factory, factoryOptions) => {
         }
 
         _useDagIndex() {
-            return Constants.USE_DAG_INDEX;
+            return !!Constants.USE_DAG_INDEX;
         }
 
         _addDagIndexBlock(blockInfo, arrParentBlocks, bIsInitialBlock = false) {
