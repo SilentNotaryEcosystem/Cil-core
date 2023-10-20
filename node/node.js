@@ -563,7 +563,7 @@ module.exports = (factory, factoryOptions) => {
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
 
-            // await this._restoreLastKnownHeightsRange(msg.arrHashes);
+            await this._restoreLastKnownHeightsRange(msg.arrHashes);
 
             for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
                 inventory.addBlockHash(hash);
@@ -1886,6 +1886,10 @@ module.exports = (factory, factoryOptions) => {
             }
 
             await this._emptyAndRestoreMainDag(arrPedingBlocksHashes, true);
+
+            // this._mainDagIndex.printUsual();
+            // this._mainDagIndex.printUnusual();
+            // process.exit();
         }
 
         async _emptyAndRestoreMainDag(arrPedingBlocksHashes, bEmptyAnyway = false) {
@@ -1893,7 +1897,7 @@ module.exports = (factory, factoryOptions) => {
             const bResult = await this._emptyMainDag(bEmptyAnyway);
 
             if (bResult) {
-                const arrPagesToRestore = this._mainDagIndex.getHigestPagesToRestore();
+                const arrPagesToRestore = this._mainDagIndex.getHighestPagesToRestore();
                 await this._restoreMainDagPages(arrPagesToRestore);
 
                 if (arrPedingBlocksHashes && arrPedingBlocksHashes.length) {
@@ -1982,7 +1986,7 @@ module.exports = (factory, factoryOptions) => {
 
             if (!objHeightsRange) return;
 
-            const arrPagesToRestore = this._mainDagIndex.getPagesForSequence(objHeightsRange.min, objHeightsRange.max + Constants.MAX_BLOCKS_INV);
+            const arrPagesToRestore = this._mainDagIndex.getPageSequence(objHeightsRange.min, objHeightsRange.max + Constants.MAX_BLOCKS_INV);
 
             await this._restoreMainDagPages(arrPagesToRestore);
         }
@@ -2092,13 +2096,14 @@ module.exports = (factory, factoryOptions) => {
             return blockInfo || await this._storage.getBlockInfo(hash).catch(err => debugNode(err));
         }
 
+        // TODO: check logic
         async _getBlockChildren(strHash) {
             if (this._useDagIndex() && !this._mainDag.getBlockInfo(strHash)) {
                 const blockInfo = await this._storage.getBlockInfo(strHash);
                 if (!blockInfo) return [];
 
                 const nHeight = blockInfo.getHeight();
-                const arrPagesToRestore = this._mianDagIndex.getPagesForSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
+                const arrPagesToRestore = this._mianDagIndex.getPageSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
 
                 await this._restoreMainDagPages(arrPagesToRestore);
             }
