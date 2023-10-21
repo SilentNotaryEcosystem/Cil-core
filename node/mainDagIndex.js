@@ -137,7 +137,7 @@ module.exports = ({Constants}) => {
         }
 
         _getHighestPageHeight(nPageIndex) {
-            return nPageIndex * (Constants.DAG_INDEX_STEP + 1) - 1;
+            return (nPageIndex + 1) * Constants.DAG_INDEX_STEP - 1;
         }
 
         getLowestPageHeight(nPageIndex) {
@@ -164,6 +164,14 @@ module.exports = ({Constants}) => {
             const arrKeys = [...this._data.keys()].filter(
                 key => this._data.get(key).insideHashes.size || this._data.get(key).outsideHashes.size
             );
+            for (let key of arrKeys) {
+                console.log('Page: ', key, this._data.get(key));
+            }
+        }
+
+        // TODO: For testing, will remove this code later
+        printAll() {
+            const arrKeys = [...this._data.keys()].sort((a, b) => b - a);
             for (let key of arrKeys) {
                 console.log('Page: ', key, this._data.get(key));
             }
