@@ -37,8 +37,6 @@ module.exports = ({Constants}) => {
 
             const objPageData = this._data.get(nPageIndex) || this._createRecord();
 
-            const nInsideHashesSize = objPageData.insideHashes.size;
-
             if (nHeight === nHighestPageHeight) {
                 objPageData.topHashes.add(blockInfo.getHash());
             } else if (bIsInitialBlock) {
@@ -46,7 +44,7 @@ module.exports = ({Constants}) => {
             }
 
             // if we have parent in insideHashes, remove it
-            if ((nHeight === nHighestPageHeight || bIsInitialBlock) && nInsideHashesSize) {
+            if ((nHeight === nHighestPageHeight || bIsInitialBlock) && objPageData.insideHashes.size) {
                 for (const strParentHash of blockInfo.parentHashes) {
                     if (objPageData.insideHashes.has(strParentHash)) {
                         objPageData.insideHashes.delete(strParentHash);
@@ -114,11 +112,10 @@ module.exports = ({Constants}) => {
             const nParentHeight = parentBlockInfo.getHeight();
             const nPageIndex = this._getPageIndex(nParentHeight);
             const objPageData = this._data.get(nPageIndex) || this._createRecord();
-            const nHighestPageHeight = this.getHighestPageHeight(nParentHeight);
 
             objPageData.outsideHashes.set(blockInfo.getHash(), blockInfo.getHeight());
 
-            if (nParentHeight === nHighestPageHeight) {
+            if (nParentHeight === this.getHighestPageHeight(nParentHeight)) {
                 objPageData.topHashes.add(parentBlockInfo.getHash());
             } else {
                 objPageData.insideHashes.set(parentBlockInfo.getHash(), nParentHeight);
