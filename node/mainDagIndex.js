@@ -32,8 +32,8 @@ module.exports = ({Constants}) => {
             typeforce(typeforce.Boolean, bIsInitialBlock);
 
             const nHeight = blockInfo.getHeight();
-            const nHighestPageHeight = this.getHighestPageHeight(nHeight);
             const nPageIndex = this._getPageIndex(nHeight);
+            const nHighestPageHeight = this._getHighestPageHeight(nPageIndex);
 
             const objPageData = this._data.get(nPageIndex) || this._createRecord();
 
@@ -115,7 +115,7 @@ module.exports = ({Constants}) => {
 
             objPageData.outsideHashes.set(blockInfo.getHash(), blockInfo.getHeight());
 
-            if (nParentHeight === this.getHighestPageHeight(nParentHeight)) {
+            if (nParentHeight === this._getHighestPageHeight(nPageIndex)) {
                 objPageData.topHashes.add(parentBlockInfo.getHash());
             } else {
                 objPageData.insideHashes.set(parentBlockInfo.getHash(), nParentHeight);
@@ -136,11 +136,12 @@ module.exports = ({Constants}) => {
             return Math.floor(nBlockHeight / Constants.DAG_INDEX_STEP);
         }
 
-        getHighestPageHeight(nBlockHeight) {
-            return this._getPageIndex(nBlockHeight) * Constants.DAG_INDEX_STEP + Constants.DAG_INDEX_STEP - 1;
+        _getHighestPageHeight(nPageIndex) {
+            return nPageIndex * (Constants.DAG_INDEX_STEP + 1) - 1;
         }
 
         getLowestPageHeight(nPageIndex) {
+            typeforce('Number', nPageIndex);
             return nPageIndex * Constants.DAG_INDEX_STEP;
         }
 
