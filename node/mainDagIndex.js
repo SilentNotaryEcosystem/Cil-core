@@ -149,6 +149,7 @@ module.exports = ({Constants}) => {
             return Array.from({length: nStop - nStart + 1}, (_, i) => nStart + i);
         }
 
+        // TODO: For testing, will remove this code later
         printUsual() {
             const arrKeys = [...this._data.keys()].filter(
                 key => !this._data.get(key).insideHashes.size && !this._data.get(key).outsideHashes.size
@@ -158,6 +159,7 @@ module.exports = ({Constants}) => {
             }
         }
 
+        // TODO: For testing, will remove this code later
         printUnusual() {
             const arrKeys = [...this._data.keys()].filter(
                 key => this._data.get(key).insideHashes.size || this._data.get(key).outsideHashes.size
