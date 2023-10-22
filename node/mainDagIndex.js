@@ -22,8 +22,8 @@ module.exports = ({Constants}) => {
             };
         }
 
-        get size() {
-            return this._data.size;
+        isEmpty() {
+            return !this._data.size;
         }
 
         addBlock(blockInfo, arrParentBlocks, bIsInitialBlock = false) {
@@ -32,8 +32,8 @@ module.exports = ({Constants}) => {
             typeforce(typeforce.Boolean, bIsInitialBlock);
 
             const nHeight = blockInfo.getHeight();
-            const nPageIndex = this._getPageIndex(nHeight);
-            const nHighestPageHeight = this._getHighestPageHeight(nPageIndex);
+            const nPageIndex = this.getPageIndex(nHeight);
+            const nHighestPageHeight = this.getHighestPageHeight(nPageIndex);
 
             const objPageData = this._data.get(nPageIndex) || this._createRecord();
 
@@ -57,11 +57,27 @@ module.exports = ({Constants}) => {
             // find links to other pages with height difference more than 1
             for (const parentBlockInfo of arrParentBlocks) {
                 const nParentHeight = parentBlockInfo.getHeight();
-                if (nHeight - nParentHeight === 1 || nPageIndex === this._getPageIndex(nParentHeight)) {
+                if (nHeight - nParentHeight === 1 || nPageIndex === this.getPageIndex(nParentHeight)) {
                     continue;
                 }
                 this._addToOutsidePage(blockInfo, parentBlockInfo);
             }
+        }
+
+        _addToOutsidePage(blockInfo, parentBlockInfo) {
+            const nParentHeight = parentBlockInfo.getHeight();
+            const nPageIndex = this.getPageIndex(nParentHeight);
+            const objPageData = this._data.get(nPageIndex) || this._createRecord();
+
+            objPageData.outsideHashes.set(blockInfo.getHash(), blockInfo.getHeight());
+
+            if (nParentHeight === this.getHighestPageHeight(nPageIndex)) {
+                objPageData.topHashes.add(parentBlockInfo.getHash());
+            } else {
+                objPageData.insideHashes.set(parentBlockInfo.getHash(), nParentHeight);
+            }
+
+            this._data.set(nPageIndex, objPageData);
         }
 
         removeBlock(nHeight, strHash) {
@@ -90,8 +106,8 @@ module.exports = ({Constants}) => {
             const nLowestPageIndex = this._getLowestPageIndex();
             const nHighestPageIndex = this._getHighestPageIndex();
 
-            const nLowestRequestedPageIndex = this._getPageIndex(nLowestHeight);
-            const nHighestRequestedPageIndex = this._getPageIndex(nHighestHeight);
+            const nLowestRequestedPageIndex = this.getPageIndex(nLowestHeight);
+            const nHighestRequestedPageIndex = this.getPageIndex(nHighestHeight);
 
             const nStart = Math.max(nLowestRequestedPageIndex, nLowestPageIndex);
             const nStop = Math.min(nHighestRequestedPageIndex, nHighestPageIndex);
@@ -108,36 +124,16 @@ module.exports = ({Constants}) => {
             return [...objData.topHashes.values()].concat([...objData.insideHashes.keys()]);
         }
 
-        _addToOutsidePage(blockInfo, parentBlockInfo) {
-            const nParentHeight = parentBlockInfo.getHeight();
-            const nPageIndex = this._getPageIndex(nParentHeight);
-            const objPageData = this._data.get(nPageIndex) || this._createRecord();
-
-            objPageData.outsideHashes.set(blockInfo.getHash(), blockInfo.getHeight());
-
-            if (nParentHeight === this._getHighestPageHeight(nPageIndex)) {
-                objPageData.topHashes.add(parentBlockInfo.getHash());
-            } else {
-                objPageData.insideHashes.set(parentBlockInfo.getHash(), nParentHeight);
-            }
-
-            this._data.set(nPageIndex, objPageData);
+        _getLowestPageIndex() {
+            return Math.min(...this._data.keys());
         }
 
         _getHighestPageIndex() {
             return Math.max(...this._data.keys());
         }
 
-        _getLowestPageIndex() {
-            return Math.min(...this._data.keys());
-        }
-
-        _getPageIndex(nBlockHeight) {
+        getPageIndex(nBlockHeight) {
             return Math.floor(nBlockHeight / Constants.DAG_INDEX_STEP);
-        }
-
-        _getHighestPageHeight(nPageIndex) {
-            return (nPageIndex + 1) * Constants.DAG_INDEX_STEP - 1;
         }
 
         getLowestPageHeight(nPageIndex) {
@@ -145,36 +141,13 @@ module.exports = ({Constants}) => {
             return nPageIndex * Constants.DAG_INDEX_STEP;
         }
 
+        getHighestPageHeight(nPageIndex) {
+            typeforce('Number', nPageIndex);
+            return (nPageIndex + 1) * Constants.DAG_INDEX_STEP - 1;
+        }
+
         _range(nStart, nStop) {
             return Array.from({length: nStop - nStart + 1}, (_, i) => nStart + i);
-        }
-
-        // TODO: For testing, will remove this code later
-        printUsual() {
-            const arrKeys = [...this._data.keys()].filter(
-                key => !this._data.get(key).insideHashes.size && !this._data.get(key).outsideHashes.size
-            );
-            for (let key of arrKeys) {
-                console.log('Page: ', key, this._data.get(key));
-            }
-        }
-
-        // TODO: For testing, will remove this code later
-        printUnusual() {
-            const arrKeys = [...this._data.keys()].filter(
-                key => this._data.get(key).insideHashes.size || this._data.get(key).outsideHashes.size
-            );
-            for (let key of arrKeys) {
-                console.log('Page: ', key, this._data.get(key));
-            }
-        }
-
-        // TODO: For testing, will remove this code later
-        printAll() {
-            const arrKeys = [...this._data.keys()].sort((a, b) => b - a);
-            for (let key of arrKeys) {
-                console.log('Page: ', key, this._data.get(key));
-            }
         }
     };
 };

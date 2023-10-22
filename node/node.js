@@ -1654,11 +1654,13 @@ module.exports = (factory, factoryOptions) => {
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
 
-                const arrParentBlocks = await Promise.all(
-                    bi.parentHashes.map(async hash => await this._getBlockInfo(hash))
-                );
+                if (this._useDagIndex()) {
+                    const arrParentBlocks = await Promise.all(
+                        bi.parentHashes.map(async hash => await this._getBlockInfo(hash))
+                    );
 
-                this._addDagIndexBlock(bi, arrParentBlocks, true);
+                    this._mainDagIndex.addBlock(bi, arrParentBlocks, true);
+                }
             }
 
             await this._storage.applyPatch(patchToApply, nHeightMax);
@@ -1851,7 +1853,7 @@ module.exports = (factory, factoryOptions) => {
                     await this._mainDag.addBlock(bi);
 
                     if (this._useDagIndex()) {
-                        debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${nHeight}, page: ${this._mainDagIndex._getPageIndex(nHeight)}`);
+                        debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${nHeight}, page: ${this._mainDagIndex.getPageIndex(nHeight)}`);
                     } else {
                         debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${nHeight}`);
                     }
@@ -1862,7 +1864,7 @@ module.exports = (factory, factoryOptions) => {
                 }
 
                 if (this._useDagIndex()) {
-                    const bIsInitialBlock = !this._mainDagIndex.size;
+                    const bIsInitialBlock = this._mainDagIndex.isEmpty();
 
                     for (let childBlockInfo of [...setChildrenBlockInfo.values()]) {
                         const arrParentBlocks = [];
@@ -2862,12 +2864,6 @@ module.exports = (factory, factoryOptions) => {
 
         _useDagIndex() {
             return !!Constants.USE_DAG_INDEX;
-        }
-
-        _addDagIndexBlock(blockInfo, arrParentBlocks, bIsInitialBlock = false) {
-            if (this._useDagIndex()) {
-                this._mainDagIndex.addBlock(blockInfo, arrParentBlocks, bIsInitialBlock);
-            }
         }
     };
 };
