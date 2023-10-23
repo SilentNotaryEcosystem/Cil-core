@@ -26,6 +26,7 @@ module.exports = ({Constants}) => {
             return !this._data.size;
         }
 
+        // Add only final blocks here, means no need to remove
         addBlock(blockInfo, arrParentBlocks, bIsInitialBlock = false) {
             typeforce(types.BlockInfo, blockInfo);
             typeforce(typeforce.arrayOf(types.BlockInfo), arrParentBlocks);
@@ -78,10 +79,6 @@ module.exports = ({Constants}) => {
             }
 
             this._data.set(nPageIndex, objPageData);
-        }
-
-        removeBlock(nHeight, strHash) {
-            throw new Error('Not implemented');
         }
 
         getHighestPagesToRestore() {

@@ -1831,7 +1831,6 @@ module.exports = (factory, factoryOptions) => {
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
                 const setCurrentBlockInfo = new Set();
-                let nMaxPageHeightToRestore = 0;
                 for (let hash of arrCurrentLevel) {
                     debugNode(`Added ${hash} into dag`);
 
@@ -1848,7 +1847,6 @@ module.exports = (factory, factoryOptions) => {
 
                     setCurrentBlockInfo.add(bi);
                     const nHeight = bi.getHeight();
-                    nMaxPageHeightToRestore = Math.max(nMaxPageHeightToRestore, nHeight);
 
                     await this._mainDag.addBlock(bi);
 
