@@ -7,6 +7,15 @@ module.exports = ({Constants}) => {
     return class MainDagIndex {
         constructor() {
             this._data = new Map();
+            this._arrMainDagPages = [];
+        }
+
+        getMainDagPages() {
+            return this._arrMainDagPages;
+        }
+
+        clearMainDagPages() {
+            this._arrMainDagPages = [];
         }
 
         _createRecord() {
@@ -82,16 +91,16 @@ module.exports = ({Constants}) => {
         }
 
         getHighestPagesToRestore() {
-            const nHighestPageIndex = this._getHighestPageIndex();
-            const nLowestPageIndex = this._getLowestPageIndex();
+            const nHighestPageIndex = this.getHighestPageIndex();
+            const nLowestPageIndex = this.getLowestPageIndex();
 
             if (nHighestPageIndex === nLowestPageIndex) return [nHighestPageIndex];
 
-            if (nHighestPageIndex - nLowestPageIndex <= Constants.DAG_PAGES2RESTORE) {
+            if (nHighestPageIndex - nLowestPageIndex <= Constants.DAG_TOP_PAGES2RESTORE) {
                 return this._range(nLowestPageIndex, nHighestPageIndex).sort((a, b) => b - a);
             }
 
-            const arrHighestPages = this._range(nHighestPageIndex - Constants.DAG_PAGES2RESTORE, nHighestPageIndex);
+            const arrHighestPages = this._range(nHighestPageIndex - Constants.DAG_TOP_PAGES2RESTORE, nHighestPageIndex);
 
             return arrHighestPages.sort((a, b) => b - a);
         }
@@ -100,8 +109,8 @@ module.exports = ({Constants}) => {
             typeforce('Number', nLowestHeight);
             typeforce('Number', nHighestHeight);
 
-            const nLowestPageIndex = this._getLowestPageIndex();
-            const nHighestPageIndex = this._getHighestPageIndex();
+            const nLowestPageIndex = this.getLowestPageIndex();
+            const nHighestPageIndex = this.getHighestPageIndex();
 
             const nLowestRequestedPageIndex = this.getPageIndex(nLowestHeight);
             const nHighestRequestedPageIndex = this.getPageIndex(nHighestHeight);
@@ -121,11 +130,11 @@ module.exports = ({Constants}) => {
             return [...objData.topHashes.values()].concat([...objData.insideHashes.keys()]);
         }
 
-        _getLowestPageIndex() {
+        getLowestPageIndex() {
             return Math.min(...this._data.keys());
         }
 
-        _getHighestPageIndex() {
+        getHighestPageIndex() {
             return Math.max(...this._data.keys());
         }
 

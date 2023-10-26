@@ -1819,7 +1819,7 @@ module.exports = (factory, factoryOptions) => {
         async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
             this._mainDag = new MainDag();
             if (this._useDagIndex()) {
-                this._mainDagIndex = new MainDagIndex()
+                this._mainDagIndex = new MainDagIndex();
             }
 
             // if we have only one concilium - all blocks becomes stable, and no pending!
@@ -1864,9 +1864,9 @@ module.exports = (factory, factoryOptions) => {
                 if (this._useDagIndex()) {
                     const bIsInitialBlock = this._mainDagIndex.isEmpty();
 
-                    for (let childBlockInfo of [...setChildrenBlockInfo.values()]) {
+                    for (let childBlockInfo of setChildrenBlockInfo.values()) {
                         const arrParentBlocks = [];
-                        for (let parentBlockInfo of [...setCurrentBlockInfo.values()]) {
+                        for (let parentBlockInfo of setCurrentBlockInfo.values()) {
                             if (childBlockInfo.parentHashes.includes(parentBlockInfo.getHash())) {
                                 arrParentBlocks.push(parentBlockInfo);
                             }
@@ -1875,7 +1875,7 @@ module.exports = (factory, factoryOptions) => {
                         this._mainDagIndex.addBlock(childBlockInfo, arrParentBlocks, bIsInitialBlock)
                     }
 
-                    await this._emptyMainDag();
+                    this._emptyMainDag();
                 }
 
                 // Do we reach GENESIS?
@@ -1890,40 +1890,47 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (this._useDagIndex()) {
-                await this._emptyAndRestoreMainDag(arrPedingBlocksHashes, true);
+                this._emptyMainDag(true);
+                await this._restoreMainDag(arrPedingBlocksHashes);
             }
         }
 
-        async _emptyAndRestoreMainDag(arrPedingBlocksHashes, bEmptyAnyway = false) {
-            const bResult = await this._emptyMainDag(bEmptyAnyway);
+        async _restoreMainDag(arrPedingBlocksHashes) {
+            const arrPagesToRestore = this._mainDagIndex.getHighestPagesToRestore();
+            await this._restoreMainDagPages(arrPagesToRestore);
 
-            if (bResult) {
-                const arrPagesToRestore = this._mainDagIndex.getHighestPagesToRestore();
-                await this._restoreMainDagPages(arrPagesToRestore);
-
-                if (arrPedingBlocksHashes && arrPedingBlocksHashes.length) {
-                    await this._restoreMainDagBlocks(arrPedingBlocksHashes);
-                }
+            if (arrPedingBlocksHashes && arrPedingBlocksHashes.length) {
+                await this._restoreMainDagBlocks(arrPedingBlocksHashes);
             }
         }
 
-        async _emptyMainDag(bEmptyAnyway = false) {
+        _emptyMainDag(bEmptyAnyway = false) {
             if (!bEmptyAnyway && this._mainDag.order < Constants.DAG_ORDER2KEEP) {
-                return false;
+                return;
             }
 
             debugNode(`Heap usage (before): ${this._getUsedHeapInGb()} Gb, order: ${this._mainDag.order}`);
             this._mainDag = new MainDag();
+            this._mainDagIndex.clearMainDagPages();
 
             // run node with a flag to reduce memory usage: node --expose-gc
             if (global.gc) global.gc();
             debugNode(`Heap usage (empty DAG): ${this._getUsedHeapInGb()} Gb`);
-
-            return true;
         }
 
         async _restoreMainDagPages(arrPagesToRestore) {
+            this._emptyMainDag(); // try to compact
+
+            const arrMainDagPages = this._mainDagIndex.getMainDagPages();
+
+            const bAlreadyLoaded = arrPagesToRestore.every(item => arrMainDagPages.includes(item));
+            if (bAlreadyLoaded) return;
+
+            debugNode(`MainDagIndex pages to restore: ${arrPagesToRestore}`);
             for (let nPageIndex of arrPagesToRestore) {
+                if (arrMainDagPages.includes(nPageIndex)) continue;
+
+                arrMainDagPages.push(nPageIndex);
                 const arrInitialPageHashes = this._mainDagIndex.getInitialPageHashes(nPageIndex);
                 const nLowestHeight = this._mainDagIndex.getLowestPageHeight(nPageIndex);
 
@@ -1946,8 +1953,10 @@ module.exports = (factory, factoryOptions) => {
                     // we already processed this block
                     if (this._mainDag.getBlockInfo(strHash)) continue;
 
-                    let bi = await this._storage.getBlockInfo(strHash);
-                    if (!bi) throw new Error('_buildMainDag: Found missed blocks!');
+                    let block = await this._storage.getBlock(strHash).catch(err => debugNode(err));
+                    if (!block) throw new Error('_buildMainDag: Found missed blocks!');
+
+                    const bi = new BlockInfo(block.header);
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${strHash} in final DAG!`);
 
                     const nHeight = bi.getHeight();
@@ -2100,13 +2109,14 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _getBlockChildren(strHash) {
-            if (this._useDagIndex() && !this._mainDag.getBlockInfo(strHash)) {
-                const blockInfo = await this._storage.getBlockInfo(strHash);
-                if (!blockInfo) return [];
+            if (this._useDagIndex()) {
+                const block = await this._storage.getBlock(strHash).catch(err => debugBlock(err));
 
-                const nHeight = blockInfo.getHeight();
-                // TODO: Maybe more than 2 pages ?
-                const arrPagesToRestore = this._mianDagIndex.getPageSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP);
+                if (!block) return [];
+
+                const nHeight = block.getHeight();
+
+                const arrPagesToRestore = this._mainDagIndex.getPageSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP * Constants.DAG_CHILDREN_PAGES2RESTORE);
 
                 await this._restoreMainDagPages(arrPagesToRestore);
             }
@@ -2345,7 +2355,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (this._mapBlocksToExec.size === 0 && this._useDagIndex()) {
-                await this._emptyAndRestoreMainDag(this._pendingBlocks.getAllHashes());
+                await this._restoreMainDag(this._pendingBlocks.getAllHashes());
             }
         }
 
@@ -2419,6 +2429,7 @@ module.exports = (factory, factoryOptions) => {
             const block = blockOrHash instanceof Block ? blockOrHash : await this._storage.getBlock(blockOrHash);
 
             debugBlock(`Executing block "${block.getHash()}"`);
+            debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${block.getHeight()}, order: ${this._mainDag.order}`);
 
             const lock = await this._mutex.acquire(['blockExec', block.getHash()]);
             this._processedBlock = block;
@@ -2662,10 +2673,70 @@ module.exports = (factory, factoryOptions) => {
          */
         async rebuildDb(strHashToStop) {
             this._mainDag = new MainDag();
+            if (this._useDagIndex()) {
+                this._mainDagIndex = new MainDagIndex();
+            }
 
+            let i = 0;
             for await (let {value} of this._storage.readBlocks()) {
                 const block = new factory.Block(value);
-                await this._mainDag.addBlock(new BlockInfo(block.header));
+                const bi = new BlockInfo(block.header);
+                const nHeight = bi.getHeight();
+
+                if (!this._useDagIndex()) {
+                    await this._mainDag.addBlock(bi);
+                    debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, height: ${nHeight}, idx: ${i++}`);
+                } else {
+                    const arrParentBlocks = await Promise.all(
+                        bi.parentHashes.map(async hash => {
+                            const parentBlock = await this._storage.getBlock(hash).catch(err => debugNode(err));
+                            if (!parentBlock) return null;
+                            return new BlockInfo(parentBlock.header);
+                        })
+                    );
+
+                    // At first build full pages index
+                    this._mainDagIndex.addBlock(bi, arrParentBlocks.filter(item => item !== null));
+
+                    debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, idx: ${i++}, height: ${nHeight}, page: ${this._mainDagIndex.getPageIndex(nHeight)}`);
+                }
+            }
+
+            // Re-index DAG_CHILDREN_PAGES2RESTORE top pages
+            if (this._useDagIndex()) {
+                i = 0;
+                const setHashes = new Set();
+                const nTopPageIndex = this._mainDagIndex.getHighestPageIndex() - Constants.DAG_CHILDREN_PAGES2RESTORE;
+                const nHighestPageHeight = this._mainDagIndex.getLowestPageHeight(nTopPageIndex);
+
+                debugNode(`Indexing top page: ${nTopPageIndex}, from height: ${nHighestPageHeight} ...`);
+                for await (let {value} of this._storage.readBlocks()) {
+                    const block = new factory.Block(value);
+                    const nHeight = block.getHeight();
+                    if (nHeight < nHighestPageHeight) continue;
+
+                    const bi = new BlockInfo(block.header);
+                    setHashes.add(bi.getHash());
+                    this._mainDag.addBlock(bi);
+
+                    debugNode(`Heap usage: ${this._getUsedHeapInGb()} Gb, idx: ${i++}, height: ${nHeight}, page: ${this._mainDagIndex.getPageIndex(nHeight)}`);
+                }
+
+                for (let strHash of setHashes.values()) {
+                    if (!this._mainDag.getChildren(strHash).length) {
+                        const bi = this._mainDag.getBlockInfo(strHash);
+
+                        const arrParentBlocks = await Promise.all(
+                            bi.parentHashes.map(async hash => {
+                                const parentBlock = await this._storage.getBlock(hash).catch(err => debugNode(err));
+                                if (!parentBlock) return null;
+                                return new BlockInfo(parentBlock.header);
+                            })
+                        );
+
+                        this._mainDagIndex.addBlock(bi, arrParentBlocks.filter(item => item !== null), true);
+                    }
+                }
             }
 
             this._queryPeerForRestOfBlocks = this._requestUnknownBlocks = () => {
@@ -2677,12 +2748,16 @@ module.exports = (factory, factoryOptions) => {
             this._queueBlockExec = async (hash, peer) => {
                 if (bStop) return;
                 if (hash === strHashToStop) bStop = true;
-                const blockInfo = this._mainDag.getBlockInfo(hash);
+                let blockInfo = this._mainDag.getBlockInfo(hash);
+                if (!blockInfo) {
+                    const block = await this._storage.getBlock(hash);
+                    blockInfo = new BlockInfo(block.header);
+                }
                 this._storage.saveBlockInfo(blockInfo).catch(err => logger.error(err));
                 originalQueueBlockExec(hash, peer);
             };
 
-            const genesis = this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK);
+            const genesis = !this._useDagIndex() ? this._mainDag.getBlockInfo(Constants.GENESIS_BLOCK) : await this._storage.getBlock(Constants.GENESIS_BLOCK).catch(err => debugBlock(err));
             assert(genesis, 'No Genesis found');
             this._mapBlocksToExec.set(genesis.getHash(), undefined);
 
