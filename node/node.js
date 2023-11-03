@@ -1,5 +1,7 @@
 'use strict';
 
+//add comment
+
 const assert = require('assert');
 const typeforce = require('typeforce');
 
