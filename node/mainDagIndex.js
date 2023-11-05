@@ -14,8 +14,8 @@ module.exports = ({Constants}) => {
             return this._arrMainDagPages;
         }
 
-        clearMainDagPages() {
-            this._arrMainDagPages = [];
+        initMainDagPages(arrMainDagPages) {
+            this._arrMainDagPages = arrMainDagPages;
         }
 
         _createRecord() {
@@ -90,21 +90,6 @@ module.exports = ({Constants}) => {
             this._data.set(nPageIndex, objPageData);
         }
 
-        getHighestPagesToRestore() {
-            const nHighestPageIndex = this.getHighestPageIndex();
-            const nLowestPageIndex = this.getLowestPageIndex();
-
-            if (nHighestPageIndex === nLowestPageIndex) return [nHighestPageIndex];
-
-            if (nHighestPageIndex - nLowestPageIndex <= Constants.DAG_TOP_PAGES2RESTORE) {
-                return this._range(nLowestPageIndex, nHighestPageIndex).sort((a, b) => b - a);
-            }
-
-            const arrHighestPages = this._range(nHighestPageIndex - Constants.DAG_TOP_PAGES2RESTORE, nHighestPageIndex);
-
-            return arrHighestPages.sort((a, b) => b - a);
-        }
-
         getPageSequence(nLowestHeight, nHighestHeight) {
             typeforce('Number', nLowestHeight);
             typeforce('Number', nHighestHeight);
@@ -118,7 +103,7 @@ module.exports = ({Constants}) => {
             const nStart = Math.max(nLowestRequestedPageIndex, nLowestPageIndex);
             const nStop = Math.min(nHighestRequestedPageIndex, nHighestPageIndex);
 
-            return this._range(nStart, nStop).sort((a, b) => b - a);
+            return this.getRange(nStart, nStop).sort((a, b) => b - a);
         }
 
         getInitialPageHashes(nPageIndex) {
@@ -152,7 +137,7 @@ module.exports = ({Constants}) => {
             return (nPageIndex + 1) * Constants.DAG_INDEX_STEP - 1;
         }
 
-        _range(nStart, nStop) {
+        getRange(nStart, nStop) {
             return Array.from({length: nStop - nStart + 1}, (_, i) => nStart + i);
         }
     };

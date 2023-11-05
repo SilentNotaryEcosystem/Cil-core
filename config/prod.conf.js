@@ -64,9 +64,12 @@ module.exports = {
         DAG_INDEX_STEP: 300 / 2,
 
         // pages to keep in memory
-        DAG_ORDER2KEEP: 100 * 300 / 2, // 100 pages
-        DAG_TOP_PAGES2RESTORE: 40,
-        DAG_CHILDREN_PAGES2RESTORE: 10,
+        DAG_PAGES2KEEP_TOP: 50,
+        DAG_PAGES2KEEP_BOTTOM: 100,
+        // DAG_ORDER2KEEP:
+        // (DAG_PAGES2KEEP_TOP + DAG_PAGES2KEEP_BOTTOM + DAG_PAGES2KEEP_GAP) * DAG_INDEX_STEP
+        DAG_PAGES2KEEP_GAP: 100,
+        DAG_PAGES2RESTORE4CHILDREN: 10,
         USE_DAG_INDEX: true,
 
         // we expect that peer will respond with requested INV within this period

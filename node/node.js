@@ -1122,17 +1122,18 @@ module.exports = (factory, factoryOptions) => {
                 // process moneys
                 if (!isGenesis) {
                     const arrTxUtxos = tx.utxos;
+
                     const patchUtxos = await this._storage.getUtxosPatch(arrTxUtxos);
 
                     let patchMerged = patchUtxos;
                     if (patchForBlock && patchForBlock.hasUtxos(arrTxUtxos)) {
                         patchMerged = patchForBlock.merge(patchUtxos);
                     }
+
                     ({totalHas, patch: patchThisTx} = this._app.processTxInputs(tx, patchMerged));
 
                     // calculate TX size fee. Calculated for every tx, not only for contracts
                     nFeeSize = await this._calculateSizeFee(tx, isGenesis);
-
                 } else {
                     nMaxFee = Number.MAX_SAFE_INTEGER;
                 }
@@ -1875,7 +1876,7 @@ module.exports = (factory, factoryOptions) => {
                         this._mainDagIndex.addBlock(childBlockInfo, arrParentBlocks, bIsInitialBlock)
                     }
 
-                    this._emptyMainDag();
+                    this._compactMainDag();
                 }
 
                 // Do we reach GENESIS?
@@ -1890,40 +1891,67 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (this._useDagIndex()) {
-                this._emptyMainDag(true);
-                await this._restoreMainDag(arrPedingBlocksHashes);
+                this._compactMainDag(true);
             }
         }
 
-        async _restoreMainDag(arrPedingBlocksHashes) {
-            const arrPagesToRestore = this._mainDagIndex.getHighestPagesToRestore();
-            await this._restoreMainDagPages(arrPagesToRestore);
+        _compactMainDag(bLeaveOnlyHigestPages = false) {
+            const nDagOrderToKeep =
+                (Constants.DAG_PAGES2KEEP_TOP + (bLeaveOnlyHigestPages ? 0 : Constants.DAG_PAGES2KEEP_BOTTOM) + Constants.DAG_PAGES2KEEP_GAP) *
+                Constants.DAG_INDEX_STEP;
 
-            if (arrPedingBlocksHashes && arrPedingBlocksHashes.length) {
-                await this._restoreMainDagBlocks(arrPedingBlocksHashes);
-            }
-        }
-
-        _emptyMainDag(bEmptyAnyway = false) {
-            if (!bEmptyAnyway && this._mainDag.order < Constants.DAG_ORDER2KEEP) {
+            if (this._mainDag.order < nDagOrderToKeep) {
                 return;
             }
 
-            debugNode(`Heap usage (before): ${this._getUsedHeapInGb()} Gb, order: ${this._mainDag.order}`);
-            this._mainDag = new MainDag();
-            this._mainDagIndex.clearMainDagPages();
+            debugNode(`Compacting: Heap usage (before copy): ${this._getUsedHeapInGb()} Gb, order: ${this._mainDag.order}`);
 
-            // run node with a flag to reduce memory usage: node --expose-gc
+            const nHighestPageIndex = this._mainDagIndex.getHighestPageIndex();
+            const nTopHeightThreshold = this._mainDagIndex.getLowestPageHeight(nHighestPageIndex - Constants.DAG_PAGES2KEEP_TOP);
+
+            let arrPagesRange = this._mainDagIndex.getRange(nHighestPageIndex - Constants.DAG_PAGES2KEEP_TOP, nHighestPageIndex);
+
+            const newMainDag = new MainDag();
+
+            for (let strHash of this._mainDag.V) {
+                const blockInfo = this._mainDag.getBlockInfo(strHash);
+                if (blockInfo && blockInfo.getHeight() >= nTopHeightThreshold) {
+                    newMainDag.addBlock(blockInfo);
+                }
+            }
+
+            if (!bLeaveOnlyHigestPages) {
+                const nLowestPageIndex = this._mainDagIndex.getLowestPageIndex();
+                const nBottomHeightThreshold = this._mainDagIndex.getHighestPageHeight(nLowestPageIndex + Constants.DAG_PAGES2KEEP_BOTTOM);
+                const arrLowestPagesRange = this._mainDagIndex.getRange(nLowestPageIndex, nLowestPageIndex + Constants.DAG_PAGES2KEEP_BOTTOM);
+                arrPagesRange = arrLowestPagesRange.concat(arrPagesRange);
+
+                for (let strHash of this._mainDag.V) {
+                    const blockInfo = this._mainDag.getBlockInfo(strHash);
+                    if (blockInfo && blockInfo.getHeight() <= nBottomHeightThreshold) {
+                        newMainDag.addBlock(blockInfo);
+                    }
+                }
+            }
+
+            debugNode(`Compacting: Heap usage (after copy): ${this._getUsedHeapInGb()} Gb, order: ${this._mainDag.order}`);
+
+            this._mainDag = newMainDag;
+            // To prevent of reload from MainDagIndex
+            this._mainDagIndex.initMainDagPages(arrPagesRange);
+            console.log('DAG Pages: ', JSON.stringify(arrPagesRange));
+
             if (global.gc) global.gc();
-            debugNode(`Heap usage (empty DAG): ${this._getUsedHeapInGb()} Gb`);
+
+            debugNode(`Compacting: Heap usage (after gc): ${this._getUsedHeapInGb()} Gb, order: ${this._mainDag.order}`);
         }
 
         async _restoreMainDagPages(arrPagesToRestore) {
-            this._emptyMainDag(); // try to compact
+            this._compactMainDag(true);
 
             const arrMainDagPages = this._mainDagIndex.getMainDagPages();
 
-            const bAlreadyLoaded = arrPagesToRestore.every(item => arrMainDagPages.includes(item));
+            const bAlreadyLoaded = arrPagesToRestore.every(hash => arrMainDagPages.includes(hash));
             if (bAlreadyLoaded) return;
 
             debugNode(`MainDagIndex pages to restore: ${arrPagesToRestore}`);
@@ -1978,18 +2006,6 @@ module.exports = (factory, factoryOptions) => {
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
-            }
-        }
-
-
-        async _restoreMainDagBlocks(arrHashesToRestore) {
-            for (let strHash of arrHashesToRestore) {
-                if (this._mainDag.getBlockInfo(strHash)) continue;
-
-                const blockInfo = await this._storage.getBlockInfo(strHash).catch(err => debugNode(err));
-                if (!blockInfo) throw new Error('_restoreMainDagBlocks: Found missed blocks!');
-
-                this._mainDag.addBlock(blockInfo);
             }
         }
 
@@ -2067,8 +2083,16 @@ module.exports = (factory, factoryOptions) => {
                 this._processedBlock = undefined;
             };
 
+            const getUsedHeapInGb = () => {
+                return (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
+            }
+
             for (let hash of arrPendingBlocksHashes) {
                 await runBlock(hash);
+
+                console.log(`heap before ${getUsedHeapInGb()} Gb`);
+                if (global.gc) global.gc();
+                console.log(`heap after ${getUsedHeapInGb()} Gb`);
             }
 
             if (mapBlocks.size !== setPatches.size) throw new Error('rebuildPending. Failed to process all blocks!');
@@ -2110,13 +2134,13 @@ module.exports = (factory, factoryOptions) => {
 
         async _getBlockChildren(strHash) {
             if (this._useDagIndex()) {
-                const block = await this._storage.getBlock(strHash).catch(err => debugBlock(err));
+                const blockInfo = await this._storage.getBlockInfo(strHash).catch(err => debugBlock(err));
 
-                if (!block) return [];
+                if (!blockInfo) return [];
 
-                const nHeight = block.getHeight();
+                const nHeight = blockInfo.getHeight();
 
-                const arrPagesToRestore = this._mainDagIndex.getPageSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP * Constants.DAG_CHILDREN_PAGES2RESTORE);
+                const arrPagesToRestore = this._mainDagIndex.getPageSequence(nHeight, nHeight + Constants.DAG_INDEX_STEP * Constants.DAG_PAGES2RESTORE4CHILDREN);
 
                 await this._restoreMainDagPages(arrPagesToRestore);
             }
@@ -2175,7 +2199,9 @@ module.exports = (factory, factoryOptions) => {
 
                 // parent is bad
                 if (blockInfo && blockInfo.isBad()) {
-                    throw new Error(`Block ${block.getHash()} refer to bad parent ${hash}`);
+                    // throw new Error(`Block ${block.getHash()} refer to bad parent ${hash}`);
+                    console.log(`Block ${block.getHash()} refer to bad parent ${hash}`);
+                    process.exit(1);
                 }
 
                 // parent is good!
@@ -2355,7 +2381,7 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (this._mapBlocksToExec.size === 0 && this._useDagIndex()) {
-                await this._restoreMainDag(this._pendingBlocks.getAllHashes());
+                this._compactMainDag(true);
             }
         }
 
@@ -2702,11 +2728,11 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
-            // Re-index DAG_CHILDREN_PAGES2RESTORE top pages
+            // Re-index DAG_PAGES2RESTORE4CHILDREN top pages
             if (this._useDagIndex()) {
                 i = 0;
                 const setHashes = new Set();
-                const nTopPageIndex = this._mainDagIndex.getHighestPageIndex() - Constants.DAG_CHILDREN_PAGES2RESTORE;
+                const nTopPageIndex = this._mainDagIndex.getHighestPageIndex() - Constants.DAG_PAGES2RESTORE4CHILDREN;
                 const nHighestPageHeight = this._mainDagIndex.getLowestPageHeight(nTopPageIndex);
 
                 debugNode(`Indexing top page: ${nTopPageIndex}, from height: ${nHighestPageHeight} ...`);

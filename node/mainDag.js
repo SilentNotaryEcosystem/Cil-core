@@ -23,6 +23,10 @@ module.exports = ({Constants}) =>
             return this._dag.size;
         }
 
+        get V() {
+            return this._dag.V;
+        }
+
         addBlock(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
             const blockHash = blockInfo.getHash();
@@ -39,7 +43,6 @@ module.exports = ({Constants}) =>
 
         setBlockInfo(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
-
             this._dag.saveObj(blockInfo.getHash(), blockInfo);
         }
 
