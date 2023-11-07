@@ -2747,7 +2747,7 @@ module.exports = (factory, factoryOptions) => {
                         const bi = this._mainDag.getBlockInfo(strHash);
                         const arrParentBlocks = await getParentBlocks(bi);
 
-                        this._mainDagIndex.addBlock(bi, arrParentBlocks);
+                        this._mainDagIndex.addBlock(bi, arrParentBlocks, true);
                     }
                 }
             }
