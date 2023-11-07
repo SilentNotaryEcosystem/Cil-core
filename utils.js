@@ -351,8 +351,10 @@ function mapOptionsToNodeParameters(objUserParams) {
     };
 }
 
+const ONE_GB_IN_BYTES = Math.pow(1024, 3);
+
 const getUsedHeapInGb = () =>
-    (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
+    (process.memoryUsage().heapUsed / ONE_GB_IN_BYTES).toFixed(2);
 
 module.exports = {
     sleep: (delay) => {
