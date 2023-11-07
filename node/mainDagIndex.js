@@ -14,8 +14,8 @@ module.exports = ({Constants}) => {
             return this._arrMainDagPages;
         }
 
-        initMainDagPages(arrMainDagPages) {
-            this._arrMainDagPages = arrMainDagPages;
+        resetMainDagPages() {
+            this._arrMainDagPages = [];
         }
 
         _createRecord() {
@@ -103,7 +103,7 @@ module.exports = ({Constants}) => {
             const nStart = Math.max(nLowestRequestedPageIndex, nLowestPageIndex);
             const nStop = Math.min(nHighestRequestedPageIndex, nHighestPageIndex);
 
-            return this.getRange(nStart, nStop).sort((a, b) => b - a);
+            return this._getRange(nStart, nStop).sort((a, b) => b - a);
         }
 
         getInitialPageHashes(nPageIndex) {
@@ -137,7 +137,7 @@ module.exports = ({Constants}) => {
             return (nPageIndex + 1) * Constants.DAG_INDEX_STEP - 1;
         }
 
-        getRange(nStart, nStop) {
+        _getRange(nStart, nStop) {
             return Array.from({length: nStop - nStart + 1}, (_, i) => nStart + i);
         }
     };

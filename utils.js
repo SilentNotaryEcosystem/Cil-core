@@ -351,6 +351,9 @@ function mapOptionsToNodeParameters(objUserParams) {
     };
 }
 
+const getUsedHeapInGb = () =>
+    (process.memoryUsage().heapUsed / 1073741824).toFixed(2);
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
@@ -467,5 +470,6 @@ module.exports = {
     finePrintUtxos,
     getBoolEnvParameter,
     ExceptionDebug,
-    ExceptionLog
+    ExceptionLog,
+    getUsedHeapInGb
 };
