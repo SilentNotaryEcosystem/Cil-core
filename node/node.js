@@ -2647,11 +2647,9 @@ module.exports = (factory, factoryOptions) => {
         async _calcHeight(arrParentHashes) {
             typeforce(typeforce.arrayOf(types.Hash256bit), arrParentHashes);
 
-            const arrHeights = [];
-            for (let strHash of arrParentHashes) {
-                const blockInfo = await this._getBlockInfo(strHash).catch(err => debugBlock(err));
-                arrHeights.push(blockInfo.getHeight());
-            }
+            const arrHeights = await Promise.all(
+                arrParentHashes.map(async hash => (await this._getBlockInfo(hash)).getHeight())
+            );
 
             return Math.max(...arrHeights) + 1;
         }
