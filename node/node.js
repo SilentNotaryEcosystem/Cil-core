@@ -184,6 +184,7 @@ module.exports = (factory, factoryOptions) => {
                     })
                 )
             );
+
             await this._connectToPeers(arrSeedPeers);
 
             this._reconnectTimer.setInterval(
@@ -1998,6 +1999,12 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
+        // вот тут надо длину масива хэшей ограничить как-то
+        // и грузить не весь диапазон а только смещение от запрашиваемых
+        // делить можно как-то пропорционально
+        // и константу завести
+        // MAX_LAST_KNOWN_HASHES_COUNT = 100
+        // иначе нам все хэши DAG пришлют и сделают чтобы нода упала по памяти
         async _restoreLastKnownHeightsRange(arrHashes) {
             const objHeightsRange = await this._getLastKnownHeightsRange(arrHashes);
 
