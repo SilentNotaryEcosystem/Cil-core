@@ -85,6 +85,7 @@ module.exports = (factory, factoryOptions) => {
             this._nonce = parseInt(Math.random() * 100000);
 
             // arrDnsSeeds
+
             this._processSeeds(arrSeedAddresses);
 
             this._queryTimeout = queryTimeout || Constants.PEER_QUERY_TIMEOUT;
@@ -281,6 +282,7 @@ module.exports = (factory, factoryOptions) => {
             this._bReconnectInProgress = true;
             try {
                 let bestPeers = this._peerManager.findBestPeers().filter(p => p.disconnected);
+
                 let peers = bestPeers.splice(0, this._nMinConnections - this._peerManager.getConnectedPeers().length);
                 await this._connectToPeers(peers);
             } catch (e) {
@@ -564,12 +566,7 @@ module.exports = (factory, factoryOptions) => {
             const msg = new MsgGetBlocks(message);
             const inventory = new Inventory();
 
-            if (this._useDagIndex()) {
-                // If we have it in DAG we'll not use storage to read it again
-                await this._restoreLastKnownHeightsRange(msg.arrHashes);
-            }
-
-            for (let hash of this._getBlocksFromLastKnown(msg.arrHashes)) {
+            for (let hash of await this._getBlocksFromLastKnown(msg.arrHashes)) {
                 inventory.addBlockHash(hash);
             }
             debugMsg(
@@ -618,7 +615,13 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Set<any>} set of hashes descendants of arrHashes
          * @private
          */
-        _getBlocksFromLastKnown(arrHashes) {
+        async _getBlocksFromLastKnown(arrHashes) {
+            if (this._useDagIndex()) {
+                // If we have it in DAG we'll not use storage to read it again
+                await this._restoreBlocksFromLastKnown(arrHashes);
+                console.log('RESTORE2: ', arrHashes)
+            }
+
             const setBlocksToSend = new Set();
 
             let arrKnownHashes = arrHashes.reduce((arrResult, hash) => {
@@ -1999,37 +2002,38 @@ module.exports = (factory, factoryOptions) => {
             }
         }
 
-        // вот тут надо длину масива хэшей ограничить как-то
-        // и грузить не весь диапазон а только смещение от запрашиваемых
-        // делить можно как-то пропорционально
-        // и константу завести
-        // MAX_LAST_KNOWN_HASHES_COUNT = 100
-        // иначе нам все хэши DAG пришлют и сделают чтобы нода упала по памяти
-        async _restoreLastKnownHeightsRange(arrHashes) {
-            const objHeightsRange = await this._getLastKnownHeightsRange(arrHashes);
+        async _restoreBlocksFromLastKnown(arrHashes) {
+            if (!arrHashes.length) return;
 
-            if (!objHeightsRange) return;
+            // To reduce memory usage for inv request
+            // Or throw an exception?
+            const arrReducedHashes = [...(new Set(arrHashes))].slice(0, Constants.MAX_LAST_KNOWN_HASHES_COUNT);
 
-            const arrPagesToRestore = this._mainDagIndex.getPageSequence(objHeightsRange.min, objHeightsRange.max + Constants.MAX_BLOCKS_INV);
+            const arrHeights = await this._getLastKnownHeights(arrReducedHashes);
+
+            console.log('HEIGHTS ', arrHeights)
+
+            if (!arrHeights.length) return;
+
+            const arrPages = [];
+            for (let nHeight of arrHeights) {
+                arrPages.push(...this._mainDagIndex.getPageSequence(nHeight, nHeight + Constants.MAX_BLOCKS_INV));
+            }
+
+            const arrPagesToRestore = Array.from(new Set(arrPages)).sort((a, b) => b - a);
 
             await this._restoreMainDagPages(arrPagesToRestore);
+            console.log('PAGES2RESTORE: ', arrPagesToRestore)
         }
 
-        async _getLastKnownHeightsRange(arrHashes) {
-            const arrHeights = [];
-            for (let strHash of arrHashes) {
-                const blockInfo = await this._getBlockInfo(strHash);
-                if (blockInfo) {
-                    arrHeights.push(blockInfo.getHeight());
-                }
-
-                if (!arrHeights.length) return null;
-
-                return {
-                    min: Math.min(...arrHeights),
-                    max: Math.max(...arrHeights)
-                }
-            }
+        async _getLastKnownHeights(arrHashes) {
+            return (await Promise.all(
+                arrHashes.map(async hash => {
+                    const blockInfo = await this._getBlockInfo(hash);
+                    if (!blockInfo) return undefined;
+                    return blockInfo.getHeight();
+                })
+            )).filter(item => item !== undefined);
         }
 
         /**
@@ -2339,7 +2343,7 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<void>}
          * @private
          */
-        async _blockProcessor() {
+        async _blockProcessor(bIsRebuildDb = false) {
             if (this._isBusyWithExec()) return;
 
             if (this._mapBlocksToExec.size) {
@@ -2376,7 +2380,7 @@ module.exports = (factory, factoryOptions) => {
                 await this._requestUnknownBlocks();
             }
 
-            if (this._mapBlocksToExec.size === 0 && this._useDagIndex()) {
+            if (bIsRebuildDb && this._mapBlocksToExec.size === 0 && this._useDagIndex()) {
                 this._compactMainDag(true);
             }
         }
@@ -2706,6 +2710,7 @@ module.exports = (factory, factoryOptions) => {
                         })
                     )).filter(item => item !== null);
                 }
+                // TODO: try to remove filter here
             }
 
             let i = 0;
@@ -2727,7 +2732,8 @@ module.exports = (factory, factoryOptions) => {
                 }
             }
 
-            // Re-index DAG_PAGES2RESTORE4CHILDREN top pages
+            // Re-index DAG_PAGES2RESTORE4CHILDREN top pages (TODO: move to tips?)
+            // check tips and non-tips version together
             if (this._useDagIndex()) {
                 i = 0;
                 const setHashes = new Set();
@@ -2779,7 +2785,9 @@ module.exports = (factory, factoryOptions) => {
             assert(genesis, 'No Genesis found');
             this._mapBlocksToExec.set(genesis.getHash(), undefined);
 
-            await this._blockProcessor();
+            // TODO: clear here??
+
+            await this._blockProcessor(true);
         }
 
         async _getAllWitnesses() {
