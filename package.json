@@ -1,7 +1,7 @@
 {
   "name": "chain-in-law",
   "engines": {
-    "node": "10.17.0"
+    "node": "16.20.2"
   },
   "version": "0.7.4",
   "main": "factory.js",
@@ -12,7 +12,7 @@
     "ipaddr.js": "^1.9.1",
     "js-sha3": "^0.8.0",
     "json-rpc2": "git+https://github.com/trueshura/node-jsonrpc2.git",
-    "leveldown": "^4.0.2",
+    "leveldown": "^5.0.0",
     "levelup": "^4.4.0",
     "merkletreejs": "0.0.11",
     "mutex": "git+https://github.com/trueshura/MUTEX.git",
