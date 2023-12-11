@@ -4,7 +4,8 @@ const os = require('os');
 const debugLib = require('debug');
 const sinon = require('sinon');
 
-const factory = require('../testFactory');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
 const {generateAddress, createDummyTx, processBlock, pseudoRandomBuffer} = require('../testUtil');
 const {sleep, arrayIntersection} = require('../../utils');
 

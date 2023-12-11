@@ -3,7 +3,8 @@ const {assert} = require('chai');
 const debugLib = require('debug');
 const sinon = require('sinon').createSandbox();
 
-const factory = require('../testFactory');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
 const {generateAddress, processBlock} = require('../testUtil');
 const {arrayEquals, prepareForStringifyObject} = require('../../utils');
 
