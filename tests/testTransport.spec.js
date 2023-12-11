@@ -7,10 +7,10 @@ const {sleep} = require('../utils');
 
 let msgCommon;
 
-process.on('warning', e => console.warn(e.stack));
-
 describe('TestTransport', () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -19,6 +19,7 @@ describe('TestTransport', () => {
     });
 
     after(async function() {
+        process.removeAllListeners();
         this.timeout(15000);
     });
 
