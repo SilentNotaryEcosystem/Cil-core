@@ -695,7 +695,7 @@ describe('Node tests', async () => {
         //
         await node._storage.updatePendingBlocks(arrHashes);
         node._processBlockCoinbaseTX = sinon.fake.resolves();
-        node._checkHeight = sinon.fake.returns(true);
+        node._checkHeight = sinon.fake.resolves(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
         const arrStableHashes = await node._storage.getLastAppliedBlockHashes();
@@ -722,7 +722,7 @@ describe('Node tests', async () => {
             [arrBlocks[0].getHash(), arrBlocks[1].getHash(), arrBlocks[2].getHash(), arrBlocks[3].getHash()]
         );
         node._processBlockCoinbaseTX = sinon.fake.resolves();
-        node._checkHeight = sinon.fake.returns(true);
+        node._checkHeight = sinon.fake.resolves(true);
 
         const arrPendingHashes = await node._storage.getPendingBlockHashes();
         const arrStableHashes = await node._storage.getLastAppliedBlockHashes();
@@ -735,8 +735,8 @@ describe('Node tests', async () => {
     it('should process MSG_GET_BLOCKS', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._mainDag = {order: 1};
-        node._getBlocksFromLastKnown = sinon.fake.returns([pseudoRandomBuffer(), pseudoRandomBuffer()]);
+        node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
+        node._getBlocksFromLastKnown = sinon.fake.resolves([pseudoRandomBuffer(), pseudoRandomBuffer()]);
         node._mempool.getLocalTxnHashes = sinon.fake.returns([pseudoRandomBuffer()]);
 
         const peer = createDummyPeer(factory);
@@ -1071,9 +1071,9 @@ describe('Node tests', async () => {
             if (hash === blockHash3) return {getHeight: () => 10};
         };
 
-        assert.equal(node._calcHeight([blockHash1, blockHash2, blockHash3]), 11);
-        assert.equal(node._calcHeight([blockHash2, blockHash1, blockHash3]), 11);
-        assert.equal(node._calcHeight([blockHash3, blockHash2, blockHash1]), 11);
+        assert.equal(await node._calcHeight([blockHash1, blockHash2, blockHash3]), 11);
+        assert.equal(await node._calcHeight([blockHash2, blockHash1, blockHash3]), 11);
+        assert.equal(await node._calcHeight([blockHash3, blockHash2, blockHash1]), 11);
     });
 
     describe('_acceptLocalTx', async () => {
@@ -1617,12 +1617,12 @@ describe('Node tests', async () => {
         describe('_isBlockExecuted', () => {
             it('should be Ok (final block is in DAG)', async () => {
                 node._mainDag.getBlockInfo = sinon.fake.returns({isFinal: () => true});
-                assert.isOk(node._isBlockExecuted('hash'));
+                assert.isOk(await node._isBlockExecuted('hash'));
             });
             it('should be Ok (final block is in DAG)', async () => {
                 node._mainDag.getBlockInfo = sinon.fake.returns(undefined);
                 node._pendingBlocks.hasBlock = sinon.fake.returns(true);
-                assert.isOk(node._isBlockExecuted('hash'));
+                assert.isOk(await node._isBlockExecuted('hash'));
             });
         });
 
@@ -1748,7 +1748,7 @@ describe('Node tests', async () => {
         describe('_blockProcessorProcessParents', async () => {
             it('should mark toExec', async () => {
                 node._isBlockKnown = sinon.fake.returns(true);
-                node._isBlockExecuted = sinon.fake.returns(false);
+                node._isBlockExecuted = sinon.fake.resolves(false);
 
                 const block = createDummyBlock(factory);
                 const {arrToRequest, arrToExec} = await node._blockProcessorProcessParents(
@@ -1771,7 +1771,7 @@ describe('Node tests', async () => {
 
             it('should do nothing (already executed)', async () => {
                 node._isBlockKnown = sinon.fake.returns(true);
-                node._isBlockExecuted = sinon.fake.returns(true);
+                node._isBlockExecuted = sinon.fake.resolves(true);
 
                 const block = createDummyBlock(factory);
                 const {arrToRequest, arrToExec} = await node._blockProcessorProcessParents(
@@ -2330,12 +2330,12 @@ describe('Node tests', async () => {
 
         describe('Empty node', async () => {
             it('should return NOTHING for empty REQUEST', async () => {
-                const setResult = node._getBlocksFromLastKnown([]);
+                const setResult = await node._getBlocksFromLastKnown([]);
                 assert.equal(setResult.size, 0);
             });
 
             it('should return NOTHING for some hashes', async () => {
-                const setResult = node._getBlocksFromLastKnown(
+                const setResult = await node._getBlocksFromLastKnown(
                     [1, 2, 3].map(_ => pseudoRandomBuffer().toString('hex'))
                 );
                 assert.equal(setResult.size, 0);
@@ -2347,7 +2347,7 @@ describe('Node tests', async () => {
 
                 // fake possessing Genesis
                 node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
-                const setResult = node._getBlocksFromLastKnown([]);
+                const setResult = await node._getBlocksFromLastKnown([]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 1);
@@ -2357,7 +2357,7 @@ describe('Node tests', async () => {
 
                 // fake possessing Genesis
                 node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
-                const setResult = node._getBlocksFromLastKnown(
+                const setResult = await node._getBlocksFromLastKnown(
                     [1, 2, 3].map(_ => pseudoRandomBuffer().toString('hex'))
                 );
 
@@ -2376,7 +2376,7 @@ describe('Node tests', async () => {
                     block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
-                const setResult = node._getBlocksFromLastKnown([]);
+                const setResult = await node._getBlocksFromLastKnown([]);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 10);
                 assert.deepEqual(arrExpectedHashes, [...setResult]);
@@ -2387,7 +2387,7 @@ describe('Node tests', async () => {
                     block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
-                const setResult = node._getBlocksFromLastKnown([]);
+                const setResult = await node._getBlocksFromLastKnown([]);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 4);
                 assert.deepEqual(arrExpectedHashes, [...setResult]);
@@ -2398,7 +2398,7 @@ describe('Node tests', async () => {
                     block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
-                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+                const setResult = await node._getBlocksFromLastKnown(arrExpectedHashes);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 0);
             });
@@ -2408,7 +2408,7 @@ describe('Node tests', async () => {
                     block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
-                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+                const setResult = await node._getBlocksFromLastKnown(arrExpectedHashes);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 0);
             });
@@ -2419,7 +2419,7 @@ describe('Node tests', async () => {
                     block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
-                const setResult = node._getBlocksFromLastKnown(
+                const setResult = await node._getBlocksFromLastKnown(
                     arrExpectedHashes.concat([pseudoRandomBuffer().toString('hex')])
                 );
 
@@ -2434,7 +2434,7 @@ describe('Node tests', async () => {
                 );
 
                 const expectedHash = arrExpectedHashes.pop();
-                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+                const setResult = await node._getBlocksFromLastKnown(arrExpectedHashes);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 1);
@@ -2448,7 +2448,7 @@ describe('Node tests', async () => {
                 );
 
                 const expectedHash = arrExpectedHashes.pop();
-                const setResult = node._getBlocksFromLastKnown([expectedHash]);
+                const setResult = await node._getBlocksFromLastKnown([expectedHash]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 0);
@@ -2461,7 +2461,7 @@ describe('Node tests', async () => {
 
                 arrExpectedHashes.shift();
 
-                const setResult = node._getBlocksFromLastKnown(arrExpectedHashes);
+                const setResult = await node._getBlocksFromLastKnown(arrExpectedHashes);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 0);
             });
@@ -2473,7 +2473,7 @@ describe('Node tests', async () => {
 
                 const genesis = arrExpectedHashes.shift();
 
-                const setResult = node._getBlocksFromLastKnown([genesis]);
+                const setResult = await node._getBlocksFromLastKnown([genesis]);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 3);
             });
@@ -2486,7 +2486,7 @@ describe('Node tests', async () => {
                 arrExpectedHashes.shift();
                 const block1 = arrExpectedHashes.shift();
 
-                const setResult = node._getBlocksFromLastKnown([block1]);
+                const setResult = await node._getBlocksFromLastKnown([block1]);
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 1);
             });
@@ -2497,7 +2497,7 @@ describe('Node tests', async () => {
                     block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
-                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[0]]);
+                const setResult = await node._getBlocksFromLastKnown([arrExpectedHashes[0]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 3);
@@ -2555,7 +2555,7 @@ describe('Node tests', async () => {
                 const nPosInChain = 0;
 
                 const arrExpectedHashes = await prepareDag();
-                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2572,7 +2572,7 @@ describe('Node tests', async () => {
                 const nPosInChain = 3;
 
                 const arrExpectedHashes = await prepareDag();
-                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2590,7 +2590,7 @@ describe('Node tests', async () => {
                 const arrExpectedHashes = await prepareDag();
                 const nPosInChain = arrExpectedHashes.length - factory.Constants.MAX_BLOCKS_INV - 1;
 
-                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrExpectedHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2607,7 +2607,7 @@ describe('Node tests', async () => {
 
                 const arrExpectedHashes = await prepareDag();
 
-                const setResult = node._getBlocksFromLastKnown([arrExpectedHashes[0]]);
+                const setResult = await node._getBlocksFromLastKnown([arrExpectedHashes[0]]);
 
                 assert.isOk(setResult);
 
@@ -2652,7 +2652,7 @@ describe('Node tests', async () => {
                 const nPosInChain = 0;
 
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2673,7 +2673,7 @@ describe('Node tests', async () => {
                 const nPosInChain = 3;
 
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2690,7 +2690,7 @@ describe('Node tests', async () => {
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
                 const nPosInChain = arrMainChainHashes.length - factory.Constants.MAX_BLOCKS_INV - 1;
 
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2706,7 +2706,7 @@ describe('Node tests', async () => {
                 factory.Constants.MAX_BLOCKS_INV = 300;
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
 
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[0]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[0]]);
 
                 assert.isOk(setResult);
 
@@ -2755,7 +2755,7 @@ describe('Node tests', async () => {
                 const nPosInChain = 0;
 
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2778,7 +2778,7 @@ describe('Node tests', async () => {
                 const nPosInChain = 3;
 
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2795,7 +2795,7 @@ describe('Node tests', async () => {
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
                 const nPosInChain = arrMainChainHashes.length - factory.Constants.MAX_BLOCKS_INV - 1;
 
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[nPosInChain]]);
 
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
@@ -2811,7 +2811,7 @@ describe('Node tests', async () => {
                 factory.Constants.MAX_BLOCKS_INV = 300;
                 const [arrMainChainHashes, strSideBlockHash] = await prepareDag();
 
-                const setResult = node._getBlocksFromLastKnown([arrMainChainHashes[0]]);
+                const setResult = await node._getBlocksFromLastKnown([arrMainChainHashes[0]]);
 
                 assert.isOk(setResult);
 

@@ -351,6 +351,11 @@ function mapOptionsToNodeParameters(objUserParams) {
     };
 }
 
+const BI_BKP = {
+    BLOCK_INFO: 1,
+    BLOCK: 2
+}
+
 module.exports = {
     sleep: (delay) => {
         return new Promise(resolve => {
@@ -467,5 +472,6 @@ module.exports = {
     finePrintUtxos,
     getBoolEnvParameter,
     ExceptionDebug,
-    ExceptionLog
+    ExceptionLog,
+    BI_BKP
 };
