@@ -4,7 +4,7 @@ const assert = require('assert');
 const typeforce = require('typeforce');
 
 const debugLib = require('debug');
-const {sleep, BI_BKP} = require('../utils');
+const {sleep, getUsedHeapInGb, BI_BKP} = require('../utils');
 const types = require('../types');
 const Tick = require('tick-tock');
 
@@ -613,6 +613,11 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _getBlocksFromLastKnown(arrHashes) {
+            if (this._useDagIndex()) {
+                // If we have it in DAG we'll not use storage to read it again
+                await this._mainDag.restoreBlocksFromLastKnown(arrHashes);
+            }
+
             const setBlocksToSend = new Set();
 
             let arrKnownHashes = arrHashes.reduce((arrResult, hash) => {
@@ -1648,6 +1653,10 @@ module.exports = (factory, factoryOptions) => {
                 bi.markAsFinal();
                 this._mainDag.setBlockInfo(bi);
                 await this._storage.saveBlockInfo(bi);
+
+                if (this._useDagIndex()) {
+                    this._mainDag.addBlockIndex(bi, BI_BKP.BLOCK_INFO, true);
+                }
             }
 
             await this._storage.applyPatch(patchToApply, nHeightMax);
@@ -1800,15 +1809,17 @@ module.exports = (factory, factoryOptions) => {
          * @param {Array} arrPedingBlocksHashes - hashes of all pending blocks
          */
         async _buildMainDag(arrLastStableHashes, arrPedingBlocksHashes) {
-            this._mainDag = new MainDag();
+            this._mainDag = new MainDag({storage: this._storage});
 
             // if we have only one concilium - all blocks becomes stable, and no pending!
             // so we need to start from stables
             let arrCurrentLevel = arrPedingBlocksHashes && arrPedingBlocksHashes.length
                 ? arrPedingBlocksHashes
                 : arrLastStableHashes;
+            let setChildrenBlockInfo = new Set();
             while (arrCurrentLevel.length) {
                 const setNextLevel = new Set();
+                const setCurrentBlockInfo = new Set();
                 for (let hash of arrCurrentLevel) {
                     debugNode(`Added ${hash} into dag`);
 
@@ -1820,10 +1831,23 @@ module.exports = (factory, factoryOptions) => {
                     if (bi.isBad()) throw new Error(`_buildMainDag: found bad block ${hash} in final DAG!`);
 
                     await this._mainDag.addBlock(bi);
+                    setCurrentBlockInfo.add(bi);
+
+                    debugNode(`Heap usage: ${getUsedHeapInGb()} Gb, height: ${bi.getHeight()}`);
 
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
                     }
+                }
+
+                if (this._useDagIndex()) {
+                    const bIsTipBlock = this._mainDag.isIndexEmpty();
+
+                    for (let childBlockInfo of setChildrenBlockInfo.values()) {
+                        this._mainDag.addBlockIndex(childBlockInfo, BI_BKP.BLOCK_INFO, bIsTipBlock)
+                    }
+
+                    this._mainDag.compactMainDag();
                 }
 
                 // Do we reach GENESIS?
@@ -1831,6 +1855,11 @@ module.exports = (factory, factoryOptions) => {
 
                 // not yet
                 arrCurrentLevel = [...setNextLevel.values()];
+                setChildrenBlockInfo = setCurrentBlockInfo;
+            }
+
+            if (this._useDagIndex()) {
+                this._mainDag.compactMainDag(true);
             }
         }
 
@@ -2462,11 +2491,43 @@ module.exports = (factory, factoryOptions) => {
          * @returns {Promise<void>}
          */
         async rebuildDb(strHashToStop) {
-            this._mainDag = new MainDag();
+            this._mainDag = new MainDag({storage: this._storage});
 
+            let i = 0;
             for await (let {value} of this._storage.readBlocks()) {
                 const block = new factory.Block(value);
-                await this._mainDag.addBlock(new BlockInfo(block.header));
+                const bi = new BlockInfo(block.header);
+
+                if (!this._useDagIndex()) {
+                    await this._mainDag.addBlock(bi);
+                } else {
+                    // At first build full pages index
+                    await this._mainDag.addBlockIndex(bi, BI_BKP.BLOCK);
+                }
+            }
+
+            // Re-index DAG_PAGES2RESTORE4TIPS top pages
+            if (this._useDagIndex()) {
+                i = 0;
+                const setHashes = new Set();
+                const nTopPageIndex = this._mainDag.getHighestPageIndex() - Constants.DAG_PAGES2RESTORE4TIPS;
+                const nHighestPageHeight = this._mainDag.getLowestPageHeight(nTopPageIndex);
+
+                debugNode(`Indexing top page: ${nTopPageIndex}, from height: ${nHighestPageHeight} ...`);
+                for await (let {value} of this._storage.readBlocks()) {
+                    const block = new factory.Block(value);
+                    const nHeight = block.getHeight();
+                    if (nHeight < nHighestPageHeight) continue;
+
+                    const bi = new BlockInfo(block.header);
+                    setHashes.add(bi.getHash());
+                    this._mainDag.addBlock(bi);
+                }
+
+                for (let strHash of this._mainDag.tips) {
+                    const bi = this._mainDag.getBlockInfo(strHash);
+                    await this._mainDag.addBlockIndex(bi, BI_BKP.BLOCK, true);
+                }
             }
 
             this._queryPeerForRestOfBlocks = this._requestUnknownBlocks = () => {
@@ -2659,6 +2720,10 @@ module.exports = (factory, factoryOptions) => {
             const bi=await this._storage.getBlockInfo(strHash);
             this._storeBlockAndInfo(undefined, bi, true);
             await this._queueBlockExec(strHash, peer);
+        }
+
+        _useDagIndex() {
+            return !!Constants.USE_DAG_INDEX;
         }
     };
 };

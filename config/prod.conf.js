@@ -60,6 +60,20 @@ module.exports = {
         // maximum block hashes in MSG_INV
         MAX_BLOCKS_INV: 300,
 
+        // page size: MAX_BLOCKS_INV / 2, index by height [0, 150, 300, ...]
+        DAG_INDEX_STEP: 300 / 2,
+
+        // pages to keep in memory
+        DAG_PAGES2KEEP_TOP: 50,
+        DAG_PAGES2KEEP_BOTTOM: 100,
+        // DAG_ORDER2KEEP:
+        // (DAG_PAGES2KEEP_TOP + DAG_PAGES2KEEP_BOTTOM + DAG_PAGES2KEEP_GAP) * DAG_INDEX_STEP
+        DAG_PAGES2KEEP_GAP: 100,
+        DAG_PAGES2RESTORE4CHILDREN: 10,
+        DAG_PAGES2RESTORE4TIPS: 10,
+        HEAP_THRESHOLD2COMPACT_IN_MB: 1024,
+        USE_DAG_INDEX: true,
+
         // we expect that peer will respond with requested INV within this period
         INV_REQUEST_HOLDOFF: 1 * 60 * 1000,
 

@@ -285,7 +285,8 @@ function mapEnvToOptions() {
         GENESIS_HASH, CONCILIUM_CONTRACT,
         WITNESS_NODE, SEED_NODE, BUILD_TX_INDEX, WALLET_SUPPORT, SUPPRESS_JOIN_TX,
         WHITELISTED_ADDR,
-        KEYSTORE_NAME
+        KEYSTORE_NAME,
+        DISABLE_DAG_INDEX
     } = process.env;
 
     return {
@@ -321,6 +322,7 @@ function mapEnvToOptions() {
         seedAddr: SEED_ADDRESS,
         genesisHash: GENESIS_HASH,
         conciliumDefContract: CONCILIUM_CONTRACT,
+        disableDagIndex: getBoolEnvParameter(DISABLE_DAG_INDEX)
     };
 }
 
@@ -355,6 +357,11 @@ const BI_BKP = {
     BLOCK_INFO: 1,
     BLOCK: 2
 }
+
+const ONE_GB_IN_BYTES = Math.pow(1024, 3);
+
+const getUsedHeapInGb = () =>
+    (process.memoryUsage().heapUsed / ONE_GB_IN_BYTES).toFixed(2);
 
 module.exports = {
     sleep: (delay) => {
@@ -417,7 +424,8 @@ module.exports = {
             {name: "localDevNode", type: Boolean, multiple: false},
             {name: "rebuildDb", type: Boolean, multiple: false},
             {name: "whitelistedAddr", type: String, multiple: true},
-            {name: "suppressJoinTx", type: Boolean, multiple: false}
+            {name: "suppressJoinTx", type: Boolean, multiple: false},
+            {name: "disableDagIndex", type: Boolean, multiple: false},
         ];
         return commandLineArgs(optionDefinitions, {camelCase: true});
     },
@@ -473,5 +481,6 @@ module.exports = {
     getBoolEnvParameter,
     ExceptionDebug,
     ExceptionLog,
-    BI_BKP
+    BI_BKP,
+    getUsedHeapInGb
 };
