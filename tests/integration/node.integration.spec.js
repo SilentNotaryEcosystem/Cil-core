@@ -6,16 +6,16 @@ const os = require('os');
 const sinon = require('sinon');
 const debugLib = require('debug');
 
-const factory = require('../testFactory');
-const factoryIpV6 = require('../testFactoryIpV6');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
+const {getNewTestIpV6Factory} = require('../testFactoryIpV6');
+const factoryIpV6 = getNewTestIpV6Factory();
 const {pseudoRandomBuffer, createDummyBlock, processBlock, generateAddress, createObjInvocationCode} = require(
     '../testUtil');
 const {arrayIntersection} = require('../../utils');
 
 chai.use(require('chai-as-promised'));
 const {assert} = chai;
-
-process.on('warning', e => console.warn(e.stack));
 
 // set to undefined to use random delays
 const delay = undefined;
@@ -106,12 +106,15 @@ const createLiveNet = async (onlySeedProcessBlock = false) => {
 
 describe('Node integration tests', async () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
         await factoryIpV6.asyncLoad();
     });
 
     after(async function() {
+        process.removeAllListeners();
         this.timeout(15000);
     });
 

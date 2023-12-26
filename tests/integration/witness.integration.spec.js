@@ -4,11 +4,10 @@ const os = require('os');
 const debugLib = require('debug');
 const sinon = require('sinon');
 
-const factory = require('../testFactory');
+const {getNewTestFactory} = require('../testFactory');
+const factory = getNewTestFactory();
 const {generateAddress, createDummyTx, processBlock, pseudoRandomBuffer} = require('../testUtil');
 const {sleep, arrayIntersection} = require('../../utils');
-
-process.on('warning', e => console.warn(e.stack));
 
 // set to undefined to use random delays
 //const delay = undefined;
@@ -100,16 +99,19 @@ const createGenesisBlockAndSpendingTx = (conciliumId = 0) => {
 
 describe('Witness integration tests', () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    beforeEach(async function() {
-        ({arrKeyPairs, concilium} = createDummyDefinition(conciliumId, maxConnections));
+    after(async function() {
+        process.removeAllListeners();
+        this.timeout(15000);
     });
 
-    after(async function() {
-        this.timeout(15000);
+    beforeEach(async function() {
+        ({arrKeyPairs, concilium} = createDummyDefinition(conciliumId, maxConnections));
     });
 
     it('should ACT same as regular node (get peers from seedNode)', async function() {

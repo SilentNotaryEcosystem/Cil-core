@@ -8,8 +8,6 @@ const {arrayEquals, prepareForStringifyObject} = require('../utils');
 
 chai.use(require('chai-as-promised'));
 
-process.on('warning', e => console.warn(e.stack));
-
 const factory = require('./testFactory');
 const {
     createDummyTx,
@@ -129,6 +127,8 @@ const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer().
 
 describe('Node tests', async () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -164,6 +164,10 @@ describe('Node tests', async () => {
             await seedNode._peerManager.addPeer(peerInfo);
         }
 
+    });
+
+    after(() => {
+        process.removeAllListeners();
     });
 
     afterEach(async () => {

@@ -8,12 +8,12 @@ const {sleep} = require('./testUtil');
 
 let msgCommon;
 
-process.on('warning', e => console.warn(e.stack));
-
 const port = 8223;
 
 describe('IPv6 Transport', () => {
     before(async function() {
+        process.on('warning', e => console.warn(e.stack));
+
         this.timeout(15000);
         await factory.asyncLoad();
 
@@ -22,6 +22,7 @@ describe('IPv6 Transport', () => {
     });
 
     after(async function() {
+        process.removeAllListeners();
         this.timeout(15000);
     });
 
