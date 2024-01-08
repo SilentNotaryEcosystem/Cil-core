@@ -45,6 +45,9 @@ describe('Peer manager', () => {
         const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 1);
         assert.equal(arrPeers[0], pm._createKey(factory.Transport.addressToString(peer.address), peer.port));
+
+        // cleanup
+        pm.removePeer(peer);
     });
 
     it('should add peer to PeerManager from Connection', async () => {
@@ -63,6 +66,9 @@ describe('Peer manager', () => {
         const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 1);
         assert.equal(arrPeers[0], pm._createKey(peer.address, peer.port));
+
+        // cleanup
+        pm.removePeer(peer);
     });
 
     it('should filter peers by capability', async () => {
@@ -95,7 +101,7 @@ describe('Peer manager', () => {
         for (let peerInfo of [peerInfo1, peerInfo2, peerInfo3, peerInfo4]) {
             await pm.addPeer(peerInfo);
         }
-        ;
+
         const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(arrPeers.length === 4);
 
@@ -109,6 +115,11 @@ describe('Peer manager', () => {
         arrWitnessNodes.forEach(peerInfo => {
             assert.isOk(peerInfo && peerInfo.capabilities && peerInfo.address && peerInfo.port);
         });
+
+        // cleanup
+        for (let peerInfo of [peerInfo1, peerInfo2, peerInfo3, peerInfo4]) {
+            pm.removePeer(peerInfo);
+        }
     });
 
     it('should emit GOOD message (GOOD signature)', async () => {
@@ -135,6 +146,9 @@ describe('Peer manager', () => {
         pm._incomingMessage(peer, message);
         assert.isOk(msgEmitted);
         assert.equal(msgEmitted, message);
+
+        // cleanup
+        pm.removePeer(peer);
     });
 
     it('should keep only one peer in array', async function() {
@@ -152,9 +166,13 @@ describe('Peer manager', () => {
         const arrPeers = Array.from(pm._mapAllPeers.keys());
         assert.isOk(Array.isArray(arrPeers));
         assert.equal(arrPeers.length, 1);
+
+        // cleanup
+        pm.removePeer(peer);
     });
 
     it('should get connected peers', async () => {
+        const arrPeers = [];
         const pm = new factory.PeerManager();
         for (let i = 0; i < 10; i++) {
             const peer = new factory.Peer({
@@ -165,13 +183,20 @@ describe('Peer manager', () => {
                 }
             });
             await pm.addPeer(peer);
+            arrPeers.push(peer);
         }
         const result = pm.getConnectedPeers();
         assert.isOk(Array.isArray(result));
         assert.equal(pm.getConnectedPeers().length, 10);
+
+        // cleanup
+        for (let peer of arrPeers) {
+            pm.removePeer(peer);
+        }
     });
 
     it('should get only TAGGED connected peers', async () => {
+        const arrPeers = [];
         const pm = new factory.PeerManager();
         for (let i = 0; i < 10; i++) {
             const peer = new factory.Peer({
@@ -187,10 +212,16 @@ describe('Peer manager', () => {
                 peer.addTag('anotherTag');
             }
             await pm.addPeer(peer);
+            arrPeers.push(peer);
         }
 
         assert.equal(pm.getConnectedPeers('testTag').length, 5);
         assert.equal(pm.getConnectedPeers('anotherTag').length, 5);
+
+        // cleanup
+        for (let peer of arrPeers) {
+            pm.removePeer(peer);
+        }
     });
 
     it('should REPLACE disconnected peers', async () => {
@@ -222,6 +253,9 @@ describe('Peer manager', () => {
         assert.equal(peer.capabilities.length, 2);
         assert.isOk(peer.isWitness);
         assert.isOk(peer.witnessAddress.toString() === '1234');
+
+        // cleanup
+        pm.removePeer(peerToReplace);
     });
 
     it('should KEEP connected peers', async () => {
@@ -254,6 +288,9 @@ describe('Peer manager', () => {
         // peers created from connection only NODE
         assert.equal(peer.capabilities.length, 1);
         assert.isNotOk(peer.isWitness);
+
+        // cleanup
+        pm.removePeer(peerToReplace);
     });
 
     it('should NOT add banned peer (REJECT_BANNED)', async () => {
@@ -268,6 +305,9 @@ describe('Peer manager', () => {
             assert.isNotOk(result instanceof factory.Peer);
             assert.equal(result, factory.Constants.REJECT_BANNED);
         }
+
+        // cleanup
+        pm.removePeer(peer);
     });
     it('should NOT add peer with banned address (REJECT_RESTRICTED)', async () => {
         const address = factory.Transport.generateAddress();
@@ -285,6 +325,9 @@ describe('Peer manager', () => {
 
         assert.isNotOk(result instanceof factory.Peer);
         assert.equal(result, factory.Constants.REJECT_RESTRICTED);
+
+        // cleanup
+        pm.removePeer(peer);
     });
 
     it('should save and restore peer ', async () => {
@@ -319,6 +362,8 @@ describe('Peer manager', () => {
         assert.equal(peer.transmittedBytes, arrPeers[0].peerInfo.lifetimeTransmittedBytes);
         assert.equal(peer.receivedBytes, arrPeers[0].peerInfo.lifetimeReceivedBytes);
 
+        // cleanup
+        pm.removePeer(peer);
     });
 
     it('should load peers from storage', async () => {
@@ -340,6 +385,7 @@ describe('Peer manager', () => {
     });
 
     it('should find best peers', async () => {
+        const arrPeers = [];
         const pm = new factory.PeerManager();
         for (let i = 0; i < 15; i++) {
             const peer = new factory.Peer({
@@ -354,6 +400,7 @@ describe('Peer manager', () => {
 
             peer._misbehaveScore = i;
             await pm.addPeer(peer);
+            arrPeers.push(peer);
         }
         const bestPeers = pm.findBestPeers();
         assert.equal(bestPeers.length, factory.Constants.MAX_PEERS);
@@ -362,6 +409,11 @@ describe('Peer manager', () => {
             const next = bestPeers[i + 1].quality;
 
             assert.isTrue(current > next);
+        }
+
+        // cleanup
+        for (let peer of arrPeers) {
+            pm.removePeer(peer);
         }
     });
 
@@ -408,7 +460,7 @@ describe('Peer manager', () => {
         const pm = new factory.PeerManager({storage});
 
         const connection = {
-            remoteAddress: () => 'edaa',
+            remoteAddress: 'edaa',
             listenerCount: () => 1
         };
         pm.addCandidateConnection(connection);
@@ -419,7 +471,7 @@ describe('Peer manager', () => {
         const pm = new factory.PeerManager({storage});
 
         const connection = {
-            remoteAddress: () => 'edaa',
+            remoteAddress: 'edaa',
             listenerCount: () => 1
         };
         pm.addCandidateConnection(connection);
@@ -433,7 +485,7 @@ describe('Peer manager', () => {
             const pm = new factory.PeerManager({storage});
 
             const connection = {
-                remoteAddress: () => 'edaa',
+                remoteAddress: 'edaa',
                 listenerCount: () => 1
             };
             pm.addCandidateConnection(connection);
@@ -460,7 +512,7 @@ describe('Peer manager', () => {
                 pm._trustAnnounce=true;
 
                 const connection = {
-                    remoteAddress: () => 'edaa',
+                    remoteAddress: 'edaa',
                     listenerCount: () => 1
                 };
                 pm.addCandidateConnection(connection);
@@ -523,7 +575,7 @@ describe('Peer manager', () => {
         const pm = new factory.PeerManager({storage});
 
         const connection = {
-            remoteAddress: () => 'edaa',
+            remoteAddress: 'edaa',
             listenerCount: () => 1
         };
         const peer = new factory.Peer({connection});
@@ -533,6 +585,9 @@ describe('Peer manager', () => {
 
         assert.isOk(arrPeers);
         assert.equal(arrPeers.length, 1);
+
+        // cleanup
+        pm.removePeer(peer);
     });
 
     describe('Whitelisted', async () => {
@@ -603,6 +658,9 @@ describe('Peer manager', () => {
 
             pm.addPeer(peer);
             assert.isOk(peer.isWhitelisted());
+
+            // cleanup
+            pm.removePeer(peer);
         });
     });
 
