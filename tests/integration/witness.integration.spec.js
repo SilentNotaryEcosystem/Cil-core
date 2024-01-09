@@ -223,14 +223,14 @@ describe('Witness integration tests', () => {
             arrBlocksPromises.push(new Promise(resolve => {
                 arrWitnesses[i]._postAcceptBlock = resolve;
             }));
-            arrWitnesses[i]._canExecuteBlock = sinon.fake.resolves(true);
+            arrWitnesses[i]._canExecuteBlock = sinon.fake.returns(true);
         }
 
         // add seed to array also
         arrBlocksPromises.push(new Promise(resolve => {
             seedNode._postAcceptBlock = resolve;
         }));
-        seedNode._canExecuteBlock = sinon.fake.resolves(true);
+        seedNode._canExecuteBlock = sinon.fake.returns(true);
 
         // run
         await Promise.all(arrWitnesses.map(witness => witness.bootstrap()));
@@ -275,13 +275,13 @@ describe('Witness integration tests', () => {
         arrBlocksPromises.push(new Promise(resolve => {
             witness._postAcceptBlock = resolve;
         }));
-        witness._canExecuteBlock = sinon.fake.resolves(true);
+        witness._canExecuteBlock = sinon.fake.returns(true);
 
         // add seed to array also
         arrBlocksPromises.push(new Promise(resolve => {
             seedNode._postAcceptBlock = resolve;
         }));
-        seedNode._canExecuteBlock = sinon.fake.resolves(true);
+        seedNode._canExecuteBlock = sinon.fake.returns(true);
 
         // run
         await witness.bootstrap();
@@ -404,7 +404,7 @@ describe('Witness integration tests', () => {
                 block2 = new factory.Block(0);
                 block2.parentHashes = [gBlock.getHash()];
                 block2.addTx(tx);
-                block2.setHeight(await witness._calcHeight(block2.parentHashes));
+                block2.setHeight(witness._calcHeight(block2.parentHashes));
                 block2.finish(1e6 - 2e3, kpReceiver.getAddress());
 
                 coinbaseTxHash = (new factory.Transaction(block2.txns[0])).getHash();
@@ -416,7 +416,7 @@ describe('Witness integration tests', () => {
             {
                 block3 = new factory.Block(0);
                 block3.parentHashes = [block2.getHash()];
-                block3.setHeight(await witness._calcHeight(block3.parentHashes));
+                block3.setHeight(witness._calcHeight(block3.parentHashes));
                 block3.finish(0, generateAddress());
             }
             await processBlock(witness, block3);
