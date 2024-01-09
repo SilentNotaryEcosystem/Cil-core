@@ -23,6 +23,14 @@ module.exports = ({Constants}) =>
             return this._dag.size;
         }
 
+        get tips() {
+            return this._dag.tips;
+        }
+
+        get V() {
+            return this._dag.V;
+        }
+
         addBlock(blockInfo) {
             typeforce(types.BlockInfo, blockInfo);
             const blockHash = blockInfo.getHash();

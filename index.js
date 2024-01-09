@@ -12,10 +12,6 @@ const {
 process.on('warning', e => console.warn(e.stack));
 
 (async () => {
-    await factory.asyncLoad();
-
-    logger.log(`Using ${factory.Constants.strIdent} config`);
-
     // Read user-defined parameters
     const objUserParams = {
         // read ENV options
@@ -24,6 +20,13 @@ process.on('warning', e => console.warn(e.stack));
         // read command line options (have precedence over ENV)
         ...readCmdLineOptions()
     };
+
+    // Must be before factory.asyncLoad
+    if (objUserParams.disableDagIndex) factory.Constants.USE_DAG_INDEX = false;
+
+    await factory.asyncLoad();
+
+    logger.log(`Using ${factory.Constants.strIdent} config`);
 
     // override global parameters
     if (objUserParams.genesisHash) factory.Constants.GENESIS_BLOCK = objUserParams.genesisHash;
