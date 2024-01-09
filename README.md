@@ -54,6 +54,7 @@ The default options are set in file [prod.conf.js](https://github.com/SilentNota
 |walletSupport|Boolean function used by Node to support the wallet|
 |listWallets|Service function used to see the list of addresses that are added to the Node|
 |suppressJoinTx|Set to to prevent witness to create joinTx|
+|disableDagIndex|Disable reduce memory usage via DAG index|
 
 ## Node install for development net
 Set the environment variable `NODE_ENV=Devel`.

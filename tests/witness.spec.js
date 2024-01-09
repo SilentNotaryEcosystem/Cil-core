@@ -149,7 +149,7 @@ describe('Witness tests', () => {
         witness._mempool.addTx(tx1);
         witness._mempool.addTx(tx2);
 
-        witness._calcHeight = sinon.fake.returns(10);
+        witness._calcHeight = sinon.fake.resolves(10);
 
         const {block} = await witness._createBlock(concilium.getConciliumId());
         assert.equal(block.txns.length, 3);
@@ -214,7 +214,7 @@ describe('Witness tests', () => {
             };
             witness._mempool.getFinalTxns =
                 () => new Array(1000).fill(1).map(() => new factory.Transaction(createDummyTx()));
-            witness._calcHeight = () => 1;
+            witness._calcHeight = sinon.fake.resolves(1);;
             witness._pendingBlocks.getBestParents = () => ({
                 arrParents: [pseudoRandomBuffer().toString('hex')],
                 patchMerged: new factory.PatchDB()
@@ -273,7 +273,7 @@ describe('Witness tests', () => {
             };
             witness._mempool.getFinalTxns =
                 () => new Array(10).fill(1).map(() => new factory.Transaction(createDummyTx()));
-            witness._calcHeight = () => 1;
+            witness._calcHeight = sinon.fake.resolves(1);;
             witness._nLowestConciliumId = 0;
             witness._createJoinTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
             witness._storage.walletListUnspent = async () => new Array(factory.Constants.WITNESS_UTXOS_JOIN + 1);
