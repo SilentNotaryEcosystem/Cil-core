@@ -28,6 +28,8 @@ const StorageWrapper = require('./storage/persistentStorage');
 const PatchWrapper = require('./storage/patch');
 const PendingBlocksManagerWrapper = require('./node/pendingBlocksManager');
 const MainDagWrapper = require('./node/mainDag');
+const MainDagIndexWrapper = require('./node/mainDagIndex');
+const MainDagWithIndexWrapper = require('./node/mainDagWithIndex');
 const RequestCacheWrapper = require('./node/requestsCache');
 
 const TransactionWrapper = require('./structures/transaction');
@@ -125,7 +127,9 @@ class BaseFactory {
                     this._rpcImplementation = RpcWrapper(this);
                     this._appImplementation = AppWrapper(this);
                     this._pendingBlocksManagerImplementation = PendingBlocksManagerWrapper(this, options);
-                    this._mainDagImplementation = MainDagWrapper(this);
+                    this._mainDagImplementation = !this.Constants.USE_DAG_INDEX
+                        ? MainDagWrapper(this)
+                        : MainDagWithIndexWrapper(MainDagWrapper(this), MainDagIndexWrapper(this), this);
                     this._requestCacheImplementation = RequestCacheWrapper(this);
 
                     // all componenst should be declared above
