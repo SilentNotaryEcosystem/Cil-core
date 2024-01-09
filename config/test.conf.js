@@ -26,8 +26,6 @@ module.exports = {
 
         DB_PATH_PREFIX: './testDb',
 
-        USE_DAG_INDEX: false,
-
         concilium: {
             HEIGHT_TO_RELEASE_ADD_ON: 1,
             POS_CONCILIUM_ROUNDS: 2
