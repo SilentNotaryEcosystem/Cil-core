@@ -1,4 +1,12 @@
-FROM node:16
+FROM node:16-alpine
+
+ARG REFRESHED_AT
+ENV REFRESHED_AT $REFRESHED_AT
+
+RUN apk -U upgrade \
+    && apk add --no-cache \
+    procps \
+    bash
 
 STOPSIGNAL SIGTERM
 
