@@ -1,4 +1,4 @@
-FROM nikolaik/python-nodejs:python3.8-nodejs16
+FROM nikolaik/python-nodejs:python2.7-nodejs10
 
 STOPSIGNAL SIGTERM
 
