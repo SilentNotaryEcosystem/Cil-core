@@ -1,10 +1,8 @@
 const commonConfig = require('./prod.conf');
 
 module.exports = {
-
     // some of constants will be injected from prototypes in Factory!
     constants: {
-
         ...commonConfig.constants,
 
         MEMPOOL_REANNOUNCE_INTERVAL: 5 * 1000,
@@ -34,7 +32,6 @@ module.exports = {
         },
 
         fees: {
-
             // money send fee per Kbyte
             TX_FEE: 4000,
 

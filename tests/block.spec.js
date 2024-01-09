@@ -8,7 +8,7 @@ const factory = require('./testFactory');
 const {createDummyTx, pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 describe('Block tests', () => {
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
     });
 
@@ -63,7 +63,6 @@ describe('Block tests', () => {
         assert.isOk(Array.isArray(block.parentHashes));
         assert.isOk(block.parentHashes.length, 2);
         assert.isOk(typeof block.parentHashes[0] === 'string');
-
     });
 
     it('should calc hash', async () => {
@@ -194,7 +193,7 @@ describe('Block tests', () => {
         it('should FAIL to verify block with wrong tx.conciliumId', async () => {
             const block = new factory.Block(0);
             block.parentHashes = [pseudoRandomBuffer()];
-            const tx = new factory.Transaction(createDummyTx(undefined, 1))
+            const tx = new factory.Transaction(createDummyTx(undefined, 1));
             block.addTx(tx);
             block.addWitnessSignatures([pseudoRandomBuffer(65)]);
             block.finish(factory.Constants.fees.TX_FEE, generateAddress());

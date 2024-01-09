@@ -4,7 +4,7 @@ const path = require('path');
 const factory = require('../factory');
 const {questionAsync, readPrivateKeyFromFile} = require('../utils');
 
-;(async () => {
+(async () => {
     await factory.asyncLoad();
 
     const filename = await questionAsync('Enter filename with PK: ');
@@ -17,10 +17,11 @@ const {questionAsync, readPrivateKeyFromFile} = require('../utils');
     } catch (e) {
         console.error(e);
     }
-
-})().then(() => {
-    process.exit(0);
-}).catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+})()
+    .then(() => {
+        process.exit(0);
+    })
+    .catch(error => {
+        console.error(error);
+        process.exit(1);
+    });

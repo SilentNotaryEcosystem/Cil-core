@@ -43,7 +43,7 @@ const createContractInvocationTx = (code = {}, hasChangeReceiver = true, amount 
     return {tx, strContractAddr: contractAddr.toString('hex')};
 };
 
-const createTxAddCoinsToNode = (node) => {
+const createTxAddCoinsToNode = node => {
     const patch = new factory.PatchDB(0);
     const keyPair = factory.Crypto.createKeyPair();
     const buffAddress = factory.Crypto.getAddress(keyPair.publicKey, true);
@@ -78,7 +78,7 @@ const createConciliumDefAndSignBlock = (block, numOfSignatures = 2) => {
     return factory.ConciliumRr.create(block.conciliumId, arrAddresses);
 };
 
-const createSimpleChain = async (callback) => {
+const createSimpleChain = async callback => {
     const arrHashes = [];
 
     let prevBlock = null;
@@ -97,7 +97,7 @@ const createSimpleChain = async (callback) => {
     return arrHashes;
 };
 
-const createSimpleFork = async (callback) => {
+const createSimpleFork = async callback => {
     const genesis = createDummyBlock(factory);
     genesis.setHeight(0);
     factory.Constants.GENESIS_BLOCK = genesis.getHash();
@@ -122,11 +122,14 @@ const createSimpleFork = async (callback) => {
     return [genesis, block1, block2, block3].map(block => block.getHash());
 };
 
-const createInternalUtxo = () => new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')})
-    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}));
+const createInternalUtxo = () =>
+    new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')}).addCoins(
+        0,
+        factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()})
+    );
 
 describe('Node tests', async () => {
-    before(async function() {
+    before(async function () {
         process.on('warning', e => console.warn(e.stack));
 
         this.timeout(15000);
@@ -143,27 +146,20 @@ describe('Node tests', async () => {
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
         });
         const peerInfo2 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.NODE, data: null}
-            ],
+            capabilities: [{service: factory.Constants.NODE, data: null}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
         });
         const peerInfo3 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('1111')}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
         });
         const peerInfo4 = new factory.Messages.PeerInfo({
-            capabilities: [
-                {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
-            ],
+            capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('2222')}],
             address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
         });
         for (let peerInfo of [peerInfo1, peerInfo2, peerInfo3, peerInfo4]) {
             await seedNode._peerManager.addPeer(peerInfo);
         }
-
     });
 
     after(() => {
@@ -201,7 +197,7 @@ describe('Node tests', async () => {
 
         await node._mergeSeedPeers();
 
-        assert.deepEqual(node._arrSeedAddresses, [ 'a', 'b', 'c', 'd', 'e', 'f']);
+        assert.deepEqual(node._arrSeedAddresses, ['a', 'b', 'c', 'd', 'e', 'f']);
     });
 
     it('should _storeBlockAndInfo', async () => {
@@ -354,7 +350,7 @@ describe('Node tests', async () => {
         await node._handleInvMessage(peer, msgInv);
 
         assert.isOk(node._mempool.hasTx.calledOnce);
-        assert.isOk(node._mainDag.getBlockInfo.callCount>=1);
+        assert.isOk(node._mainDag.getBlockInfo.callCount >= 1);
         assert.isNotOk(peer.pushMessage.calledOnce);
     });
 
@@ -578,7 +574,7 @@ describe('Node tests', async () => {
             assert.equal(e.message, 'Unknown conciliumId: 0');
             return;
         }
-        throw ('Unexpected success');
+        throw 'Unexpected success';
     });
 
     it('should fail check BLOCK SIGNATURES (bad signatures)', async () => {
@@ -599,7 +595,7 @@ describe('Node tests', async () => {
             console.error(e);
             return;
         }
-        throw ('Unexpected success');
+        throw 'Unexpected success';
     });
 
     it('should check BLOCK SIGNATURES', async () => {
@@ -665,14 +661,14 @@ describe('Node tests', async () => {
         assert.equal(node._mainDag.order, 4);
         assert.equal(node._mainDag.size, 4);
 
-        assert.deepEqual(
-            node._mainDag.getParents(arrBlocks[3].getHash()),
-            [arrBlocks[1].getHash(), arrBlocks[2].getHash()]
-        );
-        assert.deepEqual(
-            node._mainDag.getChildren(arrBlocks[0].getHash()),
-            [arrBlocks[1].getHash(), arrBlocks[2].getHash()]
-        );
+        assert.deepEqual(node._mainDag.getParents(arrBlocks[3].getHash()), [
+            arrBlocks[1].getHash(),
+            arrBlocks[2].getHash()
+        ]);
+        assert.deepEqual(node._mainDag.getChildren(arrBlocks[0].getHash()), [
+            arrBlocks[1].getHash(),
+            arrBlocks[2].getHash()
+        ]);
     });
 
     it('should build MainDag from single Genesis (stable)', async () => {
@@ -718,9 +714,12 @@ describe('Node tests', async () => {
         });
 
         //
-        await node._storage.updatePendingBlocks(
-            [arrBlocks[0].getHash(), arrBlocks[1].getHash(), arrBlocks[2].getHash(), arrBlocks[3].getHash()]
-        );
+        await node._storage.updatePendingBlocks([
+            arrBlocks[0].getHash(),
+            arrBlocks[1].getHash(),
+            arrBlocks[2].getHash(),
+            arrBlocks[3].getHash()
+        ]);
         node._processBlockCoinbaseTX = sinon.fake.resolves();
         node._checkHeight = sinon.fake.resolves(true);
 
@@ -735,7 +734,7 @@ describe('Node tests', async () => {
     it('should process MSG_GET_BLOCKS', async () => {
         const node = new factory.Node();
         await node.ensureLoaded();
-        node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
+        node._mainDag.getBlockInfo = hash => hash === factory.Constants.GENESIS_BLOCK;
         node._getBlocksFromLastKnown = sinon.fake.resolves([pseudoRandomBuffer(), pseudoRandomBuffer()]);
         node._mempool.getLocalTxnHashes = sinon.fake.returns([pseudoRandomBuffer()]);
 
@@ -787,8 +786,7 @@ describe('Node tests', async () => {
                 address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x3}
             }
         });
-        inMsg._data.timeStamp =
-            parseInt(Date.now() + factory.Constants.TOLERATED_TIME_DIFF) / 1000 + 100;
+        inMsg._data.timeStamp = parseInt(Date.now() + factory.Constants.TOLERATED_TIME_DIFF) / 1000 + 100;
         const msgCommon = new factory.Messages.MsgCommon(inMsg.encode());
         const sendMessage = sinon.fake.returns(Promise.resolve(null));
         const newPeer = new factory.Peer({
@@ -807,7 +805,6 @@ describe('Node tests', async () => {
         assert.equal(sendMessage.callCount, 1);
         const [msg] = sendMessage.args[0];
         assert.isTrue(msg.isReject());
-
     });
 
     it('should unwind block to mempool', async () => {
@@ -843,7 +840,7 @@ describe('Node tests', async () => {
         assert.isOk(node._mainDag.removeBlock.calledOnce);
     });
 
-    it('should reconnect peers', async function() {
+    it('should reconnect peers', async function () {
         this.timeout(4000);
         const node = new factory.Node();
         await node.ensureLoaded();
@@ -865,30 +862,24 @@ describe('Node tests', async () => {
             }),
             new factory.Peer({
                 peerInfo: {
-                    capabilities: [
-                        {service: factory.Constants.NODE, data: null}
-                    ],
+                    capabilities: [{service: factory.Constants.NODE, data: null}],
                     address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x4}
                 }
             }),
             new factory.Peer({
                 peerInfo: {
-                    capabilities: [
-                        {service: factory.Constants.WITNESS, data: Buffer.from('1111')}
-                    ],
+                    capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('1111')}],
                     address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x5}
                 }
             }),
             new factory.Peer({
                 peerInfo: {
-                    capabilities: [
-                        {service: factory.Constants.WITNESS, data: Buffer.from('2222')}
-                    ],
+                    capabilities: [{service: factory.Constants.WITNESS, data: Buffer.from('2222')}],
                     address: {addr0: 0x2001, addr1: 0xdb8, addr2: 0x1234, addr3: 0x6}
                 }
             })
         ];
-        peers.forEach((peer) => {
+        peers.forEach(peer => {
             peer.pushMessage = pushMessage;
             peer.loaded = loaded;
             peer.fullyConnected = false;
@@ -1065,7 +1056,7 @@ describe('Node tests', async () => {
         const node = new factory.Node({rpcAddress: factory.Transport.generateAddress()});
         await node.ensureLoaded();
 
-        node._mainDag.getBlockInfo = (hash) => {
+        node._mainDag.getBlockInfo = hash => {
             if (hash === blockHash1) return {getHeight: () => 1};
             if (hash === blockHash2) return {getHeight: () => 5};
             if (hash === blockHash3) return {getHeight: () => 10};
@@ -1096,11 +1087,16 @@ describe('Node tests', async () => {
 
         it('should fail to accept tx (conflicting txns)', async () => {
             const fakeLocalTxns = [new factory.Transaction(createDummyTx()), new factory.Transaction(createDummyTx())];
-            node._mempool.getLocalTxnsPatches =
-                sinon.fake.returns(
-                    fakeLocalTxns.map(tx => ({strTxHash: tx.getHash(), patchTx: {merge: () => {throw ('failed');}}})
-                    )
-                );
+            node._mempool.getLocalTxnsPatches = sinon.fake.returns(
+                fakeLocalTxns.map(tx => ({
+                    strTxHash: tx.getHash(),
+                    patchTx: {
+                        merge: () => {
+                            throw 'failed';
+                        }
+                    }
+                }))
+            );
             node._processReceivedTx = sinon.fake.resolves(new factory.PatchDB());
 
             return assert.isRejected(node._acceptLocalTx(new factory.Transaction(createDummyTx())));
@@ -1143,45 +1139,66 @@ describe('Node tests', async () => {
         });
 
         it('should be found among local txns', async () => {
-            node._ensureLocalTxnsPatch = () => {node._patchLocalTxns = patch;};
+            node._ensureLocalTxnsPatch = () => {
+                node._patchLocalTxns = patch;
+            };
 
             assert.isOk(await node._getTxReceipt(txHash));
         });
 
         it('should be found among pending blocks (no local txns)', async () => {
-            node._ensureLocalTxnsPatch = () => {node._patchLocalTxns = undefined;};
-            node._ensureBestBlockValid = () => {node._objCurrentBestParents = {patchMerged: patch};};
+            node._ensureLocalTxnsPatch = () => {
+                node._patchLocalTxns = undefined;
+            };
+            node._ensureBestBlockValid = () => {
+                node._objCurrentBestParents = {patchMerged: patch};
+            };
 
             assert.isOk(await node._getTxReceipt(txHash));
         });
 
         it('should be found among pending blocks (not found in local txns)', async () => {
-            node._ensureLocalTxnsPatch = () => {node._patchLocalTxns = new factory.PatchDB();};
-            node._ensureBestBlockValid = () => {node._objCurrentBestParents = {patchMerged: patch};};
+            node._ensureLocalTxnsPatch = () => {
+                node._patchLocalTxns = new factory.PatchDB();
+            };
+            node._ensureBestBlockValid = () => {
+                node._objCurrentBestParents = {patchMerged: patch};
+            };
 
             assert.isOk(await node._getTxReceipt(txHash));
         });
 
         it('should be found among stable blocks (no pending)', async () => {
-            node._ensureLocalTxnsPatch = async () => {node._patchLocalTxns = undefined;};
-            node._ensureBestBlockValid = async () => {node._objCurrentBestParents = {patchMerged: undefined};};
+            node._ensureLocalTxnsPatch = async () => {
+                node._patchLocalTxns = undefined;
+            };
+            node._ensureBestBlockValid = async () => {
+                node._objCurrentBestParents = {patchMerged: undefined};
+            };
             node._storage.getTxReceipt = async () => patch;
 
             assert.isOk(await node._getTxReceipt(txHash));
         });
 
         it('should be found among stable blocks (pending patch doesnt contain)', async () => {
-            node._ensureLocalTxnsPatch = async () => {node._patchLocalTxns = undefined;};
-            node._ensureBestBlockValid =
-                async () => {node._objCurrentBestParents = {patchMerged: new factory.PatchDB()};};
+            node._ensureLocalTxnsPatch = async () => {
+                node._patchLocalTxns = undefined;
+            };
+            node._ensureBestBlockValid = async () => {
+                node._objCurrentBestParents = {patchMerged: new factory.PatchDB()};
+            };
             node._storage.getTxReceipt = async () => patch;
 
             assert.isOk(await node._getTxReceipt(txHash));
         });
 
         it('should not be found', async () => {
-            node._ensureLocalTxnsPatch = async () => {node._patchLocalTxns = undefined;};
-            node._ensureBestBlockValid = async () => {node._objCurrentBestParents = {patchMerged: undefined};};
+            node._ensureLocalTxnsPatch = async () => {
+                node._patchLocalTxns = undefined;
+            };
+            node._ensureBestBlockValid = async () => {
+                node._objCurrentBestParents = {patchMerged: undefined};
+            };
             node._storage.getTxReceipt = async () => undefined;
 
             assert.isNotOk(await node._getTxReceipt(txHash));
@@ -1214,10 +1231,12 @@ describe('Node tests', async () => {
         it('fails to send TX (conflict with existing)', async () => {
             node._acceptLocalTx = sinon.fake.rejects('Failed');
 
-            return assert.isRejected(node.rpcHandler({
-                event: 'tx',
-                content: new factory.Transaction(createDummyTx()).encode().toString('hex')
-            }));
+            return assert.isRejected(
+                node.rpcHandler({
+                    event: 'tx',
+                    content: new factory.Transaction(createDummyTx()).encode().toString('hex')
+                })
+            );
         });
 
         it('should get TX receipt', async () => {
@@ -1254,87 +1273,69 @@ describe('Node tests', async () => {
 
             assert.isOk(getBlockFake.calledOnce);
             assert.isOk(objResult);
-            assert.deepEqual(
-                prepareForStringifyObject(objResult),
-                {
-                    block: prepareForStringifyObject(cBlock),
-                    state
-                }
-            );
+            assert.deepEqual(prepareForStringifyObject(objResult), {
+                block: prepareForStringifyObject(cBlock),
+                state
+            });
         });
 
         it('should get prev blocks', async () => {
             const state = 'stable';
-            const arrExpectedHashes = await createSimpleChain(
-                async block => {
-                    await node._pendingBlocks.addBlock(block, new factory.PatchDB());
-                    const bi = new factory.BlockInfo(block.header);
-                    bi.markAsFinal();
-                    await node._mainDag.addBlock(bi);
-                }
-            );
+            const arrExpectedHashes = await createSimpleChain(async block => {
+                await node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                const bi = new factory.BlockInfo(block.header);
+                bi.markAsFinal();
+                await node._mainDag.addBlock(bi);
+            });
             const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[8]);
             node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
 
             const [objResult] = await node.rpcHandler({event: 'getPrev', content: arrExpectedHashes[9]});
 
             assert.isOk(objResult);
-            assert.deepEqual(
-                prepareForStringifyObject(objResult),
-                {
-                    block: prepareForStringifyObject(pBlockInfo),
-                    state: 8
-                }
-            );
+            assert.deepEqual(prepareForStringifyObject(objResult), {
+                block: prepareForStringifyObject(pBlockInfo),
+                state: 8
+            });
         });
 
         it('should get next blocks', async () => {
-            const arrExpectedHashes = await createSimpleChain(
-                async block => {
-                    await node._pendingBlocks.addBlock(block, new factory.PatchDB());
-                    const bi = new factory.BlockInfo(block.header);
-                    bi.markAsFinal();
-                    await node._mainDag.addBlock(bi);
-                }
-            );
+            const arrExpectedHashes = await createSimpleChain(async block => {
+                await node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                const bi = new factory.BlockInfo(block.header);
+                bi.markAsFinal();
+                await node._mainDag.addBlock(bi);
+            });
             const pBlockInfo = node._mainDag.getBlockInfo(arrExpectedHashes[9]);
             node._storage.getBlock = sinon.fake.resolves(pBlockInfo);
 
             const [objResult] = await node.rpcHandler({event: 'getNext', content: arrExpectedHashes[8]});
 
             assert.isOk(objResult);
-            assert.deepEqual(
-                prepareForStringifyObject(objResult),
-                {
-                    block: prepareForStringifyObject(pBlockInfo),
-                    state: 8
-                }
-            );
+            assert.deepEqual(prepareForStringifyObject(objResult), {
+                block: prepareForStringifyObject(pBlockInfo),
+                state: 8
+            });
         });
 
         it('should get TIPS', async () => {
-            const arrExpectedHashes = await createSimpleChain(
-                async block => {
-                    await node._pendingBlocks.addBlock(block, new factory.PatchDB());
-                    const bi = new factory.BlockInfo(block.header);
-                    bi.markAsFinal();
-                    await node._mainDag.addBlock(bi);
-                }
-            );
+            const arrExpectedHashes = await createSimpleChain(async block => {
+                await node._pendingBlocks.addBlock(block, new factory.PatchDB());
+                const bi = new factory.BlockInfo(block.header);
+                bi.markAsFinal();
+                await node._mainDag.addBlock(bi);
+            });
             node._storage.getBlock = sinon.fake.resolves(node._mainDag.getBlockInfo(arrExpectedHashes[9]));
 
             const [objOneTip] = await node.rpcHandler({event: 'getTips'});
 
             assert.isOk(objOneTip);
-            assert.deepEqual(
-                prepareForStringifyObject(objOneTip),
-                {
-                    block: prepareForStringifyObject(node._mainDag.getBlockInfo(arrExpectedHashes[9])),
+            assert.deepEqual(prepareForStringifyObject(objOneTip), {
+                block: prepareForStringifyObject(node._mainDag.getBlockInfo(arrExpectedHashes[9])),
 
-                    // FINAL_BLOCK @see BlockInfo.js
-                    state: 8
-                }
-            );
+                // FINAL_BLOCK @see BlockInfo.js
+                state: 8
+            });
         });
 
         it('should get one TIP', async () => {
@@ -1357,21 +1358,22 @@ describe('Node tests', async () => {
         });
 
         it('should fail to get TX', async () => {
-
             const block = createDummyBlockWithTx(factory);
             const strTxHash = block.getTxHashes()[0];
 
             node._storage.findBlockByTxHash = sinon.fake.throws('Block not found');
 
-            return assert.isRejected(node.rpcHandler({
-                event: 'getTx',
-                content: strTxHash
-            }));
+            return assert.isRejected(
+                node.rpcHandler({
+                    event: 'getTx',
+                    content: strTxHash
+                })
+            );
         });
 
         it('should fail to get UTXO', async () => {
             const strTxHash = pseudoRandomBuffer().toString('hex');
-            const createDummyUtxo = (arrIndexes) => {
+            const createDummyUtxo = arrIndexes => {
                 const utxo = new factory.UTXO({txHash: strTxHash});
                 const coins = new factory.Coins(10, generateAddress());
                 arrIndexes.forEach(idx => utxo.addCoins(idx, coins));
@@ -1384,9 +1386,17 @@ describe('Node tests', async () => {
                 event: 'getUnspent',
                 content: strTxHash
             });
-            assert.isOk(arrayEquals(Object.keys(objResult).map(key => parseInt(key)), [1, 5, 10]));
-            assert.isOk(Object.keys(objResult).every(key => typeof objResult[key].amount === 'number' &&
-                                                            typeof objResult[key].receiverAddr === 'string'));
+            assert.isOk(
+                arrayEquals(
+                    Object.keys(objResult).map(key => parseInt(key)),
+                    [1, 5, 10]
+                )
+            );
+            assert.isOk(
+                Object.keys(objResult).every(
+                    key => typeof objResult[key].amount === 'number' && typeof objResult[key].receiverAddr === 'string'
+                )
+            );
         });
 
         describe('getTX', async () => {
@@ -1418,7 +1428,11 @@ describe('Node tests', async () => {
 
                 node._storage.findBlockByTxHash = sinon.fake.resolves(block);
 
-                const {tx, status, block: foundBlock} = await node.rpcHandler({
+                const {
+                    tx,
+                    status,
+                    block: foundBlock
+                } = await node.rpcHandler({
                     event: 'getTx',
                     content: strTxHash
                 });
@@ -1435,7 +1449,11 @@ describe('Node tests', async () => {
                 node._storage.findBlockByTxHash = sinon.fake.resolves(block);
                 node._pendingBlocks.hasBlock = sinon.fake.returns(true);
 
-                const {tx, status, block: foundBlock} = await node.rpcHandler({
+                const {
+                    tx,
+                    status,
+                    block: foundBlock
+                } = await node.rpcHandler({
                     event: 'getTx',
                     content: strTxHash
                 });
@@ -1448,14 +1466,18 @@ describe('Node tests', async () => {
             it('should get find internal TX and return coins', async () => {
                 const receipt = new factory.TxReceipt({});
                 receipt.addInternalUtxo(createInternalUtxo());
-                receipt.getCoinsForTx =
-                    sinon.fake.returns(factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()})
-                    );
+                receipt.getCoinsForTx = sinon.fake.returns(
+                    factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()})
+                );
 
                 node._storage.findInternalTx = sinon.fake.resolves(pseudoRandomBuffer());
                 node._storage.getTxReceipt = sinon.fake.resolves(receipt);
 
-                const {tx, status, block: foundBlock} = await node.rpcHandler({
+                const {
+                    tx,
+                    status,
+                    block: foundBlock
+                } = await node.rpcHandler({
                     event: 'getTx',
                     content: pseudoRandomBuffer().toString('hex')
                 });
@@ -1480,24 +1502,29 @@ describe('Node tests', async () => {
         });
 
         describe('constantMethodCall', async () => {
-            beforeEach(async () => {
-            });
+            beforeEach(async () => {});
 
             it('should prefer PENDING contract data', async () => {
                 const expectedResult = {a: 23, z: 17};
                 const pendingData = {a: 10, b: 20};
-                const contractPending = new factory.Contract({
-                    contractData: {sampleResult: pendingData},
-                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    conciliumId
-                }, generateAddress().toString('hex'));
+                const contractPending = new factory.Contract(
+                    {
+                        contractData: {sampleResult: pendingData},
+                        contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                        conciliumId
+                    },
+                    generateAddress().toString('hex')
+                );
 
                 const stableData = {a: 100, b: 200};
-                const contractStable = new factory.Contract({
-                    contractData: {sampleResult: stableData},
-                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    conciliumId
-                }, generateAddress().toString('hex'));
+                const contractStable = new factory.Contract(
+                    {
+                        contractData: {sampleResult: stableData},
+                        contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                        conciliumId
+                    },
+                    generateAddress().toString('hex')
+                );
 
                 node._storage.getContract = sinon.fake.resolves(contractStable);
                 node._pendingBlocks.getContract = sinon.fake.returns(contractPending);
@@ -1518,18 +1545,24 @@ describe('Node tests', async () => {
             it('should prefer STABLE contract data', async () => {
                 const expectedResult = {a: 23, z: 17};
                 const pendingData = {a: 10, b: 20};
-                const contractPending = new factory.Contract({
-                    contractData: {sampleResult: pendingData},
-                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    conciliumId
-                }, generateAddress().toString('hex'));
+                const contractPending = new factory.Contract(
+                    {
+                        contractData: {sampleResult: pendingData},
+                        contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                        conciliumId
+                    },
+                    generateAddress().toString('hex')
+                );
 
                 const stableData = {a: 100, b: 200};
-                const contractStable = new factory.Contract({
-                    contractData: {sampleResult: stableData},
-                    contractCode: `{"test": "() {return this.sampleResult;}"}`,
-                    conciliumId
-                }, generateAddress().toString('hex'));
+                const contractStable = new factory.Contract(
+                    {
+                        contractData: {sampleResult: stableData},
+                        contractCode: `{"test": "() {return this.sampleResult;}"}`,
+                        conciliumId
+                    },
+                    generateAddress().toString('hex')
+                );
 
                 node._storage.getContract = sinon.fake.resolves(contractStable);
                 node._pendingBlocks.getContract = sinon.fake.returns(contractPending);
@@ -1572,7 +1605,6 @@ describe('Node tests', async () => {
                 assert.isOk(node._storage.getBlockInfo.calledOnce);
                 assert.isOk(node._storage.saveBlockInfo.calledOnce);
                 assert.isOk(node._storage.removeBlock.calledOnce);
-
             });
 
             it('should save only BlockInfo (no previously stored block)', async () => {
@@ -1588,7 +1620,6 @@ describe('Node tests', async () => {
                 assert.isOk(node._storage.getBlockInfo.calledOnce);
                 assert.isOk(node._storage.saveBlockInfo.calledOnce);
                 assert.isNotOk(node._storage.removeBlock.calledOnce);
-
             });
 
             it('should save both: BlockInfo & Block (good block)', async () => {
@@ -1678,7 +1709,6 @@ describe('Node tests', async () => {
             const peer3 = {address: 'addr3', port: 1234, isAhead: () => false};
 
             beforeEach(async () => {
-
                 node._mapUnknownBlocks = new Map();
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer);
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
@@ -1686,8 +1716,9 @@ describe('Node tests', async () => {
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer2);
                 node._mapUnknownBlocks.set(pseudoRandomBuffer().toString('hex'), peer3);
 
-                [peer, peer2, peer3].forEach(
-                    p => {p.pushMessage = sinon.fake(), p.singleBlockRequested = sinon.fake();});
+                [peer, peer2, peer3].forEach(p => {
+                    (p.pushMessage = sinon.fake()), (p.singleBlockRequested = sinon.fake());
+                });
 
                 ({mapPeerBlocks} = node._createMapBlockPeer());
             });
@@ -1781,7 +1812,6 @@ describe('Node tests', async () => {
                 assert.equal(arrToExec.length, 0);
             });
         });
-
     });
 
     describe('_createCallbacksForApp', async () => {
@@ -1797,14 +1827,12 @@ describe('Node tests', async () => {
             const strTxHash = pseudoRandomBuffer().toString('hex');
 
             node._createInternalTx = sinon.fake.returns(
-                new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')})
-                    .addCoins(0, factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()}))
+                new factory.UTXO({txHash: pseudoRandomBuffer().toString('hex')}).addCoins(
+                    0,
+                    factory.Coins.createFromData({amount: 100, receiverAddr: generateAddress()})
+                )
             );
-            const {sendCoins} = node._createCallbacksForApp(
-                patchBlock,
-                patchTx,
-                strTxHash
-            );
+            const {sendCoins} = node._createCallbacksForApp(patchBlock, patchTx, strTxHash);
 
             const strAddress = generateAddress().toString('hex');
             const nAmount = 100;
@@ -1836,10 +1864,12 @@ describe('Node tests', async () => {
 
             assert.isOk(node._invokeNestedContract.calledOnce);
             const [
-                patchBlockArg, patchTxArg, strTxHashArg, strAddrArg, {
-                    method: methodArg,
-                    arrArguments: arrArgumentsArg
-                }] = node._invokeNestedContract.args[0];
+                patchBlockArg,
+                patchTxArg,
+                strTxHashArg,
+                strAddrArg,
+                {method: methodArg, arrArguments: arrArgumentsArg}
+            ] = node._invokeNestedContract.args[0];
             assert.isOk(patchBlockArg && patchBlockArg instanceof factory.PatchDB);
             assert.isOk(patchTxArg && patchTxArg instanceof factory.PatchDB);
             assert.equal(strAddress, strAddrArg);
@@ -1857,7 +1887,7 @@ describe('Node tests', async () => {
             const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
-            assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));
+            assert.equal(nFeeSize, parseInt((factory.Constants.fees.TX_FEE * txSize) / 1024));
         });
 
         it('should use conctant since concilium fee too small', async () => {
@@ -1868,7 +1898,7 @@ describe('Node tests', async () => {
             const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
-            assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));
+            assert.equal(nFeeSize, parseInt((factory.Constants.fees.TX_FEE * txSize) / 1024));
         });
 
         it('should get it from concilium', async () => {
@@ -1879,7 +1909,7 @@ describe('Node tests', async () => {
             const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
-            assert.equal(nFeeSize, parseInt(conciliumFee * txSize / 1024));
+            assert.equal(nFeeSize, parseInt((conciliumFee * txSize) / 1024));
         });
 
         it('should calculate fee for size less than 1Kb', async () => {
@@ -1889,7 +1919,7 @@ describe('Node tests', async () => {
             const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
-            assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));
+            assert.equal(nFeeSize, parseInt((factory.Constants.fees.TX_FEE * txSize) / 1024));
         });
 
         it('should calculate fee for size more than 1Kb', async () => {
@@ -1899,7 +1929,7 @@ describe('Node tests', async () => {
             const fakeTx = {conciliumId: 0, getSize: () => txSize};
 
             const nFeeSize = await node._calculateSizeFee(fakeTx);
-            assert.equal(nFeeSize, parseInt(factory.Constants.fees.TX_FEE * txSize / 1024));
+            assert.equal(nFeeSize, parseInt((factory.Constants.fees.TX_FEE * txSize) / 1024));
         });
     });
 
@@ -1990,7 +2020,6 @@ describe('Node tests', async () => {
     });
 
     describe('Contracts', async () => {
-
         it('should get contact from Patch', async () => {
             const node = new factory.Node();
             const {tx} = createContractInvocationTx();
@@ -2050,10 +2079,7 @@ describe('Node tests', async () => {
         it('should call createContract', async () => {
             const node = new factory.Node();
             node._app.processTxInputs = sinon.fake.returns(1e5);
-            const tx = factory.Transaction.createContract(
-                'class A extends Base{}',
-                generateAddress()
-            );
+            const tx = factory.Transaction.createContract('class A extends Base{}', generateAddress());
 
             const contract = new factory.Contract({});
             contract.storeAddress(generateAddress());
@@ -2073,10 +2099,12 @@ describe('Node tests', async () => {
 
             const {tx} = createContractInvocationTx();
 
-            node._storage.getContract =
-                sinon.fake.returns(new factory.Contract({conciliumId}, contractAddr.toString('hex')));
-            node._app.runContract =
-                sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK}));
+            node._storage.getContract = sinon.fake.returns(
+                new factory.Contract({conciliumId}, contractAddr.toString('hex'))
+            );
+            node._app.runContract = sinon.fake.returns(
+                new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK})
+            );
 
             // mark it as Genesis block TX (it skip many checks, like signatures & inputs)
             await node._processTx(new factory.PatchDB(), true, tx);
@@ -2132,10 +2160,15 @@ describe('Node tests', async () => {
             tx.addReceiver(nAmountSecondOutput, generateAddress());
             tx.signForContract(kp.privateKey);
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({
-                conciliumId,
-                contractCode: '{"_default": "() {}"}'
-            }, strContractAddr));
+            node._storage.getContract = sinon.fake.returns(
+                new factory.Contract(
+                    {
+                        conciliumId,
+                        contractCode: '{"_default": "() {}"}'
+                    },
+                    strContractAddr
+                )
+            );
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
             node._app.getDataDelta = sinon.fake.returns(0);
@@ -2146,11 +2179,7 @@ describe('Node tests', async () => {
             const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
 
             const totalSpent =
-                nAmountSecondOutput +
-                nMoneysToContract +
-                nFakeCoinsUsed +
-                await node._calculateSizeFee(tx, false)
-            ;
+                nAmountSecondOutput + nMoneysToContract + nFakeCoinsUsed + (await node._calculateSizeFee(tx, false));
             assert.equal(cCoinsChange.getAmount(), nTotalHas - totalSpent);
         });
 
@@ -2164,14 +2193,20 @@ describe('Node tests', async () => {
             const {tx, strContractAddr} = createContractInvocationTx({}, true, nMoneysToContract);
             tx.signForContract(kp.privateKey);
 
-            node._storage.getContract = sinon.fake.returns(new factory.Contract({
-                conciliumId,
-                contractCode: '{"_default": "() {}"}'
-            }, strContractAddr));
+            node._storage.getContract = sinon.fake.returns(
+                new factory.Contract(
+                    {
+                        conciliumId,
+                        contractCode: '{"_default": "() {}"}'
+                    },
+                    strContractAddr
+                )
+            );
             node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
             node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
             node._app.getDataDelta = sinon.fake.returns(
-                1 + (nTotalHas - nFakeCoinsUsed) / factory.Constants.fees.STORAGE_PER_BYTE_FEE);
+                1 + (nTotalHas - nFakeCoinsUsed) / factory.Constants.fees.STORAGE_PER_BYTE_FEE
+            );
 
             const {fee, patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
 
@@ -2180,41 +2215,40 @@ describe('Node tests', async () => {
             assert.equal(fee, nTotalHas);
         });
 
-        it('should send right change (second output and fee. moneys sent to change, since contract throws)',
-            async () => {
-                const node = new factory.Node();
-                const nTotalHas = 1e5;
-                const nAmountSecondOutput = 1e4;
-                const nMoneysToContract = 1e3;
-                const nFakeCoinsUsed = 1e3;
+        it('should send right change (second output and fee. moneys sent to change, since contract throws)', async () => {
+            const node = new factory.Node();
+            const nTotalHas = 1e5;
+            const nAmountSecondOutput = 1e4;
+            const nMoneysToContract = 1e3;
+            const nFakeCoinsUsed = 1e3;
 
-                const kp = factory.Crypto.createKeyPair();
-                const {tx, strContractAddr} = createContractInvocationTx({}, true, nMoneysToContract);
-                tx.addReceiver(nAmountSecondOutput, generateAddress());
-                tx.signForContract(kp.privateKey);
+            const kp = factory.Crypto.createKeyPair();
+            const {tx, strContractAddr} = createContractInvocationTx({}, true, nMoneysToContract);
+            tx.addReceiver(nAmountSecondOutput, generateAddress());
+            tx.signForContract(kp.privateKey);
 
-                node._storage.getContract =
-                    sinon.fake.returns(new factory.Contract({conciliumId, contractCode: '{}'}, strContractAddr));
-                node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
-                node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
-                node._app.getDataDelta = sinon.fake.returns(0);
-                factory.Constants.forks = {HEIGHT_FORK_SERIALIZER: 1};
-                node._processedBlock = {
-                    getHash: () => pseudoRandomBuffer().toString('hex'),
-                    getHeight: () => factory.Constants.forks.HEIGHT_FORK_SERIALIZER + 1
-                };
+            node._storage.getContract = sinon.fake.returns(
+                new factory.Contract({conciliumId, contractCode: '{}'}, strContractAddr)
+            );
+            node._app.processTxInputs = sinon.fake.returns({totalHas: nTotalHas, patch: new factory.PatchDB()});
+            node._app.coinsSpent = sinon.fake.returns(nFakeCoinsUsed);
+            node._app.getDataDelta = sinon.fake.returns(0);
+            factory.Constants.forks = {HEIGHT_FORK_SERIALIZER: 1};
+            node._processedBlock = {
+                getHash: () => pseudoRandomBuffer().toString('hex'),
+                getHeight: () => factory.Constants.forks.HEIGHT_FORK_SERIALIZER + 1
+            };
 
-                const {patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
+            const {patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
 
-                const cReceipt = patchThisTx.getReceipt(tx.getHash());
-                const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
+            const cReceipt = patchThisTx.getReceipt(tx.getHash());
+            const cCoinsChange = cReceipt.getCoinsForTx(cReceipt.getInternalTxns()[0]);
 
-                const totalSpent = nFakeCoinsUsed + await node._calculateSizeFee(tx, false);
-                const nMoneysAvailForContract = nTotalHas - nAmountSecondOutput;
+            const totalSpent = nFakeCoinsUsed + (await node._calculateSizeFee(tx, false));
+            const nMoneysAvailForContract = nTotalHas - nAmountSecondOutput;
 
-                assert.equal(cCoinsChange.getAmount(), nMoneysAvailForContract - totalSpent);
-            }
-        );
+            assert.equal(cCoinsChange.getAmount(), nMoneysAvailForContract - totalSpent);
+        });
 
         it('should invoke contract with environment', async () => {
             const node = new factory.Node();
@@ -2259,7 +2293,7 @@ describe('Node tests', async () => {
 
             const {fee, patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
 
-            assert.equal(fee, coinsUsed + await node._calculateSizeFee(tx, false));
+            assert.equal(fee, coinsUsed + (await node._calculateSizeFee(tx, false)));
             assert.isOk(patchThisTx.getContract(strContractAddr));
             const receipt = patchThisTx.getReceipt(tx.hash());
             assert.isOk(receipt);
@@ -2281,7 +2315,7 @@ describe('Node tests', async () => {
 
             const {fee, patchThisTx} = await node._processTx(new factory.PatchDB(), false, tx);
 
-            assert.equal(fee, nTotalHas - (coinsUsed + await node._calculateSizeFee(tx, false)));
+            assert.equal(fee, nTotalHas - (coinsUsed + (await node._calculateSizeFee(tx, false))));
             assert.isOk(patchThisTx.getContract(strContractAddr));
             assert.isOk(patchThisTx.getReceipt(tx.hash()));
         });
@@ -2290,17 +2324,14 @@ describe('Node tests', async () => {
             const node = new factory.Node();
             const buffContractAddr = generateAddress();
 
-            node._storage.getContract =
-                sinon.fake.returns(new factory.Contract({conciliumId}, buffContractAddr.toString('hex')));
-            node._app.runContract =
-                sinon.fake.returns(new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK}));
-
-            const tx = factory.Transaction.invokeContract(
-                generateAddress().toString('hex'),
-                {},
-                0,
-                generateAddress()
+            node._storage.getContract = sinon.fake.returns(
+                new factory.Contract({conciliumId}, buffContractAddr.toString('hex'))
             );
+            node._app.runContract = sinon.fake.returns(
+                new factory.TxReceipt({coinsUsed: 1000, status: factory.Constants.TX_STATUS_OK})
+            );
+
+            const tx = factory.Transaction.invokeContract(generateAddress().toString('hex'), {}, 0, generateAddress());
             tx.conciliumId = conciliumId;
             tx.addInput(pseudoRandomBuffer(), 12);
 
@@ -2340,13 +2371,11 @@ describe('Node tests', async () => {
                 );
                 assert.equal(setResult.size, 0);
             });
-
         });
         describe('Node with only Genesis', async () => {
             it('should return GENESIS for empty REQUEST', async () => {
-
                 // fake possessing Genesis
-                node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
+                node._mainDag.getBlockInfo = hash => hash === factory.Constants.GENESIS_BLOCK;
                 const setResult = await node._getBlocksFromLastKnown([]);
 
                 assert.isOk(setResult);
@@ -2354,9 +2383,8 @@ describe('Node tests', async () => {
                 assert.isOk(setResult.has(factory.Constants.GENESIS_BLOCK));
             });
             it('should return GENESIS for some hashes', async () => {
-
                 // fake possessing Genesis
-                node._mainDag.getBlockInfo = (hash) => hash === factory.Constants.GENESIS_BLOCK;
+                node._mainDag.getBlockInfo = hash => hash === factory.Constants.GENESIS_BLOCK;
                 const setResult = await node._getBlocksFromLastKnown(
                     [1, 2, 3].map(_ => pseudoRandomBuffer().toString('hex'))
                 );
@@ -2365,15 +2393,12 @@ describe('Node tests', async () => {
                 assert.equal(setResult.size, 1);
                 assert.isOk(setResult.has(factory.Constants.GENESIS_BLOCK));
             });
-
         });
 
         describe('Some loaded node', async () => {
-
             it('should return CHAIN for empty REQUEST', async () => {
-
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const setResult = await node._getBlocksFromLastKnown([]);
@@ -2383,8 +2408,8 @@ describe('Node tests', async () => {
             });
 
             it('should return FORK for empty REQUEST', async () => {
-                const arrExpectedHashes = await createSimpleFork(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleFork(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const setResult = await node._getBlocksFromLastKnown([]);
@@ -2394,8 +2419,8 @@ describe('Node tests', async () => {
             });
 
             it('should return EMPTY set for last known hashes (FORK)', async () => {
-                const arrExpectedHashes = await createSimpleFork(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleFork(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const setResult = await node._getBlocksFromLastKnown(arrExpectedHashes);
@@ -2404,8 +2429,8 @@ describe('Node tests', async () => {
             });
 
             it('should return EMPTY set for last known hashes (CHAIN)', async () => {
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const setResult = await node._getBlocksFromLastKnown(arrExpectedHashes);
@@ -2414,9 +2439,8 @@ describe('Node tests', async () => {
             });
 
             it('should return EMPTY for one wrong ADDITIONAL hash (CHAIN)', async () => {
-
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const setResult = await node._getBlocksFromLastKnown(
@@ -2428,9 +2452,8 @@ describe('Node tests', async () => {
             });
 
             it('should return ONE element for last DELETED (CHAIN)', async () => {
-
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const expectedHash = arrExpectedHashes.pop();
@@ -2442,9 +2465,8 @@ describe('Node tests', async () => {
             });
 
             it('should return EMPTY set for last known from CHAIN', async () => {
-
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const expectedHash = arrExpectedHashes.pop();
@@ -2455,8 +2477,8 @@ describe('Node tests', async () => {
             });
 
             it('should return EMPTY set (FORK without root == all known)', async () => {
-                const arrExpectedHashes = await createSimpleFork(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleFork(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 arrExpectedHashes.shift();
@@ -2467,8 +2489,8 @@ describe('Node tests', async () => {
             });
 
             it('should return set of 3 elements without root (FORK)', async () => {
-                const arrExpectedHashes = await createSimpleFork(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleFork(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const genesis = arrExpectedHashes.shift();
@@ -2479,8 +2501,8 @@ describe('Node tests', async () => {
             });
 
             it('should return set of 1 elements: only child (FORK)', async () => {
-                const arrExpectedHashes = await createSimpleFork(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleFork(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 arrExpectedHashes.shift();
@@ -2493,8 +2515,8 @@ describe('Node tests', async () => {
 
             it('should return beginning of chain', async () => {
                 factory.Constants.MAX_BLOCKS_INV = 3;
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const setResult = await node._getBlocksFromLastKnown([arrExpectedHashes[0]]);
@@ -2502,10 +2524,7 @@ describe('Node tests', async () => {
                 assert.isOk(setResult);
                 assert.equal(setResult.size, 3);
                 assert.isOk(
-                    arrayEquals(
-                        Array.from(setResult),
-                        arrExpectedHashes.slice(1, factory.Constants.MAX_BLOCKS_INV + 1)
-                    )
+                    arrayEquals(Array.from(setResult), arrExpectedHashes.slice(1, factory.Constants.MAX_BLOCKS_INV + 1))
                 );
             });
         });
@@ -2517,8 +2536,8 @@ describe('Node tests', async () => {
             });
 
             async function prepareDag() {
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const topBlock = createDummyBlock(factory);
@@ -2531,8 +2550,8 @@ describe('Node tests', async () => {
             }
 
             async function prepareDag2() {
-                const arrExpectedHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrExpectedHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const sideBlock = createDummyBlock(factory);
@@ -2613,12 +2632,7 @@ describe('Node tests', async () => {
 
                 // because we already have root, so -1
                 assert.equal(setResult.size, arrExpectedHashes.length - 1);
-                assert.isOk(
-                    arrayEquals(
-                        Array.from(setResult),
-                        arrExpectedHashes.slice(1, arrExpectedHashes.length)
-                    )
-                );
+                assert.isOk(arrayEquals(Array.from(setResult), arrExpectedHashes.slice(1, arrExpectedHashes.length)));
             });
         });
 
@@ -2629,8 +2643,8 @@ describe('Node tests', async () => {
             });
 
             async function prepareDag() {
-                const arrMainChainHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrMainChainHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const sideBlock = createDummyBlock(factory);
@@ -2657,14 +2671,11 @@ describe('Node tests', async () => {
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
                 assert.isOk(
-                    arrayEquals(
-                        Array.from(setResult),
-                        [
-                            arrMainChainHashes[nPosInChain + 1],
-                            strSideBlockHash,
-                            arrMainChainHashes[nPosInChain + 2]
-                        ]
-                    )
+                    arrayEquals(Array.from(setResult), [
+                        arrMainChainHashes[nPosInChain + 1],
+                        strSideBlockHash,
+                        arrMainChainHashes[nPosInChain + 2]
+                    ])
                 );
             });
 
@@ -2713,14 +2724,11 @@ describe('Node tests', async () => {
                 // because we already have root, so -1 and +1 for side
                 assert.equal(setResult.size, arrMainChainHashes.length);
                 assert.isOk(
-                    arrayEquals(
-                        Array.from(setResult),
-                        [
-                            arrMainChainHashes[1],
-                            strSideBlockHash,
-                            ...arrMainChainHashes.slice(2, arrMainChainHashes.length)
-                        ]
-                    )
+                    arrayEquals(Array.from(setResult), [
+                        arrMainChainHashes[1],
+                        strSideBlockHash,
+                        ...arrMainChainHashes.slice(2, arrMainChainHashes.length)
+                    ])
                 );
             });
         });
@@ -2732,8 +2740,8 @@ describe('Node tests', async () => {
             });
 
             async function prepareDag() {
-                const arrMainChainHashes = await createSimpleChain(
-                    block => node._mainDag.addBlock(new factory.BlockInfo(block.header))
+                const arrMainChainHashes = await createSimpleChain(block =>
+                    node._mainDag.addBlock(new factory.BlockInfo(block.header))
                 );
 
                 const sideBlock = createDummyBlock(factory);
@@ -2760,16 +2768,13 @@ describe('Node tests', async () => {
                 assert.isOk(setResult);
                 assert.equal(setResult.size, factory.Constants.MAX_BLOCKS_INV);
                 assert.isOk(
-                    arrayEquals(
-                        Array.from(setResult),
-                        [
-                            arrMainChainHashes[nPosInChain + 1],
-                            arrMainChainHashes[nPosInChain + 2],
-                            strSideBlockHash,
-                            arrMainChainHashes[nPosInChain + 3],
-                            arrMainChainHashes[nPosInChain + 4]
-                        ]
-                    )
+                    arrayEquals(Array.from(setResult), [
+                        arrMainChainHashes[nPosInChain + 1],
+                        arrMainChainHashes[nPosInChain + 2],
+                        strSideBlockHash,
+                        arrMainChainHashes[nPosInChain + 3],
+                        arrMainChainHashes[nPosInChain + 4]
+                    ])
                 );
             });
 
@@ -2818,15 +2823,12 @@ describe('Node tests', async () => {
                 // because we already have root, so -1 and +1 for side
                 assert.equal(setResult.size, arrMainChainHashes.length);
                 assert.isOk(
-                    arrayEquals(
-                        Array.from(setResult),
-                        [
-                            arrMainChainHashes[1],
-                            arrMainChainHashes[2],
-                            strSideBlockHash,
-                            ...arrMainChainHashes.slice(3, arrMainChainHashes.length)
-                        ]
-                    )
+                    arrayEquals(Array.from(setResult), [
+                        arrMainChainHashes[1],
+                        arrMainChainHashes[2],
+                        strSideBlockHash,
+                        ...arrMainChainHashes.slice(3, arrMainChainHashes.length)
+                    ])
                 );
             });
         });
@@ -2882,7 +2884,7 @@ describe('Node tests', async () => {
             await node._processReceivedTx(tx);
         });
 
-        it('should process received TX', async function() {
+        it('should process received TX', async function () {
             node._validateTxLight = sinon.fake.resolves();
             node._mempool.addTx = sinon.fake();
             node._informNeighbors = sinon.fake();
@@ -3026,7 +3028,6 @@ describe('Node tests', async () => {
             assert.equal(msg.inventory.vector.length, 2);
 
             assert.isOk(fakePeer.markAsPossiblyAhead.calledOnce);
-
         });
 
         it('should request 1 block and markAsEven', async () => {
@@ -3056,7 +3057,6 @@ describe('Node tests', async () => {
 
             assert.isOk(fakePeer.markAsEven.calledOnce);
             assert.isOk(fakePeer.doneGetBlocks.calledOnce);
-
         });
 
         it('should request 0 block and request mempool', async () => {
@@ -3085,8 +3085,6 @@ describe('Node tests', async () => {
 
             assert.isOk(fakePeer.markAsEven.calledOnce);
             assert.isOk(fakePeer.doneGetBlocks.calledOnce);
-
         });
     });
 });
-

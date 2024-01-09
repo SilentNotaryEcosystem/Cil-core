@@ -5,7 +5,6 @@ const types = require('../types');
 const {timestamp} = require('../utils');
 
 module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProto}) =>
-
     class Block {
         constructor(data) {
             typeforce(typeforce.oneOf('Object', 'Buffer', 'Number'), data);
@@ -63,7 +62,6 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         get timestamp() {
-
             // Dummy for building stage. Used for processing contracts
             if (this._building) return timestamp();
 
@@ -79,7 +77,6 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
          * @returns {String} !!
          */
         hash() {
-
             // Dummy for building stage. Used for processing contracts
             if (this._building) return Constants.GENESIS_BLOCK;
 
@@ -106,7 +103,6 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
          * @private
          */
         _buildTxTree() {
-
             // MerkleTree hangs on empty arrays!
             if (!this._data.txns.length) throw new Error('Empty block! Should be at least a coinbase TX!');
 
@@ -143,11 +139,11 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
         }
 
         getTxHashes() {
-            return this.txns.map(objTx => (new Transaction(objTx)).hash());
+            return this.txns.map(objTx => new Transaction(objTx).hash());
         }
 
         isEmpty() {
-            return this.txns.length === 1 && (new Transaction(this.txns[0])).isCoinbase();
+            return this.txns.length === 1 && new Transaction(this.txns[0]).isCoinbase();
         }
 
         finish(totalTxnsFees, addrReceiver, minUsefulAmount = 0) {
@@ -166,7 +162,6 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             // we'll create outputs ONLY if there are coins! if 0 - no outputs will be created
             if (totalTxnsFees) {
-
                 // developer foundation. send only if it at least twice more than minUsefulAmount
                 let nFeeDevFoundation = parseInt(Constants.DEV_FOUNDATION_SHARE * totalTxnsFees);
                 if (nFeeDevFoundation >= minUsefulAmount * 2) {
@@ -199,12 +194,11 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
             return {
                 header: this._data.header,
                 signatures: this._data.signatures,
-                tnxs: this._data.txns.map(objTx => (new Transaction(objTx)).getHash())
+                tnxs: this._data.txns.map(objTx => new Transaction(objTx).getHash())
             };
         }
 
         verify(checkSignatures = true) {
-
             // block should have at least one parent!
             assert(Array.isArray(this.parentHashes) && this.parentHashes.length, 'Bad block parents');
 
@@ -215,16 +209,16 @@ module.exports = ({Constants, Crypto, Transaction}, {blockProto, blockHeaderProt
 
             // merkleRoot
             const buffRoot = Buffer.from(this.merkleRoot);
-            assert(this.merkleRoot &&
-                   buffRoot.equals(this._buildTxTree()), 'Bad merkle root'
-            );
+            assert(this.merkleRoot && buffRoot.equals(this._buildTxTree()), 'Bad merkle root');
 
             // height
             assert(this.getHeight() > 0, 'Bad height');
 
             // conciliumId
-            assert(this.txns.length && this.txns.every(tx =>
-                (new Transaction(tx)).conciliumId === this.conciliumId), 'Found tx with wrong conciliumId');
+            assert(
+                this.txns.length && this.txns.every(tx => new Transaction(tx).conciliumId === this.conciliumId),
+                'Found tx with wrong conciliumId'
+            );
         }
 
         getHeight() {

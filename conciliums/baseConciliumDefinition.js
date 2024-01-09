@@ -30,8 +30,7 @@ module.exports = class BaseConciliumDefinition {
     constructor(data, nSeqLength = 20) {
         if (Buffer.isBuffer(data)) throw new Error('BaseConciliumDefinition. Unexpected construction from buffer');
         if (typeof data !== 'object') {
-            throw new Error(
-                `BaseConciliumDefinition. Unexpected construction from ${typeof data}`);
+            throw new Error(`BaseConciliumDefinition. Unexpected construction from ${typeof data}`);
         }
 
         this._data = deepCloneObject(data);
@@ -56,7 +55,7 @@ module.exports = class BaseConciliumDefinition {
     }
 
     _setType(type) {
-        return this._data.type = type;
+        return (this._data.type = type);
     }
 
     toObject() {
@@ -126,7 +125,6 @@ module.exports = class BaseConciliumDefinition {
     }
 
     initRounds() {
-
         // 2 variables, because this._nSeed could change asynchronously
         this._nRoundBase = this._nSeed;
         this._nLocalRound = 0;
@@ -155,13 +153,12 @@ module.exports = class BaseConciliumDefinition {
         return this._data.parameters.document;
     }
 
-
     /**
      * Get wallet addresses of witnesses.
      *
      * @returns {(Buffer|*)[]|undefined}
      */
-    getAddresses(){
+    getAddresses() {
         throw new Error('Implement!');
     }
 

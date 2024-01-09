@@ -30,12 +30,14 @@ async function main() {
     const wallet = new factory.Wallet(privateKey);
 
     const arrUtxos = await getUtxos(wallet.address);
-    const {arrCoins} = gatherInputsForAmount(arrUtxos.sort((a, b) => b.amount - a.amount), nEnoughCoinsToLeave);
+    const {arrCoins} = gatherInputsForAmount(
+        arrUtxos.sort((a, b) => b.amount - a.amount),
+        nEnoughCoinsToLeave
+    );
 
     const tx = leaveConcilium(nConciliumId, wallet, arrCoins);
-    console.error(
-        `Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
-//    console.log(tx.encode().toString('hex'));
+    console.error(`Here is TX containment: ${JSON.stringify(prepareForStringifyObject(tx.rawData), undefined, 2)}`);
+    //    console.log(tx.encode().toString('hex'));
     console.log(tx.getHash());
     await sendTx(tx.encode().toString('hex'));
 }
@@ -108,5 +110,3 @@ function gatherInputsForAmount(arrUtxos, amount) {
     }
     throw new Error('Not enough coins!');
 }
-
-

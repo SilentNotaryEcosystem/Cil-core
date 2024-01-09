@@ -10,24 +10,22 @@ const pathPrefix = os.platform() === 'win32' ? '\\\\?\\pipe' : '';
 
 const {sleep} = require('../utils');
 const TestConnectionWrapper = require('./testConnection');
-const ipaddr = require("ipaddr.js");
+const ipaddr = require('ipaddr.js');
 
 /**
  * Это тестовый транспорт
  * Может эмулировать задержку через options.delay
  */
 
-
-const createPipeName = (address) => path.join(`${pathPrefix}`, os.tmpdir(), `cil-addr-${address}`);
+const createPipeName = address => path.join(`${pathPrefix}`, os.tmpdir(), `cil-addr-${address}`);
 
 const EventBus = new EventEmitter();
 
-module.exports = (factory) => {
+module.exports = factory => {
     const {Serializer, MessageAssembler, Constants} = factory;
     const TestConnection = TestConnectionWrapper(Serializer, MessageAssembler, Constants);
 
     return class TestTransport extends EventEmitter {
-
         /**
          *
          * @param {Object} options
@@ -54,10 +52,10 @@ module.exports = (factory) => {
          * @returns {String} !!!
          */
         get myAddress() {
-//            if (!this._cachedAddr) {
-//                this._cachedAddr = this.constructor.strToAddress(this._address);
-//            }
-//            return this._cachedAddr;
+            //            if (!this._cachedAddr) {
+            //                this._cachedAddr = this.constructor.strToAddress(this._address);
+            //            }
+            //            return this._cachedAddr;
             return this._address;
         }
 
@@ -92,8 +90,8 @@ module.exports = (factory) => {
          * @param addr
          * @returns {boolean}
          */
-        static isAddrValid(addr){
-            return (new RegExp('^[0-9]')).test(addr);
+        static isAddrValid(addr) {
+            return new RegExp('^[0-9]').test(addr);
         }
 
         /**
@@ -111,7 +109,6 @@ module.exports = (factory) => {
          * @return {String} !!
          */
         static generateAddress() {
-
             // this awful construction will format address as needed (pad with zeroes ahead)
             return this.addressToString(this.strToAddress(uuid.v4().substring(0, 8)));
         }
@@ -150,15 +147,12 @@ module.exports = (factory) => {
             const netAddr = createPipeName(address);
 
             return new Promise((resolve, reject) => {
-                const socket = net.createConnection(netAddr,
-                    async (err) => {
-                        if (err) return reject(err);
-                        const remoteAddress = Buffer.from(await this._exchangeAddresses(socket), 'hex');
-                        if (this._delay) await sleep(this._delay);
-                        resolve(
-                            new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress}));
-                    }
-                );
+                const socket = net.createConnection(netAddr, async err => {
+                    if (err) return reject(err);
+                    const remoteAddress = Buffer.from(await this._exchangeAddresses(socket), 'hex');
+                    if (this._delay) await sleep(this._delay);
+                    resolve(new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress}));
+                });
                 socket.on('error', err => reject(err));
             });
         }
@@ -168,7 +162,6 @@ module.exports = (factory) => {
          *
          */
         async listen() {
-
             // for test only
             const netAddr = createPipeName(this._address);
 
@@ -178,9 +171,10 @@ module.exports = (factory) => {
                 fs.unlinkSync(netAddr);
             } catch (err) {}
 
-            net.createServer(async (socket) => {
+            net.createServer(async socket => {
                 const remoteAddress = Buffer.from(await this._exchangeAddresses(socket), 'hex');
-                this.emit('connect',
+                this.emit(
+                    'connect',
                     new TestConnection({delay: this._delay, socket, timeout: this._timeout, remoteAddress})
                 );
             }).listen(netAddr);
@@ -215,7 +209,7 @@ module.exports = (factory) => {
             socket.write(TestTransport.strToAddress(this._address));
 
             return new Promise((resolve, reject) => {
-                socket.once('data', (addressBuff) => {
+                socket.once('data', addressBuff => {
                     debug(`got remote address: ${TestTransport.addressToString(addressBuff)}`);
                     resolve(addressBuff);
                 });

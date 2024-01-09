@@ -1,4 +1,4 @@
-const {BufferReader} = require("protobufjs");
+const {BufferReader} = require('protobufjs');
 
 module.exports = MessagesImplementation => {
     const {MsgCommon} = MessagesImplementation;
@@ -18,7 +18,6 @@ module.exports = MessagesImplementation => {
          * @return {MessageCommon}
          */
         static deSerialize(buffer) {
-
             // was message completly downloaded?
             const {length, dataOffset} = Serializer.readMsgLength(buffer);
             if (buffer.length - dataOffset !== length) {

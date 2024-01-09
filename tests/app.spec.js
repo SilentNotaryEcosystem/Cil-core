@@ -37,12 +37,12 @@ describe('Application layer', () => {
     let coinsIn;
     let app;
 
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -51,9 +51,10 @@ describe('Application layer', () => {
         nFeeContractCreation = factory.Constants.fees.CONTRACT_CREATION_FEE;
         nFeeStorage = factory.Constants.fees.STORAGE_PER_BYTE_FEE;
         nFeeSizeFakeTx = 100;
-        coinsIn = factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                  1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE +
-                  nFeeSizeFakeTx;
+        coinsIn =
+            factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+            1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE +
+            nFeeSizeFakeTx;
 
         app = new factory.Application();
         app.setupVariables({
@@ -297,26 +298,29 @@ describe('Application layer', () => {
             `;
         const callerAddress = generateAddress().toString('hex');
 
-        const contract = app.createContract(
-            strCode,
-            {contractAddr: 'hash', callerAddress}
-        );
+        const contract = app.createContract(strCode, {contractAddr: 'hash', callerAddress});
 
         assert.isOk(contract);
         assert.deepEqual(contract.getData(), {_data: 10, _ownerAddress: callerAddress});
 
         const objCode = contract.getCode();
         assert.isOk(objCode);
-        assert.isOk(arrayEquals(Object.keys(objCode),
-            [
-                'changeDefinition', 'addDefinition', 'noArguments', '_validateDefinition', '_checkOwner',
-                '_transferOwnership', '_validateAddress']
-        ));
+        assert.isOk(
+            arrayEquals(Object.keys(objCode), [
+                'changeDefinition',
+                'addDefinition',
+                'noArguments',
+                '_validateDefinition',
+                '_checkOwner',
+                '_transferOwnership',
+                '_validateAddress'
+            ])
+        );
     });
 
-    it('should prepare code for exec (just shouldn\'t throw)', async () => {
+    it("should prepare code for exec (just shouldn't throw)", async () => {
         const contract = new factory.Contract({
-            contractCode: {changeDefinition: "(objNewDefinition){}"},
+            contractCode: {changeDefinition: '(objNewDefinition){}'},
             contractData: {_data: 19}
         });
 
@@ -332,11 +336,7 @@ describe('Application layer', () => {
             conciliumId
         });
 
-        await app.runContract(
-            {method: 'add', arrArguments: [10]},
-            contract,
-            {}, undefined
-        );
+        await app.runContract({method: 'add', arrArguments: [10]}, contract, {}, undefined);
 
         assert.equal(app.coinsSpent(), nFeeContractInvocation);
         assert.deepEqual(contract.getData(), {value: 200110});
@@ -350,11 +350,10 @@ describe('Application layer', () => {
             conciliumId
         });
 
-        return assert.isRejected(app.runContract(
-            {method: 'subtract', arrArguments: [10]},
-            contract,
-            {}, undefined
-        ), /Method .+ not found/);
+        return assert.isRejected(
+            app.runContract({method: 'subtract', arrArguments: [10]}, contract, {}, undefined),
+            /Method .+ not found/
+        );
     });
 
     it('should throw (no default function)', async () => {
@@ -365,11 +364,7 @@ describe('Application layer', () => {
             conciliumId
         });
 
-        return assert.isRejected(app.runContract(
-            {},
-            contract,
-            {}, undefined
-        ), /Method _default not found/);
+        return assert.isRejected(app.runContract({}, contract, {}, undefined), /Method _default not found/);
     });
 
     it('should call default function', async () => {
@@ -386,10 +381,7 @@ describe('Application layer', () => {
             objFees: {nFeeContractInvocation: 1e4, nFeeStorage: 10}
         });
 
-        await app.runContract(
-            {}, contract,
-            {}, undefined, false
-        );
+        await app.runContract({}, contract, {}, undefined, false);
 
         assert.deepEqual(contract.getData(), {value: 117});
     });
@@ -410,13 +402,7 @@ describe('Application layer', () => {
             objFees: {nFeeContractInvocation: 1e4, nFeeStorage: 10}
         });
 
-        const result = await app.runContract(
-            {method: 'test', arrArguments: []},
-            contract,
-            {},
-            undefined,
-            true
-        );
+        const result = await app.runContract({method: 'test', arrArguments: []}, contract, {}, undefined, true);
 
         assert.isOk(result);
         assert.deepEqual(result, sampleResult);
@@ -444,10 +430,10 @@ describe('Application layer', () => {
         app.processPayments(tx, patch);
     });
 
-    describe('Injected functions', async ()=>{
+    describe('Injected functions', async () => {
         it('should run sha3', async () => {
             const conciliumId = 10;
-            const msg='test';
+            const msg = 'test';
 
             const contract = new factory.Contract({
                 contractData: {},
@@ -455,12 +441,7 @@ describe('Application layer', () => {
                 conciliumId
             });
 
-            const result = await app.runContract(
-                {method: 'test', arrArguments: [msg]},
-                contract,
-                {}, undefined,
-                true
-            );
+            const result = await app.runContract({method: 'test', arrArguments: [msg]}, contract, {}, undefined, true);
 
             assert.equal(result, factory.Crypto.sha3(msg));
         });

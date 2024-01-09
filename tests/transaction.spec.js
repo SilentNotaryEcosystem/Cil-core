@@ -12,7 +12,7 @@ let publicKey;
 const factory = require('./testFactory');
 
 describe('Transaction tests', () => {
-    before(async function() {
+    before(async function () {
         await factory.asyncLoad();
         keyPair = factory.Crypto.createKeyPair();
         privateKey = keyPair.getPrivate();
@@ -318,11 +318,7 @@ describe('Transaction tests', () => {
     it('should VERIFY tx with contract invocation', async () => {
         const kp = factory.Crypto.createKeyPair();
         const objCode = {};
-        const tx = factory.Transaction.invokeContract(
-            generateAddress().toString('hex'),
-            objCode,
-            0
-        );
+        const tx = factory.Transaction.invokeContract(generateAddress().toString('hex'), objCode, 0);
 
         // spend witness2 coins (WHOLE!)
         tx.addInput(pseudoRandomBuffer(), 0);
@@ -332,11 +328,7 @@ describe('Transaction tests', () => {
     });
 
     it('should get amount sent to contract', async () => {
-        const tx = factory.Transaction.invokeContract(
-            generateAddress().toString('hex'),
-            {},
-            100
-        );
+        const tx = factory.Transaction.invokeContract(generateAddress().toString('hex'), {}, 100);
         tx.addReceiver(1000, generateAddress());
         tx.addReceiver(2000, generateAddress());
 
@@ -374,11 +366,7 @@ describe('Transaction tests', () => {
 
     it('should get Contract Address', async () => {
         const buffAddr = generateAddress();
-        const tx = factory.Transaction.invokeContract(
-            buffAddr.toString('hex'),
-            {},
-            100
-        );
+        const tx = factory.Transaction.invokeContract(buffAddr.toString('hex'), {}, 100);
 
         assert.isOk(buffAddr.equals(tx.getContractAddr()));
     });
@@ -424,21 +412,17 @@ describe('Transaction tests', () => {
         });
     });
 
-    describe('isContract', async () =>{
-        it("should FAIL for regular tx", async () => {
+    describe('isContract', async () => {
+        it('should FAIL for regular tx', async () => {
             const tx = new factory.Transaction(createDummyTx());
 
             assert.isNotOk(tx.isContract());
         });
 
-        it("should PASS for invokeContract tx", async () => {
+        it('should PASS for invokeContract tx', async () => {
             const kp = factory.Crypto.createKeyPair();
             const objCode = {};
-            const tx = factory.Transaction.invokeContract(
-                generateAddress().toString('hex'),
-                objCode,
-                0
-            );
+            const tx = factory.Transaction.invokeContract(generateAddress().toString('hex'), objCode, 0);
 
             // spend witness2 coins (WHOLE!)
             tx.addInput(pseudoRandomBuffer(), 0);
@@ -447,7 +431,7 @@ describe('Transaction tests', () => {
             assert.isOk(tx.isContract());
         });
 
-        it("should PASS for createContract tx", async () => {
+        it('should PASS for createContract tx', async () => {
             const tx = factory.Transaction.createContract('', generateAddress());
 
             assert.isOk(tx.isContract());

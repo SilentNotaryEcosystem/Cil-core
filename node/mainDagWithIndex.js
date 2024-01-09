@@ -67,11 +67,11 @@ module.exports = (MainDag, MainDagIndex, factory) => {
         // MainDag interface finish
 
         async _getParentBlocks(blockInfo, nBackUpSource) {
-            return (await Promise.all(
-                blockInfo.parentHashes.map(async hash =>
-                    await this.getBlockInfo(hash, nBackUpSource)
+            return (
+                await Promise.all(
+                    blockInfo.parentHashes.map(async hash => await this.getBlockInfo(hash, nBackUpSource))
                 )
-            )).filter(item => item !== undefined);
+            ).filter(item => item !== undefined);
         }
 
         // MainDagIndex interface finish

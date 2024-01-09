@@ -10,7 +10,7 @@ const {createDummyTx, pseudoRandomBuffer} = require('./testUtil');
 let cache;
 
 describe('Request Cache', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });

@@ -25,7 +25,6 @@ global.logger = {
  * Class to easy replacement used components
  */
 
-
 const Ipv6TransportWrapper = require('../network/ipv6Transport');
 
 class TestIpV6Factory extends BaseFactory {

@@ -38,9 +38,7 @@ const createDummyDefinitionWallet = (conciliumId = 0) => {
     const keyPair2 = factory.Crypto.createKeyPair();
     const newWallet = new factory.Wallet(keyPair1.privateKey);
 
-    const concilium = factory.ConciliumRr.create(conciliumId,
-        [keyPair1.address, keyPair2.address]
-    );
+    const concilium = factory.ConciliumRr.create(conciliumId, [keyPair1.address, keyPair2.address]);
 
     return {keyPair1, keyPair2, concilium, newWallet};
 };
@@ -55,14 +53,14 @@ const createDummyWitness = () => {
 };
 
 describe('Witness tests', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
 
         wallet = new factory.Wallet('b7760a01705490e5e153a6ef7732369a72dbf9aaafb5c482cdfd960546909ec1');
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -71,7 +69,7 @@ describe('Witness tests', () => {
         assert.throws(wrapper);
     });
 
-    it('should create witness', function() {
+    it('should create witness', function () {
         new factory.Witness({wallet});
     });
 
@@ -102,10 +100,11 @@ describe('Witness tests', () => {
         // mock peer with public key from concilium
         const peer = createDummyPeer();
 
-        const def = factory.ConciliumRr.create(
-            conciliumId,
-            [wallet.publicKey, Buffer.from('pubkey1'), Buffer.from('pubkey2')]
-        );
+        const def = factory.ConciliumRr.create(conciliumId, [
+            wallet.publicKey,
+            Buffer.from('pubkey1'),
+            Buffer.from('pubkey2')
+        ]);
         const arrTestDefinition = [def];
 
         // create witness
@@ -160,10 +159,7 @@ describe('Witness tests', () => {
         await witness.ensureLoaded();
         const addr = generateAddress();
         const amount = 1e4;
-        const arrUtxos = [
-            createDummyUtxo([1, 2, 5], amount, addr),
-            createDummyUtxo([0], amount, addr)
-        ];
+        const arrUtxos = [createDummyUtxo([1, 2, 5], amount, addr), createDummyUtxo([0], amount, addr)];
 
         const tx = witness._createJoinTx(arrUtxos, concilium);
 
@@ -179,10 +175,7 @@ describe('Witness tests', () => {
         await witness.ensureLoaded();
         const addr = generateAddress();
         const amount = 1e4;
-        const arrUtxos = [
-            createDummyUtxo([1, 2, 5], amount, addr),
-            createDummyUtxo([0], amount, addr)
-        ];
+        const arrUtxos = [createDummyUtxo([1, 2, 5], amount, addr), createDummyUtxo([0], amount, addr)];
 
         const tx = witness._createJoinTx(arrUtxos, concilium, 2);
 
@@ -212,9 +205,9 @@ describe('Witness tests', () => {
                 clock.tick(nFakeTimePerTx);
                 return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
             };
-            witness._mempool.getFinalTxns =
-                () => new Array(1000).fill(1).map(() => new factory.Transaction(createDummyTx()));
-            witness._calcHeight = sinon.fake.resolves(1);;
+            witness._mempool.getFinalTxns = () =>
+                new Array(1000).fill(1).map(() => new factory.Transaction(createDummyTx()));
+            witness._calcHeight = sinon.fake.resolves(1);
             witness._pendingBlocks.getBestParents = () => ({
                 arrParents: [pseudoRandomBuffer().toString('hex')],
                 patchMerged: new factory.PatchDB()
@@ -223,7 +216,8 @@ describe('Witness tests', () => {
             const {block} = await witness._createBlock(0);
 
             // plus coinbase, plus that tx, which exec exceed time per block
-            assert.equal(block.txns.length,
+            assert.equal(
+                block.txns.length,
                 1 + 1 + parseInt(factory.Constants.BLOCK_CREATION_TIME_LIMIT / nFakeTimePerTx)
             );
         });
@@ -271,9 +265,9 @@ describe('Witness tests', () => {
             witness._processTx = async () => {
                 return {fee: nFakeFee, patchThisTx: new factory.PatchDB()};
             };
-            witness._mempool.getFinalTxns =
-                () => new Array(10).fill(1).map(() => new factory.Transaction(createDummyTx()));
-            witness._calcHeight = sinon.fake.resolves(1);;
+            witness._mempool.getFinalTxns = () =>
+                new Array(10).fill(1).map(() => new factory.Transaction(createDummyTx()));
+            witness._calcHeight = sinon.fake.resolves(1);
             witness._nLowestConciliumId = 0;
             witness._createJoinTx = sinon.fake.returns(new factory.Transaction(createDummyTx()));
             witness._storage.walletListUnspent = async () => new Array(factory.Constants.WITNESS_UTXOS_JOIN + 1);
@@ -289,23 +283,22 @@ describe('Witness tests', () => {
         });
     });
 
-    it("should sort txns (regular first)", async () => {
+    it('should sort txns (regular first)', async () => {
         const {witness, concilium} = createDummyWitness();
         await witness.ensureLoaded();
 
         witness._mempool.getFinalTxns = () => [
             new factory.Transaction(createDummyTx()),
             factory.Transaction.createContract('', generateAddress()),
-            factory.Transaction.invokeContract(
-                generateAddress().toString('hex'),
-                {},
-                0
-            ),
+            factory.Transaction.invokeContract(generateAddress().toString('hex'), {}, 0),
             new factory.Transaction(createDummyTx())
         ];
 
         const arrTxns = await witness._gatherTxns(concilium);
 
-        assert.deepEqual(arrTxns.map(tx => tx.isContract()), [false, false, true, true]);
+        assert.deepEqual(
+            arrTxns.map(tx => tx.isContract()),
+            [false, false, true, true]
+        );
     });
 });

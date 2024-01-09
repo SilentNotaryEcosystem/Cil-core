@@ -11,7 +11,7 @@ let msgCommon;
 const port = 8223;
 
 describe('IPv6 Transport', () => {
-    before(async function() {
+    before(async function () {
         process.on('warning', e => console.warn(e.stack));
 
         this.timeout(15000);
@@ -21,7 +21,7 @@ describe('IPv6 Transport', () => {
         msgCommon.message = 'test';
     });
 
-    after(async function() {
+    after(async function () {
         process.removeAllListeners();
         this.timeout(15000);
     });
@@ -38,21 +38,21 @@ describe('IPv6 Transport', () => {
         assert.equal(strAddress, '::1');
     });
 
-    it('should be ROUTABLE IPv6 address', async function() {
+    it('should be ROUTABLE IPv6 address', async function () {
         assert.isOk(await factory.Transport.isRoutableIpV6Address('::ffff:4a77:c21a'));
         assert.isOk(await factory.Transport.isRoutableIpV6Address('2001:4860:4860::8888'));
     });
 
-    it('should be NON ROUTABLE IPv6 address', async function() {
+    it('should be NON ROUTABLE IPv6 address', async function () {
         assert.isNotOk(await factory.Transport.isRoutableIpV6Address('fd44:c346:f8fe:d300:5145:d4fa:badb:29bd'));
         assert.isNotOk(await factory.Transport.isRoutableIpV6Address('fe80::a04b:7081:b4ac:143'));
     });
 
-    it('should be ROUTABLE IPv4 address', async function() {
+    it('should be ROUTABLE IPv4 address', async function () {
         assert.isOk(await factory.Transport.isRoutableIpV4Address('8.8.8.8'));
     });
 
-    it('should be NON ROUTABLE IPv4 address', async function() {
+    it('should be NON ROUTABLE IPv4 address', async function () {
         assert.isNotOk(await factory.Transport.isRoutableIpV4Address('127.0.0.1'));
         assert.isNotOk(await factory.Transport.isRoutableIpV4Address('192.168.1.1'));
         assert.isNotOk(await factory.Transport.isRoutableIpV4Address('10.0.0.1'));
@@ -62,7 +62,7 @@ describe('IPv6 Transport', () => {
         assert.isNotOk(await factory.Transport.isRoutableIpV4Address('169.254.0.0'));
     });
 
-    it('should get addresses from dns', async function() {
+    it('should get addresses from dns', async function () {
         this.timeout(5000);
 
         const name = 'ya.ru';
@@ -72,13 +72,13 @@ describe('IPv6 Transport', () => {
         assert.isOk(Array.isArray(arrAddresses));
     });
 
-    it('should convert to ipv6 address', async function() {
+    it('should convert to ipv6 address', async function () {
         assert.isOk(factory.Transport.toIpV6Address('192.168.1.2'));
         assert.isOk(factory.Transport.toIpV6Address('87.250.250.242'));
         assert.isOk(factory.Transport.toIpV6Address('::ffff:c0a8:102'));
     });
 
-    it('should communicate each other', async function() {
+    it('should communicate each other', async function () {
         this.timeout(100000);
         const endpoint1 = new factory.Transport({listenPort: 1236, useNatTraversal: false});
         const endpoint2 = new factory.Transport();
@@ -98,7 +98,7 @@ describe('IPv6 Transport', () => {
         assert.isOk(result.message);
     });
 
-    it('should MAP address', async function() {
+    it('should MAP address', async function () {
         this.timeout(5000);
         const mappedAddr = '1.2.3.4';
         const endpoint = new factory.Transport();
@@ -109,7 +109,7 @@ describe('IPv6 Transport', () => {
         assert.equal(await endpoint._mapAddress(), mappedAddr);
     });
 
-    it('should TIMEOUT map address', async function() {
+    it('should TIMEOUT map address', async function () {
         this.timeout(5000);
         const mappedAddr = '1.2.3.4';
         const endpoint = new factory.Transport();
@@ -121,7 +121,6 @@ describe('IPv6 Transport', () => {
     });
 
     describe('listen tests', async () => {
-
         it('should FAIL to listen (ip not belong to this box)', async () => {
             const endpoint = new factory.Transport({listenAddr: '8.8.8.8'});
             try {
@@ -249,14 +248,14 @@ describe('IPv6 Transport', () => {
         });
     });
 
-    it("should mark address as valid", async () => {
+    it('should mark address as valid', async () => {
         assert.isOk(factory.Transport.isAddrValid('192.168.1.1'));
         assert.isOk(factory.Transport.isAddrValid('10.0.1.123'));
         assert.isOk(factory.Transport.isAddrValid('172.16.1.3'));
         assert.isOk(factory.Transport.isAddrValid('212.153.11.7'));
     });
 
-    it("should make address as invalid", async () => {
+    it('should make address as invalid', async () => {
         assert.isNotOk(factory.Transport.isAddrValid('za'));
         assert.isNotOk(factory.Transport.isAddrValid('aa'));
         assert.isNotOk(factory.Transport.isAddrValid(''));

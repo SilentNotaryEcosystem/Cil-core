@@ -10,7 +10,6 @@ module.exports = (Constants, Crypto, MessageInv) => {
     const {MSG_GET_DATA} = Constants.messageTypes;
 
     return class MessageGetData extends MessageInv {
-
         /**
          *
          * @param {Inventory | Buffer} data

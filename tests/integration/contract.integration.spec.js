@@ -11,7 +11,6 @@ const factory = getNewTestFactory();
 const {pseudoRandomBuffer, generateAddress, createObjInvocationCode} = require('../testUtil');
 
 const createContractInvocationTx = (strContractAddr, code = {}, hasChangeReceiver = true, amount = 0) => {
-
     // prepare tx (for non genesis block)
     let tx;
 
@@ -34,7 +33,7 @@ describe('Contract integration tests', () => {
     const nFakeFeeTx = 1e3;
     const nFakeFeeDataSize = 10;
 
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });
@@ -48,7 +47,7 @@ describe('Contract integration tests', () => {
         await node.ensureLoaded();
     });
 
-    after(async function() {
+    after(async function () {
         this.timeout(15000);
     });
 
@@ -92,7 +91,6 @@ describe('Contract integration tests', () => {
         });
 
         it('should deploy contract (before first fork)', async () => {
-
             // data serialized to V8
             node._processedBlock = {
                 getHeight: () => factory.Constants.forks.HEIGHT_FORK_SERIALIZER - 1,
@@ -121,9 +119,8 @@ describe('Contract integration tests', () => {
             const contract = patchTx.getContract(receipt.getContractAddress());
             assert.isOk(contract);
 
-            const nCoinsShouldBeUsed = factory.Constants.fees.CONTRACT_CREATION_FEE +
-                                       nFakeFeeTx +
-                                       contract.getDataSize() * nFakeFeeDataSize;
+            const nCoinsShouldBeUsed =
+                factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx + contract.getDataSize() * nFakeFeeDataSize;
             assert.equal(receipt.getCoinsUsed(), nCoinsShouldBeUsed);
 
             // legacy code count like this!
@@ -144,7 +141,6 @@ describe('Contract integration tests', () => {
         });
 
         it('should deploy contract (after first fork and before second)', async () => {
-
             // data serialized to V8
             // stored as V8
             node._processedBlock = {
@@ -177,14 +173,12 @@ describe('Contract integration tests', () => {
             const contract = patchTx.getContract(receipt.getContractAddress());
             assert.isOk(contract);
 
-            const nCoinsShouldBeUsed = factory.Constants.fees.CONTRACT_CREATION_FEE +
-                                       nFakeFeeTx +
-                                       contract.getDataSize() * nFakeFeeDataSize;
+            const nCoinsShouldBeUsed =
+                factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx + contract.getDataSize() * nFakeFeeDataSize;
             assert.equal(receipt.getCoinsUsed(), nCoinsShouldBeUsed);
         });
 
         it('should deploy contract (after second fork)', async () => {
-
             // same as before
             node._processedBlock = {
                 getHeight: () => factory.Constants.forks.HEIGHT_FORK_SERIALIZER_FIX2 + 1,
@@ -217,14 +211,12 @@ describe('Contract integration tests', () => {
             const contract = patchTx.getContract(receipt.getContractAddress());
             assert.isOk(contract);
 
-            const nCoinsShouldBeUsed = factory.Constants.fees.CONTRACT_CREATION_FEE +
-                                       nFakeFeeTx +
-                                       contract.getDataSize() * nFakeFeeDataSize;
+            const nCoinsShouldBeUsed =
+                factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx + contract.getDataSize() * nFakeFeeDataSize;
             assert.equal(receipt.getCoinsUsed(), nCoinsShouldBeUsed);
         });
 
         it('should deploy contract (after 3d fork)', async () => {
-
             // same as before
             node._processedBlock = {
                 getHeight: () => factory.Constants.forks.HEIGHT_FORK_SERIALIZER_FIX3 + 1,
@@ -254,9 +246,8 @@ describe('Contract integration tests', () => {
             const contract = patchTx.getContract(receipt.getContractAddress());
             assert.isOk(contract);
 
-            const nCoinsShouldBeUsed = factory.Constants.fees.CONTRACT_CREATION_FEE +
-                                       nFakeFeeTx +
-                                       contract.getDataSize() * nFakeFeeDataSize;
+            const nCoinsShouldBeUsed =
+                factory.Constants.fees.CONTRACT_CREATION_FEE + nFakeFeeTx + contract.getDataSize() * nFakeFeeDataSize;
             assert.equal(receipt.getCoinsUsed(), nCoinsShouldBeUsed);
         });
     });
@@ -268,16 +259,16 @@ describe('Contract integration tests', () => {
         let objBeforeExec;
         let objAfterExec;
 
-        const fakeWorkAround = (contract) => {
+        const fakeWorkAround = contract => {
             const origFn = contract.dirtyWorkaround;
             sinon.stub(contract, 'dirtyWorkaround').callsFake(() => {
                 origFn.call(contract);
             });
         };
 
-        const fakeApp = (node) => {
+        const fakeApp = node => {
             const origFnExecStarted = node._app._execStarted;
-            sinon.stub(node._app, '_execStarted').callsFake((contract) => {
+            sinon.stub(node._app, '_execStarted').callsFake(contract => {
                 objBeforeExec = {
                     dataSize: contract.getDataSize(),
                     version: contract.getVersion()
@@ -286,7 +277,7 @@ describe('Contract integration tests', () => {
             });
 
             const origFnExecDone = node._app._execDone;
-            sinon.stub(node._app, '_execDone').callsFake((contract) => {
+            sinon.stub(node._app, '_execDone').callsFake(contract => {
                 objAfterExec = {
                     dataSize: contract.getDataSize(),
                     version: contract.getVersion()
@@ -298,15 +289,20 @@ describe('Contract integration tests', () => {
         beforeEach(async () => {
             strContractAddress = generateAddress().toString('hex');
 
-            contract = new factory.Contract({
-                contractData: {
-                    v: 1,
-                    arrData: [1, 2, 3, 4],
-                    objData: {v: 2}
+            contract = new factory.Contract(
+                {
+                    contractData: {
+                        v: 1,
+                        arrData: [1, 2, 3, 4],
+                        objData: {v: 2}
+                    },
+                    contractCode:
+                        '{"test": "<(){this.arrData.push(100)}", "testInjected": "(msg){this.hash=sha3(msg);}"}',
+                    conciliumId: 0
                 },
-                contractCode: '{"test": "<(){this.arrData.push(100)}", "testInjected": "(msg){this.hash=sha3(msg);}"}',
-                conciliumId: 0
-            }, strContractAddress, factory.Constants.CONTRACT_V_V8);
+                strContractAddress,
+                factory.Constants.CONTRACT_V_V8
+            );
 
             fakeWorkAround(contract);
             fakeApp(node);
@@ -375,7 +371,7 @@ describe('Contract integration tests', () => {
             assert.equal(objBeforeExec.version, factory.Constants.CONTRACT_V_JSON);
             assert.equal(objAfterExec.version, factory.Constants.CONTRACT_V_JSON);
 
-//            assert.equal(objBeforeExec.dataSize, factory.Constants.);
+            //            assert.equal(objBeforeExec.dataSize, factory.Constants.);
         });
 
         it('should invoke contract (after 2nd fork)', async () => {
@@ -435,7 +431,7 @@ describe('Contract integration tests', () => {
                 timestamp: parseInt(Date.now() / 1000)
             };
 
-            const msg='test';
+            const msg = 'test';
             tx = factory.Transaction.invokeContract(
                 generateAddress().toString('hex'),
                 createObjInvocationCode('testInjected', [msg]),
@@ -461,16 +457,16 @@ describe('Contract integration tests', () => {
         let arrBeforeExec;
         let arrAfterExec;
 
-        const fakeWorkAround = (contract) => {
+        const fakeWorkAround = contract => {
             const origFn = contract.dirtyWorkaround;
             sinon.stub(contract, 'dirtyWorkaround').callsFake(() => {
                 origFn.call(contract);
             });
         };
 
-        const fakeApp = (node) => {
+        const fakeApp = node => {
             const origFnExecStarted = node._app._execStarted;
-            sinon.stub(node._app, '_execStarted').callsFake((contract) => {
+            sinon.stub(node._app, '_execStarted').callsFake(contract => {
                 arrBeforeExec.push({
                     dataSize: contract.getDataSize(),
                     version: contract.getVersion()
@@ -479,7 +475,7 @@ describe('Contract integration tests', () => {
             });
 
             const origFnExecDone = node._app._execDone;
-            sinon.stub(node._app, '_execDone').callsFake((contract) => {
+            sinon.stub(node._app, '_execDone').callsFake(contract => {
                 arrAfterExec.push({
                     dataSize: contract.getDataSize(),
                     version: contract.getVersion()
@@ -495,31 +491,38 @@ describe('Contract integration tests', () => {
             arrBeforeExec = [];
             arrAfterExec = [];
 
-            contract = new factory.Contract({
-                contractData: {
-                    v: 1,
-                    arrData: [1, 2, 3, 4],
-                    objData: {v: 2}
+            contract = new factory.Contract(
+                {
+                    contractData: {
+                        v: 1,
+                        arrData: [1, 2, 3, 4],
+                        objData: {v: 2}
+                    },
+                    contractCode: `{"test": "<(){this.arrData.push(100); await call('${strContractAddressNested}', {method: 'nested', arrArguments:[]});}"}`,
+                    conciliumId: 0
                 },
-                contractCode: `{"test": "<(){this.arrData.push(100); await call('${strContractAddressNested}', {method: 'nested', arrArguments:[]});}"}`,
-                conciliumId: 0
-            }, strContractAddress, factory.Constants.CONTRACT_V_V8);
+                strContractAddress,
+                factory.Constants.CONTRACT_V_V8
+            );
 
-            contractNested = new factory.Contract({
-                contractData: {
-                    v: 2,
-                    arrDataNested: [100]
+            contractNested = new factory.Contract(
+                {
+                    contractData: {
+                        v: 2,
+                        arrDataNested: [100]
+                    },
+                    contractCode: '{"nested": "<(){this.arrDataNested.push(200)}"}',
+                    conciliumId: 0
                 },
-                contractCode: '{"nested": "<(){this.arrDataNested.push(200)}"}',
-                conciliumId: 0
-            }, strContractAddress, factory.Constants.CONTRACT_V_V8);
+                strContractAddress,
+                factory.Constants.CONTRACT_V_V8
+            );
 
             fakeWorkAround(contract);
             fakeWorkAround(contractNested);
             fakeApp(node);
 
-            node._getContractByAddr = async (strAddr) => strAddr === strContractAddress ?
-                contract : contractNested;
+            node._getContractByAddr = async strAddr => (strAddr === strContractAddress ? contract : contractNested);
 
             tx = factory.Transaction.invokeContract(
                 generateAddress().toString('hex'),
@@ -639,7 +642,6 @@ describe('Contract integration tests', () => {
             assert.equal(arrAfterExec[0].version, factory.Constants.CONTRACT_V_JSON);
             assert.equal(arrAfterExec[1].version, factory.Constants.CONTRACT_V_JSON);
         });
-
     });
 
     it('should TERMINATE contract INVOCATION (throws error)', async () => {
@@ -693,8 +695,7 @@ describe('Contract integration tests', () => {
 
             // despite terminated invocation we should send fee to miner and send change to invoker
 
-            const nCoinsShouldBeUsed = factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                                       nFakeFeeTx;
+            const nCoinsShouldBeUsed = factory.Constants.fees.CONTRACT_INVOCATION_FEE + nFakeFeeTx;
             assert.equal(receipt.getCoinsUsed(), nCoinsShouldBeUsed);
 
             assert.isNotOk(patchRun.getContract(receipt.getContractAddress()));
@@ -758,11 +759,15 @@ describe('Contract integration tests', () => {
 
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();
-        node._storage.getContract = () => new factory.Contract({
-            conciliumId: 0,
-            contractCode: '{"add": "(a){this.value+=a;}"}',
-            contractData: {value: 23}
-        }, strContractAddr);
+        node._storage.getContract = () =>
+            new factory.Contract(
+                {
+                    conciliumId: 0,
+                    contractCode: '{"add": "(a){this.value+=a;}"}',
+                    contractData: {value: 23}
+                },
+                strContractAddr
+            );
 
         const patchState = await node._execBlock(block);
 
@@ -792,10 +797,14 @@ describe('Contract integration tests', () => {
 
         node.isGenesisBlock = () => true;
         node._pendingBlocks.mergePatches = () => new factory.PatchDB();
-        node._storage.getContract = () => new factory.Contract({
-            conciliumId: 0,
-            contractCode: '{"_default": "(){}"}'
-        }, strContractAddr);
+        node._storage.getContract = () =>
+            new factory.Contract(
+                {
+                    conciliumId: 0,
+                    contractCode: '{"_default": "(){}"}'
+                },
+                strContractAddr
+            );
 
         const patchState = await node._execBlock(block);
 
@@ -843,9 +852,7 @@ describe('Contract integration tests', () => {
         const nFeeSizeCreateTx = await node._calculateSizeFee(tx);
 
         // deploy contract and check success
-        await node._processContract(false, undefined, tx, patchTx, new factory.PatchDB(), nCoinsIn,
-            nFeeSizeCreateTx
-        );
+        await node._processContract(false, undefined, tx, patchTx, new factory.PatchDB(), nCoinsIn, nFeeSizeCreateTx);
 
         let contract;
         const receipt = patchTx.getReceipt(tx.hash());
@@ -853,10 +860,11 @@ describe('Contract integration tests', () => {
         const contractDataSize = contract.getDataSize();
 
         // call for it
-        const objCodeToRun = createObjInvocationCode(
-            'testVariables',
-            [fakeBlock.getHash(), fakeBlock.getHeight(), fakeBlock.timestamp]
-        );
+        const objCodeToRun = createObjInvocationCode('testVariables', [
+            fakeBlock.getHash(),
+            fakeBlock.getHeight(),
+            fakeBlock.timestamp
+        ]);
         const txRun = factory.Transaction.invokeContract(
             contract.getStoredAddress(),
             objCodeToRun,
@@ -875,9 +883,10 @@ describe('Contract integration tests', () => {
             assert.isOk(receipt);
             assert.isOk(receipt.isSuccessful());
 
-            const nCoinsShouldBeUsed = factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                                       nFakeFeeTx +
-                                       (contract.getDataSize() - contractDataSize) * nFakeFeeDataSize;
+            const nCoinsShouldBeUsed =
+                factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                nFakeFeeTx +
+                (contract.getDataSize() - contractDataSize) * nFakeFeeDataSize;
             assert.equal(receipt.getCoinsUsed(), nCoinsShouldBeUsed);
 
             assert.isOk(patchRun.getContract(contract.getStoredAddress()));
@@ -900,7 +909,6 @@ describe('Contract integration tests', () => {
 
             // no UTXO created for transferred coins
             assert.isNotOk(patchRun.getUtxo(tx.getHash()));
-
         }
     });
 
@@ -921,15 +929,18 @@ describe('Contract integration tests', () => {
 
             strContractAddr = generateAddress().toString('hex');
 
-            contract = new factory.Contract({
-                balance: contractBalance,
-                contractCode: `{"test": "(){}", "throws": "(){throw 'error'}"}`,
-                conciliumId: 0
-            }, strContractAddr);
+            contract = new factory.Contract(
+                {
+                    balance: contractBalance,
+                    contractCode: `{"test": "(){}", "throws": "(){throw 'error'}"}`,
+                    conciliumId: 0
+                },
+                strContractAddr
+            );
 
             node._calculateSizeFee = sinon.fake.resolves(nFakeFeeTx);
-            coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE +
-                         nFakeFeeTx;
+            coinsLimit =
+                factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE + nFakeFeeTx;
         });
 
         it('should fail to send (function throws)', async () => {
@@ -950,12 +961,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should send', async () => {
-            tx = createContractInvocationTx(
-                strContractAddr,
-                createObjInvocationCode('test', []),
-                false,
-                nCoinsToSend
-            );
+            tx = createContractInvocationTx(strContractAddr, createObjInvocationCode('test', []), false, nCoinsToSend);
 
             const patchTx = new factory.PatchDB();
             await node._processContract(false, contract, tx, patchTx, new factory.PatchDB(), coinsLimit, nFakeFeeTx);
@@ -965,7 +971,6 @@ describe('Contract integration tests', () => {
 
             assert.equal(contract.getBalance(), nCoinsToSend);
         });
-
     });
 
     describe('Send moneys TO NESTED contract', () => {
@@ -986,19 +991,25 @@ describe('Contract integration tests', () => {
             strContractAddr = generateAddress().toString('hex');
             const strNestedContractAddr = generateAddress().toString('hex');
 
-            contract = new factory.Contract({
-                balance: contractBalance,
-                contractCode: `{
+            contract = new factory.Contract(
+                {
+                    balance: contractBalance,
+                    contractCode: `{
                     "test": "<(){await delegatecall('${strNestedContractAddr}', {method: 'test', arrArguments: []})}",
                     "throws": "<(){await delegatecall('${strNestedContractAddr}', {method: 'throws', arrArguments: []})}"
                 }`,
-                conciliumId: 0
-            }, strContractAddr);
+                    conciliumId: 0
+                },
+                strContractAddr
+            );
 
-            const contract2 = new factory.Contract({
-                balance: contractBalance,
-                contractCode: `{"test": "(){}", "throws": "(){throw 'error'}"}`
-            }, strContractAddr);
+            const contract2 = new factory.Contract(
+                {
+                    balance: contractBalance,
+                    contractCode: `{"test": "(){}", "throws": "(){throw 'error'}"}`
+                },
+                strContractAddr
+            );
 
             node._calculateSizeFee = sinon.fake.resolves(nFakeFeeTx);
             node._getContractByAddr = sinon.fake.resolves(contract2);
@@ -1024,12 +1035,7 @@ describe('Contract integration tests', () => {
         });
 
         it('should send', async () => {
-            tx = createContractInvocationTx(
-                strContractAddr,
-                createObjInvocationCode('test', []),
-                false,
-                nCoinsToSend
-            );
+            tx = createContractInvocationTx(strContractAddr, createObjInvocationCode('test', []), false, nCoinsToSend);
 
             const patchTx = new factory.PatchDB();
             await node._processContract(false, contract, tx, patchTx, new factory.PatchDB(), coinsLimit, nFakeFeeTx);
@@ -1039,7 +1045,6 @@ describe('Contract integration tests', () => {
 
             assert.equal(contract.getBalance(), nCoinsToSend);
         });
-
     });
 
     describe('Send moneys FROM contract', () => {
@@ -1065,12 +1070,7 @@ describe('Contract integration tests', () => {
                     nFeeInternalTx: factory.Constants.fees.INTERNAL_TX_FEE
                 }
             });
-            node._app.setCallbacks(
-                node._createCallbacksForApp(
-                    new factory.PatchDB(),
-                    patchThisTx,
-                    strTxHash
-                ));
+            node._app.setCallbacks(node._createCallbacksForApp(new factory.PatchDB(), patchThisTx, strTxHash));
         }
 
         beforeEach(async () => {
@@ -1078,10 +1078,13 @@ describe('Contract integration tests', () => {
             await node.ensureLoaded();
 
             const strContractAddr = generateAddress().toString('hex');
-            contract = new factory.Contract({
-                balance: contractBalance,
-                contractCode: `{"test": "(strAddr, amount){send(strAddr, amount)}"}`
-            }, strContractAddr);
+            contract = new factory.Contract(
+                {
+                    balance: contractBalance,
+                    contractCode: `{"test": "(strAddr, amount){send(strAddr, amount)}"}`
+                },
+                strContractAddr
+            );
 
             env = {
                 contractTx: undefined,
@@ -1095,24 +1098,30 @@ describe('Contract integration tests', () => {
             coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             setVariables(node, coinsLimit);
 
-            return assert.isRejected(node._app.runContract(
-                createObjInvocationCode('test', [strAddress, contractBalance + 1]),
-                contract,
-                env,
-                undefined
-            ), 'Not enough funds for "send"');
+            return assert.isRejected(
+                node._app.runContract(
+                    createObjInvocationCode('test', [strAddress, contractBalance + 1]),
+                    contract,
+                    env,
+                    undefined
+                ),
+                'Not enough funds for "send"'
+            );
         });
 
         it('should FAIL (not enough coins to run contract)', async () => {
             coinsLimit = factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE - 1;
             setVariables(node, coinsLimit);
 
-            return assert.isRejected(node._app.runContract(
-                createObjInvocationCode('test', [strAddress, contractBalance]),
-                contract,
-                env,
-                undefined
-            ), 'Contract run out of coins');
+            return assert.isRejected(
+                node._app.runContract(
+                    createObjInvocationCode('test', [strAddress, contractBalance]),
+                    contract,
+                    env,
+                    undefined
+                ),
+                'Contract run out of coins'
+            );
         });
 
         it('should Success (send all moneys)', async () => {
@@ -1158,11 +1167,7 @@ describe('Contract integration tests', () => {
                 }
             });
 
-            node._app.setCallbacks(node._createCallbacksForApp(
-                new factory.PatchDB(),
-                patchThisTx,
-                strTxHash
-            ));
+            node._app.setCallbacks(node._createCallbacksForApp(new factory.PatchDB(), patchThisTx, strTxHash));
         }
 
         beforeEach(async () => {
@@ -1170,7 +1175,7 @@ describe('Contract integration tests', () => {
             await node.ensureLoaded();
 
             const objCode = {
-                "test": "<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments})}"
+                test: '<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments})}'
             };
             contract = new factory.Contract({
                 contractCode: JSON.stringify(objCode)
@@ -1187,23 +1192,29 @@ describe('Contract integration tests', () => {
         it('should FAIL to call (not enough coins to perform)', async () => {
             setVariables(node, factory.Constants.fees.CONTRACT_INVOCATION_FEE - 1);
 
-            return assert.isRejected(node._app.runContract(
-                createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
-                contract,
-                env,
-                undefined
-            ), 'Contract run out of coins');
+            return assert.isRejected(
+                node._app.runContract(
+                    createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
+                    contract,
+                    env,
+                    undefined
+                ),
+                'Contract run out of coins'
+            );
         });
 
         it('should FAIL to call (contract not found)', async () => {
             setVariables(node, factory.Constants.fees.CONTRACT_INVOCATION_FEE);
 
-            return assert.isRejected(node._app.runContract(
-                createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
-                contract,
-                env,
-                undefined
-            ), 'Contract not found!');
+            return assert.isRejected(
+                node._app.runContract(
+                    createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
+                    contract,
+                    env,
+                    undefined
+                ),
+                'Contract not found!'
+            );
         });
 
         it('should FAIL to call (trying to pass more coins than have)', async () => {
@@ -1213,12 +1224,15 @@ describe('Contract integration tests', () => {
                 contractCode: `{"test": "<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments, coinsLimit: ${coinsLimit}})}"}`
             });
 
-            return assert.isRejected(node._app.runContract(
-                createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
-                contract,
-                env,
-                undefined
-            ), 'Trying to pass more coins than have');
+            return assert.isRejected(
+                node._app.runContract(
+                    createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
+                    contract,
+                    env,
+                    undefined
+                ),
+                'Trying to pass more coins than have'
+            );
         });
 
         it('should FAIL to call (trying to pass negative coinsLimit)', async () => {
@@ -1229,25 +1243,29 @@ describe('Contract integration tests', () => {
                 contractCode: `{"test": "<(strAddress, method, ...arrArguments){await call(strAddress, {method, arrArguments, coinsLimit: -1})}"}`
             });
 
-            return assert.isRejected(node._app.runContract(
-                createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
-                contract,
-                env,
-                undefined
-            ), 'coinsLimit should be positive');
+            return assert.isRejected(
+                node._app.runContract(
+                    createObjInvocationCode('test', [strAddress, 'test', 1, 2, 3, 4]),
+                    contract,
+                    env,
+                    undefined
+                ),
+                'coinsLimit should be positive'
+            );
         });
 
         it('should SUCCESSFULLY "call" nested contract with nested send', async () => {
             const nAmountToSend = 1e3;
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                               2 * factory.Constants.fees.INTERNAL_TX_FEE +
-                               nFakeFeeTx +
-                               nAmountToSend;
+            const coinsLimit =
+                2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                2 * factory.Constants.fees.INTERNAL_TX_FEE +
+                nFakeFeeTx +
+                nAmountToSend;
 
             const strReceiver = generateAddress().toString('hex');
             const result = 42;
             const objCode = {
-                "test": `<(strAddress){
+                test: `<(strAddress){
                             const result=await call(strAddress, {method: "testAnother", arrArguments: [strAddress]});
                             if(!result) throw new Error('Error while invoking contract');
                             this._receivers[strAddress]=2;
@@ -1255,21 +1273,27 @@ describe('Contract integration tests', () => {
                         }`
             };
             const strContractCallerAddr = generateAddress().toString('hex');
-            contract = new factory.Contract({
-                contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
-                contractCode: JSON.stringify((objCode)),
-                balance: 0
-            }, strContractCallerAddr);
+            contract = new factory.Contract(
+                {
+                    contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
+                    contractCode: JSON.stringify(objCode),
+                    balance: 0
+                },
+                strContractCallerAddr
+            );
 
             const objCode2 = {
-                "testAnother": `<(strAddress){this._someSecondContractVal++; send(strAddress, ${nAmountToSend}); return ${result};}`
+                testAnother: `<(strAddress){this._someSecondContractVal++; send(strAddress, ${nAmountToSend}); return ${result};}`
             };
             const strContractSenderAddr = generateAddress().toString('hex');
-            const contract2 = new factory.Contract({
-                contractData: {_someSecondContractVal: 100},
-                contractCode: JSON.stringify((objCode2)),
-                balance: 1e10
-            }, strContractSenderAddr);
+            const contract2 = new factory.Contract(
+                {
+                    contractData: {_someSecondContractVal: 100},
+                    contractCode: JSON.stringify(objCode2),
+                    balance: 1e10
+                },
+                strContractSenderAddr
+            );
 
             node._getContractByAddr = sinon.fake.resolves(contract2);
 
@@ -1284,8 +1308,8 @@ describe('Contract integration tests', () => {
 
             assert.equal(answer, result);
 
-            const nExpectedFee = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                                 factory.Constants.fees.INTERNAL_TX_FEE;
+            const nExpectedFee =
+                2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE + factory.Constants.fees.INTERNAL_TX_FEE;
             assert.equal(node._app.coinsSpent(), nExpectedFee);
 
             const txReceipt = patchThisTx.getReceipt(strTxHash);
@@ -1323,14 +1347,15 @@ describe('Contract integration tests', () => {
             const nAmountToSend = 100;
             const nNumOfNestedSend = 3;
             const nFakeFeeSize = 4e3;
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                               nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE +
-                               nFakeFeeSize +
-                               1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
+            const coinsLimit =
+                2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE +
+                nFakeFeeSize +
+                1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
             // first contract will call second contract and set internal _receivers with argument address
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
-                "test": `<(strAddress){
+                test: `<(strAddress){
                             const success=await delegatecall(strAddress, {method: "testAnother", arrArguments: [strAddress]});
                             if(!success) throw new Error('Error while invoking contract');
                             this._receivers[strAddress]=1;
@@ -1338,41 +1363,44 @@ describe('Contract integration tests', () => {
                         }`
             };
             const strContractCallerAddr = generateAddress().toString('hex');
-            contract = new factory.Contract({
-                contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
-                contractCode: JSON.stringify((objCode)),
-                balance: nBalanceCaller
-            }, strContractCallerAddr);
+            contract = new factory.Contract(
+                {
+                    contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
+                    contractCode: JSON.stringify(objCode),
+                    balance: nBalanceCaller
+                },
+                strContractCallerAddr
+            );
 
             // second contract will set internal _receivers with argument 'test'
             const objCode2 = {
-                "testAnother": `<(strAddress){
+                testAnother: `<(strAddress){
                     this._receivers['test']=2;
                     for(let i=0; i< ${nNumOfNestedSend};i++) send(strAddress, ${nAmountToSend});
                     return true;
                 }`
             };
             const strContractSenderAddr = generateAddress().toString('hex');
-            const contract2 = new factory.Contract({
-                contractData: {_someSecondContractVal: 100},
-                contractCode: JSON.stringify((objCode2)),
-                balance: nBalanceSender
-            }, strContractSenderAddr);
+            const contract2 = new factory.Contract(
+                {
+                    contractData: {_someSecondContractVal: 100},
+                    contractCode: JSON.stringify(objCode2),
+                    balance: nBalanceSender
+                },
+                strContractSenderAddr
+            );
 
             node._getContractByAddr = sinon.fake.resolves(contract2);
 
             setVariables(node, coinsLimit);
 
-            const answer = await node._app.runContract(
-                createObjInvocationCode('test', [strReceiver]),
-                contract,
-                env
-            );
+            const answer = await node._app.runContract(createObjInvocationCode('test', [strReceiver]), contract, env);
 
             assert.equal(answer, result);
 
-            const nExpectedFee = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                                 nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE;
+            const nExpectedFee =
+                2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE;
             assert.equal(node._app.coinsSpent(), nExpectedFee);
 
             patchThisTx.setContract(contract);
@@ -1407,14 +1435,15 @@ describe('Contract integration tests', () => {
             const nBalanceSender = 1e10;
             const nNumOfNestedSend = 3;
             const nFakeFeeSize = 4e3;
-            const coinsLimit = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
-                               nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE +
-                               nFakeFeeSize +
-                               1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
+            const coinsLimit =
+                2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE +
+                nNumOfNestedSend * factory.Constants.fees.INTERNAL_TX_FEE +
+                nFakeFeeSize +
+                1000 * factory.Constants.fees.STORAGE_PER_BYTE_FEE;
             // first contract will call second contract and set internal _receivers with argument address
             const strReceiver = generateAddress().toString('hex');
             const objCode = {
-                "test": `<(strAddress){
+                test: `<(strAddress){
                             this._receivers[strAddress]=1;
 
                             const success=await delegatecall(strAddress, {method: "testAnother", arrArguments: [strAddress]});
@@ -1423,25 +1452,31 @@ describe('Contract integration tests', () => {
                         }`
             };
             const strContractCallerAddr = generateAddress().toString('hex');
-            contract = new factory.Contract({
-                contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
-                contractCode: JSON.stringify((objCode)),
-                balance: nBalanceCaller,
-                conciliumId: 0
-            }, strContractCallerAddr);
+            contract = new factory.Contract(
+                {
+                    contractData: {_receivers: {[generateAddress().toString('hex')]: 1}},
+                    contractCode: JSON.stringify(objCode),
+                    balance: nBalanceCaller,
+                    conciliumId: 0
+                },
+                strContractCallerAddr
+            );
 
             const objCode2 = {
-                "testAnother": `<(strAddress){
+                testAnother: `<(strAddress){
                     throw(0);
                 }`
             };
             const strContractSenderAddr = generateAddress().toString('hex');
-            const contract2 = new factory.Contract({
-                contractData: {_someSecondContractVal: 100},
-                contractCode: JSON.stringify((objCode2)),
-                balance: nBalanceSender,
-                conciliumId: 0
-            }, strContractSenderAddr);
+            const contract2 = new factory.Contract(
+                {
+                    contractData: {_someSecondContractVal: 100},
+                    contractCode: JSON.stringify(objCode2),
+                    balance: nBalanceSender,
+                    conciliumId: 0
+                },
+                strContractSenderAddr
+            );
 
             node._getContractByAddr = sinon.fake.resolves(contract2);
             const fakeTx = {
@@ -1457,15 +1492,7 @@ describe('Contract integration tests', () => {
             };
             const patchThisTx = new factory.PatchDB();
 
-            await node._processContract(
-                false,
-                contract,
-                fakeTx,
-                patchThisTx,
-                new factory.PatchDB(),
-                coinsLimit,
-                0
-            );
+            await node._processContract(false, contract, fakeTx, patchThisTx, new factory.PatchDB(), coinsLimit, 0);
 
             const nExpectedFee = 2 * factory.Constants.fees.CONTRACT_INVOCATION_FEE;
             assert.equal(node._app.coinsSpent(), nExpectedFee);
@@ -1476,7 +1503,6 @@ describe('Contract integration tests', () => {
             // change (+ moneys sent to contract) is created
             const receipt = patchThisTx.getReceipt(fakeTx.hash());
             assert.equal(receipt.getInternalTxns().length, 1);
-
         });
     });
 
@@ -1525,7 +1551,8 @@ describe('Contract integration tests', () => {
         });
 
         it('should cache (created from Buffer)', async () => {
-            const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
+            const encodedContractSample =
+                '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
             const buffFakeSerializedData = Buffer.from('fake');
 
             const contract = new factory.Contract(Buffer.from(encodedContractSample, 'hex'));
@@ -1546,7 +1573,8 @@ describe('Contract integration tests', () => {
         });
 
         it('should invalidate cache (created from Buffer)', async () => {
-            const encodedContractSample = '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
+            const encodedContractSample =
+                '0a077b2261223a317d1224227b5c226164645c223a205c222861297b746869732e76616c75652b3d613b7d5c227d2218012100000000000000002802;';
             const buffFakeSerializedData = Buffer.from('fake');
             const objFakeDeSerializedData = {a: 17};
 

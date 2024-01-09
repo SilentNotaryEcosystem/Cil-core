@@ -3,7 +3,7 @@ const fs = require('fs');
 const factory = require('../factory');
 const {questionAsync, prepareForStringifyObject} = require('../utils');
 
-;(async () => {
+(async () => {
     await factory.asyncLoad();
 
     const pk = await questionAsync('Enter private key: ');
@@ -11,16 +11,17 @@ const {questionAsync, prepareForStringifyObject} = require('../utils');
     // TODO suppress echo
     const password = await questionAsync('Enter password: ');
     const passwordCheck = await questionAsync('Repeat password: ');
-    if (password !== passwordCheck) throw('Passwords are not same!');
+    if (password !== passwordCheck) throw 'Passwords are not same!';
 
     const filename = await questionAsync('Enter filename (empty for docker): ');
     const keyGenFunction = await questionAsync(
-        'Enter key generation mechanism (avail: "pbkdf2", "scrypt". default: "scrypt"): ');
+        'Enter key generation mechanism (avail: "pbkdf2", "scrypt". default: "scrypt"): '
+    );
 
     const objEncryptedPk = await factory.Crypto.encrypt(
         password,
         Buffer.from(pk, 'hex'),
-        keyGenFunction === '' ? "scrypt" : keyGenFunction
+        keyGenFunction === '' ? 'scrypt' : keyGenFunction
     );
 
     const kp = factory.Crypto.keyPairFromPrivate(pk);
@@ -33,10 +34,11 @@ const {questionAsync, prepareForStringifyObject} = require('../utils');
 
     console.error(objKeyFileContent);
     if (filename && filename.length) fs.writeFileSync(filename, objKeyFileContent);
-
-})().then(() => {
-    process.exit(0);
-}).catch((error) => {
-    console.error(error);
-    process.exit(1);
-});
+})()
+    .then(() => {
+        process.exit(0);
+    })
+    .catch(error => {
+        console.error(error);
+        process.exit(1);
+    });

@@ -13,12 +13,9 @@ const PEER_HEARTBEAT_TIMER_NAME = 'peerHeartbeatTimer';
  * @emits 'message' {this, message}
  */
 
-module.exports = (factory) => {
+module.exports = factory => {
     const {Messages, Transport, Constants, FactoryOptions} = factory;
-    const {
-        MsgCommon,
-        PeerInfo
-    } = Messages;
+    const {MsgCommon, PeerInfo} = Messages;
     //const {PeerInfo} = Messages;
     return class Peer extends EventEmitter {
         constructor(options = {}) {
@@ -108,8 +105,10 @@ module.exports = (factory) => {
         }
 
         get isWitness() {
-            return Array.isArray(this._peerInfo.capabilities) &&
-                   this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS);
+            return (
+                Array.isArray(this._peerInfo.capabilities) &&
+                this._peerInfo.capabilities.find(cap => cap.service === Constants.WITNESS)
+            );
         }
 
         get lastActionTimestamp() {
@@ -168,8 +167,10 @@ module.exports = (factory) => {
         }
 
         get quality() {
-            return (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes)
-                   / (this._peerInfo.lifetimeMisbehaveScore + this.misbehaveScore + 1);
+            return (
+                (this._peerInfo.lifetimeReceivedBytes + this._peerInfo.lifetimeTransmittedBytes + this.amountBytes) /
+                (this._peerInfo.lifetimeMisbehaveScore + this.misbehaveScore + 1)
+            );
         }
 
         get bannedTill() {
@@ -292,7 +293,6 @@ module.exports = (factory) => {
         }
 
         async _onMessageHandler(msg) {
-
             // count incoming bytes
             if (msg.payload && Buffer.isBuffer(msg.payload)) {
                 this._updateReceived(msg.payload.length);
@@ -305,7 +305,6 @@ module.exports = (factory) => {
             this._lastActionTimestamp = Date.now();
 
             if (msg.signature) {
-
                 // if message signed: check signature
                 if (this.isWitness && msg.address === this.witnessAddress) {
                     this.emit('witnessMessage', this, msg);
@@ -323,7 +322,6 @@ module.exports = (factory) => {
 
         // TODO: for MsgGetData - make a cache for already requested hashes!
         async pushMessage(msg) {
-
             // part of node bootstrap mechanism
             if (msg.isGetBlocks()) this.getBlocksSent();
 
@@ -401,11 +399,11 @@ module.exports = (factory) => {
             this._handshakeDone = false;
             this._version = undefined;
 
-//            this._bannedTill = Date.now();
-//            this._restrictedTill = Date.now();
-//            this._misbehavedAt = Date.now();
-//            this._misbehaveScore = 0;
-//            this._lastActionTimestamp = Date.now();
+            //            this._bannedTill = Date.now();
+            //            this._restrictedTill = Date.now();
+            //            this._misbehavedAt = Date.now();
+            //            this._misbehaveScore = 0;
+            //            this._lastActionTimestamp = Date.now();
 
             this._transmittedBytes = 0;
             this._receivedBytes = 0;
@@ -421,7 +419,6 @@ module.exports = (factory) => {
         }
 
         async _tick() {
-
             // stop timer if peer disconnected. disconnect == dead. dead == no heartbeat
             if (this.disconnected) {
                 this._heartBeatTimer.clear(this._timerName);
@@ -450,7 +447,6 @@ module.exports = (factory) => {
          * @returns {peerInfo} with zero counters
          */
         toObject() {
-
             // TODO: create separate definition for peerInfo & peerAddressBookEntry
             return {
                 ...this.peerInfo.data,

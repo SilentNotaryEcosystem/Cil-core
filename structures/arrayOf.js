@@ -1,7 +1,6 @@
 const typeforce = require('typeforce');
 
-module.exports = (nEntityLength) => {
-
+module.exports = nEntityLength => {
     typeforce(typeforce.Number, nEntityLength);
 
     /**
@@ -11,13 +10,11 @@ module.exports = (nEntityLength) => {
      * this.getArray returns Strings!
      */
     return class ArrayOf {
-
         /**
          *
          * @param {Array | Buffer} data
          */
         constructor(data) {
-
             if (Buffer.isBuffer(data)) {
                 this._ensureLength(data);
 
@@ -56,6 +53,5 @@ module.exports = (nEntityLength) => {
                 throw new Error(`Buffer you trying to decode not ${nEntityLength} bytes aligned!`);
             }
         }
-
     };
 };

@@ -7,10 +7,16 @@ const nock = require('nock');
 const factory = require('./testFactory');
 const {
     getBoolEnvParameter,
-    deStringifyObject, prepareForStringifyObject, arrayIntersection,
-    mergeSets, decryptPkFileContent, queryRpc, getHttpData,
+    deStringifyObject,
+    prepareForStringifyObject,
+    arrayIntersection,
+    mergeSets,
+    decryptPkFileContent,
+    queryRpc,
+    getHttpData,
     mapEnvToOptions,
-    ExceptionDebug, ExceptionLog
+    ExceptionDebug,
+    ExceptionLog
 } = require('../utils');
 
 describe('Utils', () => {
@@ -30,20 +36,14 @@ describe('Utils', () => {
             assert.equal('dead', prepareForStringifyObject(Buffer.from('DEAD', 'hex')));
         });
         it('should transform Array of Buffers', async () => {
-            const result = prepareForStringifyObject([
-                Buffer.from('DEAD', 'hex'),
-                Buffer.from('EDAA', 'hex')
-            ]);
+            const result = prepareForStringifyObject([Buffer.from('DEAD', 'hex'), Buffer.from('EDAA', 'hex')]);
             assert.deepEqual(['dead', 'edaa'], result);
         });
         it('should transform nested object', async () => {
             const result = prepareForStringifyObject({
                 object: {
                     buffer: Buffer.from('DEAD', 'hex'),
-                    arrBuffers: [
-                        Buffer.from('DEAD', 'hex'),
-                        Buffer.from('EDAA', 'hex')
-                    ]
+                    arrBuffers: [Buffer.from('DEAD', 'hex'), Buffer.from('EDAA', 'hex')]
                 }
             });
             assert.deepEqual({object: {buffer: 'dead', arrBuffers: ['dead', 'edaa']}}, result);
@@ -137,7 +137,8 @@ describe('Utils', () => {
 
     describe('read private key from file', () => {
         it('should read V1 PK (concatenated string created on front)', async () => {
-            const encryptedKey = '9003b3a7af0ff553d4e716b8b3c7cc823696fdcfae431c8fcc049a32444fd8c8gYkDoz15J7su/Y/RhywnjrDzmEDXlzoaGFI4Uz0CEF2LmYf4ZvINj7C1AFkojXp0DraELnJuCu7y3HQA21H7Klnc4q2zi333m6ViI0g8bfc=';
+            const encryptedKey =
+                '9003b3a7af0ff553d4e716b8b3c7cc823696fdcfae431c8fcc049a32444fd8c8gYkDoz15J7su/Y/RhywnjrDzmEDXlzoaGFI4Uz0CEF2LmYf4ZvINj7C1AFkojXp0DraELnJuCu7y3HQA21H7Klnc4q2zi333m6ViI0g8bfc=';
             const password = 'aA1!111111';
 
             const strPk = decryptPkFileContent(factory.Crypto, encryptedKey, password);
@@ -147,7 +148,8 @@ describe('Utils', () => {
         it('should read V2 PK (scrypt json)', async () => {
             const encryptedFileContent = {
                 iv: '12121b180ff15d036a0910e52dbc2317',
-                encrypted: '295ebe4131a8b1d1d7440ecffe0eaee1e9f979370a20e39fe39186b45313d2a7ef24bcf4b58bd7e36defb4f977ff6526',
+                encrypted:
+                    '295ebe4131a8b1d1d7440ecffe0eaee1e9f979370a20e39fe39186b45313d2a7ef24bcf4b58bd7e36defb4f977ff6526',
                 salt: '60236cd090ab566cf03bfe796eeb9516',
                 hashOptions: {N: 16384, p: 1},
                 keyAlgo: 'scrypt'
@@ -161,7 +163,8 @@ describe('Utils', () => {
         it('should read V2 PK (pbkdf2 json)', async () => {
             const encryptedFileContent = {
                 iv: 'ea956ef70cc1142552d1bdbc315fcf05',
-                encrypted: '75862991394101b5da8324d475cb0514790abf0800160b187eaa9f1090ae5fb02dc87cc3c7a8369b7a9b9c4d8f09a06c',
+                encrypted:
+                    '75862991394101b5da8324d475cb0514790abf0800160b187eaa9f1090ae5fb02dc87cc3c7a8369b7a9b9c4d8f09a06c',
                 salt: '1a135740efad0a2753489a6d29af0fd1',
                 hashOptions: {iterations: 100000},
                 keyAlgo: 'pbkdf2'
@@ -175,7 +178,8 @@ describe('Utils', () => {
 
     describe('queryRpc', () => {
         it('should send transaction (empty response)', async () => {
-            const strTx = '0a440a240a20b3982f49472e41021d96090cd0579da23317cf865f4f5f75e8c783955df4897d1000120b0901000000000000001200120b090f3d3ba40b0000001200180120001241d19ffda43e6121f902e60a0b35a5b97de38000cac9f016e5f21c857026ebdf8978c1c9a081c26fcbdbc54dda564b94f427d26d642b0ce4a0eef8ca8b39a3dafa00';
+            const strTx =
+                '0a440a240a20b3982f49472e41021d96090cd0579da23317cf865f4f5f75e8c783955df4897d1000120b0901000000000000001200120b090f3d3ba40b0000001200180120001241d19ffda43e6121f902e60a0b35a5b97de38000cac9f016e5f21c857026ebdf8978c1c9a081c26fcbdbc54dda564b94f427d26d642b0ce4a0eef8ca8b39a3dafa00';
             const strUrlRpc = 'http://localhost:8222/';
             nock(strUrlRpc)
                 .post('/', body => body.method === 'sendRawTx' && body.params.strTx === strTx)
@@ -187,7 +191,8 @@ describe('Utils', () => {
         });
 
         it('should send transaction (obj response)', async () => {
-            const strTx = '0a440a240a20b3982f49472e41021d96090cd0579da23317cf865f4f5f75e8c783955df4897d1000120b0901000000000000001200120b090f3d3ba40b0000001200180120001241d19ffda43e6121f902e60a0b35a5b97de38000cac9f016e5f21c857026ebdf8978c1c9a081c26fcbdbc54dda564b94f427d26d642b0ce4a0eef8ca8b39a3dafa00';
+            const strTx =
+                '0a440a240a20b3982f49472e41021d96090cd0579da23317cf865f4f5f75e8c783955df4897d1000120b0901000000000000001200120b090f3d3ba40b0000001200180120001241d19ffda43e6121f902e60a0b35a5b97de38000cac9f016e5f21c857026ebdf8978c1c9a081c26fcbdbc54dda564b94f427d26d642b0ce4a0eef8ca8b39a3dafa00';
             const strUrlRpc = 'http://localhost:8222/';
             const response = {result: {test: 1}};
 
@@ -204,9 +209,7 @@ describe('Utils', () => {
     describe('getHttpData', () => {
         it('should query (empty response)', async () => {
             const strUrlApi = 'http://localhost/path?query=1';
-            nock('http://localhost/')
-                .get('/path?query=1')
-                .reply(200);
+            nock('http://localhost/').get('/path?query=1').reply(200);
 
             const result = await getHttpData(strUrlApi);
 
@@ -232,20 +235,20 @@ describe('Utils', () => {
             assert.strictEqual(getBoolEnvParameter(undefined), false);
         });
         it('should be FALSE for "0"', async () => {
-            assert.strictEqual(getBoolEnvParameter("0"), false);
-            assert.strictEqual(getBoolEnvParameter(" 0 "), false);
+            assert.strictEqual(getBoolEnvParameter('0'), false);
+            assert.strictEqual(getBoolEnvParameter(' 0 '), false);
         });
         it('should be FALSE for "false"', async () => {
-            assert.strictEqual(getBoolEnvParameter("false"), false);
-            assert.strictEqual(getBoolEnvParameter(" false "), false);
+            assert.strictEqual(getBoolEnvParameter('false'), false);
+            assert.strictEqual(getBoolEnvParameter(' false '), false);
         });
         it('should be TRUE for "1"', async () => {
-            assert.strictEqual(getBoolEnvParameter("1"), true);
-            assert.strictEqual(getBoolEnvParameter(" 1 "), true);
+            assert.strictEqual(getBoolEnvParameter('1'), true);
+            assert.strictEqual(getBoolEnvParameter(' 1 '), true);
         });
         it('should be TRUE for "true"', async () => {
-            assert.strictEqual(getBoolEnvParameter("true"), true);
-            assert.strictEqual(getBoolEnvParameter(" true "), true);
+            assert.strictEqual(getBoolEnvParameter('true'), true);
+            assert.strictEqual(getBoolEnvParameter(' true '), true);
         });
     });
 
@@ -307,7 +310,7 @@ describe('Utils', () => {
     it('should read RPC_RATE', async () => {
         process.env = {
             ...process.env,
-            RPC_RATE: '1000',
+            RPC_RATE: '1000'
         };
 
         const {rpcRate} = mapEnvToOptions();

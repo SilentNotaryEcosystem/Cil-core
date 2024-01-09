@@ -6,7 +6,6 @@ const Mutex = require('mutex');
  * Class to easy replacement used components
  */
 
-
 const Crypto = require('./crypto/crypto');
 const SerializerWrapper = require('./network/serializer');
 const MessageAssemblerWrapper = require('./network/messageAssembler');
@@ -69,16 +68,16 @@ global.logger = {
 };
 
 // Inject default behavior
-Error.prototype.log = function() {logger.error(this);};
+Error.prototype.log = function () {
+    logger.error(this);
+};
 
 class BaseFactory {
     constructor(options, objConstants) {
-
         this._mutexImplementation = Mutex;
         this._donePromise = new Promise(resolve => {
             this._asyncLoader()
-                .then((prototypes) => {
-
+                .then(prototypes => {
                     // Order is mandatory!
                     // For example if Utxo depends on Coins implementation, you should implement Coins first
                     this._constants = {
@@ -152,7 +151,7 @@ class BaseFactory {
     }
 
     initSpecific() {
-        throw('Implement!');
+        throw 'Implement!';
     }
 
     get Mutex() {
@@ -161,9 +160,11 @@ class BaseFactory {
 
     get version() {
         const arrSubversions = pack.version.split('.');
-        return parseInt(arrSubversions[0]) * Math.pow(2, 16) +
-               parseInt(arrSubversions[1]) * Math.pow(2, 10) +
-               parseInt(arrSubversions[2]);
+        return (
+            parseInt(arrSubversions[0]) * Math.pow(2, 16) +
+            parseInt(arrSubversions[1]) * Math.pow(2, 10) +
+            parseInt(arrSubversions[2])
+        );
     }
 
     get ConciliumRr() {
@@ -333,41 +334,40 @@ class BaseFactory {
         const protoStructures = await protobuf.load(path.resolve(__dirname, './proto/structures.proto'));
 
         return {
-
             // Node messages
-            messageProto: protoNetwork.lookupType("network.Message"),
-            versionPayloadProto: protoNetwork.lookupType("network.VersionPayload"),
-            addrPayloadProto: protoNetwork.lookupType("network.AddrPayload"),
-            rejectPayloadProto: protoNetwork.lookupType("network.RejectPayload"),
-            getBlocksPayloadProto: protoNetwork.lookupType("network.GetBlocksPayload"),
+            messageProto: protoNetwork.lookupType('network.Message'),
+            versionPayloadProto: protoNetwork.lookupType('network.VersionPayload'),
+            addrPayloadProto: protoNetwork.lookupType('network.AddrPayload'),
+            rejectPayloadProto: protoNetwork.lookupType('network.RejectPayload'),
+            getBlocksPayloadProto: protoNetwork.lookupType('network.GetBlocksPayload'),
 
             // part of messages
-            peerInfoProto: protoNetwork.lookupType("network.PeerInfo"),
+            peerInfoProto: protoNetwork.lookupType('network.PeerInfo'),
 
             // Witness messages
-            witnessMessageProto: protoWitness.lookup("witness.WitnessMessage"),
-            witnessNextRoundProto: protoWitness.lookup("witness.NextRound"),
-            witnessBlockVoteProto: protoWitness.lookup("witness.BlockVote"),
+            witnessMessageProto: protoWitness.lookup('witness.WitnessMessage'),
+            witnessNextRoundProto: protoWitness.lookup('witness.NextRound'),
+            witnessBlockVoteProto: protoWitness.lookup('witness.BlockVote'),
 
-            enumServices: protoNetwork.lookup("network.Services"),
-            enumRejectCodes: protoNetwork.lookup("network.RejectCodes"),
-            enumInventory: protoStructures.lookup("structures.InventoryTypes"),
-            enumTxStatus: protoStructures.lookup("structures.TxStatuses"),
+            enumServices: protoNetwork.lookup('network.Services'),
+            enumRejectCodes: protoNetwork.lookup('network.RejectCodes'),
+            enumInventory: protoStructures.lookup('structures.InventoryTypes'),
+            enumTxStatus: protoStructures.lookup('structures.TxStatuses'),
 
             // Structures
-            transactionProto: protoStructures.lookupType("structures.Transaction"),
-            transactionPayloadProto: protoStructures.lookupType("structures.TransactionPayload"),
+            transactionProto: protoStructures.lookupType('structures.Transaction'),
+            transactionPayloadProto: protoStructures.lookupType('structures.TransactionPayload'),
 
-            blockProto: protoStructures.lookupType("structures.Block"),
-            blockHeaderProto: protoStructures.lookupType("structures.BlockHeader"),
-            blockInfoProto: protoStructures.lookupType("structures.BlockInfo"),
+            blockProto: protoStructures.lookupType('structures.Block'),
+            blockHeaderProto: protoStructures.lookupType('structures.BlockHeader'),
+            blockInfoProto: protoStructures.lookupType('structures.BlockInfo'),
 
-            inventoryProto: protoStructures.lookupType("structures.Inventory"),
+            inventoryProto: protoStructures.lookupType('structures.Inventory'),
 
-            utxoProto: protoStructures.lookupType("structures.UTXO"),
+            utxoProto: protoStructures.lookupType('structures.UTXO'),
 
-            contractProto: protoStructures.lookupType("structures.Contract"),
-            txReceiptProto: protoStructures.lookupType("structures.TxReceipt")
+            contractProto: protoStructures.lookupType('structures.Contract'),
+            txReceiptProto: protoStructures.lookupType('structures.TxReceipt')
         };
     }
 }

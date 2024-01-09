@@ -12,7 +12,6 @@ module.exports = (factory, factoryOptions) => {
 
     return class Witness extends Node {
         constructor(options) {
-
             // mix in factory (common for all instance) options
             options = {
                 ...factoryOptions,
@@ -32,11 +31,12 @@ module.exports = (factory, factoryOptions) => {
             this._walletPromise = this._ensureWalletIndex();
 
             if (!networkSuspended) {
-
                 // upgrade capabilities from regular Node to Witness
                 this._listenPromise.then(() => {
-                    this._myPeerInfo.addCapability(
-                        {service: Constants.WITNESS, data: Buffer.from(wallet.address, 'hex')});
+                    this._myPeerInfo.addCapability({
+                        service: Constants.WITNESS,
+                        data: Buffer.from(wallet.address, 'hex')
+                    });
                     this._peerManager.on('witnessMessage', this._incomingWitnessMessage.bind(this));
                 });
             }
@@ -47,7 +47,6 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async bootstrap() {
-
             // try early initialization of consensus engines
             const arrConciliums = await this._storage.getConciliumsByAddress(this._wallet.address);
 
@@ -133,7 +132,6 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _connectWitness(peer, concilium) {
-
             // we already done with this neighbour
             if (peer.witnessLoadDone(concilium.getConciliumId())) return;
 
@@ -147,13 +145,12 @@ module.exports = (factory, factoryOptions) => {
             }
 
             if (!peer.disconnected) {
-
                 if (!peer.witnessLoadDone(concilium.getConciliumId())) {
-
                     // to prove that it's real witness it should perform signed handshake
                     const handshakeMsg = this._createHandshakeMessage(concilium.getConciliumId());
                     debugWitnessMsg(
-                        `(address: "${this._debugAddress}") sending SIGNED message "${handshakeMsg.message}" to "${peer.address}"`);
+                        `(address: "${this._debugAddress}") sending SIGNED message "${handshakeMsg.message}" to "${peer.address}"`
+                    );
                     await peer.pushMessage(handshakeMsg);
                     await peer.witnessLoaded(concilium.getConciliumId());
                 }
@@ -171,7 +168,6 @@ module.exports = (factory, factoryOptions) => {
         }
 
         async _storeWitness(peer, nConciliumId) {
-
             // mark it for broadcast
             peer.addTag(createPeerTag(nConciliumId));
 
@@ -248,8 +244,9 @@ module.exports = (factory, factoryOptions) => {
                     this._broadcastConsensusInitiatedMessage(exposeMsg);
                 }
 
-                debugWitness(`(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content.toString(
-                    'hex')}`);
+                debugWitness(
+                    `(address: "${this._debugAddress}") sending data to BFT: ${messageWitness.content.toString('hex')}`
+                );
                 consensus.processMessage(messageWitness);
             } catch (e) {
                 logger.error(e.message);
@@ -265,19 +262,18 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _processHandshakeMessage(peer, messageWitness, consensus) {
-
             // check whether this witness belong to our concilium
             if (!consensus.checkAddresses(peer.witnessAddress)) {
                 peer.ban();
-                throw(`Witness: "${this._debugAddress}" this guy UNKNOWN!`);
+                throw `Witness: "${this._debugAddress}" this guy UNKNOWN!`;
             }
 
             if (!peer.witnessLoadDone(messageWitness.conciliumId)) {
-
                 // we don't check version & self connection because it's done on previous step (node connection)
                 const response = this._createHandshakeMessage(messageWitness.conciliumId);
                 debugWitnessMsg(
-                    `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`);
+                    `(address: "${this._debugAddress}") sending SIGNED "${response.message}" to "${peer.address}"`
+                );
                 await peer.pushMessage(response);
             }
 
@@ -294,10 +290,8 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _processBlockMessage(peer, messageWitness, consensus) {
-
             // check proposer
             if (consensus.shouldPublish(messageWitness.address)) {
-
                 // this will advance us to VOTE_BLOCK state whether block valid or not!
                 const msgBlock = new MsgWitnessBlock(messageWitness);
                 const block = msgBlock.block;
@@ -308,7 +302,6 @@ module.exports = (factory, factoryOptions) => {
 
                 const lock = await this._mutex.acquire(['blockExec']);
                 try {
-
                     // check block without checking signatures
                     await this._verifyBlock(block, false);
                     await this._compareParents(block);
@@ -328,10 +321,8 @@ module.exports = (factory, factoryOptions) => {
                     this._mutex.release(lock);
                 }
             } else {
-
                 // we still wait for block from designated proposer or timer for BLOCK state will expire
-                debugWitness(
-                    `(address: "${this._debugAddress}") "${peer.address}" creates a block, but not his turn!`);
+                debugWitness(`(address: "${this._debugAddress}") "${peer.address}" creates a block, but not his turn!`);
             }
         }
 
@@ -339,8 +330,7 @@ module.exports = (factory, factoryOptions) => {
             const {arrParents} = await this._pendingBlocks.getBestParents(block.getConciliumId());
 
             if (!arrayEquals(block.parentHashes, arrParents)) {
-                throw new ExceptionDebug(
-                    'Will reject block because of different parents');
+                throw new ExceptionDebug('Will reject block because of different parents');
             }
         }
 
@@ -359,7 +349,8 @@ module.exports = (factory, factoryOptions) => {
             }
 
             debugWitnessMsg(
-                `(address: "${this._debugAddress}") received SIGNED message "${message.message}" from "${peer.address}"`);
+                `(address: "${this._debugAddress}") received SIGNED message "${message.message}" from "${peer.address}"`
+            );
 
             messageWitness = new MsgWitnessCommon(message);
 
@@ -394,11 +385,11 @@ module.exports = (factory, factoryOptions) => {
                 try {
                     const {conciliumId} = consensus;
                     const {block, patch} = await this._createBlock(conciliumId);
-                    if (block.isEmpty() &&
+                    if (
+                        block.isEmpty() &&
                         (!consensus.timeForWitnessBlock() ||
-                         this._isBigTimeDiff(block) ||
-                         !this._pendingBlocks.isReasonToWitness(block)
-                        )
+                            this._isBigTimeDiff(block) ||
+                            !this._pendingBlocks.isReasonToWitness(block))
                     ) {
                         this._suppressedBlockHandler();
                     } else {
@@ -423,10 +414,12 @@ module.exports = (factory, factoryOptions) => {
 
                     const arrContracts = [...patch.getContracts()];
                     if (arrContracts.length) {
-
                         // we have contracts inside block - we should re-execute block to have proper variables inside block
                         await this._handleArrivedBlock(block);
-                    } else if (!this._mutex.isLocked('blockReceived') && !(await this._isBlockExecuted(block.getHash()))) {
+                    } else if (
+                        !this._mutex.isLocked('blockReceived') &&
+                        !(await this._isBlockExecuted(block.getHash()))
+                    ) {
                         lockBlock = await this._mutex.acquire(['blockReceived', block.getHash()]);
 
                         // block still hadn't received from more quick (that already commited & announced block) witness
@@ -440,9 +433,11 @@ module.exports = (factory, factoryOptions) => {
                         if (!this._networkSuspended) this._informNeighbors(block);
                     }
                     logger.log(
-                        `Witness: "${this._debugAddress}" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date} `);
+                        `Witness: "${
+                            this._debugAddress
+                        }" block "${block.hash()}" Round: ${consensus.getCurrentRound()} commited at ${new Date()} `
+                    );
                     consensus.blockCommited();
-
                 } catch (e) {
                     logger.error(e);
                 } finally {
@@ -533,7 +528,7 @@ module.exports = (factory, factoryOptions) => {
                 patchMerged = patchMerged ? patchMerged : new PatchDB();
                 patchMerged.setConciliumId(conciliumId);
 
-                assert(Array.isArray(arrParents) && arrParents.length, 'Couldn\'t get parents for block!');
+                assert(Array.isArray(arrParents) && arrParents.length, "Couldn't get parents for block!");
                 block.parentHashes = arrParents;
                 block.setHeight(await this._calcHeight(arrParents));
 
@@ -543,22 +538,20 @@ module.exports = (factory, factoryOptions) => {
                 const arrBadHashes = [];
                 let totalFee = 0;
 
-                let arrTxToProcess=this._gatherTxns(conciliumId);
-                if (this._bCreateJoinTx){
+                let arrTxToProcess = this._gatherTxns(conciliumId);
+                if (this._bCreateJoinTx) {
                     const arrUtxos = await this._storage.walletListUnspent(this._wallet.address);
 
                     // There is possible situation with 1 UTXO having numerous output. It will be count as 1
-                    if (this._nLowestConciliumId === conciliumId && arrUtxos.length >
-                        Constants.WITNESS_UTXOS_JOIN) {
+                    if (this._nLowestConciliumId === conciliumId && arrUtxos.length > Constants.WITNESS_UTXOS_JOIN) {
                         arrTxToProcess.unshift(
-                            this._createJoinTx(arrUtxos, conciliumId, Constants.MAX_UTXO_PER_TX / 2),
+                            this._createJoinTx(arrUtxos, conciliumId, Constants.MAX_UTXO_PER_TX / 2)
                         );
                     }
                 }
 
                 for (let tx of arrTxToProcess) {
                     try {
-
                         // with current timers and diameter if concilium more than 10 -
                         // TXns with 1000+ inputs will freeze network.
                         // So we'll skip this TXns
@@ -584,7 +577,8 @@ module.exports = (factory, factoryOptions) => {
                 await this._processBlockCoinbaseTX(block, totalFee, patchMerged);
 
                 debugWitness(
-                    `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`);
+                    `Witness: "${this._debugAddress}". Block ${block.hash()} with ${block.txns.length - 1} TXNs ready`
+                );
             } catch (e) {
                 logger.error(`Failed to create block!`, e);
             } finally {
@@ -594,15 +588,15 @@ module.exports = (factory, factoryOptions) => {
             return {block, patch: patchMerged};
         }
 
-        _gatherTxns(conciliumId){
+        _gatherTxns(conciliumId) {
             const arrTxToProcess = this._mempool.getFinalTxns(conciliumId);
 
             // regular txns first
-            return arrTxToProcess.sort((txA, txB) =>{
-                const bIsTxAContract=txA.isContract();
-                if(bIsTxAContract && txB.isContract()) {
+            return arrTxToProcess.sort((txA, txB) => {
+                const bIsTxAContract = txA.isContract();
+                if (bIsTxAContract && txB.isContract()) {
                     return 0;
-                }else if(bIsTxAContract){
+                } else if (bIsTxAContract) {
                     return 1;
                 }
                 return -1;
@@ -612,7 +606,7 @@ module.exports = (factory, factoryOptions) => {
         _createPseudoRandomSeed(arrLastStableBlockHashes) {
             this._conciliumSeed = super._createPseudoRandomSeed(arrLastStableBlockHashes);
             this._consensuses.forEach(c => c.setRoundSeed(this._conciliumSeed));
-        };
+        }
 
         /**
          *
@@ -623,10 +617,12 @@ module.exports = (factory, factoryOptions) => {
         _isBigTimeDiff(block) {
             try {
                 const arrTimeStamps = block.parentHashes.map(
-                    strParentHash => this._pendingBlocks.getBlock(strParentHash).blockHeader.timestamp);
+                    strParentHash => this._pendingBlocks.getBlock(strParentHash).blockHeader.timestamp
+                );
 
-                return !arrTimeStamps.every(timestamp =>
-                    block.timestamp - timestamp < Constants.BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF);
+                return !arrTimeStamps.every(
+                    timestamp => block.timestamp - timestamp < Constants.BLOCK_AUTO_WITNESSING_TIMESTAMP_DIFF
+                );
             } catch (e) {
                 logger.error(e);
                 return true;

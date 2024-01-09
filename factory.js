@@ -4,13 +4,12 @@ const configProd = require('./config/prod.conf');
 const configDev = require('./config/devel.conf');
 const BaseFactory = require('./baseFactory');
 
-const bDev = process.env.NODE_ENV === 'Devel'
+const bDev = process.env.NODE_ENV === 'Devel';
 const config = bDev ? configDev : configProd;
 
 /**
  * Class to easy replacement used components
  */
-
 
 const Ipv6TransportWrapper = require('./network/ipv6Transport');
 

@@ -6,9 +6,9 @@ class Base {
     }
 
     __getCode() {
-        const methods = Object
-            .getOwnPropertyNames(Object.getPrototypeOf(this))
-            .filter(name => name !== 'constructor' && typeof this[name] === 'function');
+        const methods = Object.getOwnPropertyNames(Object.getPrototypeOf(this)).filter(
+            name => name !== 'constructor' && typeof this[name] === 'function'
+        );
         const objCode = {};
         methods.forEach(strFuncName => {
             const strCodeMethod = this[strFuncName].toString();
@@ -24,8 +24,8 @@ class Base {
     }
 
     _checkOwner() {
-        if (!callerAddress) throw ('Sign transaction!');
-        if (this._ownerAddress !== callerAddress) throw ('Unauthorized call');
+        if (!callerAddress) throw 'Sign transaction!';
+        if (this._ownerAddress !== callerAddress) throw 'Unauthorized call';
     }
 }
 
@@ -35,7 +35,7 @@ module.exports = class ContractConciliums extends Base {
 
         // remove everything below for proxy!
         this._arrConciliums = [];
-        if (!objInitialConcilium) throw('Specify initial objInitialConcilium');
+        if (!objInitialConcilium) throw 'Specify initial objInitialConcilium';
 
         this._arrConciliums.push({
             ...objInitialConcilium,
@@ -47,10 +47,10 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async createConcilium(objConcilium) {
-        if (!callerAddress) throw ('Sign transaction!');
+        if (!callerAddress) throw 'Sign transaction!';
 
         if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress, {method: "createConcilium", arrArguments: [objConcilium]});
+            return await delegatecall(this._proxyAddress, {method: 'createConcilium', arrArguments: [objConcilium]});
         }
 
         objConcilium._creator = callerAddress;
@@ -68,76 +68,76 @@ module.exports = class ContractConciliums extends Base {
     }
 
     async joinConcilium(conciliumId) {
-        if (!callerAddress) throw ('Sign transaction!');
+        if (!callerAddress) throw 'Sign transaction!';
 
         // remove for proxy contract!
         if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress, {method: "joinConcilium", arrArguments: [conciliumId]});
+            return await delegatecall(this._proxyAddress, {method: 'joinConcilium', arrArguments: [conciliumId]});
         }
 
         // this will also include failure to join conciliumId 0. it's ok!
-        if (!conciliumId) throw ('Invalid concilium');
+        if (!conciliumId) throw 'Invalid concilium';
 
         const objConcilium = this._checkConciliumId(conciliumId);
 
-        if (!objConcilium.isOpen) throw ('You cant join this concilium. Ask about invitation');
+        if (!objConcilium.isOpen) throw 'You cant join this concilium. Ask about invitation';
 
         global.bIndirectCall = true;
 
-//        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
+        //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
         if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
             this._addPosConciliumMember(objConcilium, callerAddress);
-//        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
+            //        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
         } else if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR) {
             this._addRrConciliumMember(objConcilium, callerAddress);
         }
     }
 
     async leaveConcilium(conciliumId) {
-        if (!callerAddress) throw ('Sign transaction!');
+        if (!callerAddress) throw 'Sign transaction!';
 
         // remove for proxy contract!
         if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress, {method: "leaveConcilium", arrArguments: [conciliumId]});
+            return await delegatecall(this._proxyAddress, {method: 'leaveConcilium', arrArguments: [conciliumId]});
         }
 
         // this will also include failure to leave conciliumId 0. it's ok!
-        if (!conciliumId) throw ('Invalid concilium');
+        if (!conciliumId) throw 'Invalid concilium';
 
         const objConcilium = this._checkConciliumId(conciliumId);
 
         global.bIndirectCall = true;
 
-//        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
+        //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
         if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
             this._retirePosConciliumMember(objConcilium, callerAddress);
-//        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
+            //        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
         } else if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR) {
             this._retireRrConciliumMember(objConcilium, callerAddress);
         }
     }
 
     async inviteToConcilium(conciliumId, arrAddresses) {
-        if (!callerAddress) throw ('Sign transaction!');
+        if (!callerAddress) throw 'Sign transaction!';
 
         if (this._proxyAddress) {
-            return await delegatecall(
-                this._proxyAddress,
-                {method: "inviteToConcilium", arrArguments: [conciliumId, arrAddresses]}
-            );
+            return await delegatecall(this._proxyAddress, {
+                method: 'inviteToConcilium',
+                arrArguments: [conciliumId, arrAddresses]
+            });
         }
 
         const objConcilium = this._checkConciliumId(conciliumId);
         this._checkCreator(objConcilium, callerAddress);
 
-        if (objConcilium.isOpen) throw ('This concilium is open, just join it');
+        if (objConcilium.isOpen) throw 'This concilium is open, just join it';
 
         global.bIndirectCall = true;
 
-//        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
+        //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR}) {
         if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_RR) {
             arrAddresses.forEach(addr => this._addRrConciliumMember(objConcilium, addr));
-//        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
+            //        } else if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
         } else if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
             arrAddresses.forEach(addr => this._addPosConciliumMember(objConcilium, addr, value / arrAddresses.length));
         }
@@ -149,7 +149,7 @@ module.exports = class ContractConciliums extends Base {
     }
 
     setProxy(strNewAddress) {
-        if (strNewAddress.length !== 40) throw ('Bad address');
+        if (strNewAddress.length !== 40) throw 'Bad address';
 
         this._checkOwner();
         this._proxyAddress = strNewAddress;
@@ -157,26 +157,27 @@ module.exports = class ContractConciliums extends Base {
 
     async getHeightToRelease(conciliumId) {
         if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress, {method: "getHeightToRelease", arrArguments: [conciliumId]});
+            return await delegatecall(this._proxyAddress, {method: 'getHeightToRelease', arrArguments: [conciliumId]});
         }
 
         const objConcilium = this._checkConciliumId(conciliumId);
 
-//        if (objConcilium.type !== ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
+        //        if (objConcilium.type !== ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
         if (objConcilium.type !== factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
-            throw ('this method only for CONCILIUM_TYPE_POS');
+            throw 'this method only for CONCILIUM_TYPE_POS';
         }
 
         return this._getPosHeightToRelease(objConcilium, callerAddress);
     }
 
     async changeConciliumParameters(conciliumId, objNewParameters) {
-        if (!callerAddress) throw ('Sign transaction!');
+        if (!callerAddress) throw 'Sign transaction!';
 
         if (this._proxyAddress) {
-            return await delegatecall(this._proxyAddress,
-                {method: "changeConciliumParameters", arrArguments: [conciliumId, objNewParameters]}
-            );
+            return await delegatecall(this._proxyAddress, {
+                method: 'changeConciliumParameters',
+                arrArguments: [conciliumId, objNewParameters]
+            });
         }
 
         const objConcilium = this._checkConciliumId(conciliumId);
@@ -185,10 +186,10 @@ module.exports = class ContractConciliums extends Base {
 
         const oldFees = objConcilium.parameters && objConcilium.parameters.fees ? objConcilium.parameters.fees : {};
         objConcilium.parameters.fees = {...oldFees, ...objNewParameters.fees};
-        objConcilium.parameters.isEnabled = objNewParameters.isEnabled === undefined ?
-            objConcilium.parameters.isEnabled : objNewParameters.isEnabled;
-        objConcilium.parameters.document = objNewParameters.document === undefined ?
-            objConcilium.parameters.document : objNewParameters.document;
+        objConcilium.parameters.isEnabled =
+            objNewParameters.isEnabled === undefined ? objConcilium.parameters.isEnabled : objNewParameters.isEnabled;
+        objConcilium.parameters.document =
+            objNewParameters.document === undefined ? objConcilium.parameters.document : objNewParameters.document;
 
         if (!Array.isArray(objConcilium.parameterTXNs)) objConcilium.parameterTXNs = [];
         if (!this._isOwner(callerAddress)) this._disallowContractCreation(objConcilium);
@@ -202,9 +203,9 @@ module.exports = class ContractConciliums extends Base {
     }
 
     _addPosConciliumMember(objConcilium, strAddress = callerAddress, nAmount = value) {
-        if (!global.bIndirectCall) throw ('You arent supposed to be here');
+        if (!global.bIndirectCall) throw 'You arent supposed to be here';
 
-        if (!nAmount) throw ('Have no sense to join with zero amount');
+        if (!nAmount) throw 'Have no sense to join with zero amount';
 
         const objMemberRecord = this._getPosConciliumMember(objConcilium, strAddress);
 
@@ -212,30 +213,28 @@ module.exports = class ContractConciliums extends Base {
         this._checkDepositJoin(objConcilium, nAmount);
 
         if (objMemberRecord) {
-
             // value (objMemberRecord) returned by ref, so no need to manipulate array
             objMemberRecord.amount += nAmount;
-//            objMemberRecord.nHeightToRelease = block.height + ${factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON}
+            //            objMemberRecord.nHeightToRelease = block.height + ${factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON}
             objMemberRecord.nHeightToRelease = block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON;
         } else {
             objConcilium.arrMembers.push({
                 address: strAddress,
                 amount: nAmount,
-//            nHeightToRelease: block.height + ${factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON}
+                //            nHeightToRelease: block.height + ${factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON}
                 nHeightToRelease: block.height + factory.Constants.concilium.HEIGHT_TO_RELEASE_ADD_ON
             });
-
         }
     }
 
     _retirePosConciliumMember(objConcilium, callerAddress) {
-        if (!global.bIndirectCall) throw ('You arent supposed to be here');
+        if (!global.bIndirectCall) throw 'You arent supposed to be here';
 
         const idx = objConcilium.arrMembers.findIndex(member => member.address === callerAddress);
-        if (!~idx) throw ('You arent member');
+        if (!~idx) throw 'You arent member';
 
         const objMember = objConcilium.arrMembers[idx];
-        if (objMember.nHeightToRelease > block.height) throw ('Dont leave us now');
+        if (objMember.nHeightToRelease > block.height) throw 'Dont leave us now';
 
         send(objMember.address, objMember.amount);
         objConcilium.arrMembers.splice(idx, 1);
@@ -243,13 +242,13 @@ module.exports = class ContractConciliums extends Base {
 
     _checkDepositJoin(objConcilium, value) {
         if (value < objConcilium.nMinAmountToJoin) {
-            throw ('You should send at least ' + objConcilium.nMinAmountToJoin + 'coins');
+            throw 'You should send at least ' + objConcilium.nMinAmountToJoin + 'coins';
         }
     }
 
     _getPosHeightToRelease(objConcilium, callerAddress) {
         const idx = objConcilium.arrMembers.findIndex(member => member.address === callerAddress);
-        if (!~idx) throw ('You arent member');
+        if (!~idx) throw 'You arent member';
 
         const objMember = objConcilium.arrMembers[idx];
         return objMember.nHeightToRelease;
@@ -262,34 +261,32 @@ module.exports = class ContractConciliums extends Base {
     }
 
     _addRrConciliumMember(objConcilium, callerAddress) {
-        if (!global.bIndirectCall) throw ('You arent supposed to be here');
+        if (!global.bIndirectCall) throw 'You arent supposed to be here';
 
-        if (this._rrConciliumMemberExists(objConcilium, callerAddress)) throw ('already joined');
+        if (this._rrConciliumMemberExists(objConcilium, callerAddress)) throw 'already joined';
         objConcilium.addresses.push(callerAddress);
     }
 
     _retireRrConciliumMember(objConcilium, callerAddress) {
-        if (!global.bIndirectCall) throw ('You arent supposed to be here');
+        if (!global.bIndirectCall) throw 'You arent supposed to be here';
 
         const idx = objConcilium.addresses.findIndex(addr => addr === callerAddress);
-        if (!~idx) throw ('You arent member');
+        if (!~idx) throw 'You arent member';
         objConcilium.addresses.splice(idx, 1);
     }
 
     // common
     _checkConciliumId(conciliumId) {
         conciliumId = parseInt(conciliumId);
-        if (conciliumId > this._arrConciliums.length ||
-            conciliumId < 0 ||
-            !this._arrConciliums[conciliumId]) {
-            throw ('Bad conciliumId');
+        if (conciliumId > this._arrConciliums.length || conciliumId < 0 || !this._arrConciliums[conciliumId]) {
+            throw 'Bad conciliumId';
         }
         return this._arrConciliums[conciliumId];
     }
 
     _checkFeeCreate(nFee) {
-        if (!this._feeCreate) throw ('Set _feeCreate first');
-        if (this._feeCreate > nFee) throw ('Not enough funds');
+        if (!this._feeCreate) throw 'Set _feeCreate first';
+        if (this._feeCreate > nFee) throw 'Not enough funds';
     }
 
     _checkCreator(objConcilium, callerAddress) {
@@ -298,18 +295,18 @@ module.exports = class ContractConciliums extends Base {
         } else {
             return this._checkOwner();
         }
-        throw ('Unauthorized call');
+        throw 'Unauthorized call';
     }
 
     _validateConcilium(objConcilium) {
-//        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
+        //        if (objConcilium.type === ${factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS}) {
         if (objConcilium.type === factory.BaseConciliumDefinition.CONCILIUM_TYPE_POS) {
             if (!Array.isArray(objConcilium.arrMembers)) objConcilium.arrMembers = [];
 
-            if (!objConcilium.nMinAmountToJoin || objConcilium.nMinAmountToJoin < 0) throw ('Specify nMinAmountToJoin');
+            if (!objConcilium.nMinAmountToJoin || objConcilium.nMinAmountToJoin < 0) throw 'Specify nMinAmountToJoin';
 
             const initialAmount = objConcilium.arrMembers.reduce((accum, objMember) => accum + objMember.amount, 0);
-            if (this._feeCreate + initialAmount > value) throw ('Not enough coins were sent co create such concilium');
+            if (this._feeCreate + initialAmount > value) throw 'Not enough coins were sent co create such concilium';
         }
     }
 

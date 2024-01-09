@@ -7,7 +7,7 @@ const factory = require('./testFactory');
 const {pseudoRandomBuffer, generateAddress} = require('./testUtil');
 
 describe('Array of addresses (serialization)', () => {
-    before(async function() {
+    before(async function () {
         this.timeout(15000);
         await factory.asyncLoad();
     });

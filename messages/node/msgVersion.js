@@ -9,7 +9,6 @@ module.exports = (Constants, MessageCommon, VersionPayloadProto) => {
     const {MSG_VERSION} = Constants.messageTypes;
 
     return class MessageVersion extends MessageCommon {
-
         /**
          *
          * @param {Object|Buffer|MessageCommon} data

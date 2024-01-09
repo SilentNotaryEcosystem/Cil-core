@@ -24,7 +24,6 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
     } = Constants.messageTypes;
 
     return class WitnessMessageCommon extends MessageCommon {
-
         constructor(data) {
             if (data instanceof WitnessMessageCommon) {
                 super(data);
@@ -72,7 +71,7 @@ module.exports = (Constants, Crypto, MessageCommon, WitnessMessageProto) => {
         set content(value) {
             typeforce('Buffer', value);
 
-            return this._msgData.content = value;
+            return (this._msgData.content = value);
         }
 
         set handshakeMessage(unused) {

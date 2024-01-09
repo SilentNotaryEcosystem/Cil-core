@@ -53,7 +53,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         set conciliumId(conciliumId) {
-            return this._data.payload.conciliumId = conciliumId;
+            return (this._data.payload.conciliumId = conciliumId);
         }
 
         get rawData() {
@@ -65,25 +65,19 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @return {Array} [{txHash, nTxOutput}]
          */
         get inputs() {
-            const checkPath = this._data &&
-                              this._data.payload &&
-                              this._data.payload.ins &&
-                              Array.isArray(this._data.payload.ins);
+            const checkPath =
+                this._data && this._data.payload && this._data.payload.ins && Array.isArray(this._data.payload.ins);
             return checkPath ? this._data.payload.ins : undefined;
         }
 
         get outputs() {
-            const checkPath = this._data &&
-                              this._data.payload &&
-                              this._data.payload.outs &&
-                              Array.isArray(this._data.payload.outs);
+            const checkPath =
+                this._data && this._data.payload && this._data.payload.outs && Array.isArray(this._data.payload.outs);
             return checkPath ? this._data.payload.outs : undefined;
         }
 
         get claimProofs() {
-            const checkPath = this._data &&
-                              this._data.claimProofs &&
-                              Array.isArray(this._data.claimProofs);
+            const checkPath = this._data && this._data.claimProofs && Array.isArray(this._data.claimProofs);
             return checkPath ? this._data.claimProofs : undefined;
         }
 
@@ -154,7 +148,7 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
             return tx;
         }
 
-        isContract(){
+        isContract() {
             return this._data.payload.outs.findIndex(o => o.contractCode !== undefined) !== -1;
         }
 
@@ -211,7 +205,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @return {String} !!
          */
         getHash() {
-
             // TODO: implement cache
             return Crypto.createHash(transactionPayloadProto.encode(this._data.payload).finish());
         }
@@ -222,11 +215,9 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @private
          */
         _checkDone() {
-
             // it's only for SIGHASH_ALL, if implement other - change it!
             if (this.getTxSignature() || this._data.claimProofs.length) {
-                throw new Error(
-                    'Tx is already signed, you can\'t modify it');
+                throw new Error("Tx is already signed, you can't modify it");
             }
         }
 
@@ -261,14 +252,15 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         signAllInputs(key, enc = 'hex') {
-            if (this._data.claimProofs.length) throw('You should choose: "signAllInputs" or claim per input');
+            if (this._data.claimProofs.length) throw 'You should choose: "signAllInputs" or claim per input';
             this.signForContract(key, enc);
         }
 
         getTxSignature() {
             return Buffer.isBuffer(this._data.txSignature) ||
-                   (Array.isArray(this._data.txSignature) && this._data.txSignature.length) ?
-                this._data.txSignature : undefined;
+                (Array.isArray(this._data.txSignature) && this._data.txSignature.length)
+                ? this._data.txSignature
+                : undefined;
         }
 
         getTxSignerAddress(needBuffer = false) {
@@ -288,11 +280,13 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          * @return {boolean}
          */
         equals(txToCompare) {
-            return this.hash() === txToCompare.hash() &&
-                   Array.isArray(this.claimProofs) &&
-                   this.claimProofs.every((val, idx) => {
-                       return val.equals(txToCompare.claimProofs[idx]);
-                   });
+            return (
+                this.hash() === txToCompare.hash() &&
+                Array.isArray(this.claimProofs) &&
+                this.claimProofs.every((val, idx) => {
+                    return val.equals(txToCompare.claimProofs[idx]);
+                })
+            );
         }
 
         encode() {
@@ -300,23 +294,26 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         verify() {
-
             assert(this.conciliumId !== undefined, 'conciliumId undefined');
 
             // check inputs (not a coinbase & nTxOutput - non negative)
             const inputs = this.inputs;
-            const insValid = inputs && inputs.length && inputs.every(input => {
-                return !input.txHash.equals(Buffer.alloc(32)) &&
-                       input.nTxOutput >= 0;
-            });
+            const insValid =
+                inputs &&
+                inputs.length &&
+                inputs.every(input => {
+                    return !input.txHash.equals(Buffer.alloc(32)) && input.nTxOutput >= 0;
+                });
 
             assert(insValid, 'Errors in input');
 
             // check outputs
             const outputs = this.outputs;
-            const outsValid = outputs && outputs.every(output => {
-                return output.contractCode || output.amount > 0;
-            });
+            const outsValid =
+                outputs &&
+                outputs.every(output => {
+                    return output.contractCode || output.amount > 0;
+                });
 
             // we don't check signatures because claimProofs could be arbitrary value for codeScript, not only signatures
             assert(outsValid, 'Errors in outputs');
@@ -331,9 +328,9 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
          */
         isCoinbase() {
             const inputs = this.inputs;
-            return inputs && inputs.length === 1
-                   && inputs[0].txHash.equals(Buffer.alloc(32))
-                   && inputs[0].nTxOutput === 0;
+            return (
+                inputs && inputs.length === 1 && inputs[0].txHash.equals(Buffer.alloc(32)) && inputs[0].nTxOutput === 0
+            );
         }
 
         verifyCoinbase(blockFees) {
@@ -381,6 +378,6 @@ module.exports = ({Constants, Crypto, Coins}, {transactionProto, transactionPayl
         }
 
         getSize() {
-            return (transactionProto.encode(this._data).finish()).length;
+            return transactionProto.encode(this._data).finish().length;
         }
     };
