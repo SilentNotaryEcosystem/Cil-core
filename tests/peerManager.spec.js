@@ -408,7 +408,7 @@ describe('Peer manager', () => {
         const pm = new factory.PeerManager({storage});
 
         const connection = {
-            remoteAddress: () => 'edaa',
+            remoteAddress: 'edaa',
             listenerCount: () => 1
         };
         pm.addCandidateConnection(connection);
@@ -419,7 +419,7 @@ describe('Peer manager', () => {
         const pm = new factory.PeerManager({storage});
 
         const connection = {
-            remoteAddress: () => 'edaa',
+            remoteAddress: 'edaa',
             listenerCount: () => 1
         };
         pm.addCandidateConnection(connection);
@@ -433,7 +433,7 @@ describe('Peer manager', () => {
             const pm = new factory.PeerManager({storage});
 
             const connection = {
-                remoteAddress: () => 'edaa',
+                remoteAddress: 'edaa',
                 listenerCount: () => 1
             };
             pm.addCandidateConnection(connection);
@@ -460,7 +460,7 @@ describe('Peer manager', () => {
                 pm._trustAnnounce=true;
 
                 const connection = {
-                    remoteAddress: () => 'edaa',
+                    remoteAddress: 'edaa',
                     listenerCount: () => 1
                 };
                 pm.addCandidateConnection(connection);
@@ -523,7 +523,7 @@ describe('Peer manager', () => {
         const pm = new factory.PeerManager({storage});
 
         const connection = {
-            remoteAddress: () => 'edaa',
+            remoteAddress: 'edaa',
             listenerCount: () => 1
         };
         const peer = new factory.Peer({connection});
