@@ -1030,6 +1030,9 @@ module.exports = (factory, factoryOptions) => {
             // let's check for patch conflicts with other local txns
             const lock = await this._mutex.acquire(['_acceptLocalTx']);
             try {
+                if (newTx.inputs.length >= Constants.MAX_UTXO_PER_TX)
+                    throw new Error(`Number of inputs exceed ${Constants.MAX_UTXO_PER_TX}. It's temporary restricted. Use less amounts`);
+
                 await this._ensureLocalTxnsPatch();
 
                 await this._processReceivedTx(newTx, false);

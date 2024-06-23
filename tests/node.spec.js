@@ -1101,6 +1101,23 @@ describe('Node tests', async () => {
 
             return assert.isRejected(node._acceptLocalTx(new factory.Transaction(createDummyTx())));
         });
+
+        it('should reject tx (more than MAX_UTXO_PER_TX inputs)', async () => {
+            const tx = new factory.Transaction({
+                payload: {
+                    ins: [],
+                    outs: [{amount: 1000, receiverAddr: generateAddress()}],
+                    conciliumId: 0
+                }
+            });
+            for(let i=0; i< factory.Constants.MAX_UTXO_PER_TX; i++){
+                tx.addInput(Buffer.from('a'.repeat(64), 'hex'), 1);
+            }
+            tx.signAllInputs('0'.repeat(64));
+
+
+            return assert.isRejected(node._acceptLocalTx(tx), /It's temporary restricted/);
+        });
     });
 
     describe('_ensureLocalTxnsPatch', async () => {
