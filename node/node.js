@@ -401,7 +401,7 @@ module.exports = (factory, factoryOptions) => {
                 return;
             }
 
-            // since we building DAG, it's faster than check storage
+            // since we're building DAG, it's faster than check storage
             if (await this._isBlockKnown(block.hash())) {
                 debugNode(`Block ${block.hash()} already known!`);
                 return;
@@ -535,7 +535,7 @@ module.exports = (factory, factoryOptions) => {
          * @private
          */
         async _handleGetBlocksMessage(peer, message) {
-            // we'r empty. we have nothing to share with party
+            // we're empty. we have nothing to share with party
             if (!(await this._isBlockKnown(Constants.GENESIS_BLOCK))) return;
 
             const msg = new MsgGetBlocks(message);

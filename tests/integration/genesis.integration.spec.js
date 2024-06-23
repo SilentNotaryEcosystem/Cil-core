@@ -29,7 +29,7 @@ let nodeFour;
 
 let stepDone = false;
 
-describe('Genesis net tests (it runs one by one!)', () => {
+describe('Genesis net tests (one fail - other could fail also!)', () => {
     before(async function () {
         process.on('warning', e => console.warn(e.stack));
 
