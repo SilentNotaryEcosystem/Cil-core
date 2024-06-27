@@ -1818,7 +1818,9 @@ module.exports = (factory, factoryOptions) => {
                     await this._mainDag.addBlock(bi);
                     setCurrentBlockInfo.add(bi);
 
-                    debugNode(`Heap usage: ${getUsedHeapInGb()} Gb, height: ${bi.getHeight()}`);
+                    if (this._useDagIndex()) {
+                        debugNode(`Heap usage: ${getUsedHeapInGb()} Gb, height: ${bi.getHeight()}`);
+                    }
 
                     for (let parentHash of bi.parentHashes) {
                         if (!this._mainDag.getBlockInfo(parentHash)) setNextLevel.add(parentHash);
@@ -2099,7 +2101,7 @@ module.exports = (factory, factoryOptions) => {
             await this._buildMainDag(arrLastStableHashes, arrPendingBlocksHashes);
             await this._rebuildPending(arrLastStableHashes, arrPendingBlocksHashes);
 
-            debugNode(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
+            logger.log(`Rebuild took ${Date.now() - nRebuildStarted} msec.`);
 
             this._mempool.loadLocalTxnsFromDisk();
             await this._ensureLocalTxnsPatch();
